@@ -6,9 +6,22 @@ from .config import GateError
 from .gitops import run
 
 
-def docker_arguments(source: Path, image: str, name: str):
+def host_cpus(limit: int = 2) -> str:
+    """A --cpus value docker will accept on this host.
+
+    The Singapore builder has one vCPU, and docker refuses `--cpus 2` there with
+    "range of CPUs is from 0.01 to 1.00", which would fail every isolated test.
+    """
+    try:
+        available = os.cpu_count() or 1
+    except Exception:
+        available = 1
+    return str(max(1, min(int(limit), int(available))))
+
+
+def docker_arguments(source: Path, image: str, name: str, cpus=None):
     return ['docker','run','--rm','--pull=never','--name',name,'--network','none','--read-only',
-        '--cap-drop=ALL','--security-opt=no-new-privileges','--pids-limit','256','--memory','1g','--cpus','2',
+        '--cap-drop=ALL','--security-opt=no-new-privileges','--pids-limit','256','--memory','1g','--cpus',str(cpus or host_cpus()),
         '--user','65534:65534','--tmpfs','/tmp:rw,nosuid,nodev,size=268435456',
         '--mount',f'type=bind,src={source.resolve()},dst=/source,readonly',
         '--workdir','/source','--env','PYTHONDONTWRITEBYTECODE=1','--env','SCHEDULER_ENABLED=false',

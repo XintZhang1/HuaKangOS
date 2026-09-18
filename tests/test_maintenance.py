@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app.db import SessionLocal, utcnow
 from app.models import Feedback, Deployment, BotReceipt, MaintenanceEvent
 from maintenance.config import MaintenanceConfig, GateError
-from maintenance.policy import Proposal, Edit, apply_proposal, safe_path, context_files
+from maintenance.policy import AUTO_APPROVER, Proposal, Edit, apply_proposal, safe_path, context_files
 from maintenance.decisions import decide, issue_token, token_digest
 from maintenance.feishu import approval_card
 from maintenance.gitops import Repository, tree_matches
@@ -313,3 +313,41 @@ def test_protected_frontend_blocks_preserved(tmp_path):
     assert 'true' in p.read_text()
     valid=Proposal(summary='调整文字',risk='low',edits=[Edit(path='web/app.js',old='const label = "old";',new='const label = "new";')])
     assert apply_proposal(tmp_path,valid)==['web/app.js']
+
+# --- publish tiering ------------------------------------------------------
+# The model's own "this needs a human" signal must win over the mechanical tier.
+# worker.process_one checks risk=='manual' BEFORE the tier, and these tests pin
+# that ordering: a manual verdict on a purely frontend proposal must never be
+# auto-published, no matter how permissive the tier would be.
+
+def manual_model(cfg,title,description,files):
+    return Proposal(summary='建议重构统计口径',risk='manual',manual_reason='涉及金额口径，需人工开发',edits=[])
+
+
+def test_manual_verdict_is_never_auto_published(real_repo):
+    cfg,repo,source,base=real_repo;cfg=replace(cfg,auto_publish=True)
+    id=job('queued');bot=FakeBot()
+    Worker(cfg,repo,bot,model=manual_model).process_one()
+    row=get_job(id)
+    assert row.status=='manual'
+    assert not row.approved_by and not row.approved_sha
+    assert repo.remote_head('main')==base
+
+
+def test_frontend_candidate_is_auto_approved_when_enabled(real_repo):
+    cfg,repo,source,base=real_repo
+    auto=replace(cfg,auto_publish=True)
+    id=job('queued');bot=FakeBot()
+    # Built inline: the shared candidate() helper deliberately pins auto_publish=False.
+    Worker(auto,repo,bot,model=model_ok,tester=lambda *a:{'passed':True,'runner':'unit-test-fake-docker','exit_code':0}).process_one()
+    row=get_job(id)
+    assert row.status=='approved', 'frontend candidate should not wait for a click'
+    assert row.approved_by==AUTO_APPROVER and row.approved_sha==row.head_sha
+    assert repo.remote_head('main')==base, 'the tier gate must not push main by itself'
+
+
+def test_auto_publish_disabled_still_requires_a_human(real_repo):
+    cfg,repo,source,base=real_repo
+    assert cfg.auto_publish is False
+    id,worker,bot=candidate(real_repo)
+    assert get_job(id).status=='awaiting_approval'
