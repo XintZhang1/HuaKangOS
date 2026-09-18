@@ -61,10 +61,19 @@ def test_patch_exact_unique_and_atomic_validation(tmp_path):
     assert p.read_text().startswith('new')
 
 
-def test_symlink_and_manual_output_rejected(tmp_path):
-    (tmp_path/'web').mkdir();outside=tmp_path/'actual';outside.write_text('old')
-    (tmp_path/'web/style.css').symlink_to(outside)
+def test_symlink_output_rejected(tmp_path):
+    (tmp_path/'web').mkdir();outside=tmp_path/'actual';outside.write_text('old',encoding='utf-8')
+    try:
+        (tmp_path/'web/style.css').symlink_to(outside)
+    except (OSError,NotImplementedError):
+        # Windows without Developer Mode or admin rights cannot create symlinks.
+        # Git entries that are symlinks are refused separately by gitops.files(),
+        # and the Linux test image always exercises this path.
+        pytest.skip('此平台不允许创建符号链接（Windows 需开发者模式或管理员权限）')
     with pytest.raises(GateError):apply_proposal(tmp_path,Proposal(summary='x',risk='low',edits=[Edit(path='web/style.css',old='old',new='new')]))
+
+
+def test_manual_risk_output_rejected(tmp_path):
     with pytest.raises(GateError):apply_proposal(tmp_path,Proposal(summary='manual',risk='manual'))
 
 
@@ -158,7 +167,7 @@ def real_repo(tmp_path,monkeypatch):
     source=tmp_path/'trusted';source.mkdir()
     git(source,'init','-b','main')
     for name,content in {'web/style.css':'.card { margin: 0; }','docs/USER_GUIDE.md':'这是使用说明。','app/security.py':'# protected backend'}.items():
-        p=source/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content)
+        p=source/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(content,encoding='utf-8')
     git(source,'add','.');git(source,'commit','-m','trusted base')
     bare=tmp_path/'remote.git';git(tmp_path,'init','--bare',str(bare))
     git(source,'remote','add','origin',str(bare));git(source,'push','origin','main')
@@ -250,7 +259,7 @@ def test_failed_health_restores_old_code_and_pauses(real_repo):
 def test_git_main_changed_after_approval_cannot_be_overwritten(real_repo):
     cfg,repo,source,base=real_repo;id,worker,bot=candidate(real_repo)
     approve_latest(cfg,id,bot)
-    (source/'docs/USER_GUIDE.md').write_text('负责人更新的说明')
+    (source/'docs/USER_GUIDE.md').write_text('负责人更新的说明',encoding='utf-8')
     git(source,'add','.');git(source,'commit','-m','owner update');git(source,'push','origin','main')
     owner=git(source,'rev-parse','HEAD')
     app=FakeApp();controller(real_repo,app).deploy(id)

@@ -42,6 +42,15 @@ def safe_path(root: Path, name: str) -> Path:
     return path
 
 
+def read_source(path: Path) -> str:
+    """Editable sources are UTF-8 by contract. On Windows an editor may silently
+    save GBK/ANSI, which would otherwise surface as an opaque decode crash."""
+    try:
+        return path.read_text(encoding='utf-8')
+    except UnicodeDecodeError as exc:
+        raise GateError('源码不是UTF-8编码，请用UTF-8重新保存该文件后再试：'+path.name) from exc
+
+
 def context_files(root: Path) -> dict:
     result={}
     total=0
@@ -49,7 +58,7 @@ def context_files(root: Path) -> dict:
         path=safe_path(root,name)
         if not path.is_file(): continue
         if path.stat().st_size>MAX_FILE_BYTES: raise GateError('源码文件超过允许大小，请人工拆分')
-        content=path.read_text(encoding='utf-8')
+        content=read_source(path)
         total+=len(content)
         if total>MAX_CONTEXT_CHARS: raise GateError('白名单源码超过上下文预算，请人工处理')
         result[name]=content
@@ -73,7 +82,7 @@ def apply_proposal(root: Path, proposal: Proposal) -> list[str]:
         path=safe_path(root,edit.path)
         if not path.is_file(): raise GateError('只允许精确修改已存在的白名单文件')
         original=pending.get(edit.path)
-        if original is None: original=path.read_text(encoding='utf-8')
+        if original is None: original=read_source(path)
         if original.count(edit.old)!=1: raise GateError('定位文本不是唯一匹配，拒绝猜测补丁位置')
         if edit.old==edit.new: raise GateError('补丁没有实际改动')
         updated=original.replace(edit.old,edit.new,1)
@@ -82,7 +91,7 @@ def apply_proposal(root: Path, proposal: Proposal) -> list[str]:
         if changed_lines>MAX_CHANGED_LINES: raise GateError('修改规模超过500行预算，转人工处理')
         pending[edit.path]=updated
     if 'web/app.js' in pending:
-        old=safe_path(root,'web/app.js').read_text(encoding='utf-8')
+        old=read_source(safe_path(root,'web/app.js'))
         if protected_regions(old)!=protected_regions(pending['web/app.js']):
             raise GateError('补丁触及前端权限、登录、门店选择或写入流程保护区，须人工处理')
     # All validations precede the first write.
