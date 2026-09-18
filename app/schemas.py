@@ -208,6 +208,15 @@ class ReportInput(Strict):
         return value
 
 
+Module = Literal['vehicles', 'sales', 'repairs', 'policies', 'cash']  # 必须与 models.MODULES 一致
+
+
+class EntryDraftInput(Strict):
+    module: Module
+    text: str = Field(min_length=10, max_length=20000)
+    fields: list[dict] = Field(min_length=1, max_length=60)
+
+
 class AIReview(Strict):
     ref: str = Field(max_length=50)
     reason: str = Field(min_length=1, max_length=600)

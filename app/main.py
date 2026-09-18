@@ -17,11 +17,12 @@ from pydantic import ValidationError
 from .config import settings, ROOT
 from .db import engine, get_db, start_of_today_utc, today, utcnow
 from .models import Store, UserStore, Feedback, MaintenanceEvent, Deployment, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
-from .schemas import StoreInput, FeedbackInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput
+from .schemas import StoreInput, FeedbackInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, EntryDraftInput
 from .security import get_user, authenticate, set_session, clear_cookies, user_info, require_full, require_module, verify_password, hash_password, ROLES
 from .services import serialize, plain, audit, readable_query, get_record, create_record, update_record, act_record, check_version
 from .analytics import dashboard, source_revision, build_snapshot, external_payload, rules_config
 from .reports import generate_report
+from .batch_entry import extract, normalise_fields
 from .scheduler import ReportScheduler
 from .tenancy import accessible_stores, single_store, attach_scope
 import os
@@ -356,6 +357,25 @@ def preview_report(body:ReportInput,db=Depends(get_db),user=Depends(get_user)):
 def make_report(body:ReportInput,db=Depends(get_db),user=Depends(get_user)):
     require_full(user)
     return {'id':generate_report(body.business_date,body.use_ai,body.retry_ai,user.id,store_id=single_store(db))}
+
+
+@app.post('/api/entry-draft/parse')
+def parse_entry_draft(body:EntryDraftInput,db=Depends(get_db),user=Depends(get_user)):
+    single_store(db)
+    # Same permission as actually writing the module: nobody should be able to spend
+    # AI budget on a module they could not enter by hand, and a read-only role must
+    # not reach this at all.
+    require_module(user,body.module,write=True)
+    try:
+        fields = normalise_fields(body.fields)
+        draft = extract(body.module,fields,body.text)
+    except ValueError as exc:
+        raise HTTPException(400,str(exc)) from None
+    rows = draft['rows'][:max(0,settings.ai_max_records)]
+    audit(db,user.id,'entry_draft_parse','entry_draft',None,
+          reason=f"解析批量填单草稿：模块 {body.module}，提出 {len(rows)} 行，待人工复核；未写入任何业务记录")
+    db.commit()
+    return {'module':body.module,'rows':rows,'issues':draft['issues'],'proposed':len(rows)}
 
 
 @app.get('/api/findings')
