@@ -351,3 +351,15 @@ def test_auto_publish_disabled_still_requires_a_human(real_repo):
     assert cfg.auto_publish is False
     id,worker,bot=candidate(real_repo)
     assert get_job(id).status=='awaiting_approval'
+
+# --- repository helper used by the builder's context verb ----------------
+
+def test_checkout_detached_lands_on_the_exact_commit(real_repo):
+    """`context` needs a detached checkout; the method was missing and the
+    builder crashed with AttributeError on the first real run."""
+    cfg,repo,source,base=real_repo
+    repo.sync()
+    assert repo.checkout_detached(base)==base
+    assert repo.git('rev-parse','HEAD')==base
+    assert repo.git('rev-parse','--abbrev-ref','HEAD')=='HEAD', 'must be detached, not on a branch'
+    with pytest.raises(GateError): repo.checkout_detached('not-a-sha')

@@ -76,6 +76,16 @@ class Repository:
                 source=tar.extractfile(entry)
                 with target.open('wb') as out: out.write(source.read())
         return destination
+    def checkout_detached(self,sha):
+        """Check out an exact commit without creating a branch.
+
+        Used by the builder's `context` verb, which only needs the whitelisted
+        source at a given baseline and must not leave a branch behind.
+        """
+        if not SHA.fullmatch(sha): raise GateError('提交格式无效')
+        if self.git('status','--porcelain'): raise GateError('专用克隆有未提交修改，请人工检查；不会清理未知文件')
+        self.git('checkout','--detach',sha)
+        return sha
     def checkout(self,base,branch):
         if not re.fullmatch(r'dealerdesk/change-\d+-\d+',branch): raise GateError('候选分支名称无效')
         if self.git('status','--porcelain'): raise GateError('专用克隆有未提交修改，请人工检查；不会清理未知文件')
