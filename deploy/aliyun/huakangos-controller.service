@@ -79,8 +79,10 @@ UMask=0077
 
 # 保证运行时目录存在且可被容器内用户穿越（容器以 10001:10001 运行）。
 # 属主/属组由 deploy/aliyun/install.sh 设置（huakang:<容器 GID 10001>），这里只重申权限位。
+# 目录属主/权限由 deploy/aliyun/install.sh 一次性设置。这里刻意不 chmod：
+# 单元启用了 RestrictSUIDSGID=true，任何涉及 setgid 位的 chmod 都会被拒（EPERM），
+# 而每次启动都去纠正目录模式既不是启动器的职责，也会让服务陷入重启循环。
 ExecStartPre=/bin/mkdir -p /opt/huakangos/data/maintenance
-ExecStartPre=/bin/chmod 2770 /opt/huakangos/data/maintenance
 
 [Install]
 WantedBy=multi-user.target

@@ -120,11 +120,12 @@ install -d -m 0750 -o "${APP_USER}" -g "${CONTAINER_GROUP}" "${CONTROLLER_DIR}"
 install -d -m 0750 -o "${APP_USER}" -g "${CONTAINER_GROUP}" "${CONTROLLER_DIR}/data"
 install -d -m 0700 -o "${APP_USER}" -g "${CONTAINER_GROUP}" "${SSH_DIR}"
 install -d -m 0750 -o root -g "${CONTAINER_GROUP}" "${ENV_DIR}"
-# 业务数据目录：控制器（UID 10001）与容器（10001:10001）共用；setgid 让新文件继承 GID。
+# 业务数据目录：控制器（UID 10001）与容器（10001:10001）是同一个 UID，所以属主权限就够，
+# 不需要 setgid；而且单元里的 RestrictSUIDSGID=true 会拒绝 chmod 2770（EPERM）。
 install -d -o "${APP_USER}" -g "${CONTAINER_GROUP}" "${DATA_DIR}"
-chmod 2770 "${DATA_DIR}"
+chmod 0770 "${DATA_DIR}"
 install -d -o "${APP_USER}" -g "${CONTAINER_GROUP}" "${MAINT_DIR}"
-chmod 2770 "${MAINT_DIR}"
+chmod 0770 "${MAINT_DIR}"
 
 # SQLite 库文件：控制器与容器都要写（WAL 模式）。0 字节文件是合法的空库。
 DB_FILE="${DATA_DIR}/dealer.db"

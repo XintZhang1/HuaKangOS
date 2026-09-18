@@ -383,7 +383,7 @@ journalctl -u huakangos-controller -f
 | 控制器起不来，日志里有 3.10 相关语法/依赖错误 | 解释器版本不受支持；装 `python3.12`+`python3.12-venv` 后重跑 `deploy/aliyun/install.sh` |
 | 服务反复重启，日志 `请明确设置…` / `需配置飞书…` | env 没填全；`Restart=always` 会每 5 秒重启，先 `systemctl stop` 再改配置 |
 | 容器起来了但 `/api/health` 一直不通过、`release` 为空 | 镜像里没有 `DEALER_RELEASE_SHA`（不该发生，控制器会注入）或数据库不可写：检查 `dealer.db` 属主/权限（应为 `huakang:容器组 0660`）与 `docker logs huakangos-app` |
-| SQLite 报 `attempt to write a readonly database` | UID/权限被改动：`huakang` 的 UID 必须是 10001，`data/` 与 `data/maintenance/` 为 `2770 huakang:<容器组>`，`dealer.db` 为 `0660`。重跑 `deploy/aliyun/install.sh` 可校正 |
+| SQLite 报 `attempt to write a readonly database` | UID/权限被改动：`huakang` 的 UID 必须是 10001，`data/` 与 `data/maintenance/` 为 `0770 huakang:huakang`，`dealer.db` 为 `0660`。重跑 `deploy/aliyun/install.sh` 可校正 |
 | 界面维护状态显示默认文案 | 单元 `UMask=0077` 让 `data/maintenance/*.json` 只有 `huakang` 可读，容器内用户 10001 读不到 `status.json`（只影响界面展示，`switching.lock` 的存在性检查仍生效）。要显示状态可临时用 `systemctl edit` 覆盖 `UMask=0027` |
 | 首次发布卡在镜像传输 | 1.6GB/带宽有限时 `docker save → gzip → docker load` 会慢；`MAINT_SG_TIMEOUT` 默认 900 秒，镜像传输用它的 4 倍。不要中断，也不要手工 `docker pull`（本机到 Docker Hub 不通） |
 | 改了 `usermod -aG docker` 但控制器仍报 docker 不可用 | 组变更只对新会话生效：`systemctl restart huakangos-controller` |
