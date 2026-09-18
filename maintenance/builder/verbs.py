@@ -168,6 +168,9 @@ class Builder:
         head = self.repo.commit(changed, job_id)
         self.repo.verify_candidate(base, head)
         tier = change_tier(changed)
+        # Computed before any push/build: a failure in the last line of this method
+        # must not turn a candidate that already shipped into a reported crash.
+        compare_url = self.repo.compare_url(base, head)
 
         with tempfile.TemporaryDirectory(prefix='candidate-', dir=str(self.cfg.runtime)) as tmp:
             source = self.repo.export(head, Path(tmp)/'source')
@@ -181,7 +184,7 @@ class Builder:
         prune_images(self.cfg)
         return {'ok': True, 'head_sha': head, 'branch': branch, 'changed': changed, 'tier': tier,
                 'test': result, 'image_tag': image_tag, 'image_id': digest,
-                'pushed': bool(image_tag), 'compare_url': self.repo.compare_url(base, head)}
+                'pushed': bool(image_tag), 'compare_url': compare_url}
 
     def publish(self, payload) -> dict:
         base = _sha(payload, 'base_sha')

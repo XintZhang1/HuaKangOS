@@ -163,7 +163,7 @@ class BuilderConfig:
     """Configuration for the Singapore build agent (forced-command entry point)."""
 
     repo_url: str = field(default_factory=lambda: os.getenv('HKB_REPO_URL',''))
-    web_url: str = field(default_factory=lambda: os.getenv('HKB_REPO_WEB_URL','').rstrip('/'))
+    repo_web_url: str = field(default_factory=lambda: os.getenv('HKB_REPO_WEB_URL','').rstrip('/'))
     base_branch: str = field(default_factory=lambda: os.getenv('HKB_BASE_BRANCH','main'))
     root: Path = field(default_factory=lambda: Path(os.getenv('HKB_ROOT','/opt/huakangos-builder')).resolve())
     test_image: str = field(default_factory=lambda: os.getenv('HKB_TEST_IMAGE','dealerdesk-tests:0.2'))
@@ -196,7 +196,7 @@ class BuilderConfig:
     def validate(self):
         if not (re.fullmatch(r'https://[^\s@]+',self.repo_url) or re.fullmatch(r'git@[A-Za-z0-9.-]+:[A-Za-z0-9_./-]+',self.repo_url)):
             raise GateError('HKB_REPO_URL 只接受无内嵌凭据的 HTTPS 或 git@host:path SSH 仓库')
-        parsed=urlparse(self.web_url)
+        parsed=urlparse(self.repo_web_url)
         if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password:
             raise GateError('HKB_REPO_WEB_URL 必须是无凭据的 HTTPS 仓库页面')
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._/-]{0,99}',self.base_branch) or '..' in self.base_branch:
