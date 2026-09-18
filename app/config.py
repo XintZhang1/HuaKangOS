@@ -29,6 +29,7 @@ class Settings:
     report_minute: int = int(os.getenv('DAILY_REPORT_MINUTE', '15'))
     catchup_days: int = int(os.getenv('REPORT_CATCHUP_DAYS', '7'))
     allow_ai: bool = flag('ALLOW_AI_EXTERNAL')
+    api_docs: bool = flag('API_DOCS_ENABLED', 'true')
     deepseek_key: str = os.getenv('DEEPSEEK_API_KEY', '')
     deepseek_url: str = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com').rstrip('/')
     deepseek_model: str = os.getenv('DEEPSEEK_MODEL', 'deepseek-flash')

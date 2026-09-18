@@ -24,9 +24,11 @@ BASE='a'*40;HEAD='b'*40;APPROVER='ou_approved_test_owner'
 
 
 def config(tmp_path,**kwargs):
+    # auto_publish is deliberately OFF here: these tests cover the human approval
+    # path. The auto-publish path has its own file (tests/test_policy_tier.py).
     fields={'enabled':True,'code_external_allowed':True,'runtime':tmp_path/'runtime','repo_url':'https://git.example/dealer.git',
         'repo_web_url':'https://git.example/dealer','key':'unit-test-not-real','app_id':'cli_test','app_secret':'not-real',
-        'approvers':(APPROVER,),'receive_id':APPROVER}
+        'approvers':(APPROVER,),'receive_id':APPROVER,'auto_publish':False,'quant_units':()}
     fields.update(kwargs);cfg=replace(MaintenanceConfig(),**fields);cfg.runtime.mkdir(parents=True,exist_ok=True);return cfg
 
 

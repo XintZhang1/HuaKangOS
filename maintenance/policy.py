@@ -97,3 +97,24 @@ def apply_proposal(root: Path, proposal: Proposal) -> list[str]:
     # All validations precede the first write.
     for name,content in pending.items(): safe_path(root,name).write_text(content,encoding='utf-8',newline='\n')
     return sorted(pending)
+
+
+# --- change tiering -------------------------------------------------------
+# The tier decides whether a change may be published without a human click. It is
+# derived from the set of files the commit actually touched, never from the
+# model's self-reported risk: a proposal that claims risk=low while editing
+# app/analytics.py must still stop for a human.
+TIER_AUTO = 'auto'
+TIER_HUMAN = 'human'
+AUTO_APPROVER = 'auto:frontend'
+
+
+def change_tier(changed) -> str:
+    """Classify a commit by its changed paths. Empty or unknown -> human."""
+    files = {str(name) for name in (changed or ()) if str(name)}
+    if not files: return TIER_HUMAN
+    return TIER_AUTO if files <= EDITABLE else TIER_HUMAN
+
+
+def tier_allows_auto_publish(changed, auto_publish_enabled: bool) -> bool:
+    return bool(auto_publish_enabled) and change_tier(changed) == TIER_AUTO

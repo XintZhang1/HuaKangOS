@@ -53,9 +53,29 @@ def approval_card(row,token,rollback=False):
         'elements':[{'tag':'div','text':{'tag':'plain_text','content':'\n\n'.join(lines)[:6500]}},{'tag':'action','actions':actions}]}
 
 
+STATUS_LABEL={'proposing':'DeepSeek 分析中','testing':'隔离测试中','approved':'已自动审核通过，等待维护时段发布',
+    'deploying':'发布中','deployed':'已发布','manual':'超出自动维护范围，需要人工开发','failed':'处理失败',
+    'rejected':'已拒绝','expired':'审批已过期','superseded':'基线已变化，需重做','rolled_back':'已回滚','new':'已收集','queued':'等待处理'}
+
+
 def status_card(row):
-    return {'header':{'template':'blue','title':{'tag':'plain_text','content':f'DealerDesk · 反馈 #{row.id} 处理结果'}},
-        'elements':[{'tag':'div','text':{'tag':'plain_text','content':f'{row.title}\n状态：{row.status}\n{row.last_error or row.proposal.get("summary", "")}\n当前系统未获批准时不会被覆盖。'}}]}
+    summary=(row.proposal or {}).get('summary','') if isinstance(row.proposal,dict) else ''
+    files=(row.proposal or {}).get('files') or [] if isinstance(row.proposal,dict) else []
+    lines=[f'反馈 #{row.id} · {row.title}',
+        '状态：'+(STATUS_LABEL.get(row.status,row.status)),
+        (row.last_error or summary or '').strip(),
+        ('改动文件：'+', '.join(files)) if files else '',
+        '当前系统未获批准时不会被覆盖。' if row.status not in {'deployed','rolled_back'} else '发布与回滚都不会改动业务数据库。']
+    elements=[{'tag':'div','text':{'tag':'plain_text','content':'\n'.join(x for x in lines if x)[:4000]}}]
+    actions=[]
+    if str(getattr(row,'review_url','') or '').startswith('https://'):
+        actions.append({'tag':'button','text':{'tag':'plain_text','content':'查看 Git 改动 / 建 MR'},
+                        'url':row.review_url})
+    if actions: elements.append({'tag':'action','actions':actions})
+    return {'config':{'wide_screen_mode':True},
+        'header':{'template':'blue' if row.status not in {'failed','manual'} else 'orange',
+                  'title':{'tag':'plain_text','content':f'DealerDesk · 反馈 #{row.id} 处理结果'}},
+        'elements':elements}
 
 
 def listen(cfg):

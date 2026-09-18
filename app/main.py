@@ -15,7 +15,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm.exc import StaleDataError
 from pydantic import ValidationError
 from .config import settings, ROOT
-from .db import engine, get_db, today, utcnow
+from .db import engine, get_db, start_of_today_utc, today, utcnow
 from .models import Store, UserStore, Feedback, MaintenanceEvent, Deployment, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
 from .schemas import StoreInput, FeedbackInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput
 from .security import get_user, authenticate, set_session, clear_cookies, user_info, require_full, require_module, verify_password, hash_password, ROLES
@@ -41,7 +41,7 @@ async def lifespan(app):
 
 
 app = FastAPI(title='DealerDesk · 4S 门店经营台',version='0.2.0',lifespan=lifespan,
-              docs_url='/docs' if settings.environment!='production' else None,redoc_url=None)
+              docs_url='/docs' if (settings.api_docs and settings.environment!='production') else None,redoc_url=None)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=list(settings.allowed_hosts))
 
 
@@ -493,7 +493,7 @@ def feedback_list(db=Depends(get_db),user=Depends(get_user)):
 @app.post('/api/feedback',status_code=201)
 def add_feedback(body:FeedbackInput,db=Depends(get_db),user=Depends(get_user)):
     store=single_store(db)
-    if db.scalar(select(func.count()).select_from(Feedback).where(Feedback.created_by==user.id,Feedback.created_at>=__import__('datetime').datetime.combine(today(),__import__('datetime').time.min)))>=10:
+    if db.scalar(select(func.count()).select_from(Feedback).where(Feedback.created_by==user.id,Feedback.created_at>=start_of_today_utc()))>=10:
         raise HTTPException(429,'每日最多提交10条改进意见，请合并相关问题')
     enabled=os.getenv('MAINTENANCE_ENABLED','false').lower() in {'true','1'}
     row=Feedback(store_id=store,created_by=user.id,title=body.title,description=body.description,category=body.category,
