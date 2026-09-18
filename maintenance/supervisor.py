@@ -310,12 +310,24 @@ class Supervisor:
                     target=self.safe_release({'sha':dep.previous_sha,'path':dep.previous_path})
                 dep.status='rollback_switching';db.commit()
             if self.cfg.split:
-                reverted=self.remote.revert(base,head,job_id)
+                # remote.revert() returns the verb's JSON document, not a bare sha.
+                # Assigning that mapping into target['sha'] wrote a dict into
+                # active.json, which safe_release would then refuse to load.
+                reverted=str(self.remote.revert(base,head,job_id).get('reverted_sha') or '')
+                if not SHA.fullmatch(reverted): raise GateError('构建机未返回有效的回滚提交号；请人工核对运行版本')
                 self.gate.write_text('Rollback in progress',encoding='utf-8');self.app.stop();switched=True
                 self.backup(absolute_database_url(settings.database_url),self.cfg.runtime/'backups'/f'rollback-{job_id}-{uuid.uuid4().hex[:8]}.sqlite')
                 self.app.start(target)
                 if not self.app.healthy(target['sha']): raise GateError('旧版本健康检查失败，保留当前版本')
-                target['sha']=reverted
+                # A Git revert restores exactly the previous tree, so the previous
+                # image already IS the reverted release. Re-tag it under the revert
+                # commit so the "running sha matches the image tag" invariant that
+                # safe_release enforces still holds across a restart.
+                reverted_target={'sha':reverted,'image':app_image_tag(self.cfg.app_image_prefix,reverted)}
+                self.docker.call(['docker','tag',target['image'],reverted_target['image']])
+                self.app.stop();self.app.start(reverted_target)
+                if not self.app.healthy(reverted): raise GateError('回滚版本重新启动失败，请核对服务')
+                target=reverted_target
             else:
                 self.repo.sync()
                 if self.repo.remote_head(self.cfg.base_branch)!=head: raise GateError('主分支已有其他修改，停止旧版本回滚')
