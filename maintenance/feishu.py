@@ -45,9 +45,10 @@ def approval_card(row,token,rollback=False):
         '改动摘要：'+row.proposal.get('summary',''), '批准只绑定此提交；主分支变化会阻止部署。',
         '操作：恢复上一运行版本（不会回退数据库）。' if rollback else '操作：批准后备份数据库、检查新版服务，再快进主分支并切换访问；异常恢复旧代码。']
     # User/model prose is plain text, never card-markdown or executable action data.
+    # No link button on purpose: the operator reads the diff in the GitHub app and
+    # only needs the card to approve or reject. The commit and base SHAs are in the
+    # body, which is enough to locate the exact change there.
     actions=[button('回滚到上一版本','rollback','danger')] if rollback else [button('批准并发布','approve','primary'),button('拒绝','reject','danger')]
-    if row.review_url.startswith('https://'):
-        actions.insert(0,{'tag':'button','text':{'tag':'plain_text','content':'查看 Git Diff'},'url':row.review_url})
     return {'config':{'wide_screen_mode':True},'header':{'template':'green' if rollback else 'orange',
         'title':{'tag':'plain_text','content':'DealerDesk · 已发布 / 可回滚' if rollback else 'DealerDesk · 等待代码发布审批'}},
         'elements':[{'tag':'div','text':{'tag':'plain_text','content':'\n\n'.join(lines)[:6500]}},{'tag':'action','actions':actions}]}
@@ -66,12 +67,9 @@ def status_card(row):
         (row.last_error or summary or '').strip(),
         ('改动文件：'+', '.join(files)) if files else '',
         '当前系统未获批准时不会被覆盖。' if row.status not in {'deployed','rolled_back'} else '发布与回滚都不会改动业务数据库。']
+    # Deliberately no URL button: links are unreliable in the card client, and the
+    # SHAs below are what the operator actually needs to find the change.
     elements=[{'tag':'div','text':{'tag':'plain_text','content':'\n'.join(x for x in lines if x)[:4000]}}]
-    actions=[]
-    if str(getattr(row,'review_url','') or '').startswith('https://'):
-        actions.append({'tag':'button','text':{'tag':'plain_text','content':'查看 Git 改动 / 建 MR'},
-                        'url':row.review_url})
-    if actions: elements.append({'tag':'action','actions':actions})
     return {'config':{'wide_screen_mode':True},
         'header':{'template':'blue' if row.status not in {'failed','manual'} else 'orange',
                   'title':{'tag':'plain_text','content':f'DealerDesk · 反馈 #{row.id} 处理结果'}},
