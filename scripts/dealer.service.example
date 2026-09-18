@@ -1,0 +1,21 @@
+[Unit]
+Description=DealerDesk 4S management service
+After=network.target
+
+[Service]
+Type=simple
+User=dealer
+Group=dealer
+WorkingDirectory=/opt/dealer_desk
+ExecStart=/opt/dealer_desk/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/dealer_desk/data /opt/dealer_desk/backups
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
