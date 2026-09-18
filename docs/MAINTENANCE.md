@@ -121,3 +121,29 @@ PAUSED不是点一下「忽略」即可安全清除。维护人员要先核对 `
 ## 当前验证边界
 
 本交付环境已测试应用权限、数据迁移、模型输出策略、审批绑定、真实临时Git仓库的候选/发布/revert流程，以及模拟新进程失败的回退。没有你的API凭据、飞书租户和专用仓库，尚未进行真实DeepSeek、飞书消息/SDK长连接审批及实际Docker容器全链路验收。首次启用务必用演示库与「仅调整一个文案/样式」意见完成批准、拒绝和回滚验收后，再用于真实经营系统。
+
+## 本机接线记录（2026-09-18）
+
+### 当前决定：自动维护暂缓启用
+
+业务系统后续要迁到阿里云服务器，暂不引入 Docker 与 GitHub 这类依赖外网的环境。因此本机 `.env` 中 `MAINTENANCE_ENABLED` 与 `ALLOW_CODE_EXTERNAL` 均保持 `false`：维护 Worker 不会启动，`dealerdesk-tests:0.2` 镜像也不需要构建。
+
+**意见收集不受影响，且现在就能用。** 提交意见、管理员查看全部意见、「处理日志」在维护关闭时全部正常；`POST /api/feedback` 即使员工勾选了外发授权，任务也只会停留在 `new`，不会入队、不会调用模型。这条保证由 `tests/test_feedback.py` 固定（此前这些端点没有测试覆盖）。
+
+启用前的日常做法：管理员定期在「改进意见」页查看，确认值得做的意见后，由维护人员在本机用 AI 改代码并按 `DEPLOYMENT.md` 的升级流程发布。
+
+### 已在本机实测通过
+
+- 完整测试套件 174 通过 / 1 跳过（符号链接用例在未开启开发者模式的 Windows 上跳过；Linux 测试镜像内仍会执行）。
+- 真实专用仓库（`MAINT_REPO_URL`）克隆、`fetch` 与 `tree_matches` 字节比对通过。本机 `core.autocrlf=true` 不会破坏比对，因为仓库 `.gitattributes` 的 `eol=lf` 让工作区保持 LF。
+- 对 `main` 的普通快进推送权限可用，仓库未强制 PR 审核，`/compare/BASE...HEAD` 链接形态正确。
+- DeepSeek 编码接口形状兼容（`response_format=json_object`、`thinking.disabled`、`max_tokens`）。
+- 启动器实测：只监听 `127.0.0.1`；维护未配置时业务服务照常启动并通过健康检查，只在状态里报告「未启用」。
+
+### 重新启用时需要补的三件事
+
+1. **隔离测试镜像。** 安装 Docker Desktop（需管理员权限；本机为 Win11 Pro、12 核、16G 内存、C 盘余量充足），再运行 `setup-maintenance.ps1` 构建 `dealerdesk-tests:0.2`。没有该镜像时维护器拒绝启动，不会退回宿主机执行候选代码——这是刻意设计，不要绕过。
+2. **飞书审批通道。** 在开放平台建自建应用（机器人 + `im:message:send_as_bot` + `card.action.trigger` 长连接），把 App ID、App Secret 和审批人 open_id **直接填进本机 `.env`**；不要把密钥发到聊天工具，也不要提交进 Git。
+3. **两次明确授权。** 确认愿意外发白名单源码与意见后，把 `ALLOW_CODE_EXTERNAL` 与 `MAINTENANCE_ENABLED` 改为 `true`，然后用演示库和「只改一处文案或样式」的意见跑通批准、拒绝、回滚三条路径。
+
+若将来迁移到阿里云，第 1 步的镜像应构建在服务器上，并重新评估 `sandbox.py` 的挂载与网络假设；`DEPLOYMENT.md` 已说明服务器侧的进程与反向代理接线。
