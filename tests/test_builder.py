@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from maintenance import transport
+from maintenance import images, transport
 from maintenance.builder import __main__ as builder_main
 from maintenance.builder import verbs
 from maintenance.builder.lock import BuildLock
@@ -672,3 +672,38 @@ def test_the_build_lock_refuses_a_second_holder_and_releases_on_exit(tmp_path):
         pass
     with BuildLock(path):
         pass
+
+# --- image pruning ---------------------------------------------------------
+
+def test_prune_images_protects_the_fresh_candidate_and_prunes_by_age(monkeypatch):
+    """Regression for a bug that broke a real deploy.
+
+    prune_images kept the three lexicographically LARGEST tags. Application tags
+    are commit SHAs, so name order is meaningless: for feedback #3 it deleted the
+    very image the candidate verb had just built, and the controller was then told
+    to deploy an image the builder no longer had.
+    """
+    old, new, protected_tag = 'a' * 40, 'b' * 40, '9' * 40
+    listing = '\n'.join([
+        'huakangos-app:%s\t2026-09-01 00:00:00 +0000' % old,
+        'huakangos-app:%s\t2026-09-19 00:00:00 +0000' % protected_tag,
+        'huakangos-app:%s\t2026-09-10 00:00:00 +0000' % new,
+        'other:tag\t2026-09-01 00:00:00 +0000',
+    ])
+    removed = []
+
+    def fake_run(argv, **kwargs):
+        if argv[:2] == ['docker', 'images']:
+            return listing
+        if argv[:2] == ['docker', 'rmi']:
+            removed.append(argv[2])
+        return ''
+
+    monkeypatch.setattr(images, 'run', fake_run)
+    cfg = replace(BuilderConfig(), app_image_prefix='huakangos-app')
+    images.prune_images(cfg, keep=1, protect=('huakangos-app:' + protected_tag,))
+
+    assert 'huakangos-app:' + protected_tag not in removed, 'the fresh candidate must survive'
+    assert 'other:tag' not in removed, 'only application images are considered'
+    assert removed == ['huakangos-app:' + old], 'the OLDEST unprotected image goes, not the smallest name'
+    assert 'huakangos-app:' + new not in removed, 'the newer image is retained under keep=1'

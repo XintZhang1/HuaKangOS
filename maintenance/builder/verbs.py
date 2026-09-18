@@ -181,7 +181,8 @@ class Builder:
                 image_tag = app_image_tag(self.cfg.app_image_prefix, head)
                 digest = build_image(source, image_tag, self.cfg.build_timeout)
                 self.repo.push_candidate(branch)
-        prune_images(self.cfg)
+        # The candidate we just produced must survive the prune that follows it.
+        prune_images(self.cfg, protect=(image_tag,) if image_tag else ())
         return {'ok': True, 'head_sha': head, 'branch': branch, 'changed': changed, 'tier': tier,
                 'test': result, 'image_tag': image_tag, 'image_id': digest,
                 'pushed': bool(image_tag), 'compare_url': compare_url}

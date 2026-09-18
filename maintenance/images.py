@@ -82,20 +82,38 @@ def disk_free_gb(path) -> float:
         return 0.0
 
 
-def prune_images(cfg, keep: int = 3, timeout: int = 300) -> dict:
-    """Drop dangling layers and stale application images. Never touches the test image."""
+def prune_images(cfg, keep: int = 3, protect=(), timeout: int = 300) -> dict:
+    """Drop dangling layers and stale application images. Never touches the test image.
+
+    Two rules learned the hard way:
+
+    * `protect` is never removed. The freshly built candidate must survive its own
+      prune step -- otherwise the controller is told to deploy an image that the
+      builder has already deleted.
+    * Pruning is ordered by creation time, never by tag. Application tags are commit
+      SHAs, so sorting them by name is meaningless: an earlier version kept the
+      "largest" three tags and thereby deleted the image it had just built.
+    """
+    protected = {str(tag) for tag in (protect or ()) if tag}
     removed = []
     try:
         run(['docker', 'image', 'prune', '-f'], timeout=timeout)
     except GateError:
         pass
     try:
-        listing = run(['docker', 'images', '--format', '{{.Repository}}:{{.Tag}}', '--no-trunc'], timeout=60)
+        listing = run(['docker', 'images', '--format', '{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}',
+                       '--no-trunc'], timeout=60)
     except GateError:
         listing = ''
-    candidates = [line for line in listing.splitlines()
-                  if line.startswith(cfg.app_image_prefix + ':') and ':' in line]
-    for tag in sorted(candidates)[:-keep] if keep else candidates:
+    entries = []
+    for line in listing.splitlines():
+        tag, _, created = line.partition('\t')
+        if not tag.startswith(cfg.app_image_prefix + ':') or tag in protected:
+            continue
+        entries.append((created, tag))
+    entries.sort()  # oldest first
+    doomed = entries[:-keep] if keep else entries
+    for _, tag in doomed:
         try:
             run(['docker', 'rmi', tag], timeout=timeout)
             removed.append(tag)
