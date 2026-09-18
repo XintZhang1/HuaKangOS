@@ -7,10 +7,12 @@ policy code the controller used -- the controller's verdict is never trusted.
 
 Verb contract
 -------------
-JSON verbs print one JSON document on stdout and exit 0, including when they
-refuse (a closed window is a normal outcome, not an error). They exit non-zero
-only for a hard failure. The `image` verb streams a gzipped `docker save` tarball
-on stdout instead, so its failures go to stderr.
+Contract, as implemented: a *polite refusal* (``Refused`` -- closed window, busy
+quant job) prints one JSON document on stdout and exits 0, because retrying later
+is a normal outcome. A malformed or hostile request, and any hard failure, exits
+non-zero with a readable reason on stderr and nothing on stdout; the caller in
+transport.py turns both into an exception. The `image` verb streams a gzipped
+`docker save` tarball on stdout, so all of its diagnostics go to stderr.
 """
 from __future__ import annotations
 
@@ -29,7 +31,7 @@ from ..config import BuilderConfig, GateError
 from ..gitops import Repository, SHA, tree_matches
 from ..images import (LABEL_KEY, app_image_tag, build_image, disk_free_gb, image_id,
                       image_label, prune_images, trusted_test_image, CANDIDATE_TAG)
-from ..policy import Proposal, apply_proposal, change_tier, context_files
+from ..policy import EDITABLE, Proposal, apply_proposal, change_tier, context_files
 from ..sandbox import test_candidate
 from ..window import quant_state, window_state
 
@@ -48,6 +50,18 @@ def _sha(payload, key) -> str:
     value = str(payload.get(key) or '')
     if not SHA.fullmatch(value):
         raise GateError('%s 必须是完整的 40 位提交号' % key)
+    return value
+
+
+def _job_id(payload) -> int:
+    """Malformed input must read as a refusal, not as an internal crash."""
+    raw = payload.get('job_id')
+    try:
+        value = int(raw if raw is not None else 0)
+    except (TypeError, ValueError) as exc:
+        raise GateError('job_id 必须是整数') from exc
+    if value <= 0:
+        raise GateError('job_id 无效')
     return value
 
 
@@ -125,9 +139,7 @@ class Builder:
         return {'ok': True, 'base_sha': base, 'files': context_files(self.repo.path)}
 
     def candidate(self, payload) -> dict:
-        job_id = int(payload.get('job_id') or 0)
-        if job_id <= 0:
-            raise GateError('job_id 无效')
+        job_id = _job_id(payload)
         base = _sha(payload, 'base_sha')
         branch = str(payload.get('branch') or '')
         if not BRANCH_RE.fullmatch(branch):
@@ -136,6 +148,11 @@ class Builder:
             proposal = Proposal.model_validate(payload.get('proposal') or {})
         except Exception as exc:
             raise GateError('候选补丁结构无效：' + type(exc).__name__) from exc
+        # Veto protected paths before any git work, so a hostile patch never even
+        # causes a fetch or a checkout. apply_proposal re-checks this later.
+        outside = sorted({edit.path for edit in proposal.edits if edit.path not in EDITABLE})
+        if outside:
+            raise GateError('补丁包含白名单外的文件，拒绝处理：' + ', '.join(outside))
 
         self.guard()
         self.require_disk()
@@ -180,9 +197,7 @@ class Builder:
     def revert(self, payload) -> dict:
         base = _sha(payload, 'base_sha')
         head = _sha(payload, 'head_sha')
-        job_id = int(payload.get('job_id') or 0)
-        if job_id <= 0:
-            raise GateError('job_id 无效')
+        job_id = _job_id(payload)
         self.guard()
         reverted = self.repo.revert_published(base, head, job_id)
         return {'ok': True, 'reverted_sha': reverted}

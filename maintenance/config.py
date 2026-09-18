@@ -65,7 +65,7 @@ class MaintenanceConfig:
     slot_pause_seconds: int = field(default_factory=lambda: int(os.getenv('MAINT_SLOT_PAUSE_SECONDS','60')))
     quant_units: tuple = field(default_factory=lambda: _list_env('MAINT_QUANT_UNITS'))
     sg_host: str = field(default_factory=lambda: os.getenv('MAINT_SG_HOST','').strip())
-    sg_user: str = field(default_factory=lambda: os.getenv('MAINT_SG_USER','huakang').strip())
+    sg_user: str = field(default_factory=lambda: os.getenv('MAINT_SG_USER','hkbuild').strip())
     sg_key: str = field(default_factory=lambda: os.getenv('MAINT_SG_KEY','').strip())
     sg_port: int = field(default_factory=lambda: int(os.getenv('MAINT_SG_PORT','22')))
     sg_timeout: int = field(default_factory=lambda: int(os.getenv('MAINT_SG_TIMEOUT','900')))
@@ -75,7 +75,6 @@ class MaintenanceConfig:
     app_publish_host: str = field(default_factory=lambda: os.getenv('MAINT_APP_PUBLISH_HOST','127.0.0.1'))
     app_publish_port: int = field(default_factory=lambda: int(os.getenv('MAINT_APP_PUBLISH_PORT','8000')))
     app_data_dir: str = field(default_factory=lambda: os.getenv('MAINT_APP_DATA_DIR',''))
-    app_gate_dir: str = field(default_factory=lambda: os.getenv('MAINT_APP_GATE_DIR',''))
     app_memory: str = field(default_factory=lambda: os.getenv('MAINT_APP_MEMORY','512m'))
     app_cpus: str = field(default_factory=lambda: os.getenv('MAINT_APP_CPUS','1'))
 

@@ -1,0 +1,36 @@
+# =============================================================================
+# deploy/sg/authorized_keys.snippet
+# 需要追加到「构建机受限用户」的 ~/.ssh/authorized_keys 里的两行内容。
+# 构建机用户默认是 hkbuild，家目录 /opt/huakangos-builder（见 deploy/sg/install.sh）。
+#
+# 【这里放的必须是阿里云控制器的**公钥**】
+#   * 私钥 /opt/huakangos/.ssh/sg_builder_ed25519 只留在阿里云，权限 600、属主 huakang；
+#     永远不要把私钥复制到构建机、不要贴进聊天工具、不要提交进 Git。
+#   * 公钥内容就是阿里云上这个文件的一整行：
+#       /opt/huakangos/.ssh/sg_builder_ed25519.pub
+#   * 这一把钥匙只用于「控制器 → 构建机」这一条通道；不要拿构建机自己那把用于
+#     git push 的 deploy key 混用，也不要把同一把公钥加到别的机器上。
+#
+# 【文件与目录权限（sshd 默认 StrictModes=yes，权限不对会直接忽略整行）】
+#   chown -R hkbuild:hkbuild /opt/huakangos-builder/.ssh
+#   chmod 700 /opt/huakangos-builder/.ssh
+#   chmod 600 /opt/huakangos-builder/.ssh/authorized_keys
+#
+# 【restrict 的含义】
+#   restrict 等价于 no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-pty,no-user-rc；
+#   command= 让客户端的任何请求都变成执行 /opt/huakangos-builder/bin/hk_builder，
+#   具体动词由 Python 从 $SSH_ORIGINAL_COMMAND 解析（绝不经 shell）。
+# =============================================================================
+
+# (a) 正式条目 —— 把 <粘贴...> 换成阿里云控制器公钥那一整行的剩余部分
+#     （形如：ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... huakangos-controller@8.133.192.159）
+restrict,command="/opt/huakangos-builder/bin/hk_builder" ssh-ed25519 <粘贴阿里云控制器的 ssh-ed25519 公钥与注释> huakangos-controller@8.133.192.159
+
+# (b) 注释掉的示例（形态参考；不要照抄这把假密钥）
+# restrict,command="/opt/huakangos-builder/bin/hk_builder" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleExampleExampleExampleExampleExa huakangos-controller@8.133.192.159
+# restrict,command="/opt/huakangos-builder/bin/hk_builder" ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQExampleExampleExampleExampleExample huakangos-controller-rsa@8.133.192.159
+#
+# 反例（不要这样写）：
+# command="hk_builder" ssh-ed25519 AAAA...                       # 可执行文件不在 PATH 里，找不到
+# command="/opt/huakangos-builder/bin/hk_builder" ssh-ed25519 AAAA...   # 少了 restrict：允许端口转发与 pty
+# ssh-ed25519 AAAA... huakangos-controller@8.133.192.159          # 没有 command=：会拿到一个可登录 shell
