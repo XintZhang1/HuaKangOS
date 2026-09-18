@@ -17,3 +17,25 @@
 .button-link{display:inline-block;padding:7px 10px;border:1px solid #dce2ea;border-radius:6px;text-decoration:none}
 fieldset{margin:18px 0;padding:14px;border:1px solid #dce2ea;border-radius:8px}fieldset .checkbox-label{margin:8px 0}
 @media(max-width:780px){.store-select span{display:none}.store-select select{max-width:155px;min-width:110px}.topbar-right{gap:5px}}
+
+/* P4 批量填单：AI 草稿复核表（宽表 + 行内问题标记） */
+dialog#modal.batch-modal{width:min(1560px,97vw)}
+.batch-summary{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin:0 0 12px;font-size:12px}
+.batch-summary .hint{color:var(--muted);font-size:11px}
+.batch-table{white-space:nowrap}
+.batch-table th,.batch-table td{padding:9px 8px;vertical-align:top}
+.batch-table th:first-child,.batch-table td:first-child{position:sticky;left:0;z-index:1;min-width:152px;background:var(--paper)}
+.batch-table tr.batch-row-issue>td{background:#fffaf9}
+.batch-table tr.batch-row-issue>td:first-child{background:#fff5f3;box-shadow:inset 3px 0 0 var(--red)}
+.batch-table .batch-index strong{display:block;margin-bottom:5px;font-size:13px}
+.batch-table .batch-index .badge{margin-bottom:7px}
+.batch-table td .field>span{font-size:11px;margin-bottom:4px;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.batch-table td .field small{max-width:200px;white-space:normal}
+.batch-table td input,.batch-table td select,.batch-table td textarea{width:172px;padding:6px 8px;font-size:12px}
+.batch-table td textarea{min-height:48px}
+.batch-table td.batch-cell-issue{background:#fdf1ef;box-shadow:inset 0 0 0 1px #eccfc8}
+.batch-table .batch-reason{color:var(--red);font-size:10px;line-height:1.5}
+.batch-table .batch-reason.ok{color:#7f9186}
+.batch-table .batch-issues{white-space:normal;max-width:270px;font-size:11px;line-height:1.7;color:var(--muted)}
+.batch-table .batch-issue-line.open{color:var(--red)}
+.batch-table .batch-issue-line.ok{color:#4d7a63}

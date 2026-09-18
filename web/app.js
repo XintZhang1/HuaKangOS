@@ -176,8 +176,13 @@ async function recordsPage(){
   const module=state.route,params=getFilters();params.set('page',state.page);
   const data=await api(`/api/records/${module}?${params}`);state.rows=data.items;state.total=data.total;
   const cols=recordColumns(module),f=state.filters;
+  // P4 批量填单入口：AI 只生成待复核草稿，写入仍需人工逐条确认（实现见文件末尾 batch-* 部分）。
+  const aiOff=!!state.settings&&state.settings.ai_allowed===false;
+  const batchBtn=actBtn('batch-entry',aiOff?'批量填写（AI 未开启）':'批量填写',
+    `data-module="${module}"${aiOff?' disabled title="服务器未开启 AI 外发（ALLOW_AI_EXTERNAL）：批量填单不可用，手工录入不受影响。"':''}`,'');
+  const headingRight=state.user.write_modules.includes(module)?`<div class="row wrap">${batchBtn}${actBtn('new','＋ 新增录入',`data-module="${module}"`,'primary')}</div>`:'';
   const toolbar=`<div class="toolbar"><input id="filter-q" class="search" aria-label="搜索单据" placeholder="搜索编号、客户或车辆…" value="${E(f.q)}" maxlength="100"><select id="filter-state" aria-label="审核状态"><option value="">全部审核状态</option>${['draft','submitted','approved','rejected','void'].map(v=>`<option value="${v}" ${v===f.state?'selected':''}>${statuses[v]}</option>`).join('')}</select><input id="filter-start" type="date" aria-label="业务日期起" value="${f.date_from}"><span class="muted">至</span><input id="filter-end" type="date" aria-label="业务日期止" value="${f.date_to}">${actBtn('filter','查询')}<span class="spacer"></span>${state.user.can_report?actBtn('export','导出 CSV','','small'):''}</div>`;
-  return heading(names[module],moduleDescriptions[module],state.user.write_modules.includes(module)?actBtn('new','＋ 新增录入',`data-module="${module}"`,'primary'):'')+toolbar+
+  return heading(names[module],moduleDescriptions[module],headingRight)+toolbar+
     `<section class="panel table-panel">${data.items.length?`<div class="table-scroll"><table><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${data.items.map(r=>`<tr>${cols.map(c=>`<td>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:empty('没有符合条件的单据','可以调整筛选条件，或新增一条业务记录。')}${pagination(data.total,state.page)}</section><div class="basis">${module==='cash'?'这是经营流水台账，不是复式记账总账。真实退款请新增退款支出；“作废”仅用于纠正错录，不能代替真实资金冲回。':'草稿 → 提交 → 审核。已审核金额锁定；交车与完工只能推进业务进度，不能修改原单金额。'} 搜索与导出日期按本模块的业务发生日，不按交车/完工日。</div>`;
 }
 const field=(name,label,type='text',extra={})=>({name,label,type,...extra});
@@ -470,3 +475,195 @@ $('#app').addEventListener('keydown',event=>{if(event.key==='Enter'&&event.targe
 (async()=>{try{state.user=await api('/api/auth/me');await boot();}catch{renderLogin();}})();
 
 // MAINT_PROTECTED_END:feedback-and-dispatch
+
+// ================= P4 批量填单：AI 只出草稿，人工复核后才写入 =================
+// 本段全部在保护标记之外：不修改登录、权限、门店选择与既有写入流程，只调用它们。
+// 服务器契约：POST /api/entry-draft/parse 只回草稿（rows / issues / proposed），绝不写业务表。
+// 正式记录一律由人走既有的 POST /api/records/{module}（与 recordDialog 同一条提交路径），创建人即复核人。
+const batchModules=['vehicles','sales','repairs','policies','cash'];
+let batchState={module:null,fields:[],drafts:[],issues:[],orphans:[],text:'',proposed:0,written:0,summary:''};
+const batchFieldName=(row,name)=>`r${row}__${name}`;
+const batchInput=(row,name)=>$(`#modal [name="${batchFieldName(row,name)}"]`);
+function batchRow(row){return batchState.drafts.find(d=>d.index===row);}
+function batchRowIssues(row){return batchState.issues.filter(i=>i.row===row);}
+// fields 契约：服务器的 normalise_options 只接受「允许取值的数组」，标签只存在于前端。
+// 因此发送 options 的键（真实取值），不是 field().options 的 {值:标签} 对象；没有选项时发 null。
+function batchFieldSpec(module){
+  return [...moduleFields[module],noteField].map(f=>({name:f.name,label:f.label,kind:f.type,required:!!f.required,
+    options:f.type==='select'&&f.options?Object.keys(f.options):null}));
+}
+// 只有「必填字段仍为空」算未处理：可选字段留空是记录的合法状态，由复核人决定；未知字段本来就不入库。
+function batchIssueBlocks(d,issue){const f=batchState.fields.find(x=>x.name===issue.field);
+  return !!f&&!!f.required&&!String(d.values[issue.field]??'').trim();}
+function batchBlocking(d){return batchRowIssues(d.index).filter(i=>batchIssueBlocks(d,i));}
+function batchSync(){for(const d of batchState.drafts)for(const f of batchState.fields){const input=batchInput(d.index,f.name);if(input)d.values[f.name]=input.value;}}
+function batchFormData(row){const fd=new FormData();for(const f of batchState.fields){const input=batchInput(row,f.name);fd.set(f.name,input?input.value:'');}return fd;}
+function batchCell(f,d){
+  const name=batchFieldName(d.index,f.name),value=String(d.values[f.name]??'');
+  const issues=batchState.issues.filter(i=>i.row===d.index&&i.field===f.name),blocking=issues.filter(i=>batchIssueBlocks(d,i));
+  const reason=issues.length?`${blocking.length?'AI 提示':'AI 取值无效，已置空（可选）'}：`+issues.map(i=>i.reason).join('；'):'';
+  const attrs=`name="${name}" id="batch-${name}" aria-label="${E(f.label)}"${f.max?` maxlength="${f.max}"`:''}`;
+  let input;
+  if(f.type==='select')input=`<select ${attrs}>${value===''||!(f.options||{})[value]?'<option value="">未填写</option>':''}${Object.entries(f.options||{}).map(([v,l])=>`<option value="${E(v)}" ${String(value)===v?'selected':''}>${E(l)}</option>`).join('')}</select>`;
+  else if(f.type==='textarea')input=`<textarea ${attrs}>${E(value)}</textarea>`;
+  else if(f.type==='lookup')input=`<input ${attrs} value="${E(value)}" ${f.module?`list="lookup-${name}" data-lookup="${E(f.module)}" autocomplete="off"`:''} placeholder="输入关键词搜索，或填记录 ID">${f.module?`<datalist id="lookup-${name}"></datalist>`:''}`;
+  else input=`<input ${attrs} type="${f.type==='money'?'number':f.type}" ${f.type==='money'?'step="0.01" min="0" max="9999999999.99"':''} value="${E(value)}">`;
+  return `<td class="batch-cell${blocking.length?' batch-cell-issue':''}" data-batch-cell="${name}" data-batch-row="${d.index}"><label class="field"><span>${E(f.label)}${f.required?' <b class="required">*</b>':''}</span>${input}<small class="batch-reason${blocking.length?'':' ok'}">${E(reason)}</small></label></td>`;
+}
+function batchIssuesHTML(d){
+  const lines=[];
+  for(const issue of batchRowIssues(d.index)){
+    const f=batchState.fields.find(x=>x.name===issue.field),open=batchIssueBlocks(d,issue);
+    const label=f?f.label:(issue.field?`未知字段「${issue.field}」`:'整行');
+    lines.push(`<div class="batch-issue-line${open?' open':' ok'}">${E(label)}：${E(issue.reason)}（${open?'待你补填':f?'已置空 / 可选留空':'已丢弃，不作为记录字段'}）</div>`);
+  }
+  if(d.error)lines.push(`<div class="batch-issue-line open">写入失败：${E(d.error)}</div>`);
+  if(!lines.length)lines.push('<div class="batch-issue-line ok">AI 未标出问题；金额、日期、VIN 与关联编号仍需你核对。</div>');
+  return lines.join('');
+}
+function batchRowHTML(d){
+  const blocking=batchBlocking(d).length;
+  return `<tr class="batch-tr${blocking?' batch-row-issue':''}" data-batch-row="${d.index}"><td class="batch-index"><strong>第 ${d.index+1} 条</strong><span data-batch-status>${badge(blocking?'high':'approved',blocking?`待补必填 ${blocking} 项`:'可写入')}</span><div class="row wrap">${actBtn('batch-defaults','补全空缺默认值',`data-row="${d.index}"`,'small ghost')}${actBtn('batch-remove','删除本行',`data-row="${d.index}"`,'small ghost')}</div></td>${batchState.fields.map(f=>batchCell(f,d)).join('')}<td class="batch-issues" data-batch-issues="${d.index}">${batchIssuesHTML(d)}</td></tr>`;
+}
+function batchCountsHTML(){
+  const blocked=batchState.drafts.filter(d=>batchBlocking(d).length).length;
+  return `<span>待写入 <strong>${batchState.drafts.length}</strong> 条</span><span>仍缺必填 <strong>${blocked}</strong> 条（补齐前不会写入）</span>`;
+}
+function batchTableHTML(){
+  if(!batchState.drafts.length)return empty('没有待写入的草稿','模型没有提出可复核的行，或已被你全部删除。请返回重新粘贴文本。');
+  return `<div class="table-scroll"><table class="batch-table"><thead><tr><th># / 状态</th>${batchState.fields.map(f=>`<th>${E(f.label)}${f.required?' <b class="required">*</b>':''}</th>`).join('')}<th>AI 提示与写入结果</th></tr></thead><tbody>${batchState.drafts.map(batchRowHTML).join('')}</tbody></table></div>`;
+}
+function batchRefreshRow(row){
+  const d=batchRow(row);if(!d)return;
+  for(const f of batchState.fields){const input=batchInput(row,f.name);if(input)d.values[f.name]=input.value;}
+  const tr=$(`#modal tr[data-batch-row="${row}"]`);if(!tr)return;
+  const blocking=batchBlocking(d).length;
+  const holder=$('[data-batch-status]',tr);if(holder)holder.innerHTML=badge(blocking?'high':'approved',blocking?`待补必填 ${blocking} 项`:'可写入');
+  tr.classList.toggle('batch-row-issue',blocking>0);
+  for(const f of batchState.fields){
+    const cell=$(`[data-batch-cell="${batchFieldName(row,f.name)}"]`,tr);if(!cell)continue;
+    const issues=batchState.issues.filter(i=>i.row===row&&i.field===f.name),open=issues.filter(i=>batchIssueBlocks(d,i));
+    cell.classList.toggle('batch-cell-issue',open.length>0);
+    const small=$('.batch-reason',cell);
+    if(small){small.textContent=issues.length?`${open.length?'AI 提示':'AI 取值无效，已置空（可选）'}：`+issues.map(i=>i.reason).join('；'):'';small.className=`batch-reason${open.length?'':' ok'}`;}
+  }
+  const box=$(`[data-batch-issues="${row}"]`,tr);if(box)box.innerHTML=batchIssuesHTML(d);
+  const counts=$('#batch-counts');if(counts)counts.innerHTML=batchCountsHTML();
+  const confirm=$('#batch-confirm');if(confirm){confirm.disabled=!batchState.drafts.length;confirm.textContent=`确认写入 ${batchState.drafts.length} 条草稿`;}
+}
+function batchFillDefaults(row){
+  for(const d of batchState.drafts){
+    if(row!==null&&d.index!==row)continue;
+    for(const f of batchState.fields){
+      if(String(d.values[f.name]??'').trim())continue;
+      const value=defaultValue(f,batchState.module);if(!value)continue;
+      d.values[f.name]=String(value);const input=batchInput(d.index,f.name);if(input)input.value=String(value);
+    }
+  }
+}
+function renderBatchReview(){
+  const module=batchState.module,n=batchState.drafts.length;
+  $('#modal').classList.add('batch-modal');
+  const orphan=batchState.orphans.length?`<div class="banner danger">模型返回的以下提示无法对应到具体草稿行（该条可能不是字段对象，或条数被上限截断），请人工核对：${E(batchState.orphans.map(i=>{const row=Number(i&&i.row);return `${Number.isInteger(row)&&row>=0?`第 ${row+1} 条`:'未标明行'} ${(i&&i.field)||'整行'}：${(i&&i.reason)||'模型输出异常，未给出原因'}`;}).join('；'))}</div>`:'';
+  openModal(`复核 AI 草稿 · ${names[module]}`,`模型提出 ${batchState.proposed} 条草稿：请逐条核对，删掉不需要的行，补上标红的必填项。`,
+    `${batchState.summary}<div class="banner warning">下表只是草稿，<strong>尚未写入任何业务记录</strong>。只有你点击“确认写入”后才会逐条调用普通录入接口保存；每条记录的创建人记录为 <strong>${E(state.user.display_name)}</strong>（${E(state.user.username)}），保存后仍是草稿，需按常规流程提交与审核。金额、日期、VIN 与关联编号一律以你的复核为准。</div>${orphan}
+    <div class="batch-summary" id="batch-counts">${batchCountsHTML()}</div>
+    <div class="batch-summary">${n?actBtn('batch-fill-all','为所有空缺字段补默认值','','small'):actBtn('batch-restart','返回重新粘贴','data-module="'+E(module)+'"','small')}<span class="hint">补默认值只填当前为空的字段，是否采纳由你决定。</span></div>
+    ${batchTableHTML()}
+    <details><summary>查看原始粘贴文本（对照用）</summary><pre class="json-view">${E(batchState.text||'')}</pre></details>
+    <div id="batch-write-progress" class="subtitle" role="status"></div>`,
+    '<span class="hint">AI 只出草稿；写入由你负责</span>'+actBtn('close-modal',batchState.written?`关闭（已写入 ${batchState.written} 条）`:'取消，不写入')+`<button id="batch-confirm" class="primary" type="submit" value="confirm"${n?'':' disabled'}>确认写入 ${n} 条草稿</button>`,true);
+  initializeLookups();
+  bindForm(async()=>{await batchWrite();});
+}
+async function batchWrite(){
+  batchSync();
+  const progress=$('#batch-write-progress'),targets=[],blocked=[];
+  for(const d of batchState.drafts)(batchBlocking(d).length?blocked:targets).push(d);
+  if(!targets.length){
+    batchState.summary='<div class="banner warning">没有可写入的行：下表每一行都还有未补齐的必填字段。请补填、用“补全空缺默认值”，或删除该行。</div>';
+    return renderBatchReview();
+  }
+  let ok=0,failed=0;
+  for(const d of targets){
+    if(progress)progress.textContent=`正在逐条写入第 ${ok+failed+1} / ${targets.length} 条…`;
+    let body;
+    // 与 recordDialog 完全相同的取值与校验路径：readRecordForm 负责 lookup / date / money 的转换。
+    try{body=readRecordForm(batchFormData(d.index),batchState.module);}
+    catch(error){d.error=error.message;failed++;continue;}
+    try{
+      const saved=await api(`/api/records/${batchState.module}`,{method:'POST',body});
+      d.written=true;d.error='';d.savedId=saved&&saved.id;ok++;batchState.written++;
+    }catch(error){d.error=error.message;failed++;}
+  }
+  batchState.drafts=batchState.drafts.filter(d=>!d.written);
+  const parts=[`已写入 ${ok} 条草稿（创建人：你）`];
+  if(failed)parts.push(`${failed} 条写入失败，已保留在下表，可修改后重试`);
+  if(blocked.length)parts.push(`${blocked.length} 条因必填字段未补齐未提交`);
+  batchState.summary=`<div class="banner${failed||blocked.length?' warning':''}">上次提交：${parts.join('；')}。写入的记录仍需按常规流程提交与审核。</div>`;
+  try{await renderPage();}catch(error){toast(error.message,true);}
+  renderBatchReview();
+  toast(`批量填单：写入成功 ${ok} 条${failed?`，失败 ${failed} 条（见下表）`:''}${blocked.length?`，未提交 ${blocked.length} 条（缺必填）`:''}。`,failed>0||blocked.length>0);
+  if(!batchState.drafts.length)$('#modal').close();
+}
+function batchReviewDialog(text,data){
+  const rows=Array.isArray(data&&data.rows)?data.rows:[],raw=Array.isArray(data&&data.issues)?data.issues:[];
+  const drafts=rows.map((row,index)=>{const values={};for(const f of batchState.fields){const raw=(row&&Object.prototype.hasOwnProperty.call(row,f.name))?row[f.name]:null;values[f.name]=raw==null?'':String(raw);}return {index,values,error:''};});
+  // 服务器返回的 issue.row 是 rows 的下标；这里只认能对应到草稿行的提示，其余整条列出，绝不静默丢弃。
+  batchState.issues=raw.filter(i=>i&&Number.isInteger(i.row)&&i.row>=0&&i.row<rows.length);
+  batchState.orphans=raw.filter(i=>!batchState.issues.includes(i));
+  batchState.drafts=drafts;batchState.text=text;batchState.proposed=Number(data&&data.proposed)||rows.length;
+  renderBatchReview();
+}
+async function batchEntryDialog(module){
+  if(!batchModules.includes(module)||!moduleFields[module])throw new Error('该模块不支持批量填单。');
+  if(!state.user.write_modules.includes(module))throw new Error('你没有该模块的录入权限。');
+  if(!state.storeId||state.storeId==='all')throw new Error('请先在右上角选择一家具体门店；批量填单不支持“全部门店汇总”。');
+  if(state.settings&&state.settings.ai_allowed===false)throw new Error('服务器未开启 AI 外发（ALLOW_AI_EXTERNAL）；批量填单不可用，请继续手工录入。');
+  $('#modal').classList.remove('batch-modal');
+  batchState={module,fields:[...moduleFields[module],noteField],drafts:[],issues:[],orphans:[],text:'',proposed:0,written:0,summary:''};
+  openModal(`AI 批量填写 · ${names[module]}`,'粘贴一段文字，由 DeepSeek 整理成待复核草稿；是否写入由你逐条确认。',
+    `<div class="banner">AI 只做字段抽取，<strong>不会写入任何业务记录</strong>。草稿必须由你逐条复核、修改、删除后点击“确认写入”，才会通过普通录入接口保存；创建人记录为你（${E(state.user.display_name)}）。</div>
+    <div class="banner warning">只发送你粘贴的文本与字段清单，不发送数据库内容或其他记录。粘贴前请自行去掉身份证号、银行卡号等敏感信息。</div>
+    ${renderField(field('batch_text','粘贴文本（10–20000 字符，一行一条记录）','textarea',{required:true,max:20000}),'')}
+    <label>导入纯文本（可选，UTF-8，最多48KB）<input id="batch-file" type="file" accept=".txt,.md,text/plain,text/markdown"></label>
+    <div id="batch-parse-progress" class="subtitle" role="status"></div>`,
+    '<span class="hint">AI 草稿不落库；核对后才逐条写入</span>'+actBtn('close-modal','取消')+'<button class="primary" type="submit">让 AI 生成草稿</button>',true);
+  $('#batch-file').onchange=async event=>{
+    try{
+      const file=event.target.files[0];if(!file)return;
+      if(!/\.(txt|md)$/i.test(file.name)||file.size>49152)throw new Error('仅支持48KB以内的 .txt / .md 文本。');
+      const text=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());
+      if(text.length>20000)throw new Error('文本最多20000字符。');
+      $('#modal [name=batch_text]').value=text;
+    }catch(error){toast(error.message,true);}
+  };
+  bindForm(async fd=>{
+    const text=String(fd.get('batch_text')??'').replace(/\r\n?/g,'\n').trim();
+    if(text.length<10)throw new Error('请至少粘贴 10 个字符的文本。');
+    if(text.length>20000)throw new Error('文本最多 20000 字符。');
+    const progress=$('#batch-parse-progress');if(progress)progress.textContent='正在请求 DeepSeek 生成草稿，请稍候…';
+    try{
+      const data=await api('/api/entry-draft/parse',{method:'POST',body:{module,text,fields:batchFieldSpec(module)}});
+      batchReviewDialog(text,data);
+    }finally{const node=$('#batch-parse-progress');if(node)node.textContent='';}
+  });
+}
+// 新监听器注册在保护标记之外，不改动既有的 `#app` 分发链（其中 new/edit/detail 等动作保持原样）。
+$('#app').addEventListener('click',async event=>{
+  const button=event.target.closest('[data-action="batch-entry"]');if(!button||button.disabled)return;
+  try{await batchEntryDialog(button.dataset.module);}catch(error){toast(error.message,true);}
+});
+$('#modal').addEventListener('click',async event=>{
+  const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
+  const action=button.dataset.action,row=Number(button.dataset.row);
+  try{
+    if(action==='batch-remove'){batchSync();batchState.drafts=batchState.drafts.filter(d=>d.index!==row);renderBatchReview();}
+    else if(action==='batch-defaults'){batchSync();batchFillDefaults(row);renderBatchReview();}
+    else if(action==='batch-fill-all'){batchSync();batchFillDefaults(null);renderBatchReview();}
+    else if(action==='batch-restart')await batchEntryDialog(button.dataset.module);
+  }catch(error){toast(error.message,true);}
+});
+$('#modal').addEventListener('input',event=>{const cell=event.target.closest('[data-batch-cell]');if(cell)batchRefreshRow(Number(cell.dataset.batchRow));});
+$('#modal').addEventListener('change',event=>{const cell=event.target.closest('[data-batch-cell]');if(cell)batchRefreshRow(Number(cell.dataset.batchRow));});
+$('#modal').addEventListener('close',()=>$('#modal').classList.remove('batch-modal'));
