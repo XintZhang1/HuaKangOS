@@ -21,6 +21,7 @@ from .schemas import StoreInput, FeedbackInput, LoginInput, PasswordInput, UserI
 from .security import get_user, authenticate, set_session, clear_cookies, user_info, require_full, require_module, verify_password, hash_password, ROLES
 from .services import serialize, plain, audit, readable_query, get_record, create_record, update_record, act_record, check_version
 from .analytics import dashboard, source_revision, build_snapshot, external_payload, rules_config
+from .visualization import visualization
 from .reports import generate_report
 from .batch_entry import extract, normalise_fields
 from .scheduler import ReportScheduler
@@ -321,6 +322,16 @@ def get_dashboard(end:date|None=None,days:int=Query(30,ge=1,le=366),db=Depends(g
             result['by_store'].append({'id':store.id,'name':store.name,'metrics':daily_metrics(load_data(db,day),day)})
     finally: db.info.clear(); db.info.update(original)
     return result
+
+
+@app.get('/api/visualization')
+def get_visualization(end:date|None=None,days:int=Query(90),db=Depends(get_db),user=Depends(get_user)):
+    # Same role gate and store scope as /api/dashboard: the tenant hook bound by
+    # get_user() already restricts load_data() to the authorized stores. Read-only.
+    require_full(user)
+    day = end or today()
+    if day>today(): raise HTTPException(422,'可视化结束日期不能晚于今天')
+    return visualization(db,day,days)
 
 
 def report_stale(db,row):

@@ -39,3 +39,17 @@ dialog#modal.batch-modal{width:min(1560px,97vw)}
 .batch-table .batch-issues{white-space:normal;max-width:270px;font-size:11px;line-height:1.7;color:var(--muted)}
 .batch-table .batch-issue-line.open{color:var(--red)}
 .batch-table .batch-issue-line.ok{color:#4d7a63}
+
+/* 数据可视化：KPI 行 + 图表网格（SVG 自身的颜色与字号由 web/charts.js 写在元素属性上，
+   导出的图片不依赖本文件；这里只管版面、图例与容器定位） */
+.viz-kpis{margin-bottom:20px}
+.viz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr));gap:20px;margin-bottom:20px}
+.viz-card{min-width:0;display:flex;flex-direction:column}
+.viz-card .panel-head{align-items:center}
+.chart-holder{position:relative;min-width:0}
+.chart-holder svg{display:block;width:100%;height:auto;overflow:visible}
+.chart-holder .loading-line{padding:26px 0}
+.chart-legend{display:flex;flex-wrap:wrap;gap:9px 22px;margin-top:14px;font-size:11px;color:#7a8f82}
+.chart-legend.pie{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:8px 22px}
+.viz-notes{margin-top:0}
+@media(max-width:900px){.viz-grid{grid-template-columns:1fr}.chart-legend.pie{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}

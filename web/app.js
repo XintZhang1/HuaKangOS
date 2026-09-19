@@ -94,10 +94,12 @@ let renderSequence=0;
 async function renderPage(){
   const sequence=++renderSequence;
   const node=$('#main');if(!node)return;
+  ensureVizNav();
   node.innerHTML='<div class="loading-line">正在读取门店数据…</div>';
   try{
     let html;
     if(state.route==='dashboard')html=await dashboardPage();
+    else if(state.route==='viz')html=await vizPage();
     else if(['vehicles','sales','repairs','policies','cash'].includes(state.route))html=await recordsPage();
     else if(state.route==='reports')html=await reportsPage();
     else if(state.route==='findings')html=await findingsPage();
@@ -106,7 +108,7 @@ async function renderPage(){
     else if(state.route==='users')html=await usersPage();
     else if(state.route==='audit')html=await auditPage();
     else html=await settingsPage();
-    if(sequence===renderSequence&&state.user)node.innerHTML=html;
+    if(sequence===renderSequence&&state.user){node.innerHTML=html;if(state.route==='viz')drawVizCharts();}
   }catch(error){if(sequence===renderSequence&&state.user)node.innerHTML=errorPanel(error);}
 }
 function kpi(label,value,foot,accent=false,unit='CNY'){
@@ -667,3 +669,162 @@ $('#modal').addEventListener('click',async event=>{
 $('#modal').addEventListener('input',event=>{const cell=event.target.closest('[data-batch-cell]');if(cell)batchRefreshRow(Number(cell.dataset.batchRow));});
 $('#modal').addEventListener('change',event=>{const cell=event.target.closest('[data-batch-cell]');if(cell)batchRefreshRow(Number(cell.dataset.batchRow));});
 $('#modal').addEventListener('close',()=>$('#modal').classList.remove('batch-modal'));
+
+// ================= 数据可视化：依赖为零的 SVG 图表页（web/charts.js） =================
+// 本段全部在保护标记之外：不改登录、权限、门店选择与既有写入流程，只调用它们。
+// 导航：shell() 在保护区里，因此在每次 renderPage 后补一个同样的 .nav-item[data-route=viz]，
+// 沿用既有 data-action="nav" 分发链与看板的 can_report 权限门，不另立第二套机制。
+// 服务器契约：GET /api/visualization?end=YYYY-MM-DD&days=N；金额一律是整数分（cents）。
+const vizNavLabel='数据可视化';
+const vizIconPath='M4 20V4 M2 20h20 M8 20v-6 M12 20v-10 M16 20v-4 M20 20v-8';
+// 服务器把 days 收敛到 7..365（app/visualization.py: clamp_days），所以这里不提供“当日”。
+const vizDaysOptions=[[7,'近 7 日'],[30,'近 30 日'],[90,'近 90 日'],[180,'近 180 日'],[365,'近 365 日']];
+const vizState={data:null,charts:[],exporting:false};
+function vizIconNode(){
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d',vizIconPath);
+  path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');
+  svg.append(path);
+  return svg;
+}
+function vizNavNode(){
+  const button=document.createElement('button');
+  button.type='button';button.className='nav-item';
+  button.dataset.action='nav';button.dataset.route='viz';
+  const label=document.createElement('span');label.textContent=vizNavLabel;
+  button.append(vizIconNode(),label);
+  return button;
+}
+// 权限门与看板一致：只有 can_report 的用户才看得到入口（后端同样以看板权限校验该接口）。
+function ensureVizNav(){
+  if(!state.user?.can_report)return;
+  const sidebar=$('.sidebar');if(!sidebar)return;
+  const active=state.route==='viz';
+  let item=$('.nav-item[data-route="viz"]',sidebar);
+  if(item)item.classList.toggle('active',active);
+  else{
+    const anchor=$('.nav-item[data-route="dashboard"]',sidebar);
+    if(!anchor)return;
+    item=vizNavNode();item.classList.toggle('active',active);
+    anchor.insertAdjacentElement('afterend',item);
+  }
+  const crumb=$('.breadcrumb strong');
+  if(crumb&&active&&crumb.textContent!==vizNavLabel)crumb.textContent=vizNavLabel;
+}
+function vizNumber(value){return new Intl.NumberFormat('zh-CN',{maximumFractionDigits:0}).format(Number(value||0));}
+function vizUnitLabel(unit){return unit==='money'?'CNY':'COUNT';}
+function vizUnitHint(unit){return unit==='money'?'金额 / 元':'数量 / 条 · 台';}
+function vizKpiCard(item,accent){
+  const value=item.unit==='money'?`<span class="currency">¥</span>${money(item.value)}`:`${vizNumber(item.value)}`;
+  return kpi(item.label||item.key||'指标',value,E(item.hint||''),accent,vizUnitLabel(item.unit));
+}
+function vizCard(index,title,subtitle){
+  return `<section class="panel viz-card"><div class="panel-head"><div><h2>${E(title)}</h2><small>${E(subtitle)}</small></div>${actBtn('viz-export','导出图片',`data-chart="${index}"`,'small ghost')}</div><div class="chart-holder" data-chart-holder="${index}"><div class="loading-line">正在绘制图表…</div></div></section>`;
+}
+function vizNotice(text){const node=document.createElement('div');node.className='inline-error';node.textContent=text;return node;}
+function vizHolder(index){return $(`[data-chart-holder="${index}"]`);}
+function vizFileName(chart){
+  const data=vizState.data||{};
+  return `${chart.title}-${data.start_date||''}_${data.end_date||''}`;
+}
+async function vizPage(){
+  if(!state.user.can_report)throw new Error('你没有查看数据可视化的权限。');
+  // 可视化接口把 days 收敛到 7..365（app/visualization.py: clamp_days），
+  // 看板的“当日”（1 天）在这里回落为默认窗口，避免控件显示的天数与返回的天数不一致。
+  if(!vizDaysOptions.some(([value])=>value===state.days))state.days=30;
+  const controls=`<div class="date-controls"><select id="viz-days" aria-label="可视化统计期间">${vizDaysOptions.map(([value,label])=>`<option value="${value}" ${value===state.days?'selected':''}>${label}</option>`).join('')}</select><input id="viz-end" type="date" aria-label="可视化结束日期" value="${E(state.end||localToday())}" max="${localToday()}">${actBtn('viz-refresh','更新','','small')}${actBtn('viz-export-all','全部导出','','small ghost')}</div>`;
+  const data=await api(`/api/visualization?end=${state.end}&days=${state.days}`);
+  const kpis=Array.isArray(data.kpis)?data.kpis:[];
+  const trends=Array.isArray(data.trends)?data.trends:[];
+  const breakdowns=Array.isArray(data.breakdowns)?data.breakdowns:[];
+  const rankings=Array.isArray(data.rankings)?data.rankings:[];
+  const notes=(Array.isArray(data.notes)?data.notes:[]).filter(note=>String(note??'').trim());
+  const range=`${data.start_date||''} 至 ${data.end_date||''}`;
+  const charts=[],cards=[];
+  trends.forEach(item=>{
+    const title=item.title||'走势',index=charts.length;
+    charts.push({index,kind:'line',title,spec:{title,subtitle:range,unit:item.unit,dates:Array.isArray(item.dates)?item.dates:[],series:Array.isArray(item.series)?item.series:[]}});
+    cards.push(vizCard(index,title,`按日走势 · ${vizUnitHint(item.unit)}`));
+  });
+  breakdowns.forEach(item=>{
+    const title=item.title||'构成',index=charts.length;
+    charts.push({index,kind:'pie',title,spec:{title,subtitle:`${range} · 构成占比`,unit:item.unit,items:Array.isArray(item.items)?item.items:[]}});
+    cards.push(vizCard(index,title,`分类构成 · ${vizUnitHint(item.unit)}`));
+  });
+  rankings.forEach(item=>{
+    const title=item.title||'排行',index=charts.length;
+    const items=Array.isArray(item.items)?item.items:[];
+    charts.push({index,kind:'bar',title,spec:{title,subtitle:`${range} · 排行`,unit:item.unit,items}});
+    cards.push(vizCard(index,title,`排行对比 · ${vizUnitHint(item.unit)}`));
+  });
+  vizState.data=data;vizState.charts=charts;
+  const hasAny=!!(kpis.length||cards.length);
+  const body=hasAny
+    ?`${kpis.length?`<div class="kpi-grid viz-kpis">${kpis.map((item,index)=>vizKpiCard(item,index===0)).join('')}</div>`:''}${cards.length?`<div class="viz-grid">${cards.join('')}</div>`:empty('所选期间没有可绘制的图表','可以调整结束日期或统计窗口后重试。')}`
+    :`<section class="panel">${empty('所选期间没有可视化数据','可以调整结束日期或统计窗口后重试。')}</section>`;
+  return heading('数据可视化',`${range} · 共 ${data.days??0} 天 · 币种 ${data.currency||'CNY'}；图表在浏览器本地绘制，导出图片不包含客户信息`,controls,'VISUAL ANALYTICS / 数据可视化')
+    +body
+    +(notes.length?`<div class="basis viz-notes">${notes.map(note=>E(note)).join('<br>')}</div>`:'');
+}
+function drawVizCharts(){
+  const charts=vizState.charts||[];
+  if(!charts.length)return;
+  const lib=window.Charts;
+  for(const chart of charts){
+    const holder=vizHolder(chart.index);if(!holder)continue;
+    while(holder.firstChild)holder.removeChild(holder.firstChild);
+    if(!lib){holder.appendChild(vizNotice('图表模块 /static/charts.js 未加载，无法绘制；请刷新页面重试。'));continue;}
+    try{
+      if(chart.kind==='pie')lib.pie(holder,chart.spec);
+      else if(chart.kind==='bar')lib.bar(holder,chart.spec);
+      else lib.line(holder,chart.spec);
+    }catch(error){holder.appendChild(vizNotice(`图表绘制失败：${error.message||error}`));}
+  }
+}
+async function vizExportOne(index,button){
+  const chart=(vizState.charts||[])[index];
+  if(!chart)throw new Error('图表已刷新，请重新点击导出。');
+  if(!window.Charts)throw new Error('图表模块未加载，无法导出。');
+  const holder=vizHolder(index);
+  if(!holder||!holder.querySelector('svg'))throw new Error('这张图表还没有绘制完成。');
+  if(button)button.disabled=true;
+  try{await window.Charts.exportPng(holder,vizFileName(chart));toast(`已导出：${chart.title}`);}
+  finally{if(button&&button.isConnected)button.disabled=false;}
+}
+async function vizExportAll(button){
+  if(!window.Charts)throw new Error('图表模块未加载，无法导出。');
+  const charts=vizState.charts||[];
+  if(!charts.length)throw new Error('当前没有可导出的图表。');
+  if(vizState.exporting)throw new Error('正在导出，请稍候。');
+  vizState.exporting=true;if(button)button.disabled=true;
+  let saved=0,failed=0;
+  try{
+    for(const chart of charts){
+      const holder=vizHolder(chart.index);
+      if(!holder||!holder.querySelector('svg')){failed++;continue;}
+      try{await window.Charts.exportPng(holder,vizFileName(chart));saved++;}
+      catch{failed++;}
+      await new Promise(resolve=>setTimeout(resolve,180));
+    }
+  }finally{vizState.exporting=false;if(button&&button.isConnected)button.disabled=false;}
+  toast(`已导出 ${saved} 张图表图片${failed?`，${failed} 张失败（可单独重试）`:''}。`,failed>0);
+}
+// 新监听器注册在保护标记之外，不改动既有 #app 分发链（viz-* 动作原本不在其中）。
+$('#app').addEventListener('click',async event=>{
+  const button=event.target.closest('[data-action]');
+  if(!button||button.disabled)return;
+  const action=button.dataset.action;
+  if(action!=='viz-refresh'&&action!=='viz-export'&&action!=='viz-export-all')return;
+  try{
+    if(action==='viz-refresh'){
+      state.days=Number($('#viz-days').value)||state.days;
+      state.end=$('#viz-end').value;
+      if(!state.end)throw new Error('请选择结束日期。');
+      await renderPage();
+    }
+    else if(action==='viz-export')await vizExportOne(Number(button.dataset.chart),button);
+    else await vizExportAll(button);
+  }catch(error){toast(error.message,true);if(button.isConnected)button.disabled=false;}
+});

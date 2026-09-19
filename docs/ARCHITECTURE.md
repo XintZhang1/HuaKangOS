@@ -71,6 +71,22 @@ Argon2id 密码哈希；数据库只存登录令牌和 CSRF 随机值的哈希�
 
 新增角色需同时检查 READ/WRITE/FULL_VIEW、字段脱敏、关联查找、CSV、看板、审计和报告接口，不能只改导航按钮。
 
+## 可视化数据层
+
+`GET /api/visualization?end=YYYY-MM-DD&days=N` 返回浏览器可视化模块直接渲染的只读载荷。`end` 默认今天且不得晚于今天（否则 422）；`days` 默认 90，越界收敛到 7..365 而不是报错（0 → 7，1000 → 365）；`end` 不是合法日期时由统一校验处理返回 422。顶层键固定为 `end_date / start_date / days / currency / kpis / trends / breakdowns / rankings / notes`。
+
+权限和门店范围与 `/api/dashboard` 完全一致：需登录并 `require_full`（管理员、店长、财务、审计），门店范围来自 `get_user` → `attach_scope` 写入的请求级 scope，`X-Store-ID: all` 表示授权门店汇总（只读）。指标一律复用 `analytics.load_data / approved / daily_metrics / detect`，本模块不重算金额、不写数据库；GET 不产生业务记录、审计日志、复核项或日报。KPI 的窗口口径与看板一致：库存、超龄库存、应收合计取期末时点值，其余按窗口逐日累计；销售顾问业绩按交车口径（`delivery_date` 落在窗口内）汇总合同金额。
+
+单位契约（前端按此渲染，后端绝不预格式化）：
+
+- 金额一律为整数人民币分：`kpis[].value`、`trends[].series[].values`、`items[].value`。不返回浮点金额、不返回带千分位或货币符号的字符串；数量为普通整数。
+- `unit` 只有 `money` / `count`；`chart` 只有 `pie` / `bar`；`axis` 固定为 `date`。`share` 是唯一允许的浮点数，只出现在 `breakdowns[].items`。
+- `trends[].dates` 长度恒等于 `days`，每个 series 的 `values` 长度与之一致，最后一天为 `end_date`；无数据补 0，数据集不省略、不返回 null，维度为空时 `items` 为空数组（前端据此显示空状态）。
+- `breakdowns[].items` 按值降序，最多 9 项 = 前 8 项 + 尾部折叠出的 `{"key":"__other__","label":"其他"}`（余额为 0 时不追加），`share` 在折叠之后计算并合计为 1；`rankings[].items` 按值降序截断到 10 项，不产生折叠项。
+- `notes` 原样包含 `analytics.BASIS`，并说明金额单位为分及本接口只读。
+
+---
+
 ## 对接下一阶段
 
 先确认现有门店台账中的字段、收入/成本/收款定义、角色和实际审批人；再增加导入与通知。在启用真实客户数据之前确定保留周期、备份加密、服务器权限和外发授权。完整财务记账或退车业务应独立设计，不应往当前现金流水模型里塞“负销售额”绕过流程。
