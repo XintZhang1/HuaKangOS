@@ -79,6 +79,13 @@ async def safety_headers(request: Request, call_next):
         response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
     if request.url.path.startswith('/api/'):
         response.headers['Cache-Control'] = 'no-store'
+    elif request.url.path.startswith('/static/'):
+        # The script tag is /static/app.js with no version, so the URL is identical
+        # across releases. Without a directive a browser may keep running the previous
+        # frontend after a deploy -- which is exactly what happened after the first
+        # P4 release. no-cache means "revalidate": the ETag answers a cheap 304 when
+        # nothing changed and the fresh file when it did.
+        response.headers['Cache-Control'] = 'no-cache'
     if settings.environment == 'production':
         response.headers['Strict-Transport-Security'] = 'max-age=31536000'
     return response
