@@ -49,6 +49,20 @@ dialog#modal.batch-modal{width:min(1560px,97vw)}
 .batch-table .batch-issue-line.open{color:var(--red)}
 .batch-table .batch-issue-line.ok{color:#4d7a63}
 
+/* P4 批量填单：图片来源（拍照 / 截图 / 粘贴），以及复核时的原图对照条 */
+.file-pick{display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border:1px dashed #b9cdc4;
+  border-radius:9px;background:#f7fbf9;font-size:12px;font-weight:550;cursor:pointer}
+.file-pick:hover{background:#eef7f2;border-color:var(--teal)}
+.file-pick input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.batch-image-empty{padding:12px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:12px;text-align:center}
+.batch-image-list{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0}
+.batch-image-item{margin:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--paper);max-width:190px}
+.batch-image-item img{display:block;width:190px;height:132px;object-fit:contain;background:#f0f3f1}
+.batch-image-item figcaption{display:flex;align-items:center;justify-content:space-between;gap:6px;
+  padding:5px 7px;font-size:10px;color:var(--muted);line-height:1.4}
+.batch-modal .modal-body>.batch-image-list{flex:0 0 auto;max-height:190px;overflow:auto}
+@media(max-width:780px){.batch-image-item img{width:132px;height:98px}.batch-image-item{max-width:132px}}
+
 /* 数据可视化：KPI 行 + 图表网格（SVG 自身的颜色与字号由 web/charts.js 写在元素属性上，
    导出的图片不依赖本文件；这里只管版面、图例与容器定位） */
 .viz-kpis{margin-bottom:20px}

@@ -34,6 +34,8 @@ class Settings:
     deepseek_url: str = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com').rstrip('/')
     deepseek_model: str = os.getenv('DEEPSEEK_MODEL', 'deepseek-flash')
     ai_timeout: int = int(os.getenv('DEEPSEEK_TIMEOUT_SECONDS', '60'))
+    # 批量填单带图片时模型要先「看」图再抽取，比纯文本慢得多，单独给一个更宽的超时。
+    ai_vision_timeout: int = int(os.getenv('DEEPSEEK_VISION_TIMEOUT_SECONDS', '150'))
     ai_max_records: int = int(os.getenv('AI_MAX_RECORDS', '400'))
     inventory_aging: int = int(os.getenv('INVENTORY_AGING_DAYS', '90'))
     repair_overdue: int = int(os.getenv('REPAIR_OVERDUE_DAYS', '7'))
@@ -54,7 +56,9 @@ class Settings:
             raise ValueError('Invalid session/catchup/AI limit')
         if self.allow_ai and not self.deepseek_url.startswith('https://'):
             raise ValueError('External AI requests must use HTTPS')
-        if min(self.inventory_aging, self.repair_overdue, self.receivable_grace, self.large_cash_yuan, self.ai_timeout) < 1:
+        if min(self.inventory_aging, self.repair_overdue, self.receivable_grace, self.large_cash_yuan, self.ai_timeout, self.ai_vision_timeout) < 1:
             raise ValueError('Review thresholds and timeout must be positive')
+        if self.ai_vision_timeout > 600:
+            raise ValueError('DEEPSEEK_VISION_TIMEOUT_SECONDS must not exceed 600')
 
 settings = Settings()

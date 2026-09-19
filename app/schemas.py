@@ -4,6 +4,7 @@ from typing import Literal, Annotated
 import re
 from pydantic import BaseModel, ConfigDict, Field, BeforeValidator, field_validator, model_validator
 from .db import today
+from .batch_entry import MAX_IMAGES
 
 
 def money(value):
@@ -213,8 +214,18 @@ Module = Literal['vehicles', 'sales', 'repairs', 'policies', 'cash']  # 必须�
 
 class EntryDraftInput(Strict):
     module: Module
-    text: str = Field(min_length=10, max_length=20000)
+    # 文本与图片至少要有一个：现场经常只有一张工单照片，没有可粘贴的文字。
+    text: str = Field(default='', max_length=20000)
+    # 图片是内联 data URL；条数与单图大小的硬校验在 batch_entry.normalise_images 里，
+    # 这里复用同一个常量，避免两处上限各说各话。
+    images: list[str] = Field(default_factory=list, max_length=MAX_IMAGES)
     fields: list[dict] = Field(min_length=1, max_length=60)
+
+    @model_validator(mode='after')
+    def require_text_or_image(self):
+        if len(self.text.strip()) < 10 and not self.images:
+            raise ValueError('请至少粘贴 10 个字符的文本，或至少上传 1 张图片')
+        return self
 
 
 class AIReview(Strict):

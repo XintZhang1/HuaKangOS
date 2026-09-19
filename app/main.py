@@ -46,6 +46,13 @@ app = FastAPI(title='DealerDesk · 4S 门店经营台',version='0.2.0',lifespan=
               docs_url='/docs' if (settings.api_docs and settings.environment!='production') else None,redoc_url=None)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=list(settings.allowed_hosts))
 
+# 所有表单都在 100KB 以内；批量填单允许内联图片，只有这一条路径放宽。
+# 放宽的上限必须与 batch_entry 的图片预算配套：合计 5MB 原图 base64 后约 6.8MB < 8MB。
+DEFAULT_BODY_LIMIT = 100_000
+ENTRY_DRAFT_PATH = '/api/entry-draft/parse'
+ENTRY_DRAFT_BODY_LIMIT = 8 * 1024 * 1024
+
+
 
 @app.middleware('http')
 async def safety_headers(request: Request, call_next):
@@ -62,13 +69,15 @@ async def safety_headers(request: Request, call_next):
             return JSONResponse({'detail':'仅接受 JSON 请求'},status_code=415)
         try: size = int(request.headers.get('content-length','0'))
         except ValueError: return JSONResponse({'detail':'无效请求长度'},status_code=400)
-        if size > 100_000:
-            return JSONResponse({'detail':'请求过大'},status_code=413)
+        limit = ENTRY_DRAFT_BODY_LIMIT if request.url.path == ENTRY_DRAFT_PATH else DEFAULT_BODY_LIMIT
+        oversize = '图片过大，请减少张数或压缩后重试' if limit > DEFAULT_BODY_LIMIT else '请求过大'
+        if size > limit:
+            return JSONResponse({'detail':oversize},status_code=413)
         chunks, actual_size = [], 0
         async for chunk in request.stream():
             actual_size += len(chunk)
-            if actual_size > 100_000:
-                return JSONResponse({'detail':'请求过大'},status_code=413)
+            if actual_size > limit:
+                return JSONResponse({'detail':oversize},status_code=413)
             chunks.append(chunk)
         request._body = b''.join(chunks)
     response = await call_next(request)
@@ -386,12 +395,12 @@ def parse_entry_draft(body:EntryDraftInput,db=Depends(get_db),user=Depends(get_u
     require_module(user,body.module,write=True)
     try:
         fields = normalise_fields(body.fields)
-        draft = extract(body.module,fields,body.text)
+        draft = extract(body.module,fields,body.text,body.images)
     except ValueError as exc:
         raise HTTPException(400,str(exc)) from None
     rows = draft['rows'][:max(0,settings.ai_max_records)]
     audit(db,user.id,'entry_draft_parse','entry_draft',None,
-          reason=f"解析批量填单草稿：模块 {body.module}，提出 {len(rows)} 行，待人工复核；未写入任何业务记录")
+          reason=f"解析批量填单草稿：模块 {body.module}，文本 {len(body.text)} 字，图片 {len(body.images)} 张，提出 {len(rows)} 行，待人工复核；未写入任何业务记录")
     db.commit()
     return {'module':body.module,'rows':rows,'issues':draft['issues'],'proposed':len(rows)}
 

@@ -483,7 +483,64 @@ $('#app').addEventListener('keydown',event=>{if(event.key==='Enter'&&event.targe
 // 服务器契约：POST /api/entry-draft/parse 只回草稿（rows / issues / proposed），绝不写业务表。
 // 正式记录一律由人走既有的 POST /api/records/{module}（与 recordDialog 同一条提交路径），创建人即复核人。
 const batchModules=['vehicles','sales','repairs','policies','cash'];
-let batchState={module:null,fields:[],drafts:[],issues:[],orphans:[],text:'',proposed:0,written:0,summary:''};
+let batchState={module:null,fields:[],drafts:[],issues:[],orphans:[],text:'',images:[],proposed:0,written:0,summary:''};
+// 图片先在浏览器里压缩再上传：手机原图动辄 3–8MB，而模型最终也只把图缩到约 1300×1300，
+// 传原图只是白占门店的上行带宽。canvas 重编码还会顺带丢掉 EXIF（含 GPS 定位与拍摄设备）。
+const batchMaxImages=4,batchImageEdge=1600,batchImageSoftBytes=1500*1024,
+      batchImageHardBytes=3*1024*1024,batchImageSourceBytes=12*1024*1024;
+function batchBytesOf(dataUrl){const at=dataUrl.indexOf(',');return at<0?0:Math.round((dataUrl.length-at-1)*3/4);}
+function batchSizeText(bytes){return bytes>=1048576?`${(bytes/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`;}
+function batchLoadImage(file){
+  return new Promise((resolve,reject)=>{
+    const url=URL.createObjectURL(file),node=new Image();
+    node.onload=()=>{URL.revokeObjectURL(url);resolve(node);};
+    node.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('这张图片无法读取：可能已损坏，或是浏览器不支持的格式（如 iPhone 的 HEIC 原图）。'));};
+    node.src=url;
+  });
+}
+async function batchPrepareImage(file){
+  if(!file)throw new Error('没有读到图片文件。');
+  if(file.type&&!/^image\//.test(file.type))throw new Error('只能选择图片文件。');
+  if(file.size>batchImageSourceBytes)throw new Error(`单张原图超过 ${batchImageSourceBytes/1048576}MB，请先裁剪或压缩。`);
+  const image=await batchLoadImage(file);
+  const width=image.naturalWidth||image.width,height=image.naturalHeight||image.height;
+  if(!width||!height)throw new Error('这张图片没有有效尺寸。');
+  const scale=Math.min(1,batchImageEdge/Math.max(width,height));
+  const w=Math.max(1,Math.round(width*scale)),h=Math.max(1,Math.round(height*scale));
+  const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+  const ctx=canvas.getContext('2d');
+  // 先铺白底：JPEG 没有透明通道，截图里的透明区域铺白后也更利于识别。
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+  ctx.drawImage(image,0,0,w,h);
+  // 截图（PNG）优先无损，照片走 JPEG；无损结果过大时再退回 JPEG。
+  let dataUrl=canvas.toDataURL(file.type==='image/png'?'image/png':'image/jpeg',0.9);
+  if(batchBytesOf(dataUrl)>batchImageSoftBytes)dataUrl=canvas.toDataURL('image/jpeg',0.82);
+  const bytes=batchBytesOf(dataUrl);
+  if(bytes>batchImageHardBytes)throw new Error('图片压缩后仍然过大，请先裁剪掉无用部分再试。');
+  return {dataUrl,width:w,height:h,bytes};
+}
+function batchImagesHTML(){
+  const list=batchState.images;
+  if(!list.length)return '<div class="batch-image-empty">还没有选择图片。可以拍照、从相册选，或把手机截图直接粘贴到这个窗口（Ctrl+V）。</div>';
+  const total=list.reduce((sum,img)=>sum+img.bytes,0);
+  return `<div class="batch-image-list">${list.map((img,i)=>`<figure class="batch-image-item"><img src="${img.dataUrl}" alt="第 ${i+1} 张待识别图片"><figcaption><span>第 ${i+1} 张 · ${img.width}×${img.height} · ${batchSizeText(img.bytes)}</span>${actBtn('batch-image-remove','移除',`data-index="${i}"`,'small ghost')}</figcaption></figure>`).join('')}</div>
+    <div class="hint">共 ${list.length} 张，压缩后合计 ${batchSizeText(total)}。原图已在本机压缩并去掉 EXIF 定位信息，服务器不保存图片。</div>`;
+}
+function renderBatchImages(){const box=$('#batch-images');if(box)box.innerHTML=batchImagesHTML();}
+async function addBatchImages(files){
+  const list=[...files].filter(Boolean);
+  if(!list.length)return;
+  if(batchState.images.length+list.length>batchMaxImages)throw new Error(`一次最多 ${batchMaxImages} 张图片，当前已有 ${batchState.images.length} 张。`);
+  const progress=$('#batch-image-progress');
+  try{
+    for(let i=0;i<list.length;i++){
+      if(progress)progress.textContent=`正在压缩第 ${i+1} / ${list.length} 张图片…`;
+      await new Promise(resolve=>setTimeout(resolve,0));
+      batchState.images.push(await batchPrepareImage(list[i]));
+    }
+  }finally{if(progress)progress.textContent='';renderBatchImages();}
+}
+
 const batchFieldName=(row,name)=>`r${row}__${name}`;
 const batchInput=(row,name)=>$(`#modal [name="${batchFieldName(row,name)}"]`);
 function batchRow(row){return batchState.drafts.find(d=>d.index===row);}
@@ -567,12 +624,14 @@ function renderBatchReview(){
   const module=batchState.module,n=batchState.drafts.length;
   $('#modal').classList.add('batch-modal');
   const orphan=batchState.orphans.length?`<div class="banner danger">模型返回的以下提示无法对应到具体草稿行（该条可能不是字段对象，或条数被上限截断），请人工核对：${E(batchState.orphans.map(i=>{const row=Number(i&&i.row);return `${Number.isInteger(row)&&row>=0?`第 ${row+1} 条`:'未标明行'} ${(i&&i.field)||'整行'}：${(i&&i.reason)||'模型输出异常，未给出原因'}`;}).join('；'))}</div>`:'';
+  const multi=batchState.images.length>1?`<div class="banner warning">本次识别用了 ${batchState.images.length} 张图片。若其中几张拍的是同一张单据，模型被要求<strong>只输出一次</strong>；但仍请核对下表有没有重复行，重复的请直接删除。</div>`:'';
+  const strip=batchState.images.length?`<div class="batch-image-list">${batchState.images.map((img,i)=>`<figure class="batch-image-item"><img src="${img.dataUrl}" alt="第 ${i+1} 张原图"><figcaption><span>第 ${i+1} 张 · ${img.width}×${img.height}</span></figcaption></figure>`).join('')}</div>`:'';
   openModal(`复核 AI 草稿 · ${names[module]}`,`模型提出 ${batchState.proposed} 条草稿：请逐条核对，删掉不需要的行，补上标红的必填项。`,
-    `${batchState.summary}<div class="banner warning">下表只是草稿，<strong>尚未写入任何业务记录</strong>。只有你点击“确认写入”后才会逐条调用普通录入接口保存；每条记录的创建人记录为 <strong>${E(state.user.display_name)}</strong>（${E(state.user.username)}），保存后仍是草稿，需按常规流程提交与审核。金额、日期、VIN 与关联编号一律以你的复核为准。</div>${orphan}
+    `${batchState.summary}<div class="banner warning">下表只是草稿，<strong>尚未写入任何业务记录</strong>。只有你点击“确认写入”后才会逐条调用普通录入接口保存；每条记录的创建人记录为 <strong>${E(state.user.display_name)}</strong>（${E(state.user.username)}），保存后仍是草稿，需按常规流程提交与审核。金额、日期、VIN 与关联编号一律以你的复核为准。</div>${orphan}${multi}
     <div class="batch-summary" id="batch-counts">${batchCountsHTML()}</div>
     <div class="batch-summary">${n?actBtn('batch-fill-all','为所有空缺字段补默认值','','small'):actBtn('batch-restart','返回重新粘贴','data-module="'+E(module)+'"','small')}<span class="hint">补默认值只填当前为空的字段，是否采纳由你决定。</span></div>
     ${batchTableHTML()}
-    <details><summary>查看原始粘贴文本（对照用）</summary><pre class="json-view">${E(batchState.text||'')}</pre></details>
+    <details><summary>查看原始文本与图片（对照用）</summary>${strip}<pre class="json-view">${E(batchState.text||'（本次没有文本，草稿全部来自图片）')}</pre></details>
     <div id="batch-write-progress" class="subtitle" role="status"></div>`,
     '<span class="hint">AI 只出草稿；写入由你负责</span>'+actBtn('close-modal',batchState.written?`关闭（已写入 ${batchState.written} 条）`:'取消，不写入')+`<button id="batch-confirm" class="primary" type="submit" value="confirm"${n?'':' disabled'}>确认写入 ${n} 条草稿</button>`,true);
   initializeLookups();
@@ -623,14 +682,31 @@ async function batchEntryDialog(module){
   if(!state.storeId||state.storeId==='all')throw new Error('请先在右上角选择一家具体门店；批量填单不支持“全部门店汇总”。');
   if(state.settings&&state.settings.ai_allowed===false)throw new Error('服务器未开启 AI 外发（ALLOW_AI_EXTERNAL）；批量填单不可用，请继续手工录入。');
   $('#modal').classList.remove('batch-modal');
-  batchState={module,fields:[...moduleFields[module],noteField],drafts:[],issues:[],orphans:[],text:'',proposed:0,written:0,summary:''};
-  openModal(`AI 批量填写 · ${names[module]}`,'粘贴一段文字，由 DeepSeek 整理成待复核草稿；是否写入由你逐条确认。',
+  batchState={module,fields:[...moduleFields[module],noteField],drafts:[],issues:[],orphans:[],text:'',images:[],proposed:0,written:0,summary:''};
+  openModal(`AI 批量填写 · ${names[module]}`,'粘贴一段文字，或拍下/上传工单照片、手机截图，由 DeepSeek 整理成待复核草稿；是否写入由你逐条确认。',
     `<div class="banner">AI 只做字段抽取，<strong>不会写入任何业务记录</strong>。草稿必须由你逐条复核、修改、删除后点击“确认写入”，才会通过普通录入接口保存；创建人记录为你（${E(state.user.display_name)}）。</div>
-    <div class="banner warning">只发送你粘贴的文本与字段清单，不发送数据库内容或其他记录。粘贴前请自行去掉身份证号、银行卡号等敏感信息。</div>
-    ${renderField(field('batch_text','粘贴文本（10–20000 字符，一行一条记录）','textarea',{required:true,max:20000}),'')}
+    <div class="banner warning">只发送你粘贴的文本、你选择的图片与字段清单，不发送数据库内容或其他记录。<strong>图片不会被服务器保存</strong>，但会发给 DeepSeek 用于本次识别；浏览器已先在本机压缩并去掉 EXIF 定位信息。拍照或粘贴前请自行避开身份证号、银行卡号等敏感信息。</div>
+    ${renderField(field('batch_text','粘贴文本（可选，10–20000 字符，一行一条记录）','textarea',{max:20000}),'')}
     <label>导入纯文本（可选，UTF-8，最多48KB）<input id="batch-file" type="file" accept=".txt,.md,text/plain,text/markdown"></label>
+    <div class="field"><span>工单照片 / 手机截图（可选，最多 ${batchMaxImages} 张）</span>
+      <div class="row wrap">
+        <label class="file-pick">选择图片<input id="batch-image" type="file" accept="image/*" multiple></label>
+        <label class="file-pick">手机拍照<input id="batch-camera" type="file" accept="image/*" capture="environment"></label>
+      </div>
+      <small>也可以在窗口里直接 Ctrl+V 粘贴截图，或把图片拖进来。文字和图片至少要有一个。</small>
+    </div>
+    <div id="batch-images">${batchImagesHTML()}</div>
+    <div id="batch-image-progress" class="subtitle" role="status"></div>
     <div id="batch-parse-progress" class="subtitle" role="status"></div>`,
     '<span class="hint">AI 草稿不落库；核对后才逐条写入</span>'+actBtn('close-modal','取消')+'<button class="primary" type="submit">让 AI 生成草稿</button>',true);
+  const pick=async event=>{
+    const input=event.target;
+    try{await addBatchImages(input.files);}
+    catch(error){toast(error.message,true);}
+    finally{input.value='';}
+  };
+  $('#batch-image').onchange=pick;
+  $('#batch-camera').onchange=pick;
   $('#batch-file').onchange=async event=>{
     try{
       const file=event.target.files[0];if(!file)return;
@@ -642,11 +718,15 @@ async function batchEntryDialog(module){
   };
   bindForm(async fd=>{
     const text=String(fd.get('batch_text')??'').replace(/\r\n?/g,'\n').trim();
-    if(text.length<10)throw new Error('请至少粘贴 10 个字符的文本。');
+    const images=batchState.images.map(image=>image.dataUrl);
+    if(text.length<10&&!images.length)throw new Error('请至少粘贴 10 个字符的文本，或至少添加 1 张图片。');
     if(text.length>20000)throw new Error('文本最多 20000 字符。');
-    const progress=$('#batch-parse-progress');if(progress)progress.textContent='正在请求 DeepSeek 生成草稿，请稍候…';
+    const progress=$('#batch-parse-progress');
+    if(progress)progress.textContent=images.length
+      ?`正在上传 ${images.length} 张图片并请求 DeepSeek 识别，请稍候（通常十几秒，别关窗口）…`
+      :'正在请求 DeepSeek 生成草稿，请稍候…';
     try{
-      const data=await api('/api/entry-draft/parse',{method:'POST',body:{module,text,fields:batchFieldSpec(module)}});
+      const data=await api('/api/entry-draft/parse',{method:'POST',body:{module,text,images,fields:batchFieldSpec(module)}});
       batchReviewDialog(text,data);
     }finally{const node=$('#batch-parse-progress');if(node)node.textContent='';}
   });
@@ -661,6 +741,7 @@ $('#modal').addEventListener('click',async event=>{
   const action=button.dataset.action,row=Number(button.dataset.row);
   try{
     if(action==='batch-remove'){batchSync();batchState.drafts=batchState.drafts.filter(d=>d.index!==row);renderBatchReview();}
+    else if(action==='batch-image-remove'){batchState.images.splice(Number(button.dataset.index),1);renderBatchImages();}
     else if(action==='batch-defaults'){batchSync();batchFillDefaults(row);renderBatchReview();}
     else if(action==='batch-fill-all'){batchSync();batchFillDefaults(null);renderBatchReview();}
     else if(action==='batch-restart')await batchEntryDialog(button.dataset.module);
@@ -669,6 +750,21 @@ $('#modal').addEventListener('click',async event=>{
 $('#modal').addEventListener('input',event=>{const cell=event.target.closest('[data-batch-cell]');if(cell)batchRefreshRow(Number(cell.dataset.batchRow));});
 $('#modal').addEventListener('change',event=>{const cell=event.target.closest('[data-batch-cell]');if(cell)batchRefreshRow(Number(cell.dataset.batchRow));});
 $('#modal').addEventListener('close',()=>$('#modal').classList.remove('batch-modal'));
+// 截图最省事的入口是 Ctrl+V；只在批量填单的图片区存在时接管，避免影响其他弹窗的粘贴行为。
+const batchImageTarget=()=>$('#batch-images')?true:false;
+$('#modal').addEventListener('paste',async event=>{
+  if(!batchImageTarget())return;
+  const files=[...((event.clipboardData&&event.clipboardData.files)||[])];
+  if(!files.length)return;
+  event.preventDefault();
+  try{await addBatchImages(files);}catch(error){toast(error.message,true);}
+});
+$('#modal').addEventListener('dragover',event=>{if(batchImageTarget())event.preventDefault();});
+$('#modal').addEventListener('drop',async event=>{
+  if(!batchImageTarget())return;
+  event.preventDefault();
+  try{await addBatchImages([...((event.dataTransfer&&event.dataTransfer.files)||[])]);}catch(error){toast(error.message,true);}
+});
 
 // ================= 数据可视化：依赖为零的 SVG 图表页（web/charts.js） =================
 // 本段全部在保护标记之外：不改登录、权限、门店选择与既有写入流程，只调用它们。
