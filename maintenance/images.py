@@ -58,9 +58,15 @@ def trusted_test_image(cfg) -> tuple:
 
 def build_image(source: Path, tag: str, timeout: int, dockerfile: str = 'Dockerfile'):
     source = Path(source).resolve()
-    if not (source/dockerfile).is_file():
+    # docker 的 -f 相对「进程 cwd」解析，而不是相对构建上下文。生产里包装器先 cd 到
+    # 可信检出目录，于是 -f Dockerfile 恰好命中了那里的同名文件——能跑通，但用的是
+    # 另一份 Dockerfile，两边一旦不同就是静默构建出错误镜像。这里显式解析成绝对路径。
+    recipe = Path(dockerfile)
+    if not recipe.is_absolute():
+        recipe = source / recipe
+    if not recipe.is_file():
         raise GateError('候选目录缺少 %s，拒绝构建镜像' % dockerfile)
-    argv = ['docker', 'build', '--pull=false', '--quiet', '-f', dockerfile, '-t', tag, str(source)]
+    argv = ['docker', 'build', '--pull=false', '--quiet', '-f', str(recipe), '-t', tag, str(source)]
     try:
         proc = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, timeout=timeout, check=False)

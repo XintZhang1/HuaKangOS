@@ -380,3 +380,36 @@ def test_checkout_detached_lands_on_the_exact_commit(real_repo):
     assert repo.git('rev-parse','HEAD')==base
     assert repo.git('rev-parse','--abbrev-ref','HEAD')=='HEAD', 'must be detached, not on a branch'
     with pytest.raises(GateError): repo.checkout_detached('not-a-sha')
+
+
+# --- docker build recipe resolution --------------------------------------
+
+def test_build_image_resolves_the_dockerfile_against_the_context(tmp_path,monkeypatch):
+    """回归：`docker build -f` 相对进程 cwd 解析，而不是相对构建上下文。
+
+    生产里包装器先 `cd $HKB_ROOT/src`，于是 `-f Dockerfile` 恰好命中可信检出目录里的
+    同名文件——构建照样成功，但用的是**另一份** Dockerfile。手工在新加坡构建时踩到了：
+    cwd 落在 /root，docker 直接报 `lstat /root/Dockerfile: permission denied`。
+    """
+    from maintenance import images
+    source=tmp_path/'source';source.mkdir()
+    (source/'Dockerfile').write_text('FROM scratch\n',encoding='utf-8')
+    seen={}
+    def fake_run(argv,**kwargs):
+        seen['argv']=argv
+        return subprocess.CompletedProcess(argv,0,b'')
+    monkeypatch.setattr(images.subprocess,'run',fake_run)
+    monkeypatch.setattr(images,'image_id',lambda tag:'sha256:'+'0'*64)
+    assert images.build_image(source,'app:'+'a'*40,60)
+    argv=seen['argv']
+    recipe=Path(argv[argv.index('-f')+1])
+    assert recipe.is_absolute(), '必须是绝对路径，否则取决于调用者的 cwd'
+    assert recipe==(source/'Dockerfile').resolve()
+    assert argv[-1]==str(source.resolve()), '构建上下文仍应是候选目录'
+
+
+def test_build_image_rejects_a_missing_recipe(tmp_path):
+    from maintenance import images
+    with pytest.raises(GateError):
+        images.build_image(tmp_path,'app:'+'b'*40,60)
+
