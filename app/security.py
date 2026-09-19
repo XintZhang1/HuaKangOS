@@ -1,11 +1,12 @@
 from datetime import timedelta
+from ipaddress import ip_address
 import hashlib
 import hmac
 import secrets
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
 from fastapi import Depends, HTTPException, Request, Response
-from sqlalchemy import select, func, or_, delete
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import Session
 from .config import settings
 from .db import get_db, utcnow
@@ -20,10 +21,32 @@ READ = {'admin':ALL, 'manager':ALL, 'finance':ALL, 'auditor':ALL,
 WRITE = {'admin':ALL, 'manager':ALL, 'finance':{'cash'}, 'auditor':set(),
          'sales':{'sales'}, 'inventory':{'vehicles'}, 'service':{'repairs','policies'}}
 FULL_VIEW = {'admin','manager','finance','auditor'}
+LOGIN_FAILURE_LIMIT = 10
+LOGIN_FAILURE_WINDOW = timedelta(minutes=15)
 
 
 def digest(value: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def identifies_a_client(ip: str) -> bool:
+    """这个来源地址能不能代表「某一个客户端」。
+
+    容器化部署时，请求往往不是直连进来的：docker 端口映射让同宿主机的连接看起来来自
+    网桥地址，反向代理 / 内网穿透（例如花生壳客户端跑在同一台机器上）更是把所有访客
+    都变成同一个内网地址。这时按 IP 计数就不再是「这个人失败了几次」，而是「所有人一共
+    失败了几次」——任何一个陌生人都能靠失败 10 次把全店锁在门外 15 分钟。
+    所以只有全球可达的单播地址才拿来当客户端身份。
+
+    用 is_global 而不是自己拼 is_private 等条件，是因为它一并覆盖了运营商大内网
+    （100.64.0.0/10，国内移动网络上很常见，成百上千人共用一个出口）、文档段与保留段：
+    这些地址同样不能代表某一个人。
+    """
+    try:
+        address = ip_address((ip or '').strip())
+    except ValueError:
+        return False
+    return bool(address.is_global)
 
 
 def hash_password(password: str) -> str:
@@ -41,11 +64,17 @@ def verify_password(password: str, encoded: str) -> bool:
 
 def authenticate(db: Session, username: str, password: str, ip: str) -> User:
     username = username.lower()
-    cutoff = utcnow() - timedelta(minutes=15)
-    failures = db.scalar(select(func.count()).select_from(LoginAttempt).where(
-        LoginAttempt.occurred_at > cutoff, or_(LoginAttempt.username == username, LoginAttempt.ip == ip)))
-    if failures >= 10:
-        raise HTTPException(429, '登录失败次数过多，请 15 分钟后重试')
+    cutoff = utcnow() - LOGIN_FAILURE_WINDOW
+
+    def failures(column) -> int:
+        return db.scalar(select(func.count()).select_from(LoginAttempt).where(
+            LoginAttempt.occurred_at > cutoff, column)) or 0
+
+    if failures(LoginAttempt.username == username) >= LOGIN_FAILURE_LIMIT:
+        raise HTTPException(429, '该账号登录失败次数过多，请 15 分钟后重试')
+    if identifies_a_client(ip) and failures(LoginAttempt.ip == ip) >= LOGIN_FAILURE_LIMIT:
+        # 只在来源地址真的代表某个客户端时才按它计数，否则会变成一把全店通用的锁。
+        raise HTTPException(429, '当前网络登录失败次数过多，请 15 分钟后重试')
     user = db.scalar(select(User).where(User.username == username))
     valid = verify_password(password, user.password_hash if user else DUMMY_HASH)
     if not user or not valid or not user.active:
