@@ -23,6 +23,23 @@ from maintenance import gitops
 BASE='a'*40;HEAD='b'*40;APPROVER='ou_approved_test_owner'
 
 
+@pytest.fixture(autouse=True)
+def open_window_and_idle_quant(monkeypatch):
+    """Make this file independent of the wall clock.
+
+    worker.process_one() and Supervisor.deploy() both ask the window and quant
+    guards before doing anything, so unfixed these tests only pass between 22:00
+    and 06:00 Shanghai -- during working hours every candidate test short-circuits
+    and the suite goes red for no real reason. The gate itself is covered by
+    tests/test_window.py, so pinning it open here is the honest separation.
+    """
+    from maintenance import supervisor as supervisor_module, worker as worker_module
+    from maintenance.window import QuantState, WindowState
+    for module in (worker_module, supervisor_module):
+        monkeypatch.setattr(module,'window_state',lambda cfg,now=None: WindowState(True,'',600))
+        monkeypatch.setattr(module,'quant_state',lambda units,runner=None: QuantState())
+
+
 def config(tmp_path,**kwargs):
     # auto_publish is deliberately OFF here: these tests cover the human approval
     # path. The auto-publish path has its own file (tests/test_policy_tier.py).
