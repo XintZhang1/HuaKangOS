@@ -55,8 +55,8 @@ async function api(path,{method='GET',body,raw=false}={}){
 
 // MAINT_PROTECTED_END:transport
 const actBtn=(action,label,extra='',cls='')=>`<button type="button" class="${cls}" data-action="${action}" ${extra}>${E(label)}</button>`;
-function heading(title,subtitle,right='',eyebrow='DEALERDESK / WORKSPACE'){
-  return `<div class="page-heading"><div><div class="eyebrow">${E(eyebrow)}</div><h1>${E(title)}</h1><p class="subtitle">${E(subtitle)}</p></div>${right}</div>`;
+function heading(title,subtitle='',right=''){
+  return `<div class="page-heading"><div><h1>${E(title)}</h1>${subtitle?`<p class="subtitle">${E(subtitle)}</p>`:''}</div>${right}</div>`;
 }
 function errorPanel(error){return `<div class="inline-error">${E(error.message||error)}</div>`;}
 function empty(title,desc){return `<div class="empty"><strong>${E(title)}</strong>${E(desc)}</div>`;}
@@ -66,7 +66,7 @@ function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a
 // MAINT_PROTECTED_BEGIN:login-navigation
 function renderLogin(){
   $('#modal').close();
-  $('#app').innerHTML=`<div class="login-shell"><section class="login-art"><div class="brand"><div class="brand-mark">D</div><div><strong>DealerDesk</strong><small>门店经营 · 每日有数</small></div></div><div><h1>把每一笔业务，<br>变成看得见的经营。</h1><p>销售、库存、售后与财务，汇集在同一个工作台。让记录可追溯，让需要复核的问题被及时看见。</p></div><small>LOCAL FIRST &nbsp; / &nbsp; HUMAN REVIEW ALWAYS</small></section><section class="login-right"><form id="login-form" class="login-form"><div class="login-version">DEALERDESK · MULTI-STORE EDITION 0.2</div><h2>欢迎回到经营台</h2><p>使用管理员分配的门店账号登录。</p><label>账号<input name="username" required autocomplete="username" maxlength="40" placeholder="请输入账号"></label><label>密码<input name="password" type="password" required autocomplete="current-password" maxlength="128" placeholder="请输入密码"></label><div id="login-error" class="form-error" role="alert"></div><button class="primary" type="submit">登录工作台 →</button><div class="login-note">首次使用需在启动终端创建管理员。<br>本地服务运行期间，数据保存在你的数据库中。</div></form></section></div>`;
+  $('#app').innerHTML=`<div class="login-shell"><section class="login-art"><div class="brand"><div class="brand-mark">D</div><div><strong>DealerDesk</strong><small>门店经营管理系统</small></div></div><div><h1>门店经营，<br>一处管清。</h1><p>销售、库存、维修、保险、收支，都在这里。</p></div></section><section class="login-right"><form id="login-form" class="login-form"><div class="login-version">DealerDesk 0.2</div><h2>欢迎回来</h2><label>账号<input name="username" required autocomplete="username" maxlength="40" placeholder="请输入账号"></label><label>密码<input name="password" type="password" required autocomplete="current-password" maxlength="128" placeholder="请输入密码"></label><div id="login-error" class="form-error" role="alert"></div><button class="primary" type="submit">登录</button><div class="login-note">忘记密码请联系管理员。</div></form></section></div>`;
   $('#login-form').onsubmit=async event=>{event.preventDefault();const button=$('button',event.currentTarget);button.disabled=true;$('#login-error').textContent='';
     try{const fd=new FormData(event.currentTarget);state.user=await api('/api/auth/login',{method:'POST',body:Object.fromEntries(fd)});await boot();}
     catch(error){$('#login-error').textContent=error.message;}finally{button.disabled=false;}};
@@ -74,14 +74,14 @@ function renderLogin(){
 function shell(){
   const u=state.user;
   const nav=key=>`<button class="nav-item ${state.route===key?'active':''}" data-action="nav" data-route="${key}">${icon(key)}<span>${names[key]}</span></button>`;
-  $('#app').innerHTML=`<div class="app-shell"><aside class="sidebar"><div class="brand"><div class="brand-mark">D</div><div><strong>DealerDesk</strong><small>门店经营工作台</small></div></div>${u.can_report?nav('dashboard'):''}<div class="nav-group">BUSINESS · 业务数据</div>${['sales','vehicles','repairs','policies','cash'].filter(x=>u.read_modules.includes(x)).map(nav).join('')}${u.can_report?`<div class="nav-group">REVIEW · 经营复核</div>${nav('reports')}${nav('findings')}`:''}<div class="nav-group">WORKSPACE · 工作空间</div>${u.can_users?nav('stores'):''}${u.can_users?nav('users'):''}${nav('feedback')}${u.can_audit?nav('audit'):''}${u.can_report?nav('settings'):''}<div class="sidebar-bottom"><strong><span class="dot"></span>多门店 · 授权数据空间</strong>人工确认，程序留痕。<br>v0.2.0 · CNY</div></aside><div class="workarea"><header class="topbar">${actBtn('mobile-menu','☰','','mobile-menu ghost')}<div class="breadcrumb">工作空间 &nbsp; / &nbsp; <strong>${E(names[state.route])}</strong></div><div class="topbar-right">${storeSelector()}<div class="user-menu"><span class="avatar">${E(u.display_name.slice(0,1))}</span><span class="user-text">${E(u.display_name)}<small>${E(u.role_label)}</small></span></div>${actBtn('password','改密','','small ghost')}${actBtn('logout','退出','','small ghost')}</div></header><main id="main"><div class="loading-line">正在读取门店数据…</div></main></div></div>`;
+  $('#app').innerHTML=`<div class="app-shell"><aside class="sidebar"><div class="brand"><div class="brand-mark">D</div><div><strong>DealerDesk</strong><small>门店经营工作台</small></div></div>${u.can_report?nav('dashboard'):''}<div class="nav-group">业务数据</div>${['sales','vehicles','repairs','policies','cash'].filter(x=>u.read_modules.includes(x)).map(nav).join('')}${u.can_report?`<div class="nav-group">经营复核</div>${nav('reports')}${nav('findings')}`:''}<div class="nav-group">管理</div>${u.can_users?nav('stores'):''}${u.can_users?nav('users'):''}${nav('feedback')}${u.can_audit?nav('audit'):''}${u.can_report?nav('settings'):''}<div class="sidebar-bottom"><strong><span class="dot"></span>多门店</strong>v0.2.0</div></aside><div class="workarea"><header class="topbar">${actBtn('mobile-menu','☰','','mobile-menu ghost')}<div class="breadcrumb"><strong>${E(names[state.route])}</strong></div><div class="topbar-right">${storeSelector()}<div class="user-menu"><span class="avatar">${E(u.display_name.slice(0,1))}</span><span class="user-text">${E(u.display_name)}<small>${E(u.role_label)}</small></span></div>${actBtn('password','改密','','small ghost')}${actBtn('logout','退出','','small ghost')}</div></header><main id="main"><div class="loading-line">正在读取门店数据…</div></main></div></div>`;
 }
 async function boot(){
   state.storeId=state.user.active_store_id; state.stores=state.user.stores||[];
   state.end=localToday();
   state.route=state.user.can_report?'dashboard':state.user.read_modules.includes('sales')?'sales':state.user.read_modules[0];
   shell();
-  if(state.user.must_change_password){$('#main').innerHTML=heading('先设置你的个人密码','首次登录需修改管理员分配的临时密码。');passwordDialog(true);return;}
+  if(state.user.must_change_password){$('#main').innerHTML=heading('先改密码','首次登录要改掉临时密码。');passwordDialog(true);return;}
   if(state.user.can_report){try{state.settings=await api('/api/settings');state.end=state.settings.today;}catch(error){toast(error.message,true);}}
   await renderPage();
 }
@@ -95,7 +95,7 @@ async function renderPage(){
   const sequence=++renderSequence;
   const node=$('#main');if(!node)return;
   ensureVizNav();
-  node.innerHTML='<div class="loading-line">正在读取门店数据…</div>';
+  node.innerHTML='<div class="loading-line">正在加载…</div>';
   try{
     let html;
     if(state.route==='dashboard')html=await dashboardPage();
@@ -134,8 +134,8 @@ async function dashboardPage(){
   const d=await api(`/api/dashboard?end=${state.end}&days=${state.days}`),t=d.totals;
   const controls=`<div class="date-controls"><select id="dashboard-days" aria-label="看板统计期间">${[[1,'当日'],[7,'近 7 日'],[30,'近 30 日'],[90,'近 90 日']].map(([v,l])=>`<option value="${v}" ${v===state.days?'selected':''}>${l}</option>`).join('')}</select><input id="dashboard-end" type="date" aria-label="看板结束日期" value="${state.end}" max="${localToday()}">${actBtn('dashboard-refresh','更新','','small')}</div>`;
   const monetary=(v)=>`<span class="currency">¥</span>${money(v)}`;
-  return heading('经营总览',`${d.start_date} — ${d.end_date} · 流量按所选期间，库存与待收款按期末有效记录`,controls,'STORE OPERATIONS / 经营全景')+
-    (state.settings?.demo_database?'<div class="banner warning">演示数据空间：本库含虚构样例。正式录入前，请按照 README 建立独立空库，勿混用。</div>':'')+
+  return heading('经营总览',`${d.start_date} 至 ${d.end_date}`,controls)+
+    (state.settings?.demo_database?'<div class="banner warning">这是演示数据，正式使用前请换成空库。</div>':'')+
     `<div class="kpi-grid">${kpi('交付合同金额',monetary(t.delivery_amount_cents),`已审核交车 <span class="positive">${t.delivery_count} 台</span>`,true)}
     ${kpi('维修结算金额',monetary(t.repair_amount_cents),`已审核完工 ${t.repair_completed_count} 单`)}
     ${kpi('销售 + 维修毛差',monetary(t.gross_difference_cents),'基于录入直接成本 · 非会计净利润')}
@@ -144,11 +144,11 @@ async function dashboardPage(){
     ${kpi('库存成本占用',monetary(t.stock_cost_cents),`超 ${state.settings?.rules.inventory_aging_days||90} 天库存 ${t.aging_stock_count} 台`)}
     ${kpi('已交付 / 完工待收款',monetary(t.sales_receivable_cents+t.repair_receivable_cents),'销售与维修净待收 · 不含未交付订金')}
     ${kpi('新保单预计佣金',monetary(t.expected_commission_cents),`保费 ${shortMoney(t.policy_premium_cents)} 单列，不混作营收`)}</div>
-    <div class="chart-grid"><section class="panel"><div class="panel-head"><div><h2>每日交付走势</h2><small>按交车日统计 · 单据必须已审核</small></div>${badge('approved',`${d.days} 天`)}</div>${chartBars(d.series)}</section><section class="panel"><div class="panel-head"><div><h2>库存结构</h2><small>期末在库，不含已经交车的车辆</small></div></div>${stockDonut(t)}</section></div>
-    <div class="split-panels"><section class="panel"><div class="panel-head"><div><h2>值得关注的信号</h2><small>规则实时计算；生成日报后进入复核台</small></div>${actBtn('nav','前往日报 →','data-route="reports"','small ghost')}</div>${[['high','优先复核线索','金额、凭证和关联关系需要核对'],['medium','建议复核线索','账期、折扣、库龄与业务状态'],['low','管理提醒','待审核或需解释的日期差异']].map(([s,title,desc])=>`<div class="attention-row"><div><strong>${title}</strong><small>${desc}</small></div>${badge(s,`${d.rule_counts[s]||0} 项`)}</div>`).join('')}</section>
-    <section class="panel"><div class="panel-head"><div><h2>今日工作入口</h2><small>录入、审批、复核，各有记录</small></div></div><div class="attention-row"><div><strong>${t.pending_approval_count} 份单据等待审核</strong><small>待审核金额不会进入已审核经营指标</small></div>${actBtn('nav','查看单据','data-route="sales"','small')}</div><div class="attention-row"><div><strong>日报里的数字由程序计算</strong><small>DeepSeek 整理摘要与建议，不直接改账</small></div>${actBtn('nav','生成日报','data-route="reports"','small primary')}</div><div class="attention-row"><div><strong>所有变更都有操作留痕</strong><small>数据库本体与备份仍需限制访问</small></div>${state.user.can_audit?actBtn('nav','查看日志','data-route="audit"','small'):badge('approved','权限控制')}</div></section></div>${storeComparison(d)}<div class="basis">${E(d.basis)}</div>`;
+    <div class="chart-grid"><section class="panel"><div class="panel-head"><div><h2>每日交付走势</h2><small>只算已审核</small></div>${badge('approved',`${d.days} 天`)}</div>${chartBars(d.series)}</section><section class="panel"><div class="panel-head"><div><h2>库存结构</h2><small>在库，不含已交车</small></div></div>${stockDonut(t)}</section></div>
+    <div class="split-panels"><section class="panel"><div class="panel-head"><div><h2>值得关注的信号</h2></div>${actBtn('nav','前往日报 →','data-route="reports"','small ghost')}</div>${[['high','优先复核','金额、凭证、关联关系'],['medium','建议复核','账期、折扣、库龄'],['low','提醒','待审核、日期对不上']].map(([s,title,desc])=>`<div class="attention-row"><div><strong>${title}</strong><small>${desc}</small></div>${badge(s,`${d.rule_counts[s]||0} 项`)}</div>`).join('')}</section>
+    <section class="panel"><div class="panel-head"><div><h2>今天要做的</h2></div></div><div class="attention-row"><div><strong>${t.pending_approval_count} 份单据等审核</strong><small>审核前不计入经营指标</small></div>${actBtn('nav','查看单据','data-route="sales"','small')}</div><div class="attention-row"><div><strong>日报数字由程序算</strong><small>AI 只写摘要，不改账</small></div>${actBtn('nav','生成日报','data-route="reports"','small primary')}</div><div class="attention-row"><div><strong>所有改动都有记录</strong><small>操作日志可查</small></div>${state.user.can_audit?actBtn('nav','查看日志','data-route="audit"','small'):badge('approved','权限控制')}</div></section></div>${storeComparison(d)}<div class="basis">${E(d.basis)}</div>`;
 }
-const moduleDescriptions={vehicles:'一车一 VIN。生效销售订单自动预订库存，确认交车后自动出库。',sales:'管理订单与实际交车。收款单独录入财务流水，并关联销售单据。',repairs:'报修、工时配件、优惠与完工管理。保险维修可关联具体保单。',policies:'保费与预计佣金分别记录。保费代收不会自动当作门店收入。',cash:'录入经营收付款与资金往来。内部转账只录一笔，门店总收支中自动排除。'};
+const moduleDescriptions={vehicles:'一车一条，按 VIN 管库存。',sales:'订单和交车；收款在收支流水里单独录。',repairs:'报修、工时配件、完工。',policies:'保费和佣金分开记。',cash:'进出账；内部转账只录一笔。'};
 // MAINT_PROTECTED_BEGIN:record-authority
 function canEdit(row,module){return state.user.write_modules.includes(module)&&(['admin','manager'].includes(state.user.role)||row.created_by===state.user.id);}
 function rowActions(row,module){
@@ -181,7 +181,7 @@ async function recordsPage(){
   // P4 批量填单入口：AI 只生成待复核草稿，写入仍需人工逐条确认（实现见文件末尾 batch-* 部分）。
   const aiOff=!!state.settings&&state.settings.ai_allowed===false;
   const batchBtn=actBtn('batch-entry',aiOff?'批量填写（AI 未开启）':'批量填写',
-    `data-module="${module}"${aiOff?' disabled title="服务器未开启 AI 外发（ALLOW_AI_EXTERNAL）：批量填单不可用，手工录入不受影响。"':''}`,'');
+    `data-module="${module}"${aiOff?' disabled title="服务器没开启 AI"':''}`,'');
   const headingRight=state.user.write_modules.includes(module)?`<div class="row wrap">${batchBtn}${actBtn('new','＋ 新增录入',`data-module="${module}"`,'primary')}</div>`:'';
   const toolbar=`<div class="toolbar"><input id="filter-q" class="search" aria-label="搜索单据" placeholder="搜索编号、客户或车辆…" value="${E(f.q)}" maxlength="100"><select id="filter-state" aria-label="审核状态"><option value="">全部审核状态</option>${['draft','submitted','approved','rejected','void'].map(v=>`<option value="${v}" ${v===f.state?'selected':''}>${statuses[v]}</option>`).join('')}</select><input id="filter-start" type="date" aria-label="业务日期起" value="${f.date_from}"><span class="muted">至</span><input id="filter-end" type="date" aria-label="业务日期止" value="${f.date_to}">${actBtn('filter','查询')}<span class="spacer"></span>${state.user.can_report?actBtn('export','导出 CSV','','small'):''}</div>`;
   return heading(names[module],moduleDescriptions[module],headingRight)+toolbar+
@@ -255,9 +255,9 @@ function initializeLookups(){
 async function recordDialog(module,id=null){
   const row=id?await api(`/api/records/${module}/${id}`):null;
   const fields=[...moduleFields[module],noteField];
-  openModal(`${row?'编辑':'新增'}${names[module]}`,row?`${row.doc_no} · 数据版本 ${row.version}`:'保存后为草稿，提交并审核通过后计入经营汇总。',
+  openModal(`${row?'编辑':'新增'}${names[module]}`,row?`${row.doc_no} · 版本 ${row.version}`:'先存草稿，提交审核通过后才计入汇总。',
     `<div class="form-grid">${fields.map(f=>renderField(f,row?row[f.name]??'':defaultValue(f,module))).join('')}</div>`,
-    '<span class="hint">金额单位：人民币元</span>'+actBtn('close-modal','取消')+'<button type="submit" value="draft">保存草稿</button><button class="primary" type="submit" value="submit">保存并提交</button>',true);
+    '<span class="hint">金额单位：元</span>'+actBtn('close-modal','取消')+'<button type="submit" value="draft">保存草稿</button><button class="primary" type="submit" value="submit">保存并提交</button>',true);
   initializeLookups();
   bindForm(async(fd,intent)=>{
     const data=readRecordForm(fd,module);
@@ -272,7 +272,7 @@ async function recordDialog(module,id=null){
 async function workflowDialog(module,id,action){
   const row=await api(`/api/records/${module}/${id}`);
   const titles={submit:'提交审核',approve:'审核通过',reject:'退回修改',void:'作废单据',advance:module==='sales'?'确认交车':'确认完工'};
-  const description=action==='void'?'作废用于纠正错录，不等于退款或退车；不会删除原始单据，必须说明原因。':action==='approve'?'审核后金额不可直接修改。管理员自审会被专门标记留痕。':action==='advance'?'本操作仅记录实际完成日期，不修改金额。':'操作及说明会保存到审计日志。';
+  const description=action==='void'?'作废是纠正录错，不是退款退车；原始单据不会删，必须写原因。':action==='approve'?'审核后金额不能直接改。管理员自己审核会被标记。':action==='advance'?'只记录实际完成日期，不动金额。':'操作和说明会进操作日志。';
   openModal(titles[action],`${row.doc_no} · 版本 ${row.version}`,
     `<div class="banner ${action==='void'?'warning':''}">${description}</div>${action==='advance'?renderField(field('effective_date','实际完成日期','date',{required:true}),localToday()):''}${renderField(field('reason','操作说明（必填）','textarea',{required:true,max:1000}),action==='submit'?'已完成录入，提交审核':'')}`,
     actBtn('close-modal','取消')+`<button type="submit" class="${action==='void'?'danger':'primary'}">${titles[action]}</button>`,true);
@@ -299,12 +299,12 @@ function evidenceText(evidence){return Object.entries(evidence||{}).map(([k,v])=
 }).join('；')||'请核对关联业务资料。';}
 function reportBody(r){
   const s=r.snapshot,m=s.metrics,ai=r.ai_result;
-  let content=`<section class="panel"><div class="panel-head"><div><div class="eyebrow">DAILY REVIEW / ${E(r.business_date)}</div><h2>经营汇总与规则审查</h2><small>生成于 ${timestamp(r.generated_at)} · 数据版本 ${r.source_revision} · 日报 #${r.id}</small></div>${badge(r.ai_status)}</div>${s.provisional?'<div class="banner warning">当日仍在进行中，这是一份实时快照，不是最终日结。</div>':''}${r.stale?'<div class="banner warning">生成后数据库内出现过业务变更（不一定影响本日）。此处保留旧快照；需要最新口径时请重新生成。</div>':''}<p class="report-summary">${E(r.deterministic_summary)}</p><div class="report-kpis">${[['交付合同金额',m.delivery_amount_cents],['维修结算金额',m.repair_amount_cents],['外部净现金流',m.net_cash_cents]].map(([l,v])=>`<div><small>${l}</small><div class="value">¥${money(v)}</div></div>`).join('')}</div></section>`;
-  content+=`<section class="panel"><div class="panel-head"><div class="row"><span class="ai-mark">DEEPSEEK</span><h2>摘要与辅助复核建议</h2></div>${ai?'<small>模型观点 · 未经人工核实</small>':''}</div>`;
-  if(ai){content+=`<p class="report-summary">${E(ai.summary)}</p>${ai.highlights.map(h=>`<div class="insight"><p>${E(h)}</p></div>`).join('')}${ai.reviews.length?`<h3>模型提出的待核实线索</h3>${ai.reviews.map(v=>`<div class="insight"><div class="row">${actBtn('ref',v.ref,`data-ref="${E(v.ref)}"`,'small')}${badge('medium','AI 假设')}</div><p>${E(v.reason)}</p><small>建议核对：${E(v.action)}</small></div>`).join('')}`:'<p class="subtitle">模型未提出额外复核线索。不能据此保证不存在问题。</p>'}<div class="basis">${E(ai.limitations)}</div>`;}
-  else content+=`<p class="subtitle">${E(r.ai_error||(r.ai_status==='pending'?'模型请求尚未完成，或运行曾中断。规则日报已保存；可以重新生成 / 重试 AI。':'本次仅使用本地规则生成摘要，没有调用外部模型。'))}</p>`;
-  content+=`<div class="basis">AI 明细覆盖 ${s.ai_record_count} / ${s.record_count_before_ai_cap} 条；省略 ${s.ai_omitted_record_count} 条明细、${s.ai_omitted_finding_count} 条规则线索。程序汇总和本地规则不受此截断影响。模型无权修改业务数据。</div></section>`;
-  content+=`<section class="panel"><div class="panel-head"><div><h2>本次规则命中的复核线索</h2><small>每条提示都有对应记录和检查依据</small></div>${actBtn('nav','进入复核台','data-route="findings"','small')}</div>${s.rule_findings.length?s.rule_findings.map(f=>`<div class="insight"><div class="row wrap">${badge(f.severity)}<strong>${E(f.title)}</strong>${actBtn('ref',f.ref,`data-ref="${E(f.ref)}"`,'small ghost')}</div><p>${E(evidenceText(f.evidence))}</p><small>${E(f.suggested_action)}</small></div>`).join(''):empty('本次没有规则命中','规则覆盖有限，不等于独立审计通过。')}</section><div class="basis">${E(s.basis)}</div>`;
+  let content=`<section class="panel"><div class="panel-head"><div><h2>经营汇总</h2><small>${E(r.business_date)} · 生成于 ${timestamp(r.generated_at)} · 日报 #${r.id}</small></div>${badge(r.ai_status)}</div>${s.provisional?'<div class="banner warning">当天还没结束，这不是最终日结。</div>':''}${r.stale?'<div class="banner warning">生成后数据又变过，这里是旧快照，需要最新请重新生成。</div>':''}<p class="report-summary">${E(r.deterministic_summary)}</p><div class="report-kpis">${[['交付合同金额',m.delivery_amount_cents],['维修结算金额',m.repair_amount_cents],['外部净现金流',m.net_cash_cents]].map(([l,v])=>`<div><small>${l}</small><div class="value">¥${money(v)}</div></div>`).join('')}</div></section>`;
+  content+=`<section class="panel"><div class="panel-head"><div class="row"><h2>AI 摘要</h2></div>${ai?'<small>未经人工核实</small>':''}</div>`;
+  if(ai){content+=`<p class="report-summary">${E(ai.summary)}</p>${ai.highlights.map(h=>`<div class="insight"><p>${E(h)}</p></div>`).join('')}${ai.reviews.length?`<h3>待核实线索</h3>${ai.reviews.map(v=>`<div class="insight"><div class="row">${actBtn('ref',v.ref,`data-ref="${E(v.ref)}"`,'small')}${badge('medium','待核实')}</div><p>${E(v.reason)}</p><small>建议：${E(v.action)}</small></div>`).join('')}`:'<p class="subtitle">没有额外线索，但不代表没问题。</p>'}<div class="basis">${E(ai.limitations)}</div>`;}
+  else content+=`<p class="subtitle">${E(r.ai_error||(r.ai_status==='pending'?'AI 还没跑完，日报已保存，可以重试。':'这次没用 AI，只有程序汇总。'))}</p>`;
+  content+=`<div class="basis">AI 只看了 ${s.ai_record_count} / ${s.record_count_before_ai_cap} 条明细，省掉 ${s.ai_omitted_record_count} 条明细和 ${s.ai_omitted_finding_count} 条线索。程序汇总不受影响。</div></section>`;
+  content+=`<section class="panel"><div class="panel-head"><div><h2>规则命中的线索</h2><small>每条都有对应记录</small></div>${actBtn('nav','进入复核台','data-route="findings"','small')}</div>${s.rule_findings.length?s.rule_findings.map(f=>`<div class="insight"><div class="row wrap">${badge(f.severity)}<strong>${E(f.title)}</strong>${actBtn('ref',f.ref,`data-ref="${E(f.ref)}"`,'small ghost')}</div><p>${E(evidenceText(f.evidence))}</p><small>${E(f.suggested_action)}</small></div>`).join(''):empty('没有命中规则','规则覆盖有限，不代表没问题。')}</section><div class="basis">${E(s.basis)}</div>`;
   return content;
 }
 async function reportsPage(){
@@ -312,9 +312,9 @@ async function reportsPage(){
   if(!state.reportId&&data.items.length)state.reportId=data.items[0].id;
   const r=state.reportId?await api(`/api/reports/${state.reportId}`):null;state.report=r;
   const ready=state.settings?.ai_allowed&&state.settings?.ai_key_configured;
-  return heading('每日审查日报','程序汇总，规则找线索，DeepSeek 整理摘要，最后由人复核。',r?actBtn('download-report','导出当前日报','','small'):'','DAILY INTELLIGENCE / 每日复核')+
-    `<div class="toolbar"><input id="report-date" type="date" aria-label="日报业务日期" value="${state.end}" max="${localToday()}"><label class="checkbox-label"><input id="report-ai" type="checkbox" ${ready?'':'disabled'}>使用 DeepSeek（脱敏外发，消耗 API 额度）</label>${actBtn('generate-report','汇总并审查','','primary')}${actBtn('preview-report','预览将外发的数据')}<span id="report-progress" class="subtitle"></span></div>${!ready?'<div class="banner">当前为本地规则模式。启用 AI 需在 .env 中设置 ALLOW_AI_EXTERNAL=true 和 DEEPSEEK_API_KEY，并重启服务；前端不会保存密钥。</div>':''}
-    <div class="report-layout"><section class="panel report-list">${data.items.length?data.items.map(x=>`<button class="report-item ${x.id===state.reportId?'active':''}" data-action="select-report" data-id="${x.id}"><strong>${x.business_date} ${x.provisional?'· 实时':''}</strong>${badge(x.ai_status)} <span class="badge">${x.finding_count} 项线索</span><small>#${x.id} · 版本 ${x.source_revision}${x.stale?' · 有后续变更':''}</small></button>`).join(''):empty('还没有日报','先生成一次业务日汇总。')}<div class="row wrap">${actBtn('report-prev','上一页',state.reportPage<=1?'disabled':'','small')}${actBtn('report-next','下一页',state.reportPage*30>=data.total?'disabled':'','small')}</div></section><div class="report-content">${r?reportBody(r):`<section class="panel">${empty('从今天开始，每日有数','选择业务日期后点击“汇总并审查”。未配置 API Key 也能生成规则日报。')}</section>`}</div></div>`;
+  return heading('经营日报','程序算账，AI 写摘要，人工复核。',r?actBtn('download-report','导出当前日报','','small'):'')+
+    `<div class="toolbar"><input id="report-date" type="date" aria-label="日报业务日期" value="${state.end}" max="${localToday()}"><label class="checkbox-label"><input id="report-ai" type="checkbox" ${ready?'':'disabled'}>用 AI 写摘要（有费用）</label>${actBtn('generate-report','汇总并审查','','primary')}${actBtn('preview-report','预览要外发的数据')}<span id="report-progress" class="subtitle"></span></div>${!ready?'<div class="banner">当前只用程序汇总。要开 AI 请联系管理员。</div>':''}
+    <div class="report-layout"><section class="panel report-list">${data.items.length?data.items.map(x=>`<button class="report-item ${x.id===state.reportId?'active':''}" data-action="select-report" data-id="${x.id}"><strong>${x.business_date} ${x.provisional?'· 实时':''}</strong>${badge(x.ai_status)} <span class="badge">${x.finding_count} 项线索</span><small>#${x.id}${x.stale?' · 有后续变更':''}</small></button>`).join(''):empty('还没有日报','先生成一次。')}<div class="row wrap">${actBtn('report-prev','上一页',state.reportPage<=1?'disabled':'','small')}${actBtn('report-next','下一页',state.reportPage*30>=data.total?'disabled':'','small')}</div></section><div class="report-content">${r?reportBody(r):`<section class="panel">${empty('还没有日报','选好日期，点“汇总并审查”。')}</section>`}</div></div>`;
 }
 // MAINT_PROTECTED_BEGIN:report-write
 async function generateReport(preview=false){
@@ -337,9 +337,9 @@ function downloadReport(){
 }
 async function findingsPage(){
   const data=await api(`/api/findings?status=${state.reviewStatus}&page=${state.page}`);state.rows=data.items;state.total=data.total;
-  return heading('数据复核台','记录证据、核对原始单据、留下处理结论。规则提示不等于已经查实的问题。',actBtn('nav','生成 / 更新线索','data-route="reports"','primary'),'HUMAN IN THE LOOP / 人工复核')+
-    `<div class="toolbar"><select id="review-status" aria-label="复核状态"><option value="">全部复核状态</option>${['open','reviewing','confirmed','dismissed','resolved'].map(s=>`<option value="${s}" ${s===state.reviewStatus?'selected':''}>${statuses[s]}</option>`).join('')}</select>${actBtn('filter-findings','查询')}<span class="subtitle">线索来自已生成日报；修正数据后需重新生成日报。旧提示不会自动被删除。</span></div>
-    ${data.items.length?`<div class="finding-grid">${data.items.map(f=>`<section class="panel finding-card ${f.severity}"><div class="panel-head"><div><div class="row wrap">${badge(f.severity)}${badge(f.review_status)}</div><h2>${E(f.title)}</h2><small class="mono">${E(f.rule_code)} · ${E(names[f.entity_type])} #${f.entity_id}</small></div>${actBtn('detail','原单',`data-module="${f.entity_type}" data-id="${f.entity_id}"`,'small ghost')}</div><div class="finding-evidence">${E(evidenceText(f.evidence))}</div><p>${E(f.suggested_action)}</p>${f.review_note?`<p><strong>复核备注：</strong>${E(f.review_note)}</p>`:''}<div class="finding-footer"><small>首次 ${f.first_seen}<br>最近命中 ${f.last_seen}</small>${actBtn('review','记录复核结论',`data-id="${f.id}"`,'small')}</div></section>`).join('')}</div>`:`<section class="panel">${empty('此状态下没有复核项','先生成日报以运行规则，或切换复核状态查看已处理问题。')}</section>`}${pagination(data.total,state.page)}`;
+  return heading('复核台','系统挑出的疑点，逐条核实。',actBtn('nav','生成 / 更新线索','data-route="reports"','primary'))+
+    `<div class="toolbar"><select id="review-status" aria-label="复核状态"><option value="">全部状态</option>${['open','reviewing','confirmed','dismissed','resolved'].map(s=>`<option value="${s}" ${s===state.reviewStatus?'selected':''}>${statuses[s]}</option>`).join('')}</select>${actBtn('filter-findings','查询')}<span class="subtitle">线索来自日报；改了数据要重新生成日报。</span></div>
+    ${data.items.length?`<div class="finding-grid">${data.items.map(f=>`<section class="panel finding-card ${f.severity}"><div class="panel-head"><div><div class="row wrap">${badge(f.severity)}${badge(f.review_status)}</div><h2>${E(f.title)}</h2><small class="mono">${E(names[f.entity_type])} #${f.entity_id}</small></div>${actBtn('detail','原单',`data-module="${f.entity_type}" data-id="${f.entity_id}"`,'small ghost')}</div><div class="finding-evidence">${E(evidenceText(f.evidence))}</div><p>${E(f.suggested_action)}</p>${f.review_note?`<p><strong>复核备注：</strong>${E(f.review_note)}</p>`:''}<div class="finding-footer"><small>首次 ${f.first_seen}<br>最近 ${f.last_seen}</small>${actBtn('review','记录结论',`data-id="${f.id}"`,'small')}</div></section>`).join('')}</div>`:`<section class="panel">${empty('这里没有复核项','生成日报后会跑规则，或换个状态看看。')}</section>`}${pagination(data.total,state.page)}`;
 }
 // MAINT_PROTECTED_BEGIN:review-write
 async function reviewDialog(id){
@@ -352,15 +352,15 @@ async function reviewDialog(id){
 // MAINT_PROTECTED_END:review-write
 async function usersPage(){
   const data=await api('/api/users');state.rows=data.items;state.allStores=data.stores;
-  return heading('账号与权限','部门角色控制后端访问，员工只能编辑自己创建的草稿；角色变更后旧会话立即撤销。',actBtn('new-user','＋ 新建账号','','primary'))+
-    '<div class="banner">店长不能审核自己录入的单据。系统管理员保留自审能力以支持小店初始化，但操作会明确标记。审计角色只读业务数据，可以处理复核项。</div>'+
-    `<section class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>账号</th><th>姓名 / 显示名</th><th>角色</th><th>门店授权</th><th>状态</th><th>首次改密</th><th>操作</th></tr></thead><tbody>${data.items.map(u=>`<tr><td class="mono">${E(u.username)}</td><td>${E(u.display_name)}</td><td>${E(u.role_label)}</td><td>${u.role==='admin'?'全部门店（含新建）':E(u.stores.map(s=>s.name).join('、')||'无可用门店')}</td><td>${badge(u.active?'approved':'void',u.active?'正常':'已停用')}</td><td>${u.must_change_password?'待修改':'已完成'}</td><td><div class="actions">${actBtn('edit-user','编辑权限',`data-id="${u.id}"`,'small')}${u.id!==state.user.id?actBtn('reset-password','重置密码',`data-id="${u.id}"`,'small ghost'):''}</div></td></tr>`).join('')}</tbody></table></div></section><div class="basis">默认同部门可以查看本部门单据；这里没有销售员“只能看自己的客户”的客户隔离策略。一个账号可授权多家门店，部门角色在所有授权门店一致；审批额度、自定义字段权限及单客户隔离尚未实现。</div>`;
+  return heading('账号与权限','给员工开账号、定角色。',actBtn('new-user','＋ 新建账号','','primary'))+
+    '<div class="banner">店长不能审核自己的单子；管理员的自己审核会被标记。审计角色只能看，不能改。</div>'+
+    `<section class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>账号</th><th>姓名 / 显示名</th><th>角色</th><th>门店授权</th><th>状态</th><th>首次改密</th><th>操作</th></tr></thead><tbody>${data.items.map(u=>`<tr><td class="mono">${E(u.username)}</td><td>${E(u.display_name)}</td><td>${E(u.role_label)}</td><td>${u.role==='admin'?'全部门店（含新建）':E(u.stores.map(s=>s.name).join('、')||'无可用门店')}</td><td>${badge(u.active?'approved':'void',u.active?'正常':'已停用')}</td><td>${u.must_change_password?'待修改':'已完成'}</td><td><div class="actions">${actBtn('edit-user','编辑权限',`data-id="${u.id}"`,'small')}${u.id!==state.user.id?actBtn('reset-password','重置密码',`data-id="${u.id}"`,'small ghost'):''}</div></td></tr>`).join('')}</tbody></table></div></section><div class="basis">同一部门可以看本部门单据。一个账号可授权多家门店，角色在各店一致。</div>`;
 }
 // MAINT_PROTECTED_BEGIN:account-write
 function userDialog(id=null){
   const row=id?state.rows.find(r=>r.id===id):null;
   const fields=[...(!row?[field('username','账号（英文、数字、下划线等）','text',{required:true,max:40})]:[]),field('display_name','显示名称','text',{required:true,max:80}),field('role','权限角色','select',{options:roleNames,default:'sales'}),...(!row?[field('password','初始密码（至少12位）','password',{required:true,max:128})]:[])];
-  openModal(row?'修改账号权限':'创建员工账号',row?row.username:'新员工首次登录必须修改临时密码。',`<div class="form-grid">${fields.map(f=>renderField(f,row?row[f.name]:(f.default||''))).join('')}</div><fieldset><legend>门店授权（非管理员至少一家；管理员自动拥有所有门店）</legend>${(state.allStores||[]).filter(s=>s.active).map(s=>`<label class="checkbox-label"><input type="checkbox" name="store_ids" value="${s.id}" ${(row?.store_ids||[Number(state.storeId)]).includes(s.id)?'checked':''}>${E(s.name)} · ${E(s.code)}</label>`).join('')}</fieldset>${row?`<p><label class="checkbox-label"><input name="active" type="checkbox" ${row.active?'checked':''}>启用该账号</label></p>`:''}`,actBtn('close-modal','取消')+'<button type="submit" class="primary">保存账号</button>',true);
+  openModal(row?'修改账号权限':'创建员工账号',row?row.username:'新员工首次登录要改临时密码。',`<div class="form-grid">${fields.map(f=>renderField(f,row?row[f.name]:(f.default||''))).join('')}</div><fieldset><legend>门店授权（非管理员至少选一家；管理员自动拥有全部门店）</legend>${(state.allStores||[]).filter(s=>s.active).map(s=>`<label class="checkbox-label"><input type="checkbox" name="store_ids" value="${s.id}" ${(row?.store_ids||[Number(state.storeId)]).includes(s.id)?'checked':''}>${E(s.name)} · ${E(s.code)}</label>`).join('')}</fieldset>${row?`<p><label class="checkbox-label"><input name="active" type="checkbox" ${row.active?'checked':''}>启用该账号</label></p>`:''}`,actBtn('close-modal','取消')+'<button type="submit" class="primary">保存账号</button>',true);
   bindForm(async fd=>{const body=Object.fromEntries(fd);body.store_ids=fd.getAll('store_ids').map(Number);if(row)body.active=fd.has('active');await api('/api/users'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body});$('#modal').close();toast('账号已保存。');if(row?.id===state.user.id){state.user=null;renderLogin();toast('你的会话已撤销，请重新登录。');}else await renderPage();});
 }
 function resetPasswordDialog(id){
@@ -369,7 +369,7 @@ function resetPasswordDialog(id){
   bindForm(async fd=>{await api(`/api/users/${id}/password`,{method:'POST',body:Object.fromEntries(fd)});$('#modal').close();toast('密码已重置，员工下次登录须再次修改。');await renderPage();});
 }
 function passwordDialog(required=false){
-  openModal('修改我的密码',required?'首次登录须完成密码修改。':'修改后所有旧会话都会退出。',`${renderField(field('current_password','当前密码','password',{required:true,max:128}),'')}${renderField(field('new_password','新密码（至少12位）','password',{required:true,max:128}),'')}${renderField(field('confirmation','再次输入新密码','password',{required:true,max:128}),'')}`,(!required?actBtn('close-modal','取消'):'')+'<button class="primary" type="submit">修改密码</button>',true);
+  openModal('修改我的密码',required?'首次登录要先改密码。':'改完其他设备要重新登录。',`${renderField(field('current_password','当前密码','password',{required:true,max:128}),'')}${renderField(field('new_password','新密码（至少12位）','password',{required:true,max:128}),'')}${renderField(field('confirmation','再输一次新密码','password',{required:true,max:128}),'')}`,(!required?actBtn('close-modal','取消'):'')+'<button class="primary" type="submit">修改密码</button>',true);
   bindForm(async fd=>{if(fd.get('new_password')!==fd.get('confirmation'))throw new Error('两次输入的新密码不一致。');await api('/api/auth/password',{method:'POST',body:{current_password:fd.get('current_password'),new_password:fd.get('new_password')}});state.user=null;renderLogin();toast('密码已修改，请使用新密码登录。');});
 }
 
@@ -377,17 +377,17 @@ function passwordDialog(required=false){
 async function auditPage(){
   const data=await api(`/api/audit?page=${state.page}`);state.rows=data.items;state.total=data.total;
   const actions={create:'新增',update:'编辑',submit:'提交',approve:'审核通过',reject:'退回',advance:'交车 / 完工',void:'作废',seed:'虚构演示初始化',generate:'生成日报',ai_result:'AI 结果',review:'人工复核',reopen:'重新开放',login:'登录',export:'导出',create_user:'创建账号',update_user:'修改账号',change_password:'修改密码',reset_password:'重置密码'};
-  return heading('操作日志','保留业务变更前后快照、操作者与理由。应用不提供删除日志接口。')+
+  return heading('操作日志','谁在什么时候改了什么，都记在这里。')+
     `<section class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>时间</th><th>操作人</th><th>操作</th><th>对象</th><th>说明</th><th>变更内容</th></tr></thead><tbody>${data.items.map(r=>`<tr><td>${timestamp(r.occurred_at)}</td><td>${E(r.actor_name)}</td><td>${E(actions[r.action]||r.action)}</td><td>${E(names[r.entity_type]||r.entity_type)} ${r.entity_id?'#'+r.entity_id:''}</td><td><small>${E(r.reason||'—')}</small></td><td>${actBtn('audit-detail','查看快照',`data-id="${r.id}"`,'small')}</td></tr>`).join('')}</tbody></table></div>${pagination(data.total,state.page)}</section><div class="basis">这是应用级操作留痕，不是不可篡改的第三方审计存证；拥有数据库或服务器最高权限的人仍可能修改数据库。日志含业务敏感字段，仅允许管理员、店长和审计访问。</div>`;
 }
 async function settingsPage(){
   const s=await api('/api/settings');state.settings=s;
   const definitions=(data)=>Object.entries(data).map(([l,v])=>`<div class="definition"><div class="label">${E(l)}</div><div class="value">${E(v)}</div></div>`).join('');
-  return heading('系统与统计口径','密钥和参数只在服务器环境变量配置。页面只显示配置状态，不显示任何密钥。')+
-    `<div class="settings-grid"><section class="panel"><h2>每日任务</h2>${definitions({'应用版本':s.version,'门店时区':s.timezone,'定时日报':s.scheduler_enabled?'已启用':'已关闭','运行时间':s.daily_time+'，汇总前一业务日','最多补跑':s.catchup_days+' 个业务日','DeepSeek 外发':s.ai_allowed?'允许':'关闭','API Key':s.ai_key_configured?'已配置（不回传）':'未配置','模型名':s.ai_model})}<div class="basis">定时任务在应用进程内运行。关机、睡眠或关闭服务时不运行；重新启动后按补跑范围补齐。定时日报保存在系统中，本版不含微信、邮件或企业微信自动推送。</div></section>
-    <section class="panel"><h2>复核阈值</h2>${definitions({'库存库龄':s.rules.inventory_aging_days+' 天','维修未完工':s.rules.repair_overdue_days+' 天，或晚于预计完工日','交付后未收款':s.rules.receivable_grace_days+' 天','销售毛差比例':s.rules.low_gross_margin_percent+' %','大额现金':'¥'+money(s.rules.large_cash_amount_cents),'高折扣':s.rules.discount_review_percent+' %','高佣金':s.rules.policy_commission_review_percent+' %'})}<div class="basis">这些是初始管理复核阈值，不是违法或财务舞弊的判定标准。除佣金比例目前在规则文件中固定外，其他阈值可在 .env 调整后重启。</div></section>
-    <section class="panel"><h2>统计与数据边界</h2><div class="rules-list">业务发生日：订单 / 入库 / 报修 / 出单 / 流水实际发生日。<br>销售金额：已审核且在所选期间实际交车的合同总额。<br>维修金额：已审核且已完工的工时费 + 配件费 − 优惠。<br>保费与佣金：分别记录，保费代收不作为佣金或销售收入。<br>外部现金流：已审核流水，排除内部转账。<br>毛差：销售及维修结算金额 − 录入直接成本，不是净利润。<br>所有金额：数据库按人民币“分”的整数保存。<br>历史重算：使用当前有效业务状态；旧日报保留原快照。</div></section>
-    <section class="panel"><h2>本地试用 → 服务器</h2><div class="rules-list">本地默认仅监听 127.0.0.1，不直接开放到公网。<br>数据库为 SQLite 文件，提供一致性备份命令。<br>已提供 Docker、数据库版本迁移和 PostgreSQL 转移脚本。<br>公网前须配置 HTTPS、强密码、备份恢复与最小权限。<br>完整业务凭证附件、复式总账、税务申报、退车/红冲、跨门店车辆调拨和跨门店资金对账不在本版范围。</div><div class="banner warning">先用独立演示库验证权限、口径与工作流，再录入真实数据。请勿把测试实例直接暴露到公网。</div></section></div>`;
+  return heading('系统设置','统计口径和运行参数。')+
+    `<div class="settings-grid"><section class="panel"><h2>每日任务</h2>${definitions({'应用版本':s.version,'门店时区':s.timezone,'定时日报':s.scheduler_enabled?'已启用':'已关闭','运行时间':s.daily_time+'，汇总前一天','最多补跑':s.catchup_days+' 个业务日','AI 外发':s.ai_allowed?'允许':'关闭','AI 密钥':s.ai_key_configured?'已配置':'未配置','AI 模型':s.ai_model})}<div class="basis">定时任务跑在应用进程里，服务停了就不跑，重启后按补跑范围补齐。日报只存在系统里，不推微信 / 邮件。</div></section>
+    <section class="panel"><h2>复核阈值</h2>${definitions({'库存库龄':s.rules.inventory_aging_days+' 天','维修未完工':s.rules.repair_overdue_days+' 天，或晚于预计完工日','交付后未收款':s.rules.receivable_grace_days+' 天','销售毛差比例':s.rules.low_gross_margin_percent+' %','大额现金':'¥'+money(s.rules.large_cash_amount_cents),'高折扣':s.rules.discount_review_percent+' %','高佣金':s.rules.policy_commission_review_percent+' %'})}<div class="basis">这些是提醒用的阈值，不是判定标准。改 .env 后重启生效。</div></section>
+    <section class="panel"><h2>统计口径</h2><div class="rules-list">业务发生日：订单 / 入库 / 报修 / 出单 / 流水实际发生日。<br>销售金额：已审核且实际交车的合同总额。<br>维修金额：已审核且已完工的工时费 + 配件费 − 优惠。<br>保费与佣金：分开记，保费代收不算收入。<br>外部现金流：已审核流水，不含内部转账。<br>毛差：结算金额 − 录入成本，不是净利润。<br>金额一律按“分”的整数存。</div></section>
+    <section class="panel"><h2>部署与范围</h2><div class="rules-list">服务器上用 Docker 运行，数据库是 SQLite 文件。<br>公网访问须配 HTTPS 和强密码。<br>本版不含：凭证附件、复式总账、税务申报、退车红冲、跨店调拨与跨店资金对账。</div><div class="banner warning">先小范围试用、确认口径无误，再录真实数据。</div></section></div>`;
 }
 // MAINT_PROTECTED_BEGIN:store-selection
 function storeSelector(){
@@ -398,11 +398,11 @@ function storeSelector(){
 // MAINT_PROTECTED_END:store-selection
 function storeComparison(d){
   if((d.by_store||[]).length<2)return '';
-  return `<section class="panel table-panel"><div class="panel-head"><div><h2>各门店经营对照</h2><small>${E(d.end_date)} 当日流量与日末库存，不是整个所选区间的累计</small></div></div><div class="table-scroll"><table><thead><tr><th>门店</th><th>当日交车</th><th>当日交付金额</th><th>在库车辆</th><th>库存成本占用</th><th>待审核</th></tr></thead><tbody>${d.by_store.map(s=>`<tr><td>${E(s.name)}</td><td>${s.metrics.delivery_count}</td><td>¥${money(s.metrics.delivery_amount_cents)}</td><td>${s.metrics.stock_count}</td><td>¥${money(s.metrics.stock_cost_cents)}</td><td>${s.metrics.pending_approval_count}</td></tr>`).join('')}</tbody></table></div></section>`;
+  return `<section class="panel table-panel"><div class="panel-head"><div><h2>各门店对照</h2><small>${E(d.end_date)} 当天数字</small></div></div><div class="table-scroll"><table><thead><tr><th>门店</th><th>当日交车</th><th>当日交付金额</th><th>在库车辆</th><th>库存成本占用</th><th>待审核</th></tr></thead><tbody>${d.by_store.map(s=>`<tr><td>${E(s.name)}</td><td>${s.metrics.delivery_count}</td><td>¥${money(s.metrics.delivery_amount_cents)}</td><td>${s.metrics.stock_count}</td><td>¥${money(s.metrics.stock_cost_cents)}</td><td>${s.metrics.pending_approval_count}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 async function storesPage(){
   const data=await api('/api/stores');state.rows=data.items;
-  return heading('门店管理','各店独立录入、独立审批、独立日报；老板可汇总已授权门店。',actBtn('new-store','＋ 新建门店','','primary'))+
+  return heading('门店管理','各店账目独立，老板可以看汇总。',actBtn('new-store','＋ 新建门店','','primary'))+
     `<section class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>门店代码</th><th>名称</th><th>状态</th><th>操作</th></tr></thead><tbody>${data.items.map(r=>`<tr><td>${E(r.code)}</td><td>${E(r.name)}</td><td>${badge(r.active?'approved':'void',r.active?'启用':'停用')}</td><td>${actBtn('edit-store','编辑',`data-id="${r.id}"`,'small')}</td></tr>`).join('')}</tbody></table></div></section><div class="banner">门店代码用于识别，单据编号可在不同门店重复；VIN 保持集团内唯一。禁止跨店直接关联销售/维修/财务单据。此版本不自动调拨车辆，不进行集团内部交易抵销。</div>`;
 }
 // MAINT_PROTECTED_BEGIN:store-write
@@ -417,10 +417,10 @@ const changeStatuses={new:'已收集',queued:'等待处理',proposing:'DeepSeek 
 async function feedbackPage(){
   const data=await api('/api/feedback');state.rows=data.items;
   const maint=state.user.can_users?await api('/api/maintenance/status'):null;
-  return heading('改进意见 / 版本发布','写下问题或导入 TXT / Markdown。意见不是命令：代码必须通过隔离测试，并由指定飞书账号批准。',actBtn('new-feedback','＋ 提交改进意见','','primary'),'HUMAN APPROVAL / 可控演进')+
-    (maint?`<div class="banner"><strong>维护器：${maint.ready&&!maint.paused?'已就绪':maint.enabled?'待配置 / 已暂停':'未启用'}</strong> · ${E(maint.message)}${maint.ready?` · 飞书进程${maint.worker_running?'运行中':'未连接'}`:''}</div>`:'')+
-    '<div class="banner warning">默认只自动修改界面与用户说明。权限、金额口径、数据库迁移、依赖和发布器不接受自动覆盖；超出范围的需求会转人工。未配置自动维护时仍能收集意见，不会外发。</div>'+
-    `<section class="panel">${data.items.length?data.items.map(r=>`<article class="feedback-card"><div class="row wrap"><strong>#${r.id} ${E(r.title)}</strong>${badge(r.status,changeStatuses[r.status]||r.status)}<small>门店 #${r.store_id} · ${timestamp(r.created_at)}</small></div><p class="feedback-description">${E(r.description)}</p>${r.summary?`<p><strong>改动摘要：</strong>${E(r.summary)}</p>`:''}${r.head_sha?`<p class="mono">提交 ${E(r.head_sha)} · ${r.tests_passed?'测试通过':'未通过测试'}</p>`:''}${r.last_error?`<p class="form-error">${E(r.last_error)}</p>`:''}<div class="actions">${r.review_url&&/^https:\/\//.test(r.review_url)?`<a class="button-link" href="${E(r.review_url)}" target="_blank" rel="noopener noreferrer">查看 Git 改动</a>`:''}${actBtn('feedback-events','处理日志',`data-id="${r.id}"`,'small')}${state.user.can_users&&['new','failed','manual','expired','superseded','rejected'].includes(r.status)&&r.attempts<3?actBtn('queue-feedback','授权 AI 处理',`data-id="${r.id}"`,'small'):''}</div></article>`).join(''):empty('还没有改进意见','例：希望库存表增加更明显的超龄提示。')}</section><div class="basis">仅展示最近200条。普通员工仅看自己提交的意见；管理员可管理当前授权范围内的意见。发布批准只接受配置的飞书 open_id，不接受网页按钮代批。</div>`;
+  return heading('改进意见','有问题或者想加功能，写在这里。',actBtn('new-feedback','＋ 提交改进意见','','primary'))+
+    (maint?`<div class="banner"><strong>自动维护：${maint.ready&&!maint.paused?'正常':maint.enabled?'已暂停':'未启用'}</strong> · ${E(maint.message)}</div>`:'')+
+    '<div class="banner warning">自动修改只限界面和说明文字；改权限、金额口径、数据库的要人工做。不开启时意见只保存，不外发。</div>'+
+    `<section class="panel">${data.items.length?data.items.map(r=>`<article class="feedback-card"><div class="row wrap"><strong>#${r.id} ${E(r.title)}</strong>${badge(r.status,changeStatuses[r.status]||r.status)}<small>门店 #${r.store_id} · ${timestamp(r.created_at)}</small></div><p class="feedback-description">${E(r.description)}</p>${r.summary?`<p><strong>改动摘要：</strong>${E(r.summary)}</p>`:''}${r.head_sha?`<p class="mono">提交 ${E(r.head_sha)} · ${r.tests_passed?'测试通过':'未通过测试'}</p>`:''}${r.last_error?`<p class="form-error">${E(r.last_error)}</p>`:''}<div class="actions">${r.review_url&&/^https:\/\//.test(r.review_url)?`<a class="button-link" href="${E(r.review_url)}" target="_blank" rel="noopener noreferrer">查看 Git 改动</a>`:''}${actBtn('feedback-events','处理日志',`data-id="${r.id}"`,'small')}${state.user.can_users&&['new','failed','manual','expired','superseded','rejected'].includes(r.status)&&r.attempts<3?actBtn('queue-feedback','授权 AI 处理',`data-id="${r.id}"`,'small'):''}</div></article>`).join(''):empty('还没有改进意见','例：希望库存表增加更明显的超龄提示。')}</section><div class="basis">只显示最近 200 条。员工只看自己提的，管理员看授权范围内的。</div>`;
 }
 // MAINT_PROTECTED_BEGIN:feedback-and-dispatch
 function feedbackDialog(){
@@ -462,8 +462,8 @@ $('#app').addEventListener('click',async event=>{
     else if(a==='new-store')storeDialog();
     else if(a==='edit-store')storeDialog(id);
     else if(a==='new-feedback')feedbackDialog();
-    else if(a==='queue-feedback'){if(!confirm('授权将这条改进意见与白名单源码发送到 DeepSeek？不要包含客户信息或密钥。'))return;await api(`/api/feedback/${id}/queue`,{method:'POST'});toast('已入队；仍需通过测试及飞书审批，才会应用。');await renderPage();}
-    else if(a==='feedback-events'){const data=await api(`/api/feedback/${id}/events`);openModal('改进与发布记录','每一步单独留痕',`<div>${data.items.map(r=>`<div class="insight"><strong>${E(r.action)}</strong><small>${timestamp(r.occurred_at)} · ${E(r.actor)}</small><p>${E(r.detail)}</p></div>`).join('')||'暂未处理'}</div>`);}
+    else if(a==='queue-feedback'){if(!confirm('把这条意见和界面源码发给 DeepSeek 处理？不要包含客户信息或密钥。'))return;await api(`/api/feedback/${id}/queue`,{method:'POST'});toast('已提交，测试通过并经飞书批准后才会生效。');await renderPage();}
+    else if(a==='feedback-events'){const data=await api(`/api/feedback/${id}/events`);openModal('处理记录','每一步都有记录',`<div>${data.items.map(r=>`<div class="insight"><strong>${E(r.action)}</strong><small>${timestamp(r.occurred_at)} · ${E(r.actor)}</small><p>${E(r.detail)}</p></div>`).join('')||'暂未处理'}</div>`);}
     else if(a==='new-user')userDialog();
     else if(a==='edit-user')userDialog(id);
     else if(a==='reset-password')resetPasswordDialog(id);
@@ -521,10 +521,10 @@ async function batchPrepareImage(file){
 }
 function batchImagesHTML(){
   const list=batchState.images;
-  if(!list.length)return '<div class="batch-image-empty">还没有选择图片。可以拍照、从相册选，或把手机截图直接粘贴到这个窗口（Ctrl+V）。</div>';
+  if(!list.length)return '<div class="batch-image-empty">还没有图片。</div>';
   const total=list.reduce((sum,img)=>sum+img.bytes,0);
   return `<div class="batch-image-list">${list.map((img,i)=>`<figure class="batch-image-item"><img src="${img.dataUrl}" alt="第 ${i+1} 张待识别图片"><figcaption><span>第 ${i+1} 张 · ${img.width}×${img.height} · ${batchSizeText(img.bytes)}</span>${actBtn('batch-image-remove','移除',`data-index="${i}"`,'small ghost')}</figcaption></figure>`).join('')}</div>
-    <div class="hint">共 ${list.length} 张，压缩后合计 ${batchSizeText(total)}。原图已在本机压缩并去掉 EXIF 定位信息，服务器不保存图片。</div>`;
+    <div class="hint">共 ${list.length} 张，合计 ${batchSizeText(total)}。</div>`;
 }
 function renderBatchImages(){const box=$('#batch-images');if(box)box.innerHTML=batchImagesHTML();}
 async function addBatchImages(files){
@@ -560,7 +560,7 @@ function batchFormData(row){const fd=new FormData();for(const f of batchState.fi
 function batchCell(f,d){
   const name=batchFieldName(d.index,f.name),value=String(d.values[f.name]??'');
   const issues=batchState.issues.filter(i=>i.row===d.index&&i.field===f.name),blocking=issues.filter(i=>batchIssueBlocks(d,i));
-  const reason=issues.length?`${blocking.length?'AI 提示':'AI 取值无效，已置空（可选）'}：`+issues.map(i=>i.reason).join('；'):'';
+  const reason=issues.length?`${blocking.length?'需确认':'无效，已清空'}：`+issues.map(i=>i.reason).join('；'):'';
   const attrs=`name="${name}" id="batch-${name}" aria-label="${E(f.label)}"${f.max?` maxlength="${f.max}"`:''}`;
   let input;
   if(f.type==='select')input=`<select ${attrs}>${value===''||!(f.options||{})[value]?'<option value="">未填写</option>':''}${Object.entries(f.options||{}).map(([v,l])=>`<option value="${E(v)}" ${String(value)===v?'selected':''}>${E(l)}</option>`).join('')}</select>`;
@@ -574,22 +574,22 @@ function batchIssuesHTML(d){
   for(const issue of batchRowIssues(d.index)){
     const f=batchState.fields.find(x=>x.name===issue.field),open=batchIssueBlocks(d,issue);
     const label=f?f.label:(issue.field?`未知字段「${issue.field}」`:'整行');
-    lines.push(`<div class="batch-issue-line${open?' open':' ok'}">${E(label)}：${E(issue.reason)}（${open?'待你补填':f?'已置空 / 可选留空':'已丢弃，不作为记录字段'}）</div>`);
+    lines.push(`<div class="batch-issue-line${open?' open':' ok'}">${E(label)}：${E(issue.reason)}（${open?'待补填':f?'已留空':'已忽略'}）</div>`);
   }
   if(d.error)lines.push(`<div class="batch-issue-line open">写入失败：${E(d.error)}</div>`);
-  if(!lines.length)lines.push('<div class="batch-issue-line ok">AI 未标出问题；金额、日期、VIN 与关联编号仍需你核对。</div>');
+  if(!lines.length)lines.push('<div class="batch-issue-line ok">没标出问题；金额、日期、车牌还要自己核。</div>');
   return lines.join('');
 }
 function batchRowHTML(d){
   const blocking=batchBlocking(d).length;
-  return `<tr class="batch-tr${blocking?' batch-row-issue':''}" data-batch-row="${d.index}"><td class="batch-index"><strong>第 ${d.index+1} 条</strong><span data-batch-status>${badge(blocking?'high':'approved',blocking?`待补必填 ${blocking} 项`:'可写入')}</span><div class="row wrap">${actBtn('batch-defaults','补全空缺默认值',`data-row="${d.index}"`,'small ghost')}${actBtn('batch-remove','删除本行',`data-row="${d.index}"`,'small ghost')}</div></td>${batchState.fields.map(f=>batchCell(f,d)).join('')}<td class="batch-issues" data-batch-issues="${d.index}">${batchIssuesHTML(d)}</td></tr>`;
+  return `<tr class="batch-tr${blocking?' batch-row-issue':''}" data-batch-row="${d.index}"><td class="batch-index"><strong>第 ${d.index+1} 条</strong><span data-batch-status>${badge(blocking?'high':'approved',blocking?`缺 ${blocking} 项`:'可以写入')}</span><div class="row wrap">${actBtn('batch-defaults','补全空缺默认值',`data-row="${d.index}"`,'small ghost')}${actBtn('batch-remove','删除本行',`data-row="${d.index}"`,'small ghost')}</div></td>${batchState.fields.map(f=>batchCell(f,d)).join('')}<td class="batch-issues" data-batch-issues="${d.index}">${batchIssuesHTML(d)}</td></tr>`;
 }
 function batchCountsHTML(){
   const blocked=batchState.drafts.filter(d=>batchBlocking(d).length).length;
-  return `<span>待写入 <strong>${batchState.drafts.length}</strong> 条</span><span>仍缺必填 <strong>${blocked}</strong> 条（补齐前不会写入）</span>`;
+  return `<span>待写入 <strong>${batchState.drafts.length}</strong> 条</span><span>缺必填 <strong>${blocked}</strong> 条</span>`;
 }
 function batchTableHTML(){
-  if(!batchState.drafts.length)return empty('没有待写入的草稿','模型没有提出可复核的行，或已被你全部删除。请返回重新粘贴文本。');
+  if(!batchState.drafts.length)return empty('没有可写入的行','可以返回重新填写。');
   return `<div class="table-scroll batch-table-wrap"><table class="batch-table"><thead><tr><th># / 状态</th>${batchState.fields.map(f=>`<th>${E(f.label)}${f.required?' <b class="required">*</b>':''}</th>`).join('')}<th>AI 提示与写入结果</th></tr></thead><tbody>${batchState.drafts.map(batchRowHTML).join('')}</tbody></table></div>`;
 }
 function batchRefreshRow(row){
@@ -597,18 +597,18 @@ function batchRefreshRow(row){
   for(const f of batchState.fields){const input=batchInput(row,f.name);if(input)d.values[f.name]=input.value;}
   const tr=$(`#modal tr[data-batch-row="${row}"]`);if(!tr)return;
   const blocking=batchBlocking(d).length;
-  const holder=$('[data-batch-status]',tr);if(holder)holder.innerHTML=badge(blocking?'high':'approved',blocking?`待补必填 ${blocking} 项`:'可写入');
+  const holder=$('[data-batch-status]',tr);if(holder)holder.innerHTML=badge(blocking?'high':'approved',blocking?`缺 ${blocking} 项`:'可以写入');
   tr.classList.toggle('batch-row-issue',blocking>0);
   for(const f of batchState.fields){
     const cell=$(`[data-batch-cell="${batchFieldName(row,f.name)}"]`,tr);if(!cell)continue;
     const issues=batchState.issues.filter(i=>i.row===row&&i.field===f.name),open=issues.filter(i=>batchIssueBlocks(d,i));
     cell.classList.toggle('batch-cell-issue',open.length>0);
     const small=$('.batch-reason',cell);
-    if(small){small.textContent=issues.length?`${open.length?'AI 提示':'AI 取值无效，已置空（可选）'}：`+issues.map(i=>i.reason).join('；'):'';small.className=`batch-reason${open.length?'':' ok'}`;}
+    if(small){small.textContent=issues.length?`${open.length?'需确认':'无效，已清空'}：`+issues.map(i=>i.reason).join('；'):'';small.className=`batch-reason${open.length?'':' ok'}`;}
   }
   const box=$(`[data-batch-issues="${row}"]`,tr);if(box)box.innerHTML=batchIssuesHTML(d);
   const counts=$('#batch-counts');if(counts)counts.innerHTML=batchCountsHTML();
-  const confirm=$('#batch-confirm');if(confirm){confirm.disabled=!batchState.drafts.length;confirm.textContent=`确认写入 ${batchState.drafts.length} 条草稿`;}
+  const confirm=$('#batch-confirm');if(confirm){confirm.disabled=!batchState.drafts.length;confirm.textContent=`确认写入 ${batchState.drafts.length} 条`;}
 }
 function batchFillDefaults(row){
   for(const d of batchState.drafts){
@@ -623,17 +623,17 @@ function batchFillDefaults(row){
 function renderBatchReview(){
   const module=batchState.module,n=batchState.drafts.length;
   $('#modal').classList.add('batch-modal');
-  const orphan=batchState.orphans.length?`<div class="banner danger">模型返回的以下提示无法对应到具体草稿行（该条可能不是字段对象，或条数被上限截断），请人工核对：${E(batchState.orphans.map(i=>{const row=Number(i&&i.row);return `${Number.isInteger(row)&&row>=0?`第 ${row+1} 条`:'未标明行'} ${(i&&i.field)||'整行'}：${(i&&i.reason)||'模型输出异常，未给出原因'}`;}).join('；'))}</div>`:'';
-  const multi=batchState.images.length>1?`<div class="banner warning">本次识别用了 ${batchState.images.length} 张图片。若其中几张拍的是同一张单据，模型被要求<strong>只输出一次</strong>；但仍请核对下表有没有重复行，重复的请直接删除。</div>`:'';
+  const orphan=batchState.orphans.length?`<div class="banner danger">下面这些提示对不上具体行，请自己看一眼：${E(batchState.orphans.map(i=>{const row=Number(i&&i.row);return `${Number.isInteger(row)&&row>=0?`第 ${row+1} 条`:'未标明行'} ${(i&&i.field)||'整行'}：${(i&&i.reason)||'没给原因'}`;}).join('；'))}</div>`:'';
+  const multi=batchState.images.length>1?`<div class="banner warning">用了 ${batchState.images.length} 张图片，注意有没有重复的行。</div>`:'';
   const strip=batchState.images.length?`<div class="batch-image-list">${batchState.images.map((img,i)=>`<figure class="batch-image-item"><img src="${img.dataUrl}" alt="第 ${i+1} 张原图"><figcaption><span>第 ${i+1} 张 · ${img.width}×${img.height}</span></figcaption></figure>`).join('')}</div>`:'';
-  openModal(`复核 AI 草稿 · ${names[module]}`,`模型提出 ${batchState.proposed} 条草稿：请逐条核对，删掉不需要的行，补上标红的必填项。`,
-    `${batchState.summary}<div class="banner warning">下表只是草稿，<strong>尚未写入任何业务记录</strong>。只有你点击“确认写入”后才会逐条调用普通录入接口保存；每条记录的创建人记录为 <strong>${E(state.user.display_name)}</strong>（${E(state.user.username)}），保存后仍是草稿，需按常规流程提交与审核。金额、日期、VIN 与关联编号一律以你的复核为准。</div>${orphan}${multi}
+  openModal(`核对识别结果 · ${names[module]}`,`识别出 ${batchState.proposed} 条：核对、删掉不要的、补上红色的必填项。`,
+    `${batchState.summary}<div class="banner warning"><strong>还没保存</strong>，点“确认写入”才会存进系统，创建人是你（${E(state.user.display_name)}）。存进去还是草稿，要像平时一样提交审核。金额、日期、车牌、VIN 请对着原单再核一遍。</div>${orphan}${multi}
     <div class="batch-summary" id="batch-counts">${batchCountsHTML()}</div>
-    <div class="batch-summary">${n?actBtn('batch-fill-all','为所有空缺字段补默认值','','small'):actBtn('batch-restart','返回重新粘贴','data-module="'+E(module)+'"','small')}<span class="hint">补默认值只填当前为空的字段，是否采纳由你决定。</span></div>
+    <div class="batch-summary">${n?actBtn('batch-fill-all','空缺字段填默认值','','small'):actBtn('batch-restart','返回重新填写','data-module="'+E(module)+'"','small')}</div>
     ${batchTableHTML()}
-    <details><summary>查看原始文本与图片（对照用）</summary>${strip}<pre class="json-view">${E(batchState.text||'（本次没有文本，草稿全部来自图片）')}</pre></details>
+    <details><summary>看原图 / 原文</summary>${strip}<pre class="json-view">${E(batchState.text||'（这次没有文字，全部来自图片）')}</pre></details>
     <div id="batch-write-progress" class="subtitle" role="status"></div>`,
-    '<span class="hint">AI 只出草稿；写入由你负责</span>'+actBtn('close-modal',batchState.written?`关闭（已写入 ${batchState.written} 条）`:'取消，不写入')+`<button id="batch-confirm" class="primary" type="submit" value="confirm"${n?'':' disabled'}>确认写入 ${n} 条草稿</button>`,true);
+    actBtn('close-modal',batchState.written?`关闭（已写入 ${batchState.written} 条）`:'取消')+`<button id="batch-confirm" class="primary" type="submit" value="confirm"${n?'':' disabled'}>确认写入 ${n} 条</button>`,true);
   initializeLookups();
   bindForm(async()=>{await batchWrite();});
 }
@@ -642,7 +642,7 @@ async function batchWrite(){
   const progress=$('#batch-write-progress'),targets=[],blocked=[];
   for(const d of batchState.drafts)(batchBlocking(d).length?blocked:targets).push(d);
   if(!targets.length){
-    batchState.summary='<div class="banner warning">没有可写入的行：下表每一行都还有未补齐的必填字段。请补填、用“补全空缺默认值”，或删除该行。</div>';
+    batchState.summary='<div class="banner warning">每一行都还缺必填项，补上或删掉再提交。</div>';
     return renderBatchReview();
   }
   let ok=0,failed=0;
@@ -658,13 +658,13 @@ async function batchWrite(){
     }catch(error){d.error=error.message;failed++;}
   }
   batchState.drafts=batchState.drafts.filter(d=>!d.written);
-  const parts=[`已写入 ${ok} 条草稿（创建人：你）`];
-  if(failed)parts.push(`${failed} 条写入失败，已保留在下表，可修改后重试`);
-  if(blocked.length)parts.push(`${blocked.length} 条因必填字段未补齐未提交`);
-  batchState.summary=`<div class="banner${failed||blocked.length?' warning':''}">上次提交：${parts.join('；')}。写入的记录仍需按常规流程提交与审核。</div>`;
+  const parts=[`已写入 ${ok} 条`];
+  if(failed)parts.push(`${failed} 条失败，还在下表里，可以改了重试`);
+  if(blocked.length)parts.push(`${blocked.length} 条缺必填，没提交`);
+  batchState.summary=`<div class="banner${failed||blocked.length?' warning':''}">${parts.join('；')}。</div>`;
   try{await renderPage();}catch(error){toast(error.message,true);}
   renderBatchReview();
-  toast(`批量填单：写入成功 ${ok} 条${failed?`，失败 ${failed} 条（见下表）`:''}${blocked.length?`，未提交 ${blocked.length} 条（缺必填）`:''}。`,failed>0||blocked.length>0);
+  toast(`写入 ${ok} 条${failed?`，失败 ${failed} 条`:''}${blocked.length?`，缺必填没提交 ${blocked.length} 条`:''}。`,failed>0||blocked.length>0);
   if(!batchState.drafts.length)$('#modal').close();
 }
 function batchReviewDialog(text,data){
@@ -680,25 +680,24 @@ async function batchEntryDialog(module){
   if(!batchModules.includes(module)||!moduleFields[module])throw new Error('该模块不支持批量填单。');
   if(!state.user.write_modules.includes(module))throw new Error('你没有该模块的录入权限。');
   if(!state.storeId||state.storeId==='all')throw new Error('请先在右上角选择一家具体门店；批量填单不支持“全部门店汇总”。');
-  if(state.settings&&state.settings.ai_allowed===false)throw new Error('服务器未开启 AI 外发（ALLOW_AI_EXTERNAL）；批量填单不可用，请继续手工录入。');
+  if(state.settings&&state.settings.ai_allowed===false)throw new Error('服务器没开启 AI，用不了；请手工录入。');
   $('#modal').classList.remove('batch-modal');
   batchState={module,fields:[...moduleFields[module],noteField],drafts:[],issues:[],orphans:[],text:'',images:[],proposed:0,written:0,summary:''};
-  openModal(`AI 批量填写 · ${names[module]}`,'粘贴一段文字，或拍下/上传工单照片、手机截图，由 DeepSeek 整理成待复核草稿；是否写入由你逐条确认。',
-    `<div class="banner">AI 只做字段抽取，<strong>不会写入任何业务记录</strong>。草稿必须由你逐条复核、修改、删除后点击“确认写入”，才会通过普通录入接口保存；创建人记录为你（${E(state.user.display_name)}）。</div>
-    <div class="banner warning">只发送你粘贴的文本、你选择的图片与字段清单，不发送数据库内容或其他记录。<strong>图片不会被服务器保存</strong>，但会发给 DeepSeek 用于本次识别；浏览器已先在本机压缩并去掉 EXIF 定位信息。拍照或粘贴前请自行避开身份证号、银行卡号等敏感信息。</div>
-    ${renderField(field('batch_text','粘贴文本（可选，10–20000 字符，一行一条记录）','textarea',{max:20000}),'')}
-    <label>导入纯文本（可选，UTF-8，最多48KB）<input id="batch-file" type="file" accept=".txt,.md,text/plain,text/markdown"></label>
-    <div class="field"><span>工单照片 / 手机截图（可选，最多 ${batchMaxImages} 张）</span>
+  openModal(`批量填写 · ${names[module]}`,'粘贴文字或上传照片，识别结果要你自己核对。',
+    `<div class="banner warning">你填的文字和选的图片会发给 DeepSeek 识别。<strong>不要放身份证号、银行卡号</strong>；图片服务器不留存。</div>
+    ${renderField(field('batch_text','粘贴文字（一行一条，可留空）','textarea',{max:20000}),'')}
+    <div class="field"><span>工单照片 / 手机截图（最多 ${batchMaxImages} 张）</span>
       <div class="row wrap">
         <label class="file-pick">选择图片<input id="batch-image" type="file" accept="image/*" multiple></label>
         <label class="file-pick">手机拍照<input id="batch-camera" type="file" accept="image/*" capture="environment"></label>
+        <label class="file-pick">导入文本<input id="batch-file" type="file" accept=".txt,.md,text/plain,text/markdown"></label>
       </div>
-      <small>也可以在窗口里直接 Ctrl+V 粘贴截图，或把图片拖进来。文字和图片至少要有一个。</small>
+      <small>电脑上可以直接 Ctrl+V 粘贴截图。文字和图片至少有一个。</small>
     </div>
     <div id="batch-images">${batchImagesHTML()}</div>
     <div id="batch-image-progress" class="subtitle" role="status"></div>
     <div id="batch-parse-progress" class="subtitle" role="status"></div>`,
-    '<span class="hint">AI 草稿不落库；核对后才逐条写入</span>'+actBtn('close-modal','取消')+'<button class="primary" type="submit">让 AI 生成草稿</button>',true);
+    actBtn('close-modal','取消')+'<button class="primary" type="submit">开始识别</button>',true);
   const pick=async event=>{
     const input=event.target;
     try{await addBatchImages(input.files);}
@@ -719,12 +718,12 @@ async function batchEntryDialog(module){
   bindForm(async fd=>{
     const text=String(fd.get('batch_text')??'').replace(/\r\n?/g,'\n').trim();
     const images=batchState.images.map(image=>image.dataUrl);
-    if(text.length<10&&!images.length)throw new Error('请至少粘贴 10 个字符的文本，或至少添加 1 张图片。');
-    if(text.length>20000)throw new Error('文本最多 20000 字符。');
+    if(text.length<10&&!images.length)throw new Error('请填文字，或至少加一张图片。');
+    if(text.length>20000)throw new Error('文字最多 20000 字。');
     const progress=$('#batch-parse-progress');
     if(progress)progress.textContent=images.length
-      ?`正在上传 ${images.length} 张图片并请求 DeepSeek 识别，请稍候（通常十几秒，别关窗口）…`
-      :'正在请求 DeepSeek 生成草稿，请稍候…';
+      ?`正在识别 ${images.length} 张图片，请稍等（十几秒，别关窗口）…`
+      :'正在识别，请稍等…';
     try{
       const data=await api('/api/entry-draft/parse',{method:'POST',body:{module,text,images,fields:batchFieldSpec(module)}});
       batchReviewDialog(text,data);
@@ -842,25 +841,25 @@ async function vizPage(){
   trends.forEach(item=>{
     const title=item.title||'走势',index=charts.length;
     charts.push({index,kind:'line',title,spec:{title,subtitle:range,unit:item.unit,dates:Array.isArray(item.dates)?item.dates:[],series:Array.isArray(item.series)?item.series:[]}});
-    cards.push(vizCard(index,title,`按日走势 · ${vizUnitHint(item.unit)}`));
+    cards.push(vizCard(index,title,vizUnitHint(item.unit)));
   });
   breakdowns.forEach(item=>{
     const title=item.title||'构成',index=charts.length;
     charts.push({index,kind:'pie',title,spec:{title,subtitle:`${range} · 构成占比`,unit:item.unit,items:Array.isArray(item.items)?item.items:[]}});
-    cards.push(vizCard(index,title,`分类构成 · ${vizUnitHint(item.unit)}`));
+    cards.push(vizCard(index,title,vizUnitHint(item.unit)));
   });
   rankings.forEach(item=>{
     const title=item.title||'排行',index=charts.length;
     const items=Array.isArray(item.items)?item.items:[];
     charts.push({index,kind:'bar',title,spec:{title,subtitle:`${range} · 排行`,unit:item.unit,items}});
-    cards.push(vizCard(index,title,`排行对比 · ${vizUnitHint(item.unit)}`));
+    cards.push(vizCard(index,title,vizUnitHint(item.unit)));
   });
   vizState.data=data;vizState.charts=charts;
   const hasAny=!!(kpis.length||cards.length);
   const body=hasAny
-    ?`${kpis.length?`<div class="kpi-grid viz-kpis">${kpis.map((item,index)=>vizKpiCard(item,index===0)).join('')}</div>`:''}${cards.length?`<div class="viz-grid">${cards.join('')}</div>`:empty('所选期间没有可绘制的图表','可以调整结束日期或统计窗口后重试。')}`
-    :`<section class="panel">${empty('所选期间没有可视化数据','可以调整结束日期或统计窗口后重试。')}</section>`;
-  return heading('数据可视化',`${range} · 共 ${data.days??0} 天 · 币种 ${data.currency||'CNY'}；图表在浏览器本地绘制，导出图片不包含客户信息`,controls,'VISUAL ANALYTICS / 数据可视化')
+    ?`${kpis.length?`<div class="kpi-grid viz-kpis">${kpis.map((item,index)=>vizKpiCard(item,index===0)).join('')}</div>`:''}${cards.length?`<div class="viz-grid">${cards.join('')}</div>`:empty('这段时间没有数据','换个日期或时间范围试试。')}`
+    :`<section class="panel">${empty('这段时间没有数据','换个日期或时间范围试试。')}</section>`;
+  return heading('数据可视化',`${range} · 共 ${data.days??0} 天`,controls)
     +body
     +(notes.length?`<div class="basis viz-notes">${notes.map(note=>E(note)).join('<br>')}</div>`:'');
 }
@@ -871,7 +870,7 @@ function drawVizCharts(){
   for(const chart of charts){
     const holder=vizHolder(chart.index);if(!holder)continue;
     while(holder.firstChild)holder.removeChild(holder.firstChild);
-    if(!lib){holder.appendChild(vizNotice('图表模块 /static/charts.js 未加载，无法绘制；请刷新页面重试。'));continue;}
+    if(!lib){holder.appendChild(vizNotice('图表没加载出来，刷新页面试试。'));continue;}
     try{
       if(chart.kind==='pie')lib.pie(holder,chart.spec);
       else if(chart.kind==='bar')lib.bar(holder,chart.spec);

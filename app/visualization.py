@@ -35,8 +35,7 @@ def clamp_days(days: int) -> int:
 def notes() -> list:
     return [
         BASIS,
-        '本页金额一律为人民币分的整数（integer cents）：接口不返回小数、不返回已格式化字符串，千分位与货币符号由前端统一渲染。',
-        '可视化接口为只读查询，不写入、不修改任何业务记录；汇总范围与看板一致，仅含当前账号授权门店的已审核记录。',
+        '图表按所选期间的已审核记录汇总，只读，不改动任何数据。',
     ]
 
 
@@ -53,15 +52,15 @@ def kpi_specs() -> tuple:
         ('repair_completed_count', '维修完工台次', 'count', ('repair_completed_count',), False, ''),
         ('repair_amount', '维修金额', 'money', ('repair_amount_cents',), False, ''),
         ('gross_difference', '毛利', 'money', ('gross_difference_cents',), False,
-         '仅合同/结算金额减录入直接成本，不含税费、返利、薪酬、折旧，非会计净利润。'),
-        ('policy_premium', '保单保费', 'money', ('policy_premium_cents',), False, '保费代收不计为门店营业收入。'),
+         '结算金额减录入成本，不含税费、返利、工资、折旧，不等于净利润。'),
+        ('policy_premium', '保单保费', 'money', ('policy_premium_cents',), False, '代收保费，不算门店收入。'),
         ('expected_commission', '预计佣金', 'money', ('expected_commission_cents',), False, ''),
-        ('net_cash', '净现金流', 'money', ('net_cash_cents',), False, '内部转账不计入门店总收支。'),
+        ('net_cash', '净现金流', 'money', ('net_cash_cents',), False, '内部转账不算。'),
         ('stock_count', '库存台数', 'count', ('stock_count',), True, ''),
         ('aging_stock_count', '超龄库存', 'count', ('aging_stock_count',), True,
-         '库龄超过 %d 天的在库车辆。' % settings.inventory_aging),
+         '库龄超过 %d 天。' % settings.inventory_aging),
         ('receivable', '应收合计', 'money', ('sales_receivable_cents', 'repair_receivable_cents'), True,
-         '销售与维修待收款合计，仅含已审核记录。'),
+         '销售和维修待收款，只含已审核。'),
     )
 
 
