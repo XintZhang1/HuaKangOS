@@ -76,6 +76,43 @@ def test_authenticated_health_and_shell(client):
     assert "script-src 'self'" in r.headers['content-security-policy']
 
 
+def test_docs_and_openapi_schema_share_one_switch():
+    """回归：/docs 关掉了，/openapi.json 却还开着。
+
+    只关交互文档、留着 schema，等于把完整接口清单免费送出去。两者必须同开同关。
+    """
+    from app.main import app as live, docs_enabled
+    from app.config import settings as live_settings
+    assert (live.docs_url is None) == (live.openapi_url is None), '两者不能一个开一个关'
+    assert docs_enabled(live_settings) == (live.openapi_url is not None), '开关要真的生效'
+
+    assert docs_enabled(replace(live_settings, api_docs=False)) is False
+    # production 的配置校验要求 COOKIE_SECURE 与显式 ALLOWED_HOSTS，满足它才能构造出来
+    assert docs_enabled(replace(live_settings, api_docs=True, environment='production',
+                                cookie_secure=True, allowed_hosts=('example.com',))) is False
+    assert docs_enabled(replace(live_settings, api_docs=True, environment='local')) is True
+    assert docs_enabled(replace(live_settings, api_docs=False, environment='local')) is False
+
+
+def test_schema_is_absent_when_the_switch_is_off():
+    """在 API_DOCS_ENABLED=false 下真的起一个 app 打一遍，而不是只看取值。
+
+    用子进程：本进程里的 app 与 settings 在 import 时就定死了，重载会污染其他测试。
+    """
+    import os, subprocess, sys
+    code = ("from fastapi.testclient import TestClient\n"
+            "from app.main import app\n"
+            "c=TestClient(app)\n"
+            "print(c.get('/docs').status_code, c.get('/openapi.json').status_code,"
+            " c.get('/api/health').status_code)\n")
+    env = dict(os.environ, API_DOCS_ENABLED='false')
+    result = subprocess.run([sys.executable, '-c', code], cwd=str(Path(__file__).resolve().parent.parent),
+                            env=env, capture_output=True, text=True, timeout=120)
+    assert result.returncode == 0, result.stderr[-2000:]
+    # 文档与 schema 都没了，业务接口照常
+    assert result.stdout.strip() == '404 404 200', result.stdout
+
+
 @pytest.mark.parametrize('path',['/api/records/sales','/api/records/cash','/api/dashboard','/api/reports','/api/findings','/api/audit','/api/users'])
 def test_auth_required(client,path):
     client.cookies.clear();assert client.get(path).status_code==401

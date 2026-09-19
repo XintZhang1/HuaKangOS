@@ -42,8 +42,18 @@ async def lifespan(app):
     scheduler.stop()
 
 
+def docs_enabled(config) -> bool:
+    """交互文档与 OpenAPI schema 必须共用一个开关。
+
+    只关掉 /docs 却留着 /openapi.json，等于把接口清单免费送出去——有哪些接口、
+    要什么参数、返回什么结构，全都拿得到。它不授予权限，但省了攻击者自己摸索的功夫。
+    """
+    return bool(config.api_docs and config.environment != 'production')
+
+
 app = FastAPI(title='DealerDesk · 4S 门店经营台',version='0.2.0',lifespan=lifespan,
-              docs_url='/docs' if (settings.api_docs and settings.environment!='production') else None,redoc_url=None)
+              docs_url='/docs' if docs_enabled(settings) else None,
+              openapi_url='/openapi.json' if docs_enabled(settings) else None,redoc_url=None)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=list(settings.allowed_hosts))
 
 # 所有表单都在 100KB 以内；批量填单允许内联图片，只有这一条路径放宽。
