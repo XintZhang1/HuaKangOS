@@ -533,7 +533,7 @@ function batchCountsHTML(){
 }
 function batchTableHTML(){
   if(!batchState.drafts.length)return empty('没有待写入的草稿','模型没有提出可复核的行，或已被你全部删除。请返回重新粘贴文本。');
-  return `<div class="table-scroll"><table class="batch-table"><thead><tr><th># / 状态</th>${batchState.fields.map(f=>`<th>${E(f.label)}${f.required?' <b class="required">*</b>':''}</th>`).join('')}<th>AI 提示与写入结果</th></tr></thead><tbody>${batchState.drafts.map(batchRowHTML).join('')}</tbody></table></div>`;
+  return `<div class="table-scroll batch-table-wrap"><table class="batch-table"><thead><tr><th># / 状态</th>${batchState.fields.map(f=>`<th>${E(f.label)}${f.required?' <b class="required">*</b>':''}</th>`).join('')}<th>AI 提示与写入结果</th></tr></thead><tbody>${batchState.drafts.map(batchRowHTML).join('')}</tbody></table></div>`;
 }
 function batchRefreshRow(row){
   const d=batchRow(row);if(!d)return;

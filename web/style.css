@@ -22,7 +22,16 @@ fieldset{margin:18px 0;padding:14px;border:1px solid #dce2ea;border-radius:8px}f
 dialog#modal.batch-modal{width:min(1560px,97vw)}
 .batch-summary{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin:0 0 12px;font-size:12px}
 .batch-summary .hint{color:var(--muted);font-size:11px}
+/* 复核表格又宽又长。此前 .table-scroll 没有高度上限，于是它和内容一样高，
+   横向滚动条被推到整张表的最底部（要竖着滚到底才看得见），用起来像「不能左右拖」。
+   现在这一个盒子同时负责两个轴、且有高度上限，两条滚动条都在可见范围边上。
+   .modal-body 不再自己滚动，避免出现两层竖向滚动。 */
+.batch-modal .modal-body{overflow:hidden;display:flex;flex-direction:column;gap:10px}
+.batch-table-wrap{flex:1 1 auto;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.batch-modal .modal-body>.banner,.batch-modal .modal-body>.batch-summary{flex:0 0 auto}
 .batch-table{white-space:nowrap}
+.batch-table thead th{position:sticky;top:0;z-index:2}
+.batch-table thead th:first-child{z-index:3}
 .batch-table th,.batch-table td{padding:9px 8px;vertical-align:top}
 .batch-table th:first-child,.batch-table td:first-child{position:sticky;left:0;z-index:1;min-width:152px;background:var(--paper)}
 .batch-table tr.batch-row-issue>td{background:#fffaf9}
