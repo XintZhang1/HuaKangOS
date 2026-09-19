@@ -297,3 +297,21 @@ def test_endpoint_validates_the_request_body(client,updates):
 def test_endpoint_requires_a_login():
     with TestClient(app) as anonymous:
         assert anonymous.post('/api/entry-draft/parse',json=BODY).status_code in {401,403}
+
+def test_prompt_separates_staff_from_customer_roles():
+    """回归：模型曾把服务顾问填进客户姓名字段。
+
+    根因是提示词只说「不要猜」，却没告诉它本店员工和客户是两类不同的人——
+    面对「沪B67890 李娜 保险维修」这种没写角色的文本，它只能硬选一个字段。
+    """
+    fields = normalise_fields([
+        {'name': 'service_advisor', 'label': '服务顾问', 'kind': 'text', 'required': True, 'options': None},
+        {'name': 'customer_name', 'label': '客户姓名 / 简称', 'kind': 'text', 'required': True, 'options': None},
+    ])
+    system, _ = build_prompt('repairs', fields, '沪B67890 李娜 保险维修 工时1500')
+    assert '角色区分' in system
+    assert '绝不可混用' in system
+    # 角色不明时必须留空而不是二选一
+    assert '宁可相关字段全部留空' in system
+    # 不得编造
+    assert '绝不用常见姓名' in system
