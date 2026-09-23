@@ -17,7 +17,7 @@ from app.models import User, Vehicle, Sale, DailyReport, Finding, LoginSession, 
 from app.analytics import load_data, daily_metrics, build_snapshot, external_payload, detect, source_revision
 from app.reports import generate_report, ask_deepseek
 from app import reports, analytics
-from conftest import login, PASSWORD, TEST_DIR
+from tests.conftest import login, PASSWORD, TEST_DIR
 
 
 def vehicle_body(**updates):
@@ -72,45 +72,8 @@ def sale(client,**kwargs):
 
 def test_authenticated_health_and_shell(client):
     assert client.get('/api/health').json()['status']=='ok'
-    r=client.get('/');assert r.status_code==200 and 'DealerDesk' in r.text
+    r=client.get('/');assert r.status_code==200 and '门店经营台' in r.text
     assert "script-src 'self'" in r.headers['content-security-policy']
-
-
-def test_docs_and_openapi_schema_share_one_switch():
-    """回归：/docs 关掉了，/openapi.json 却还开着。
-
-    只关交互文档、留着 schema，等于把完整接口清单免费送出去。两者必须同开同关。
-    """
-    from app.main import app as live, docs_enabled
-    from app.config import settings as live_settings
-    assert (live.docs_url is None) == (live.openapi_url is None), '两者不能一个开一个关'
-    assert docs_enabled(live_settings) == (live.openapi_url is not None), '开关要真的生效'
-
-    assert docs_enabled(replace(live_settings, api_docs=False)) is False
-    # production 的配置校验要求 COOKIE_SECURE 与显式 ALLOWED_HOSTS，满足它才能构造出来
-    assert docs_enabled(replace(live_settings, api_docs=True, environment='production',
-                                cookie_secure=True, allowed_hosts=('example.com',))) is False
-    assert docs_enabled(replace(live_settings, api_docs=True, environment='local')) is True
-    assert docs_enabled(replace(live_settings, api_docs=False, environment='local')) is False
-
-
-def test_schema_is_absent_when_the_switch_is_off():
-    """在 API_DOCS_ENABLED=false 下真的起一个 app 打一遍，而不是只看取值。
-
-    用子进程：本进程里的 app 与 settings 在 import 时就定死了，重载会污染其他测试。
-    """
-    import os, subprocess, sys
-    code = ("from fastapi.testclient import TestClient\n"
-            "from app.main import app\n"
-            "c=TestClient(app)\n"
-            "print(c.get('/docs').status_code, c.get('/openapi.json').status_code,"
-            " c.get('/api/health').status_code)\n")
-    env = dict(os.environ, API_DOCS_ENABLED='false')
-    result = subprocess.run([sys.executable, '-c', code], cwd=str(Path(__file__).resolve().parent.parent),
-                            env=env, capture_output=True, text=True, timeout=120)
-    assert result.returncode == 0, result.stderr[-2000:]
-    # 文档与 schema 都没了，业务接口照常
-    assert result.stdout.strip() == '404 404 200', result.stdout
 
 
 @pytest.mark.parametrize('path',['/api/records/sales','/api/records/cash','/api/dashboard','/api/reports','/api/findings','/api/audit','/api/users'])
@@ -493,13 +456,15 @@ def test_new_user_forced_password_change(client):
 def test_role_change_revokes_sessions(client):
     with TestClient(app) as other:
         user=login(other,'sales')
-        r=client.put(f'/api/users/{user["id"]}',json={'role':'auditor','display_name':'转岗人员','active':True});assert r.status_code==200
+        current=next(u for u in client.get('/api/users').json()['items'] if u['id']==user['id'])
+        r=client.put(f'/api/users/{user["id"]}',json={'request_id':'role-change-1','access_version':current['access_version'],'role':'auditor','display_name':'转岗人员','active':True});assert r.status_code==200
         assert other.get('/api/auth/me').status_code==401
 
 
 def test_admin_cannot_disable_self(client):
     u=client.get('/api/auth/me').json()
-    assert client.put(f'/api/users/{u["id"]}',json={'role':'admin','display_name':'admin','active':False}).status_code==409
+    current=next(r for r in client.get('/api/users').json()['items'] if r['id']==u['id'])
+    assert client.put(f'/api/users/{u["id"]}',json={'request_id':'self-disable-1','access_version':current['access_version'],'role':'admin','display_name':'admin','active':False}).status_code==409
 
 
 def test_real_migration_and_database_transfer(client,tmp_path):

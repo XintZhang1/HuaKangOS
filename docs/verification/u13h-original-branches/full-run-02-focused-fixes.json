@@ -1,0 +1,26 @@
+{
+  "status": "focused_passed_not_final_whole_tree",
+  "runtime_changes_for_two_failures": false,
+  "checks": [
+    {
+      "modules": [
+        "tests/test_dossier_grant_ui.py"
+      ],
+      "passed": 3,
+      "seconds": 12.7,
+      "notes": "Preserved route checks plus all five target-store catalog response mappings and exact scoped request set; executes both dossier and switch Node contracts."
+    },
+    {
+      "modules": [
+        "tests/test_rework_extension_upgrade.py",
+        "tests/test_rework_extensions.py",
+        "tests/test_rework_extension_reconciliation.py",
+        "tests/test_repair_package_upgrade.py",
+        "tests/test_member_pricing_upgrade.py"
+      ],
+      "passed": 24,
+      "seconds": 103.31,
+      "notes": "Preserved y57l→z68m history/DDL/FK/restore assertions; upgrade to current head before invoking current runtime features."
+    }
+  ]
+}

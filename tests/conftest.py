@@ -5,7 +5,12 @@ from pathlib import Path
 TEST_DIR=Path(tempfile.mkdtemp(prefix='dealerdesk-tests-'))
 os.environ['DATABASE_URL']='sqlite:///'+str(TEST_DIR/'test.sqlite')
 os.environ['SCHEDULER_ENABLED']='false'
+os.environ['FILE_SCAN_MODE']='structure_only'
+os.environ['FILE_STORAGE_MODE']='blob'
+os.environ['PRIVATE_FILE_ROOT']=''
 os.environ['APP_ENV']='test'
+# Exercise preserved legacy service regressions; production forbids this import-only switch.
+os.environ['LEGACY_BUSINESS_WRITE']='true'
 os.environ['ALLOW_AI_EXTERNAL']='false'
 os.environ['DEEPSEEK_API_KEY']=''
 os.environ['COOKIE_SECURE']='false'

@@ -1,0 +1,23 @@
+F..............................F...................                      [100%]
+=================================== FAILURES ===================================
+___ test_native_original_routes_cash_return_invoice_points_and_monthly_once ____
+tests/test_retail_group_api.py:268: in test_native_original_routes_cash_return_invoice_points_and_monthly_once
+    assert db.scalar(select(func.sum(PointsChange.units)).where(PointsChange.case_id == row['id'])) == (
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/sqlalchemy/orm/session.py:2420: in scalar
+    return self._execute_internal(
+/opt/pyvenv/lib/python3.13/site-packages/sqlalchemy/orm/session.py:2224: in _execute_internal
+    fn_result: Optional[Result[Any]] = fn(orm_exec_state)
+                                       ^^^^^^^^^^^^^^^^^^
+app/group_models.py:199: in guard_group_queries
+    raise HTTPException(403, '集团数据必须经集团业务服务查询')
+E   fastapi.exceptions.HTTPException: 403: 集团数据必须经集团业务服务查询
+_ test_delivered_and_converted_need_source_facts_and_successor_is_still_checked _
+tests/test_business_entity_domains.py:166: in test_delivered_and_converted_need_source_facts_and_successor_is_still_checked
+    with pytest.raises(HTTPException) as unauthorized:
+                       ^^^^^^^^^^^^^
+E   NameError: name 'HTTPException' is not defined
+=========================== short test summary info ============================
+FAILED tests/test_retail_group_api.py::test_native_original_routes_cash_return_invoice_points_and_monthly_once - fastapi.exceptions.HTTPException: 403: 集团数据必须经集团业务服务查询
+FAILED tests/test_business_entity_domains.py::test_delivered_and_converted_need_source_facts_and_successor_is_still_checked - NameError: name 'HTTPException' is not defined
+2 failed, 49 passed in 134.77s (0:02:14)

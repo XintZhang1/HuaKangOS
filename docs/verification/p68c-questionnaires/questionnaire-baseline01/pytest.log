@@ -1,0 +1,19 @@
+.......................F...................                              [100%]
+=================================== FAILURES ===================================
+_______ test_care_migration_frozen_columns_constraints_and_foreign_keys ________
+tests/test_customer_service.py:327: in test_care_migration_frozen_columns_constraints_and_foreign_keys
+    if name.startswith('care_'):assert {r['name'] for r in inspector.get_columns(name)}==set(table.columns.keys())
+                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/sqlalchemy/engine/reflection.py:870: in get_columns
+    col_defs = self.dialect.get_columns(
+<string>:2: in get_columns
+    ???
+/opt/pyvenv/lib/python3.13/site-packages/sqlalchemy/engine/reflection.py:107: in cache
+    ret = fn(self, con, *args, **kw)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/sqlalchemy/dialects/sqlite/base.py:2443: in get_columns
+    raise exc.NoSuchTableError(
+E   sqlalchemy.exc.NoSuchTableError: care_questionnaire_policies
+=========================== short test summary info ============================
+FAILED tests/test_customer_service.py::test_care_migration_frozen_columns_constraints_and_foreign_keys - sqlalchemy.exc.NoSuchTableError: care_questionnaire_policies
+1 failed, 42 passed in 40.76s

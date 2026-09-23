@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="72" time="73.343" timestamp="2026-09-22T10:28:39.511082+00:00" hostname="localhost"><testcase classname="tests.test_gate_visits" name="test_plan_actual_leave_no_cash_no_stock_and_same_source_csv" time="1.343" /><testcase classname="tests.test_gate_visits" name="test_cancel_only_unarrived_and_repeat_requests_are_not_new_facts" time="0.712" /><testcase classname="tests.test_gate_visits" name="test_explicit_facts_strict_types_no_state_or_finance_shortcuts[change0]" time="0.500" /><testcase classname="tests.test_gate_visits" name="test_explicit_facts_strict_types_no_state_or_finance_shortcuts[change1]" time="0.535" /><testcase classname="tests.test_gate_visits" name="test_explicit_facts_strict_types_no_state_or_finance_shortcuts[change2]" time="0.487" /><testcase classname="tests.test_gate_visits" name="test_explicit_facts_strict_types_no_state_or_finance_shortcuts[change3]" time="0.622" /><testcase classname="tests.test_gate_visits" name="test_explicit_facts_strict_types_no_state_or_finance_shortcuts[change4]" time="0.576" /><testcase classname="tests.test_gate_visits" name="test_explicit_facts_strict_types_no_state_or_finance_shortcuts[change5]" time="0.584" /><testcase classname="tests.test_gate_visits" name="test_explicit_facts_strict_types_no_state_or_finance_shortcuts[change6]" time="0.571" /><testcase classname="tests.test_gate_visits" name="test_explicit_facts_strict_types_no_state_or_finance_shortcuts[change7]" time="0.569" /><testcase classname="tests.test_gate_visits" name="test_explicit_facts_strict_types_no_state_or_finance_shortcuts[change8]" time="0.482" /><testcase classname="tests.test_gate_visits" name="test_wrong_vin_wrong_case_evidence_and_backwards_time_are_rejected" time="0.644" /><testcase classname="tests.test_gate_visits" name="test_same_vin_other_customer_relation_cannot_bypass_active_arrival" time="0.648" /><testcase classname="tests.test_gate_visits" name="test_gate_and_original_intake_share_arrival_lock_and_real_departure" time="0.873" /><testcase classname="tests.test_gate_visits" name="test_actual_handoff_reuses_original_gate_no_new_arrival" time="1.365" /><testcase classname="tests.test_gate_visits" name="test_independent_correction_not_self_approval_and_original_fact_preserved" time="0.824" /><testcase classname="tests.test_gate_visits" name="test_rejected_or_withdrawn_correction_does_not_change_source[reject]" time="0.892" /><testcase classname="tests.test_gate_visits" name="test_rejected_or_withdrawn_correction_does_not_change_source[cancel]" time="0.813" /><testcase classname="tests.test_gate_visits" name="test_void_wrong_record_is_reviewed_not_fake_departure_and_frees_vin" time="0.980" /><testcase classname="tests.test_gate_visits" name="test_cancelled_repair_needs_independent_actual_exit_not_cancel_state" time="0.721"><failure message="KeyError: 'customer_id'">tests/test_gate_visits.py:198: in test_cancelled_repair_needs_independent_actual_exit_not_cancel_state
+    d=report(client);assert d['complete'] and d['metrics']['service_actual_arrivals']==2 and d['metrics']['service_actual_departures']==1
+      ^^^^^^^^^^^^^^
+tests/test_visit_activity.py:18: in report
+    r=c.get(API,params=params);assert r.status_code==200,r.text;return r.json()
+      ^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/starlette/testclient.py:473: in get
+    return super().get(
+/opt/pyvenv/lib/python3.13/site-packages/httpx/_client.py:1053: in get
+    return self.request(
+/opt/pyvenv/lib/python3.13/site-packages/starlette/testclient.py:445: in request
+    return super().request(
+/opt/pyvenv/lib/python3.13/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+/opt/pyvenv/lib/python3.13/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+/opt/pyvenv/lib/python3.13/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/starlette/testclient.py:348: in handle_request
+    raise exc
+/opt/pyvenv/lib/python3.13/site-packages/starlette/testclient.py:345: in handle_request
+    portal.call(self.app, scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.13/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.13/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/opt/pyvenv/lib/python3.13/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/fastapi/applications.py:1138: in __call__
+    await super().__call__(scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/applications.py:107: in __call__
+    await self.middleware_stack(scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+/opt/pyvenv/lib/python3.13/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/middleware/base.py:191: in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+                                   ^^^^^^^^^^^^^^^^^^^^
+/usr/lib/python3.13/contextlib.py:162: in __exit__
+    self.gen.throw(value)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/_utils.py:85: in collapse_excgroups
+    raise exc
+/opt/pyvenv/lib/python3.13/site-packages/starlette/middleware/base.py:193: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/main.py:77: in safety_headers
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/starlette/middleware/base.py:168: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+/opt/pyvenv/lib/python3.13/site-packages/starlette/middleware/base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/middleware/trustedhost.py:51: in __call__
+    await self.app(scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/opt/pyvenv/lib/python3.13/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/opt/pyvenv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/fastapi/routing.py:115: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+/opt/pyvenv/lib/python3.13/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/opt/pyvenv/lib/python3.13/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/opt/pyvenv/lib/python3.13/site-packages/fastapi/routing.py:101: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/fastapi/routing.py:355: in app
+    raw_response = await run_endpoint_function(
+/opt/pyvenv/lib/python3.13/site-packages/fastapi/routing.py:245: in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/starlette/concurrency.py:32: in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/anyio/to_thread.py:63: in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+/opt/pyvenv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:2518: in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+/opt/pyvenv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:1002: in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+app/visit_activity_api.py:15: in report
+    return build_visit_activity(db,user,date_from,date_to,case_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/visit_activity_analytics.py:137: in build_visit_activity
+    gate_issues,gate_changes=extend_sessions(db,cases,sessions,aggregate,case_id)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/gate_visit_reporting.py:58: in extend_sessions
+    actual=check_cancelled_exit(_row(cases[exit.case_id]),_row(exit),bindings.get(exit.case_id),current['arrived_at'],events,files)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/gate_visit_integrity.py:168: in check_cancelled_exit
+    or binding['customer_id'] != row['customer_id'] or arrived_at is None):
+       ^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'customer_id'</failure></testcase><testcase classname="tests.test_gate_visits" name="test_scope_read_write_and_aggregate_vin_remains_private" time="0.827" /><testcase classname="tests.test_gate_visits" name="test_competing_gate_and_native_arrivals_only_one_commits" time="0.804" /><testcase classname="tests.test_gate_visits" name="test_immutable_fact_classes_are_registered[GateFact]" time="0.340" /><testcase classname="tests.test_gate_visits" name="test_immutable_fact_classes_are_registered[GateVisit]" time="0.336" /><testcase classname="tests.test_gate_visits" name="test_immutable_fact_classes_are_registered[GateCorrection]" time="0.332" /><testcase classname="tests.test_gate_visits" name="test_immutable_fact_classes_are_registered[GateReview]" time="0.345" /><testcase classname="tests.test_gate_visits" name="test_immutable_fact_classes_are_registered[GateHandoff]" time="0.337" /><testcase classname="tests.test_gate_visits" name="test_immutable_fact_classes_are_registered[RepairGateExit]" time="0.334" /><testcase classname="tests.test_gate_visits" name="test_restore_and_report_refuse_inconsistent_originals[UPDATE gate_facts SET reason='\u88ab\u7be1\u6539\u7684\u539f\u4e8b\u5b9e']" time="0.561" /><testcase classname="tests.test_gate_visits" name="test_restore_and_report_refuse_inconsistent_originals[UPDATE gate_visits SET description='\u88ab\u7be1\u6539\u7684\u6765\u8bbf\u7528\u9014']" time="0.615" /><testcase classname="tests.test_gate_visits" name="test_restore_and_report_refuse_inconsistent_originals[UPDATE gate_visits SET status='departed']" time="0.944" /><testcase classname="tests.test_gate_visits" name="test_restore_and_report_refuse_inconsistent_originals[DELETE FROM flow_events WHERE action='gate_arrive']" time="0.607" /><testcase classname="tests.test_gate_visits" name="test_orm_cannot_overwrite_actual_fact" time="0.567" /><testcase classname="tests.test_gate_visits" name="test_legacy_missing_domain_is_zero_but_partial_schema_rejected" time="0.420" /><testcase classname="tests.test_gate_visits" name="test_corrected_earlier_arrival_then_real_departure_before_original_error" time="1.113" /><testcase classname="tests.test_service_intake" name="test_appointment_requires_actual_arrival_and_binds_customer_vin" time="0.633" /><testcase classname="tests.test_service_intake" name="test_fast_wash_prefills_real_quote_without_fake_approval_or_cash" time="1.191" /><testcase classname="tests.test_service_intake" name="test_rework_same_origin_has_internal_floor_and_preserves_original_payment" time="2.796" /><testcase classname="tests.test_service_intake" name="test_legacy_v3_requires_manager_binding_not_plate_matching" time="1.350" /><testcase classname="tests.test_service_intake" name="test_resource_actual_occupancy_blocks_overlap_and_rework_reentry" time="1.576" /><testcase classname="tests.test_service_intake" name="test_appointment_reschedule_cancel_no_show_and_replay" time="0.558" /><testcase classname="tests.test_service_intake" name="test_competing_intake_operations[book]" time="0.730" /><testcase classname="tests.test_service_intake" name="test_competing_intake_operations[convert]" time="0.778" /><testcase classname="tests.test_service_intake" name="test_competing_intake_operations[start]" time="0.940" /><testcase classname="tests.test_service_intake" name="test_competing_intake_operations[rework]" time="1.394" /><testcase classname="tests.test_service_intake" name="test_arrived_departure_preserves_fact_and_cannot_convert" time="0.624" /><testcase classname="tests.test_service_intake" name="test_rework_cancel_reject_and_unstarted_order_cancel_release_source" time="1.514" /><testcase classname="tests.test_service_intake" name="test_cross_store_related_reads_actions_and_group_readonly_refused" time="1.251" /><testcase classname="tests.test_service_intake" name="test_forged_original_line_vehicle_and_quarantine_refused" time="1.212" /><testcase classname="tests.test_service_intake" name="test_employee_actions_assignee_transfer_and_private_prices" time="1.804" /><testcase classname="tests.test_service_intake" name="test_detailed_v4_parts_return_preserves_original_cost_and_internal_stop" time="2.249" /><testcase classname="tests.test_service_intake" name="test_v4_authorization_category_prices_and_immutable_binding" time="0.958" /><testcase classname="tests.test_service_intake" name="test_resource_boundary_and_same_vin_different_bays_compete" time="0.804"><failure message="AssertionError: {&quot;detail&quot;:&quot;同一VIN已有重叠进厂或尚无实际离场的来源；请回原记录核对，不能重复登记&quot;}&#10;assert 409 == 200&#10; +  where 409 = &lt;Response [409 Conflict]&gt;.status_code">tests/test_service_intake.py:276: in test_resource_boundary_and_same_vin_different_bays_compete
+    two=convert(client,arrive(client,second));two,_=work_quote(client,two)
+                       ^^^^^^^^^^^^^^^^^^^^^
+tests/test_service_intake.py:41: in arrive
+    def arrive(c,a):return cmd(c,'appointments',a,'arrive',{'checked_vin':a['vin'],'odometer_km':10000,'evidence_id':proof(c,a,'inspection')})
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_service_intake.py:39: in cmd
+    return post(c,f"/{kind}/{row['id']}/actions/{action}",{'version':current['version'] if version is None else version,'values':v or {}},status,key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_service_intake.py:25: in post
+    response=c.post(API+path,json={'request_id':key or uuid.uuid4().hex,**values});assert response.status_code==status,response.text;return response.json()
+                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"同一VIN已有重叠进厂或尚无实际离场的来源；请回原记录核对，不能重复登记"}
+E   assert 409 == 200
+E    +  where 409 = &lt;Response [409 Conflict]&gt;.status_code</failure></testcase><testcase classname="tests.test_service_intake" name="test_converted_reserved_slot_blocks_other_actual_work" time="0.937"><failure message="AssertionError: {&quot;detail&quot;:&quot;同一VIN已有重叠进厂或尚无实际离场的来源；请回原记录核对，不能重复登记&quot;}&#10;assert 409 == 200&#10; +  where 409 = &lt;Response [409 Conflict]&gt;.status_code">tests/test_service_intake.py:291: in test_converted_reserved_slot_blocks_other_actual_work
+    other=appointment(client,v,res,**slot(3));outside=convert(client,arrive(client,other));outside,_=work_quote(client,outside)
+                                                                     ^^^^^^^^^^^^^^^^^^^^
+tests/test_service_intake.py:41: in arrive
+    def arrive(c,a):return cmd(c,'appointments',a,'arrive',{'checked_vin':a['vin'],'odometer_km':10000,'evidence_id':proof(c,a,'inspection')})
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_service_intake.py:39: in cmd
+    return post(c,f"/{kind}/{row['id']}/actions/{action}",{'version':current['version'] if version is None else version,'values':v or {}},status,key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_service_intake.py:25: in post
+    response=c.post(API+path,json={'request_id':key or uuid.uuid4().hex,**values});assert response.status_code==status,response.text;return response.json()
+                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"同一VIN已有重叠进厂或尚无实际离场的来源；请回原记录核对，不能重复登记"}
+E   assert 409 == 200
+E    +  where 409 = &lt;Response [409 Conflict]&gt;.status_code</failure></testcase><testcase classname="tests.test_service_intake" name="test_local_day_task_due_including_reschedule" time="0.518" /><testcase classname="tests.test_service_intake" name="test_nonempty_intake_restore_rejects_tampered_facts[vin]" time="1.793" /><testcase classname="tests.test_service_intake" name="test_nonempty_intake_restore_rejects_tampered_facts[source_quote]" time="1.696" /><testcase classname="tests.test_service_intake" name="test_nonempty_intake_restore_rejects_tampered_facts[allocation]" time="1.770" /><testcase classname="tests.test_service_intake" name="test_nonempty_intake_restore_rejects_tampered_facts[occupancy]" time="1.768" /><testcase classname="tests.test_service_intake" name="test_nonempty_intake_restore_rejects_tampered_facts[use]" time="1.881" /><testcase classname="tests.test_service_intake" name="test_nonempty_intake_restore_rejects_tampered_facts[authorization]" time="2.186" /><testcase classname="tests.test_service_intake" name="test_nonempty_intake_restore_rejects_tampered_facts[arrival]" time="2.230" /><testcase classname="tests.test_service_intake" name="test_service_reports_use_actual_arrival_and_same_csv_population" time="2.118" /><testcase classname="tests.test_visit_activity" name="test_real_contact_events_not_tasks_or_current_conversion_and_csv" time="1.012" /><testcase classname="tests.test_visit_activity" name="test_booking_no_show_and_cancel_not_arrival_actual_leave_is_once" time="0.684" /><testcase classname="tests.test_visit_activity" name="test_convert_and_cancel_repair_never_fabricate_departure" time="0.607" /><testcase classname="tests.test_visit_activity" name="test_local_month_boundary_does_not_rewrite_arrival_cohort" time="1.291" /><testcase classname="tests.test_visit_activity" name="test_rework_actual_arrival_has_distinct_source_not_duplicate_convert" time="1.677" /><testcase classname="tests.test_visit_activity" name="test_older_repair_actual_release_without_arrival_stays_explicit_gap" time="1.259" /><testcase classname="tests.test_visit_activity" name="test_proof_or_binding_tamper_is_visible_and_not_counted" time="1.227" /><testcase classname="tests.test_visit_activity" name="test_roles_scope_aggregate_privacy_and_invalid_period" time="1.321" /><testcase classname="tests.test_visit_activity" name="test_csv_formula_and_source_limit_are_explicit" time="0.665" /></testsuite></testsuites>

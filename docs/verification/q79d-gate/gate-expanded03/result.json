@@ -1,0 +1,12 @@
+{
+  "label": "gate-expanded03",
+  "exit_code": 0,
+  "seconds": 127.0576719180001,
+  "source_unchanged": true,
+  "changed_paths": [],
+  "tests": 116,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 116
+}

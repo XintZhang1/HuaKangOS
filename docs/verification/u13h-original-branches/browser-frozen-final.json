@@ -1,0 +1,403 @@
+{
+  "checkpoint": "e13r_member_fee_corrections_with_utc_display_fix",
+  "date": "2026-09-23",
+  "status": "six_browser_groups_and_three_timezone_formatter_contexts_passed_on_frozen_run04_source",
+  "whole_suite_run": "u13h-final-04-20260923-1553 (separate evidence; not asserted by this browser record)",
+  "identity": {
+    "repository_id": "02f0f863c9dc98b54b26",
+    "repository": "E:\\proj\\huakangos_t02g_recovery_pending_20260922\\dealer_desk",
+    "source_fingerprint": "c7fdd3ce8ed18632cc98c4dafefd326dc4f5a649cefe7c078bac75ccc1db0f24"
+  },
+  "source_unchanged": true,
+  "compared_code_and_test_files": 662,
+  "source_manifests": {
+    "source-before.json": {
+      "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\source-before.json",
+      "sha256": "5998f7ff3ff699db0c20c3e3ac320cead517f7bf47fc262b65c9a171b620b524"
+    },
+    "source-after.json": {
+      "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\source-after.json",
+      "sha256": "5998f7ff3ff699db0c20c3e3ac320cead517f7bf47fc262b65c9a171b620b524"
+    }
+  },
+  "selected_source_hashes": {
+    "web/app.js": "1f41bd35b372b859cb6a5f3f61af6e6b1924a0799e81b8ad6327cb8eeacb92dd",
+    "web/serviceintake.js": "70c2fc7317e4c378161614fb5cc911862627d3c9685d028160733310027b946e",
+    "web/businessfinance.js": "730bb6094ae68bdecef05f555a448f6e992147ef43852978646fca2fddcfa0e6",
+    "web/membership.js": "3d51773b16365fcd238be8f60ee5a1914fa7cd0e8e524c79fd9a3c3dac328ac4",
+    "tests/js/store_switch.test.cjs": "e16afdbbdf94708223343c8b34d492c2ffbca2f85e8ffc889e2f3a2e255c17e2",
+    "tests/js/time_display.test.cjs": "ddaacbc96c11ed443e6e5dbdd0d4349eb334c124c1cda00f6b5c4524372e77cc",
+    "tests/test_time_display.py": "840d8be87118f18b83b56b04b412e2541a11f858d7dc5018918601236b2d6996",
+    "tests/browser_huakangos.py": "2d00c3c0373e3b2c5d5939c75783f62467354154765feaad223aaec74c27733f",
+    "tests/browser_member_fee_corrections.py": "e2feb0cae9e2ac1d880ab6519c4f4f952e6116fb78d91e9f4af4938f32a6f9f6",
+    "tests/browser_local_preview.py": "72e0f4fc6e9d9f958ec27638db3e163667b25ecfba0b8fe452a83d237fd0f563",
+    "tests/browser_questionnaire_exports.py": "aeb426f175517ceb14af438eb48cd5ddb5b055df9fe91860c50ed88a0f6af7bb",
+    "tests/browser_dossier_grants.py": "11683f227755e7ea5bc1b174c5cd59a84a87c6497d938d0e1058fa2be4a26f82",
+    "tests/browser_master_completion.py": "4ba529b2523542930b85cda6b74915080999ab8d74980b0bc1abd77a396b231f",
+    "tests/browser_store_switch.py": "8d8ff00a33d557d343f67f9d95a209ad5cd2a471b411d7c078f9cab7333fac3c"
+  },
+  "environment": {
+    "os": "Windows",
+    "browser": "installed real Google Chrome, headless HTTP, no bridge",
+    "viewport": "390x844 (fee administrator fixture also uses 1440px)",
+    "database": "new independent synthetic databases, outside repository",
+    "ports": "independently allocated random localhost ports",
+    "FILE_STORAGE_MODE": "blob",
+    "PRIVATE_FILE_ROOT": "",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONIOENCODING": "utf-8",
+    "PYTHONUTF8": "1"
+  },
+  "total": {
+    "groups": 6,
+    "steps": 23,
+    "screenshots": 22,
+    "javascript_errors": 0,
+    "elapsed_seconds": 200.62
+  },
+  "browser_groups": [
+    {
+      "seconds": 55.9798942,
+      "exit_code": 0,
+      "started_utc": "2026-09-23T07:52:00.1331718Z",
+      "group": "member_fee_corrections",
+      "log": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\member_fee_corrections.log",
+      "status": "passed",
+      "script": "tests/browser_member_fee_corrections.py",
+      "acceptance_path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\member_fee_corrections\\acceptance.json",
+      "acceptance_sha256": "8168bda6dfdb68e1c4a5ddc883050023335611247c6b494d5c495b562252c303",
+      "steps": [
+        "服务顾问原免费会期与199元未来续会，店长独立批准，财务确认；随后财务在390像素页面申请同额账户凭证更正，经理批准后财务执行，会期及权益逐项保持",
+        "服务顾问不能读财务更正原单，乙店无法读取；真实续会退款拒绝旧账户中文提示，再按有效原账户实际退款，现金收199退199且会费净额0，客服只见退款结果"
+      ],
+      "step_count": 2,
+      "screenshot_count": 4,
+      "screenshots": [
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\member_fee_corrections\\01_independent_fee_approval.png",
+          "sha256": "8eb86da86f052bb7784e25ce7ae63b9e16e8245c1455152213499d2b125adc8b"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\member_fee_corrections\\02_same_fee_recording_completed.png",
+          "sha256": "aecfaff2720016c0871662b02fb0e15e14b483070bd4e0f46dec7c736a0966e0"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\member_fee_corrections\\03_wrong_original_account_refused.png",
+          "sha256": "84dc6621e909ae266ea20d74341796342495fb3fdecac217ec571f6adce5508b"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\member_fee_corrections\\04_actual_refund_effective_account.png",
+          "sha256": "010b49a15c620c05993c6cf8209c9f02a117850054bd53dac556eb224d1b6381"
+        }
+      ],
+      "javascript_error_count": 0,
+      "timestamp_checks": [
+        {
+          "case_id": 3,
+          "event_id": 1,
+          "raw_event": "2026-09-23T07:52:25.247033",
+          "displayed_event": "2026/9/23 15:52:25"
+        },
+        {
+          "case_id": 3,
+          "event_id": 2,
+          "raw_event": "2026-09-23T07:52:25.965425",
+          "displayed_event": "2026/9/23 15:52:25",
+          "file_id": 5,
+          "raw_file": "2026-09-23T07:52:25.675224Z",
+          "displayed_file": "2026/9/23 15:52:25"
+        },
+        {
+          "case_id": 3,
+          "event_id": 3,
+          "raw_event": "2026-09-23T07:52:33.911852",
+          "displayed_event": "2026/9/23 15:52:33",
+          "file_id": 6,
+          "raw_file": "2026-09-23T07:52:33.560357Z",
+          "displayed_file": "2026/9/23 15:52:33"
+        },
+        {
+          "case_id": 4,
+          "event_id": 7,
+          "raw_event": "2026-09-23T07:52:40.945829",
+          "displayed_event": "2026/9/23 15:52:40"
+        },
+        {
+          "case_id": 4,
+          "event_id": 8,
+          "raw_event": "2026-09-23T07:52:41.649785",
+          "displayed_event": "2026/9/23 15:52:41",
+          "file_id": 7,
+          "raw_file": "2026-09-23T07:52:41.358418Z",
+          "displayed_file": "2026/9/23 15:52:41"
+        },
+        {
+          "case_id": 4,
+          "event_id": 9,
+          "raw_event": "2026-09-23T07:52:48.636741",
+          "displayed_event": "2026/9/23 15:52:48",
+          "file_id": 8,
+          "raw_file": "2026-09-23T07:52:42.110119Z",
+          "displayed_file": "2026/9/23 15:52:42"
+        },
+        {
+          "case_id": 4,
+          "event_id": 10,
+          "raw_event": "2026-09-23T07:52:48.643870",
+          "displayed_event": "2026/9/23 15:52:48",
+          "file_id": 8,
+          "raw_file": "2026-09-23T07:52:42.110119Z",
+          "displayed_file": "2026/9/23 15:52:42"
+        }
+      ]
+    },
+    {
+      "seconds": 30.2453538,
+      "exit_code": 0,
+      "started_utc": "2026-09-23T07:52:56.1518751Z",
+      "group": "local_preview",
+      "log": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\local_preview.log",
+      "status": "passed",
+      "script": "tests/browser_local_preview.py",
+      "acceptance_path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-viyxro4l\\acceptance.json",
+      "acceptance_sha256": "e8c5d687977cd37b86841e9366259a07e287b1ef323e320acc010fcb30c16817",
+      "steps": [
+        "新独立空库首次设置入口，原URL片段立即清除",
+        "密码不一致与过期链接中文拒绝；重复提交仅发送一次，正确提交自动进入工作台",
+        "不指定端口重复启动仍复用原端口、同一健康PID和原源码指纹；账号保留，原设置请求拒绝",
+        "全新浏览器正常登录；没有合成业务或经营主体；日志无密码或设置token"
+      ],
+      "step_count": 4,
+      "screenshot_count": 4,
+      "screenshots": [
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-viyxro4l\\01_first_admin_setup_mobile.png",
+          "sha256": "ae87a92c8a5640781a40d8da2f2fedd9a0626f601f227afac9519b44b519b772"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-viyxro4l\\02_password_confirmation_refused_mobile.png",
+          "sha256": "bddb2eedd26731adebf6d4c59eb7be155ad501598101f91f2fdecd6c905ed115"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-viyxro4l\\03_expired_setup_refused_mobile.png",
+          "sha256": "cf67165e69c0708dfc63b6de81b51f736aab5e067a32f9fdc0d2962dd3d37e88"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-viyxro4l\\04_local_preview_workbench_mobile.png",
+          "sha256": "55aa726b1023f4f82af9e3b0c95f3063a2711de5e0b14a2f95ab293cd48738c0"
+        }
+      ],
+      "javascript_error_count": 0
+    },
+    {
+      "seconds": 22.866313,
+      "exit_code": 0,
+      "started_utc": "2026-09-23T07:53:26.4018768Z",
+      "group": "questionnaire_exports",
+      "log": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\questionnaire_exports.log",
+      "status": "passed",
+      "script": "tests/browser_questionnaire_exports.py",
+      "acceptance_path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\questionnaire_exports\\acceptance.json",
+      "acceptance_sha256": "f57d1c92736ad2900ec73d0192e4546736050a262aa19c78d0861c583059bbe5",
+      "steps": [
+        "独立主管批准两个后续版本，客服记录原v1与v2/v3答案，包含0、否和未回答",
+        "390px客服页面实际展开单题明细并下载：同题的图、明细、CSV逐字节一致，其他版本和题目不混入",
+        "整表下载仍包含全部获权题目，与单题按钮的范围明确不同",
+        "真实页面缺少原题摘要的下载请求得到中文拒绝，不退回全表"
+      ],
+      "step_count": 4,
+      "screenshot_count": 3,
+      "screenshots": [
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\questionnaire_exports\\question_first_visit_390px.png",
+          "sha256": "4511fa880dfd87cffcae05f7d1c959bdf4ced9f8f1783101fb7468bcfe6469eb"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\questionnaire_exports\\question_wait_minutes_390px.png",
+          "sha256": "aded851379d0c611adf17dac4f4e7143b7bae07ecb1bd66183dacad8c128bbaf"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\questionnaire_exports\\incomplete_selector_chinese_390px.png",
+          "sha256": "02ef6d4a89ebb7baca9c6b01554dc3a0ab390bb0f183c32dd45c72a338bbe34b"
+        }
+      ],
+      "javascript_error_count": 0
+    },
+    {
+      "seconds": 31.0063901,
+      "exit_code": 0,
+      "started_utc": "2026-09-23T07:53:49.2704277Z",
+      "group": "dossier_grants",
+      "log": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\dossier_grants.log",
+      "status": "passed",
+      "script": "tests/browser_dossier_grants.py",
+      "acceptance_path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\dossier_grants\\acceptance.json",
+      "acceptance_sha256": "8f8165d5df8a6ac0e41e63c228ceb2c4fd2cc1c6d30c8604b8bc1f0623d0a2dd",
+      "steps": [
+        "真实页面指定门店和员工；文件默认全不选，电话金额独立选择，发起人不能自批",
+        "原店不同人员从真实页面独立批准原版本与逐件文件",
+        "指定员工真实下载字节一致；同内容未选文件、同店同岗位其他员工、原单原地址均拒绝",
+        "撤销后旧链接拒绝；接收页面重新核验清除原单及下载按钮，不声称远程删除既有副本"
+      ],
+      "step_count": 4,
+      "screenshot_count": 4,
+      "screenshots": [
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\dossier_grants\\dossier_01_exact_scope_390px.png",
+          "sha256": "b343bacd5a61926391552cec78f412286fcab2c0aeff164636f5b65184bf8538"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\dossier_grants\\dossier_02_review_390px.png",
+          "sha256": "5dfec7a8e1e96c91c9c438c98c5165c3ea7e9dd1e62389674edb8c9d9fda1f2b"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\dossier_grants\\dossier_03_received_390px.png",
+          "sha256": "e4759444d19a1d2ec19fcf61793e6e192da6174cfe850cd5f5caf6cd19b39a3b"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\dossier_grants\\dossier_04_revoked_390px.png",
+          "sha256": "1c44b866f550376911672b56c9a2dd420a40335b9deaf20b144e19098f6809f2"
+        }
+      ],
+      "javascript_error_count": 0
+    },
+    {
+      "seconds": 34.9822782,
+      "exit_code": 0,
+      "started_utc": "2026-09-23T07:54:20.2788822Z",
+      "group": "master_completion",
+      "log": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\master_completion.log",
+      "status": "passed",
+      "script": "tests/browser_master_completion.py",
+      "acceptance_path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\master_completion\\acceptance.json",
+      "acceptance_sha256": "bd6a82d5f1989de0b8f46e5864c748f6204d38562b7c1a458c5092338c4f60b6",
+      "steps": [
+        "真实页面维护物资品牌并绑定原目录；仍被启用物资引用的品牌不能停用",
+        "七类字典分别保存；同名不串类，说明按文本显示而不执行脚本，支持停用",
+        "参数入口打开原工位配置与本人改密对话框，不生成另一套规则或资金接口",
+        "换店后领域字典不保留前店条目"
+      ],
+      "step_count": 4,
+      "screenshot_count": 3,
+      "screenshots": [
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\master_completion\\master_completion_01_brand_directory.png",
+          "sha256": "e97786b489e703e8dbee2bf4d7cd98ddee1360670371bda0ce174365916159d9"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\master_completion\\master_completion_02_separate_dictionary.png",
+          "sha256": "b150294000e65d570dcbf46afd406444df4f82b8b6e38fde4db4be26be9b7ce5"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\master_completion\\master_completion_03_parameter_entry.png",
+          "sha256": "56122f078d27d21f8ff6a03fcc2b031391cfa4bb65f40abbb4365706bed1da59"
+        }
+      ],
+      "javascript_error_count": 0
+    },
+    {
+      "seconds": 25.5370178,
+      "exit_code": 0,
+      "started_utc": "2026-09-23T07:54:55.2640970Z",
+      "group": "store_switch",
+      "log": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\store_switch.log",
+      "status": "passed",
+      "script": "tests/browser_store_switch.py",
+      "acceptance_path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\store_switch\\acceptance.json",
+      "acceptance_sha256": "e0c1b201f75e8c844e99cc88a2c34416c8190c947287947735a74313efad7ddb",
+      "steps": [
+        "延迟换店期间立即移除原店资料；完成后以新岗位打开最新字典导航",
+        "快速连续换店仅提交最后目标；迟到的前一次身份响应不能回滚页面",
+        "真实原店业务读取迟到也不回填新店缓存或页面",
+        "目标门店拒绝时重新读取原店身份和全部目录，舍弃目标原单导航",
+        "原店恢复也失败时保持阻断；明确重试后才重新显示原店资料"
+      ],
+      "step_count": 5,
+      "screenshot_count": 4,
+      "screenshots": [
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\store_switch\\store_switch_01_waiting_mobile.png",
+          "sha256": "438fb78733b7a4a477bb6ad7371fdfbeb51e2753ab7cba202d24687a7c3056ec"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\store_switch\\store_switch_02_recovered_mobile.png",
+          "sha256": "03c5f6d80ffea9df852da56b0021ecb41ccacacbd9a539ff09972272798c32f0"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\store_switch\\store_switch_03_recovery_failed_mobile.png",
+          "sha256": "dc9a30c915d046770a5fa8c6864d1ad3cce79c6347bf654da024b16c23df0e9d"
+        },
+        {
+          "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\store_switch\\store_switch_04_retry_mobile.png",
+          "sha256": "74c6e1747e682671990209ab99444fea101f2a94f204d205017a6c88888a26b3"
+        }
+      ],
+      "javascript_error_count": 0
+    }
+  ],
+  "formatter_chrome": {
+    "acceptance_path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\time_formatter\\acceptance.json",
+    "contexts": 3,
+    "asserted_values": 33,
+    "screenshots": [
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\time_formatter\\Asia_Shanghai.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\time_formatter\\UTC.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\time_formatter\\America_New_York.png"
+    ],
+    "mode": "pure formatter; no HTTP/database and counted separately from six business scripts"
+  },
+  "unit_validation": {
+    "node_syntax": "passed",
+    "time_and_store_switch_node_tests": 18,
+    "new_time_tests": 9,
+    "pytest_time_and_dossier_tests": 4,
+    "pytest_seconds": 9.2,
+    "evidence_root": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-time-display-verified-0f0531bbdaf84ff295d3f24a46b05724",
+    "junit": "junit-utf8.xml",
+    "first_run_retained": "pytest.log: an omitted PYTHONUTF8 caused old implicit read_text GBK decoding failure; no old test was changed, rerun matches verify_candidate PYTHONUTF8=1"
+  },
+  "visual_inspection": {
+    "inspected_count": 16,
+    "paths": [
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-viyxro4l\\01_first_admin_setup_mobile.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-viyxro4l\\03_expired_setup_refused_mobile.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-viyxro4l\\04_local_preview_workbench_mobile.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\questionnaire_exports\\question_wait_minutes_390px.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\questionnaire_exports\\incomplete_selector_chinese_390px.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\dossier_grants\\dossier_03_received_390px.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\dossier_grants\\dossier_04_revoked_390px.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\master_completion\\master_completion_01_brand_directory.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\store_switch\\store_switch_01_waiting_mobile.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\store_switch\\store_switch_03_recovery_failed_mobile.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\store_switch\\store_switch_04_retry_mobile.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\member_fee_corrections\\02_same_fee_recording_completed.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\member_fee_corrections\\04_actual_refund_effective_account.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\time_formatter\\Asia_Shanghai.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\time_formatter\\UTC.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-e13r-freeze04-f606485992ab45b58618099ef0afac16\\time_formatter\\America_New_York.png"
+    ],
+    "result": "关键窄屏已视检，会员与财务办理事件和原件上传时间均按上海时间显示；原五组关键页可见、换店失败/重试无旧店残留。未用正在读取的中间态冒充完成页；明细表继续横向滚动。"
+  },
+  "local_preview": {
+    "runtime": "C:\\Users\\tiefu\\AppData\\Local\\huakangos\\preview-browser-5c22aac246ec44cf968188e23e1a0cb2",
+    "ordinary_url": "http://127.0.0.1:58844",
+    "verified_database_head": "e13r_member_fee_corrections",
+    "synthetic_users": 1,
+    "synthetic_cases": 0,
+    "owned_server_stopped_by_script": true
+  },
+  "user_preview": "No actions against user port 8000; no stop, migration or business writes performed",
+  "history_retained": {
+    "prior_run03_json": "E:\\proj\\huakangos_t02g_recovery_pending_20260922\\dealer_desk\\docs\\verification\\u13h-original-branches\\browser-frozen-run03.json",
+    "prior_run03_doc": "E:\\proj\\huakangos_t02g_recovery_pending_20260922\\dealer_desk\\docs\\e13r冻结浏览器复验-run03.md",
+    "original_fee_screenshot": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-6l5oi1e6\\02_same_fee_recording_completed.png",
+    "original_time_diagnostic": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-time-contract-diagnostic-mfq2cb3l\\diagnostic.json",
+    "original_switch_failure": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-frozen-browser-06c48e19d8184dd1b6237b9e42b2db63\\masters.log",
+    "original_switch_diagnostic_only": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-frozen-browser-06c48e19d8184dd1b6237b9e42b2db63\\masters-diagnostic\\acceptance.json"
+  },
+  "limits": [
+    "Synthetic local HTTP trial only; does not establish production HTTPS or deployment acceptance",
+    "Not all 193 requirements/business acceptance and not the final whole-tree pytest result",
+    "No app/web/migrations/tests/scripts files changed during frozen run04 browser execution"
+  ]
+}

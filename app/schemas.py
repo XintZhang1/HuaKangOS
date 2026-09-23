@@ -4,7 +4,6 @@ from typing import Literal, Annotated
 import re
 from pydantic import BaseModel, ConfigDict, Field, BeforeValidator, field_validator, model_validator
 from .db import today
-from .batch_entry import MAX_IMAGES
 
 
 def money(value):
@@ -20,7 +19,8 @@ def money(value):
 
 Money = Annotated[Decimal, BeforeValidator(money), Field(ge=0)]
 PositiveMoney = Annotated[Decimal, BeforeValidator(money), Field(gt=0)]
-Role = Literal['admin', 'manager', 'sales', 'inventory', 'service', 'finance', 'auditor']
+Role = Literal['admin', 'manager', 'sales', 'inventory', 'service', 'finance', 'auditor', 'reception', 'technician', 'customer_service']
+StoreRole = Literal['manager', 'sales', 'inventory', 'service', 'finance', 'auditor', 'reception', 'technician', 'customer_service']
 
 
 class Strict(BaseModel):
@@ -171,8 +171,15 @@ class PasswordInput(Strict):
     new_password: str = Field(min_length=12, max_length=128)
 
 
+class StoreRoleInput(Strict):
+    store_id: int = Field(gt=0)
+    role: StoreRole
+
+
 class UserInput(Strict):
     store_ids: list[int] = Field(default_factory=list, max_length=200)
+    store_roles: list[StoreRoleInput] | None = Field(default=None, max_length=200)
+    can_group_summary: bool = False
     username: str = Field(pattern=r'^[a-zA-Z0-9_.-]{3,40}$')
     display_name: str = Field(min_length=1, max_length=80)
     role: Role
@@ -180,7 +187,11 @@ class UserInput(Strict):
 
 
 class UserUpdate(Strict):
+    request_id: str = Field(min_length=8, max_length=80, pattern=r'^[A-Za-z0-9_-]+$')
+    access_version: int = Field(gt=0, strict=True)
     store_ids: list[int] | None = Field(default=None, max_length=200)
+    store_roles: list[StoreRoleInput] | None = Field(default=None, max_length=200)
+    can_group_summary: bool | None = None
     role: Role
     display_name: str = Field(min_length=1, max_length=80)
     active: bool
@@ -207,25 +218,6 @@ class ReportInput(Strict):
         if not date(2000,1,1) <= value <= today():
             raise ValueError('不能生成未来日期的日报')
         return value
-
-
-Module = Literal['vehicles', 'sales', 'repairs', 'policies', 'cash']  # 必须与 models.MODULES 一致
-
-
-class EntryDraftInput(Strict):
-    module: Module
-    # 文本与图片至少要有一个：现场经常只有一张工单照片，没有可粘贴的文字。
-    text: str = Field(default='', max_length=20000)
-    # 图片是内联 data URL；条数与单图大小的硬校验在 batch_entry.normalise_images 里，
-    # 这里复用同一个常量，避免两处上限各说各话。
-    images: list[str] = Field(default_factory=list, max_length=MAX_IMAGES)
-    fields: list[dict] = Field(min_length=1, max_length=60)
-
-    @model_validator(mode='after')
-    def require_text_or_image(self):
-        if len(self.text.strip()) < 10 and not self.images:
-            raise ValueError('请至少粘贴 10 个字符的文本，或至少上传 1 张图片')
-        return self
 
 
 class AIReview(Strict):

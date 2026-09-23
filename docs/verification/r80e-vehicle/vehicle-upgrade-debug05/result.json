@@ -1,0 +1,12 @@
+{
+  "label": "vehicle-upgrade-debug05",
+  "exit_code": 1,
+  "seconds": 22.21379567799977,
+  "source_unchanged": true,
+  "changed_paths": [],
+  "tests": 1,
+  "failures": 1,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 0
+}

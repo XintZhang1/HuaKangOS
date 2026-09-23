@@ -1,0 +1,35 @@
+{
+  "mode": "real Chromium browser HTTP",
+  "passed": 5,
+  "steps": [
+    "集团管理员页面发布跨店固定券规则；售价8元、抵扣10元、履约门店承担2元优惠",
+    "财务员工手机页面登记实际24元购券收款，生成3张独立券；本金余额不改变",
+    "乙店财务超量占额收到中文拒绝，修正后占用并实际核销一张；不产生乙店现金",
+    "原店财务申请未用券部分退款，独立店长批准后占用一张，避免再次消费",
+    "原账户实际退款8元；现金净16元，余1张未用，乙店已核销1张，原本金仍为0"
+  ],
+  "javascript_errors": [],
+  "screenshots": [
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\u13h-final-04-20260923-1553\\browser-benefits-settled\\01_benefit_mobile_overuse_refused.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\u13h-final-04-20260923-1553\\browser-benefits-settled\\02_benefit_mobile_cross_store_capture.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\u13h-final-04-20260923-1553\\browser-benefits-settled\\03_benefit_mobile_original_refund.png"
+  ],
+  "limitations": [
+    "合成数据与本地HTTP，不替代生产HTTPS",
+    "本场景验证消费券手机闭环；套餐混合付款在API集成测试覆盖"
+  ],
+  "supplemental_dom_checks": [
+    "退款结果DOM已显示已退款及余1张/占用0张，再保存截图"
+  ],
+  "harness_note": "Original frozen browser_benefits.py exercise, external screenshot wrapper waits for rendered refund result; no repository source/test edits.",
+  "status": "passed",
+  "source_digest": "d59f9ca0af273150e78d6f4af23b8e3479132e8b17961ca592dd0ea3b104ab8a",
+  "runtime_source_fingerprint": "c7fdd3ce8ed18632cc98c4dafefd326dc4f5a649cefe7c078bac75ccc1db0f24",
+  "visually_reviewed_screens": 3,
+  "prior_capture_limitation": "First run passed 5 API/UI action steps, but its third screenshot caught the loading state. Supplemental external wrapper repeated the scenario and asserted the rendered refund result before screenshot; frozen source was not modified. Counts are not added across these two runs.",
+  "screenshot_hashes": {
+    "01_benefit_mobile_overuse_refused.png": "1e05d28e0c3454b1a4281e4779cd812c3f1899dbdd957e29dfa312c3b326591b",
+    "02_benefit_mobile_cross_store_capture.png": "7cfdb28e9d8bb1373a498dd8c05df94e8771d14079c55bd5386a2e1b70cdd11b",
+    "03_benefit_mobile_original_refund.png": "f8e17e11b859e44df9143445f00366dc0880021503ee08ed9a6e11e2b40269f0"
+  }
+}

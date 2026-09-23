@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/opt/pyvenv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short",
+    "--junitxml=/mnt/data/huakangos_runs/retail-native01/junit.xml",
+    "tests/test_retail_group_service.py",
+    "tests/test_retail_group_math.py",
+    "tests/test_retail.py",
+    "tests/test_invoices.py",
+    "tests/test_group_benefits.py",
+    "tests/test_membership_lifecycle.py"
+  ],
+  "cwd": "/mnt/data/huakangos_snapshots/retail-native01/dealer_desk",
+  "start_utc": "2026-09-22T07:55:14Z"
+}

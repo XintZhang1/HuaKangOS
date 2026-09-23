@@ -1,0 +1,1 @@
+{"command": ["/opt/pyvenv/bin/python", "-m", "pytest", "-q", "--tb=short", "--junitxml=/mnt/data/huakangos_runs/q79d-full01/junit.xml"], "cwd": "/mnt/data/huakangos_runs/q79d-full01/source", "synthetic_only": true}

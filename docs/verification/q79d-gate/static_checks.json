@@ -1,0 +1,233 @@
+{
+  "python_compile": "passed",
+  "javascript": [
+    {
+      "path": "web/addonorders.js",
+      "sha256": "39dc02d94421f24396f920b3e93639a37d789129d72911c14fa9a4a794abd8b4",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/aftercare.js",
+      "sha256": "acd424b659e02c472e55ec0c797690086a075f06878ee30ba01a7d8d1c7df92c",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/app.js",
+      "sha256": "05a5905daafbd8a0f2a74e7af03f4584d9865996076451493fd0dbeb1a0eef91",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/benefits.js",
+      "sha256": "1e23d497510c966da6a0f4c4fd3f677cd1552197c5dc782bf25d20a204a9652b",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/branding.js",
+      "sha256": "cd7439859d0d21d7e769dfbc7a75f54203845d0910fde4dd38003139088b63fa",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/businessentities.js",
+      "sha256": "009479679d494b1e4c30d216ae5d53eb54ad0b280b06cdef87a92d67cc4c7e34",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/businessfinance.js",
+      "sha256": "389c4f49cfd864a8d67b20e7b5054303eec66bea95161e2acbc368469fd617aa",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/claims.js",
+      "sha256": "d2da1b799a723662835133890859c41a927fbd45ed069b7a05b342b7869c5c5b",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/customeranalysis.js",
+      "sha256": "b658d439dc513c46ab03d204a33b121f43f52a5f7ce31144ae24317e4750792d",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/customerchoice.js",
+      "sha256": "1885f6afe1030dfbdb22d90bec9b26921dfd8af8d064e108996db5d2708d2774",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/customerservice.js",
+      "sha256": "d4655ca29b3349be68e4dd1a4fde60255e13ce2de6d35164a9c571747f1013a6",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/files.js",
+      "sha256": "c0c96cd42f909b39305d6c11c1793d82baa1d085ccd8141d09781ffae42d37da",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/gatevisits.js",
+      "sha256": "4799638029dbbf7802be2c0b6fe6f8ed09cdeeaf023e64cf184abc9a3bebddda",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/group.js",
+      "sha256": "7c92de6972c44b926c38640de901b74caf5d49e8dbe9ec59bad5fc3e18ee14a1",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/insuranceorders.js",
+      "sha256": "33eeb85d771f30c4367ba38c5836ac3ef6d320ea5c7f6f8a001282a6a4dd4a08",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/inventoryreports.js",
+      "sha256": "2933c77417b749bfb0c3d1c64f3fbd9fef323816724c41b5b52dbaa6d6b286ac",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/invoices.js",
+      "sha256": "df8491e0178bd396513f907c71a4b45cf36899325c50ce14865d03e0a8bb4cca",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/localpreview.js",
+      "sha256": "e033396580f1d948ba2490dd65cc2343aeffc92d50f9ee42f0b06712b39338f9",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/masters.js",
+      "sha256": "84496535656f18c31169f607d474f32f4a18dd8666dbb705018a8ad36abcb6de",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/materialvalue.js",
+      "sha256": "59983ac1a9972c0d8e48b17cc136cadd2c5e3dce64ab0f54eb565a3ab2963b0d",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/membership.js",
+      "sha256": "4800a7bcc2118df65f849786a0366f861ec9a836f67a11e4eb308c9d4cfe4d16",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/observationcorrections.js",
+      "sha256": "5e535745f9fdbd676f772e80732ebee387ec507effb820bc09f9b7b44ac1021e",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/openingimport.js",
+      "sha256": "662ec870510467ee54cf767e06d2926658d36fcb7131b69589e6a7b01014e6c4",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/procurement.js",
+      "sha256": "385b63f7631729f405bf2c99d8b7b11b2f7d2476a06bdb54b56c13f27f6cd0d0",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/rechargebundles.js",
+      "sha256": "245e7a116212d663ebb5b3907f28f5550aeb7257cba3d9d16e9050797746badc",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/reconciliation.js",
+      "sha256": "922806b18cdb7b66f25a99249e42f0211100a7c26a97bdd71342ec68036e19e0",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/repair.js",
+      "sha256": "ddd1ffcfd2fd7dc154a7b6aba7303deadd739d3625eb5f9435454a4648c1dc2a",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/repairmaterials.js",
+      "sha256": "afb1ab197974072b8a776ed9d2afc7c7a7f5a5945d10233a48dfdf7da0940e8d",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/retail.js",
+      "sha256": "5e696bb5c84e1a1e785a352dca804b68f6d486571fee6141e39dac084d0bce50",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/retailbundles.js",
+      "sha256": "5790486feb3e25f2e48e3ffa47ab989fa806b11cbbebe44a1fe8a6f166bbcd7c",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/retailgroup.js",
+      "sha256": "36846507f327345cd5511f45fd6cc2eb4685c877436c21620f544bf54f87fcd5",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/salesquotes.js",
+      "sha256": "b4fe4c18177e72dd7fd9934b96c868097a3d9c87c5cc3436b7834f1c9c9aed3f",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/serviceintake.js",
+      "sha256": "696c653c3add39346940f84483ee5e63ee0fd9b56e8c7b22211347ec5a906324",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/serviceorders.js",
+      "sha256": "dd75fd05221b1fdbab1c9336ca191eff9bbc352eb426c019ac23345dd32de4e8",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/stockreports.js",
+      "sha256": "714bbb169c2f78aabc3a87dee2140de2d22ee88bd4ad7e71d3d3cbc6b3f95952",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/transferexceptions.js",
+      "sha256": "b8fd5877446cd892f927f45bd670625c0000d451f54740835254ba22f0289d14",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/transfergoodsrecovery.js",
+      "sha256": "92944f44c345c6d37c14e9333aa3bd48a54d024889e655b37494950cc01ddc59",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/transfers.js",
+      "sha256": "eabb24b0e8b3166d95f43c8668ab262fedcc1afd718618dd93f876a8f6b653ee",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/vehiclecatalog.js",
+      "sha256": "fd7fffdac908645237396d80e9f286c2db31468468d28126f9402f3f8fc40453",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/vehicleimports.js",
+      "sha256": "61dfb74f9ccbe52257da54f6a708952275cdccbbcd9fcf73cd9924ebdda208a7",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/vehicleoperations.js",
+      "sha256": "71d928df2c57607cef89bf06cb1b2d4f927140693aa4a732b851ee1defb7ae2d",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/vehicleprocurement.js",
+      "sha256": "dd850787cd80906a45cda52e278c7b7eefa783f7d9368fa6f38c5bd9b83f7416",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/vehicletransfers.js",
+      "sha256": "1f87bf0452d2b40649237f79e0458793e977188d56cff8729e65e568b2f54706",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/visitactivity.js",
+      "sha256": "4fc08d9e11880d6b3a9885d8ccc48eeec25ef12867651bdcbc1e7f829b83cfd7",
+      "syntax": "passed"
+    },
+    {
+      "path": "web/warehouse.js",
+      "sha256": "6f28543cdcdc0e00edd267df18e138a8943b8d3f3dffa28920fccd5c0107e72a",
+      "syntax": "passed"
+    }
+  ],
+  "browser_execution": "deferred_by_user",
+  "postgresql_execution": "deferred_by_user",
+  "python_scope": "app migrations tests scripts; compile only, no real-browser execution"
+}

@@ -1,0 +1,61 @@
+{
+  "checkpoint": "u13h-original-branches",
+  "application_version": "0.4.0-dev",
+  "database_head": "e13r_member_fee_corrections",
+  "release_accepted": false,
+  "company_accepted": false,
+  "production_deployed": false,
+  "source_baseline_archive": "huakangos_r80e-vehicle-checkpoint_20260922.zip",
+  "source_baseline_sha256": "c766b72542b32ebc2b709498f8c3f3c45f7d723e1bac267a57b746f2c409fa59",
+  "current_same_tree_run": "PASSED: 1753通过、1项Windows符号链接限制跳过、0失败/错误；138模块/1754用例，1393.43秒",
+  "scope_correction": "docs/需求范围纠正_20260922.md",
+  "scope_audit": "docs/原始需求范围复核.md",
+  "environment_gates": {
+    "real_browser": "PASSED: final-source real Windows Chrome HTTP synthetic employee cases, narrow layouts and three-timezone display; actual device/production/company verification remains separate.",
+    "real_postgresql": "PENDING: not executed for final u13h/e13r source; SQLite, earlier PostgreSQL evidence and prepare_only do not establish current PostgreSQL acceptance."
+  },
+  "next_work": [
+    "Company evening trial with existing accounts and actual employee roles.",
+    "Confirm listed company-rule variants, formal templates/opening and a real monthly/member bookkeeping cycle.",
+    "Verify current PostgreSQL and production HTTPS/scanning/devices/load/restore before formal launch."
+  ],
+  "excluded": [
+    "group center actual funds clearing or bank/payment/arrival approval interfaces",
+    "peer directly operated store counterparty relationship/cooperation approval module"
+  ],
+  "previous_checkpoint": {
+    "checkpoint": "t02g-dossier-masters",
+    "current_same_tree_run": "full-t02g-03: RUNNING; not yet a pass",
+    "latest_referenced_report_in_package": false
+  },
+  "verification_report": "docs/verification/u13h-original-branches/测试报告.md",
+  "requirement_mapping_audit": "docs/原需业务分支审计-u13h.json",
+  "source_digest": "d59f9ca0af273150e78d6f4af23b8e3479132e8b17961ca592dd0ea3b104ab8a",
+  "repair_baseline": {
+    "checkpoint": "t02g-dossier-masters",
+    "manifest": "docs/verification/t02g-fix1/source-package-before.sha256",
+    "prior_source_changes": "docs/verification/t02g-fix1/source-changes-before.json"
+  },
+  "last_verified_checkpoint": {
+    "checkpoint": "u13h-original-branches",
+    "database_head": "e13r_member_fee_corrections",
+    "current_same_tree_run": "PASSED: 1753通过、1项Windows符号链接限制跳过、0失败/错误；138模块/1754用例，1393.43秒",
+    "source_digest": "d59f9ca0af273150e78d6f4af23b8e3479132e8b17961ca592dd0ea3b104ab8a",
+    "verification_report": "docs/verification/u13h-original-branches/测试报告.md"
+  },
+  "active_objective": "继续推进，把需求表里面的业务分支和虚拟数据模拟给完全做完",
+  "progress_record": "docs/当前目标与模拟推进.md",
+  "current_working_evidence": "docs/verification/u13h-original-branches/test-results-final.json",
+  "current_run_directory": "C:\\Users\\tiefu\\AppData\\Local\\huakangos\\verification\\u13h-final-04-20260923-1553",
+  "current_frozen_source_files": 673,
+  "statement_definition": 21,
+  "cash_definition": 7,
+  "development_and_simulation_delivered": true,
+  "local_preview": {
+    "url": "http://127.0.0.1:8000/",
+    "existing_accounts_preserved": true,
+    "bootstrap_required": false,
+    "source_fingerprint": "c7fdd3ce8ed18632cc98c4dafefd326dc4f5a649cefe7c078bac75ccc1db0f24",
+    "evidence": "docs/verification/u13h-original-branches/local-preview-final-upgrade.json"
+  }
+}

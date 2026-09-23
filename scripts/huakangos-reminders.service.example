@@ -1,0 +1,18 @@
+[Unit]
+Description=huakangos internal customer reminder worker
+After=network.target
+
+[Service]
+Type=simple
+User=huakangos
+WorkingDirectory=/srv/huakangos
+EnvironmentFile=/srv/huakangos/.env
+ExecStart=/srv/huakangos/.venv/bin/python -m app.reminder_worker
+Restart=on-failure
+RestartSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

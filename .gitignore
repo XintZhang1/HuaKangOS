@@ -1,8 +1,5 @@
 .env
 .venv/
-# Reference-only skill copies for other projects; never part of this repository.
-quantumalpha-runner-ops/
-quantumalpha-servers/
 __pycache__/
 *.pyc
 .pytest_cache/

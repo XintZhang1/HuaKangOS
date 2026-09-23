@@ -10,5 +10,5 @@ if [[ "${1:-}" == "--demo" ]]; then
 else
   .venv/bin/python -m app.cli init
 fi
-printf '\nOpen http://127.0.0.1:8000 — Ctrl+C stops the service.\n'
-exec .venv/bin/python -m maintenance.supervisor
+printf '\n请打开 http://127.0.0.1:8000；按 Ctrl+C 停止服务。\n'
+exec .venv/bin/python -m app.run

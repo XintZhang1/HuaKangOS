@@ -48,7 +48,7 @@ class ReportScheduler:
         self.stop_event = threading.Event()
         self.thread = None
     def start(self):
-        if not settings.scheduler_enabled: return
+        if not settings.scheduler_enabled or settings.scheduler_mode != 'embedded': return
         def loop():
             # Let startup complete; run missed reports, then inspect schedule every 30 seconds.
             while not self.stop_event.wait(5 if self.thread is None else 30):

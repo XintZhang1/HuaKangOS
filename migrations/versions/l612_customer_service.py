@@ -1,0 +1,140 @@
+"""Frozen customer vehicles, service workflow facts and explicit history grants."""
+from alembic import op
+import sqlalchemy as sa
+revision='l612_customer_service'
+down_revision='k511_repair'
+branch_labels=None
+depends_on=None
+
+def upgrade():
+    op.create_table('care_customer_vehicles',
+        sa.Column('customer_id',sa.Integer(),sa.ForeignKey('flow_customers.id'),nullable=False),
+        sa.Column('customer_identity_id',sa.Integer(),sa.ForeignKey('group_identities.id'),nullable=False),
+        sa.Column('vehicle_identity_id',sa.Integer(),sa.ForeignKey('group_identities.id'),nullable=False),
+        sa.Column('vin',sa.String(length=17),nullable=False),
+        sa.Column('plate',sa.String(length=30),nullable=False),
+        sa.Column('model_name',sa.String(length=120),nullable=False),
+        sa.Column('active',sa.Boolean(),nullable=False),
+        sa.Column('identity_source',sa.String(length=180),nullable=False),
+        sa.Column('created_by',sa.Integer(),sa.ForeignKey('users.id'),nullable=False),
+        sa.Column('id',sa.Integer(),primary_key=True,nullable=False),
+        sa.Column('version',sa.Integer(),nullable=False),
+        sa.Column('created_at',sa.DateTime(),nullable=False),
+        sa.Column('updated_at',sa.DateTime(),nullable=False),
+        sa.Column('store_id',sa.Integer(),nullable=False),
+        sa.UniqueConstraint('store_id','customer_id','vehicle_identity_id',name='uq_care_customer_vehicle'))
+    op.create_index('ix_care_customer_vehicles_customer_id','care_customer_vehicles',['customer_id'],unique=False)
+    op.create_index('ix_care_customer_vehicles_store_id','care_customer_vehicles',['store_id'],unique=False)
+    op.create_table('care_vehicle_observations',
+        sa.Column('id',sa.Integer(),primary_key=True,nullable=False),
+        sa.Column('vehicle_id',sa.Integer(),sa.ForeignKey('care_customer_vehicles.id'),nullable=False),
+        sa.Column('kind',sa.String(length=20),nullable=False),
+        sa.Column('observed_date',sa.Date(),nullable=False),
+        sa.Column('odometer_km',sa.Integer(),nullable=False),
+        sa.Column('valid_until',sa.Date(),nullable=True),
+        sa.Column('source_reference',sa.String(length=180),nullable=False),
+        sa.Column('evidence_id',sa.Integer(),sa.ForeignKey('flow_files.id'),nullable=True),
+        sa.Column('actor_id',sa.Integer(),sa.ForeignKey('users.id'),nullable=False),
+        sa.Column('created_at',sa.DateTime(),nullable=False),
+        sa.Column('store_id',sa.Integer(),nullable=False),
+        sa.CheckConstraint("kind IN ('delivery','odometer','maintenance','first_service','insurance','warranty') AND odometer_km BETWEEN 0 AND 3000000",name='ck_care_observation'))
+    op.create_index('ix_care_vehicle_observations_store_id','care_vehicle_observations',['store_id'],unique=False)
+    op.create_index('ix_care_vehicle_observations_vehicle_id','care_vehicle_observations',['vehicle_id'],unique=False)
+    op.create_table('care_reminder_rules',
+        sa.Column('approved_by',sa.Integer(),sa.ForeignKey('users.id'),nullable=False),
+        sa.Column('name',sa.String(length=120),nullable=False),
+        sa.Column('kind',sa.String(length=20),nullable=False),
+        sa.Column('interval_days',sa.Integer(),nullable=False),
+        sa.Column('interval_km',sa.Integer(),nullable=False),
+        sa.Column('lead_days',sa.Integer(),nullable=False),
+        sa.Column('lead_km',sa.Integer(),nullable=False),
+        sa.Column('assignee_id',sa.Integer(),sa.ForeignKey('users.id'),nullable=False),
+        sa.Column('active',sa.Boolean(),nullable=False),
+        sa.Column('created_by',sa.Integer(),sa.ForeignKey('users.id'),nullable=False),
+        sa.Column('id',sa.Integer(),primary_key=True,nullable=False),
+        sa.Column('version',sa.Integer(),nullable=False),
+        sa.Column('created_at',sa.DateTime(),nullable=False),
+        sa.Column('updated_at',sa.DateTime(),nullable=False),
+        sa.Column('store_id',sa.Integer(),nullable=False),
+        sa.CheckConstraint("kind IN ('first_service','maintenance','warranty','renewal') AND interval_days BETWEEN 0 AND 3650 AND interval_km BETWEEN 0 AND 1000000 AND lead_days BETWEEN 0 AND 365 AND lead_km BETWEEN 0 AND 100000",name='ck_care_reminder_rule'),
+        sa.UniqueConstraint('store_id','kind',name='uq_care_rule_kind'))
+    op.create_index('ix_care_reminder_rules_store_id','care_reminder_rules',['store_id'],unique=False)
+    op.create_table('care_cases',
+        sa.Column('generation_mode',sa.String(20),nullable=False),
+        sa.Column('rule_approved_by',sa.Integer(),sa.ForeignKey('users.id'),nullable=True),
+        sa.Column('case_id',sa.Integer(),sa.ForeignKey('flow_cases.id'),primary_key=True,nullable=False),
+        sa.Column('subtype',sa.String(length=25),nullable=False),
+        sa.Column('vehicle_id',sa.Integer(),sa.ForeignKey('care_customer_vehicles.id'),nullable=True),
+        sa.Column('source_case_id',sa.Integer(),sa.ForeignKey('flow_cases.id'),nullable=True),
+        sa.Column('topic',sa.String(length=120),nullable=False),
+        sa.Column('description',sa.Text(),nullable=False),
+        sa.Column('location',sa.String(length=250),nullable=False),
+        sa.Column('priority',sa.String(length=10),nullable=False),
+        sa.Column('reminder_key',sa.String(length=120),nullable=True),
+        sa.Column('rule_id',sa.Integer(),sa.ForeignKey('care_reminder_rules.id'),nullable=True),
+        sa.Column('rule_version',sa.Integer(),nullable=True),
+        sa.Column('baseline_observation_id',sa.Integer(),sa.ForeignKey('care_vehicle_observations.id'),nullable=True),
+        sa.Column('result',sa.String(length=25),nullable=False),
+        sa.Column('store_id',sa.Integer(),nullable=False),
+        sa.UniqueConstraint('reminder_key',name=None),
+        sa.CheckConstraint("subtype IN ('questionnaire','consultation','complaint','rescue','sales_callback','repair_callback','first_service','maintenance','warranty','renewal') AND priority IN ('normal','urgent')",name='ck_care_case_type'))
+    op.create_index('ix_care_cases_store_id','care_cases',['store_id'],unique=False)
+    op.create_index('ix_care_cases_vehicle_id','care_cases',['vehicle_id'],unique=False)
+    op.create_table('care_records',
+        sa.Column('id',sa.Integer(),primary_key=True,nullable=False),
+        sa.Column('case_id',sa.Integer(),sa.ForeignKey('flow_cases.id'),nullable=False),
+        sa.Column('action',sa.String(length=25),nullable=False),
+        sa.Column('note',sa.Text(),nullable=False),
+        sa.Column('details',sa.JSON(),nullable=False),
+        sa.Column('actor_id',sa.Integer(),sa.ForeignKey('users.id'),nullable=False),
+        sa.Column('created_at',sa.DateTime(),nullable=False),
+        sa.Column('store_id',sa.Integer(),nullable=False))
+    op.create_index('ix_care_records_case_id','care_records',['case_id'],unique=False)
+    op.create_index('ix_care_records_store_id','care_records',['store_id'],unique=False)
+    op.create_table('care_history_links',
+        sa.Column('id',sa.Integer(),primary_key=True,nullable=False),
+        sa.Column('vehicle_id',sa.Integer(),sa.ForeignKey('care_customer_vehicles.id'),nullable=False),
+        sa.Column('case_id',sa.Integer(),sa.ForeignKey('flow_cases.id'),nullable=False),
+        sa.Column('summary',sa.String(length=600),nullable=False),
+        sa.Column('source_reference',sa.String(length=180),nullable=False),
+        sa.Column('confirmed_by',sa.Integer(),sa.ForeignKey('users.id'),nullable=False),
+        sa.Column('created_at',sa.DateTime(),nullable=False),
+        sa.Column('store_id',sa.Integer(),nullable=False),
+        sa.UniqueConstraint('vehicle_id','case_id',name='uq_care_history_case'))
+    op.create_index('ix_care_history_links_case_id','care_history_links',['case_id'],unique=False)
+    op.create_index('ix_care_history_links_store_id','care_history_links',['store_id'],unique=False)
+    op.create_index('ix_care_history_links_vehicle_id','care_history_links',['vehicle_id'],unique=False)
+    op.create_table('care_history_grants',
+        sa.Column('id',sa.Integer(),primary_key=True,nullable=False),
+        sa.Column('version',sa.Integer(),nullable=False),
+        sa.Column('from_store_id',sa.Integer(),sa.ForeignKey('stores.id'),nullable=False),
+        sa.Column('to_store_id',sa.Integer(),sa.ForeignKey('stores.id'),nullable=False),
+        sa.Column('from_vehicle_id',sa.Integer(),sa.ForeignKey('care_customer_vehicles.id'),nullable=False),
+        sa.Column('to_vehicle_id',sa.Integer(),sa.ForeignKey('care_customer_vehicles.id'),nullable=False),
+        sa.Column('customer_identity_id',sa.Integer(),sa.ForeignKey('group_identities.id'),nullable=False),
+        sa.Column('vehicle_identity_id',sa.Integer(),sa.ForeignKey('group_identities.id'),nullable=False),
+        sa.Column('valid_until',sa.Date(),nullable=False),
+        sa.Column('status',sa.String(length=12),nullable=False),
+        sa.Column('active_pair',sa.String(length=80),nullable=True),
+        sa.Column('source_reference',sa.String(length=180),nullable=False),
+        sa.Column('granted_by',sa.Integer(),sa.ForeignKey('users.id'),nullable=False),
+        sa.Column('revoked_by',sa.Integer(),sa.ForeignKey('users.id'),nullable=True),
+        sa.Column('revoke_reason',sa.String(length=250),nullable=False),
+        sa.Column('created_at',sa.DateTime(),nullable=False),
+        sa.UniqueConstraint('active_pair',name=None),
+        sa.CheckConstraint("from_store_id != to_store_id AND status IN ('active','revoked')",name='ck_care_history_grant'))
+    op.create_index('ix_care_history_grants_from_store_id','care_history_grants',['from_store_id'],unique=False)
+    op.create_index('ix_care_history_grants_to_store_id','care_history_grants',['to_store_id'],unique=False)
+    op.create_table('care_receipts',
+        sa.Column('id',sa.Integer(),primary_key=True,nullable=False),
+        sa.Column('request_key',sa.String(length=80),nullable=False),
+        sa.Column('actor_id',sa.Integer(),sa.ForeignKey('users.id'),nullable=False),
+        sa.Column('digest',sa.String(length=64),nullable=False),
+        sa.Column('result',sa.JSON(),nullable=False),
+        sa.Column('created_at',sa.DateTime(),nullable=False),
+        sa.Column('store_id',sa.Integer(),nullable=False),
+        sa.UniqueConstraint('store_id','request_key',name='uq_care_request'))
+    op.create_index('ix_care_receipts_store_id','care_receipts',['store_id'],unique=False)
+
+def downgrade():
+    raise RuntimeError('客户来源与服务历史不可自动降级，请从已验证的一致备份恢复')

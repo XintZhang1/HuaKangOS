@@ -1,0 +1,84 @@
+{
+  "checkpoint": "q79d-gate",
+  "application_version": "0.4.0-dev",
+  "database_head": "q79d_gate_visits",
+  "source_baseline_archive": "huakangos_p68c-recovery05_20260922.zip",
+  "source_baseline_sha256": "546fd09d70c7b72ef520ae0dec20def5609be52a9decf684e870e2c798c638a8",
+  "created_utc": "2026-09-22T10:42:17.936691+00:00",
+  "release_accepted": false,
+  "company_accepted": false,
+  "production_deployed": false,
+  "verified_runs": [
+    {
+      "label": "gate-native01",
+      "exit_code": 0,
+      "seconds": 30.24965692300009,
+      "source_unchanged": true,
+      "changed_paths": [],
+      "tests": 34,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 34
+    },
+    {
+      "label": "gate-expanded02",
+      "exit_code": 1,
+      "seconds": 81.48816446599994,
+      "source_unchanged": true,
+      "changed_paths": [],
+      "tests": 72,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 69
+    },
+    {
+      "label": "gate-expanded03",
+      "exit_code": 0,
+      "seconds": 127.0576719180001,
+      "source_unchanged": true,
+      "changed_paths": [],
+      "tests": 116,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 116
+    },
+    {
+      "label": "gate-complete04",
+      "exit_code": 0,
+      "seconds": 124.66824730400003,
+      "source_unchanged": true,
+      "changed_paths": [],
+      "tests": 119,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 119
+    },
+    {
+      "label": "gate-final05",
+      "exit_code": 0,
+      "seconds": 119.09617556000012,
+      "source_unchanged": true,
+      "changed_paths": [],
+      "tests": 120,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 120
+    }
+  ],
+  "whole_current_source_suite": "No full current-tree suite claimed. gate-final05 is 120 scoped tests on one frozen tree with no skips. Earlier groups overlap and are not summed.",
+  "environment_gates": {
+    "real_http_browser": "DEFERRED_BY_USER: runnable tests/browser_gate_visits.py retained; no browser execution in this turn",
+    "postgresql_server": "DEFERRED_BY_USER: execute preserved local verification scripts on owner computer; no PostgreSQL execution in this turn"
+  },
+  "next_work": [
+    "Vehicle transport discrepancy/loss/found closure.",
+    "Granular original business/file authorization; typed counterparties and store relationships; group-center actual clearing.",
+    "Review stable HK scope, final one-tree regression and migration/restore evidence; owner-run browser/PostgreSQL and company acceptance are separate."
+  ],
+  "not_inherited": "No earlier unarchived q79d/n57b work or claimed test output was available. This stage was built from the confirmed p68c ZIP; historical tests are labelled inherited evidence only."
+}

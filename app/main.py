@@ -4,6 +4,7 @@ import csv
 import io
 import json
 import logging
+import re
 from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, Query
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -15,17 +16,17 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm.exc import StaleDataError
 from pydantic import ValidationError
 from .config import settings, ROOT
-from .db import engine, get_db, start_of_today_utc, today, utcnow
-from .models import Store, UserStore, Feedback, MaintenanceEvent, Deployment, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
-from .schemas import StoreInput, FeedbackInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, EntryDraftInput
+from .branding import PRODUCT_TITLE
+from .db import engine, get_db, today, utcnow
+from .models import Store, UserStore, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
+from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput
 from .security import get_user, authenticate, set_session, clear_cookies, user_info, require_full, require_module, verify_password, hash_password, ROLES
 from .services import serialize, plain, audit, readable_query, get_record, create_record, update_record, act_record, check_version
 from .analytics import dashboard, source_revision, build_snapshot, external_payload, rules_config
-from .visualization import visualization
 from .reports import generate_report
-from .batch_entry import extract, normalise_fields
 from .scheduler import ReportScheduler
 from .tenancy import accessible_stores, single_store, attach_scope
+from .user_access_service import change_access
 import os
 
 log = logging.getLogger(__name__)
@@ -42,52 +43,35 @@ async def lifespan(app):
     scheduler.stop()
 
 
-def docs_enabled(config) -> bool:
-    """交互文档与 OpenAPI schema 必须共用一个开关。
-
-    只关掉 /docs 却留着 /openapi.json，等于把接口清单免费送出去——有哪些接口、
-    要什么参数、返回什么结构，全都拿得到。它不授予权限，但省了攻击者自己摸索的功夫。
-    """
-    return bool(config.api_docs and config.environment != 'production')
-
-
-app = FastAPI(title='DealerDesk · 4S 门店经营台',version='0.2.0',lifespan=lifespan,
-              docs_url='/docs' if docs_enabled(settings) else None,
-              openapi_url='/openapi.json' if docs_enabled(settings) else None,redoc_url=None)
+app = FastAPI(title=PRODUCT_TITLE+' 门店运营系统',version='0.4.0-dev',lifespan=lifespan,
+              docs_url='/docs' if settings.environment!='production' else None,redoc_url=None)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=list(settings.allowed_hosts))
-
-# 所有表单都在 100KB 以内；批量填单允许内联图片，只有这一条路径放宽。
-# 放宽的上限必须与 batch_entry 的图片预算配套：合计 5MB 原图 base64 后约 6.8MB < 8MB。
-DEFAULT_BODY_LIMIT = 100_000
-ENTRY_DRAFT_PATH = '/api/entry-draft/parse'
-ENTRY_DRAFT_BODY_LIMIT = 8 * 1024 * 1024
-
 
 
 @app.middleware('http')
 async def safety_headers(request: Request, call_next):
-    gate = os.getenv('DEALER_DEPLOYMENT_GATE', '')
-    if gate and Path(gate).exists() and request.url.path.startswith('/api/') and request.url.path != '/api/health':
-        return JSONResponse({'detail':'系统正在切换版本，请稍后刷新；当前不接受录入'},status_code=503)
     if request.url.path.startswith('/api/') and request.method not in {'GET','HEAD','OPTIONS'}:
         if request.headers.get('sec-fetch-site') == 'cross-site':
             return JSONResponse({'detail':'不允许跨站请求'},status_code=403)
         origin = request.headers.get('origin')
         if origin and origin.rstrip('/') != str(request.base_url).rstrip('/'):
             return JSONResponse({'detail':'请求来源不匹配，请使用同一个地址访问'},status_code=403)
-        if not request.headers.get('content-type','').lower().startswith('application/json'):
-            return JSONResponse({'detail':'仅接受 JSON 请求'},status_code=415)
+        is_vehicle_import = bool(re.fullmatch(r'/api/vehicle-imports/orders/[1-9][0-9]*/batches',request.url.path))
+        is_upload = (request.url.path.startswith('/api/flow/cases/') and request.url.path.endswith('/files')) or is_vehicle_import
+        is_opening = request.url.path == '/api/opening-import/preflight'
+        limit = 256 * 1024 if is_vehicle_import else 12 * 1024 * 1024 if is_upload else 1_000_000 if is_opening else 100_000
+        accepted = 'multipart/form-data' if is_upload else 'application/json'
+        if not request.headers.get('content-type','').lower().startswith(accepted):
+            return JSONResponse({'detail':'提交格式不正确，请从对应页面重新操作'},status_code=415)
         try: size = int(request.headers.get('content-length','0'))
         except ValueError: return JSONResponse({'detail':'无效请求长度'},status_code=400)
-        limit = ENTRY_DRAFT_BODY_LIMIT if request.url.path == ENTRY_DRAFT_PATH else DEFAULT_BODY_LIMIT
-        oversize = '图片过大，请减少张数或压缩后重试' if limit > DEFAULT_BODY_LIMIT else '请求过大'
         if size > limit:
-            return JSONResponse({'detail':oversize},status_code=413)
+            return JSONResponse({'detail':'请求过大'},status_code=413)
         chunks, actual_size = [], 0
         async for chunk in request.stream():
             actual_size += len(chunk)
             if actual_size > limit:
-                return JSONResponse({'detail':oversize},status_code=413)
+                return JSONResponse({'detail':'请求过大'},status_code=413)
             chunks.append(chunk)
         request._body = b''.join(chunks)
     response = await call_next(request)
@@ -95,17 +79,10 @@ async def safety_headers(request: Request, call_next):
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['Referrer-Policy'] = 'no-referrer'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
-    if request.url.path != '/docs':
+    if request.url.path != '/docs' and 'Content-Security-Policy' not in response.headers:
         response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
     if request.url.path.startswith('/api/'):
         response.headers['Cache-Control'] = 'no-store'
-    elif request.url.path.startswith('/static/'):
-        # The script tag is /static/app.js with no version, so the URL is identical
-        # across releases. Without a directive a browser may keep running the previous
-        # frontend after a deploy -- which is exactly what happened after the first
-        # P4 release. no-cache means "revalidate": the ETag answers a cheap 304 when
-        # nothing changed and the fresh file when it did.
-        response.headers['Cache-Control'] = 'no-cache'
     if settings.environment == 'production':
         response.headers['Strict-Transport-Security'] = 'max-age=31536000'
     return response
@@ -113,7 +90,10 @@ async def safety_headers(request: Request, call_next):
 
 def validation_response(exc):
     errors = [{'field':'.'.join(str(x) for x in error['loc']),'message':error['msg']} for error in exc.errors()]
-    return JSONResponse({'detail':'；'.join(f"{e['field']}: {e['message']}" for e in errors),'errors':errors},status_code=422)
+    names={'username':'账号','password':'密码','new_password':'新密码','current_password':'当前密码','business_date':'业务日期','amount':'金额','amount_cents':'金额','version':'记录版本','reason':'原因','name':'名称','role':'岗位','vin':'车架号','store_ids':'授权门店'}
+    fields=list(dict.fromkeys(names.get(e['field'].split('.')[-1],'填写内容') for e in errors))
+    detail='请检查'+ '、'.join(fields[:4])+'，确认必填项、长度、金额和日期格式正确。'
+    return JSONResponse({'detail':detail,'errors':errors},status_code=422)
 
 
 @app.exception_handler(ValidationError)
@@ -124,7 +104,7 @@ async def request_validation_error(request,exc): return validation_response(exc)
 
 @app.exception_handler(IntegrityError)
 async def integrity_error(request,exc):
-    return JSONResponse({'detail':'编号/VIN/保单号重复、车辆已被占用，或关联关系不满足约束。请刷新核对，未保存本次修改。'},status_code=409)
+    return JSONResponse({'detail':'编号、车架号或保单号重复、车辆已被占用，或关联关系不满足约束。请刷新核对，未保存本次修改。'},status_code=409)
 
 @app.exception_handler(StaleDataError)
 async def stale_error(request,exc):
@@ -145,7 +125,7 @@ async def unexpected_error(request,exc):
 @app.get('/api/health')
 def health(db=Depends(get_db)):
     db.execute(text('SELECT 1'))
-    return {'status':'ok','version':'0.2.0','release':os.getenv('DEALER_RELEASE_SHA','local')}
+    return {'status':'ok','version':'0.4.0-dev','product':'huakangos','release':os.getenv('HUAKANGOS_RELEASE_SHA') or os.getenv('DEALER_RELEASE_SHA','local')}
 
 
 @app.post('/api/auth/login')
@@ -155,8 +135,7 @@ def login(body: LoginInput,request: Request,response: Response,db=Depends(get_db
     user = authenticate(db,body.username,body.password,request.client.host if request.client else 'unknown')
     audit(db,user.id,'login','users',user.id,reason='登录成功')
     set_session(db,user,response)
-    attach_scope(request, db, user)
-    return user_info(user)
+    return user_info(attach_scope(request, db, user))
 
 
 @app.get('/api/auth/me')
@@ -174,8 +153,9 @@ def logout(request: Request,response: Response,db=Depends(get_db),user=Depends(g
 def change_password(body: PasswordInput,response: Response,db=Depends(get_db),user=Depends(get_user)):
     if not verify_password(body.current_password,user.password_hash): raise HTTPException(400,'当前密码不正确')
     if body.current_password == body.new_password: raise HTTPException(422,'新密码不能与旧密码相同')
-    user.password_hash = hash_password(body.new_password)
-    user.must_change_password = False
+    account = db.scalar(select(User).where(User.id == user.id))
+    account.password_hash = hash_password(body.new_password)
+    account.must_change_password = False
     db.execute(delete(LoginSession).where(LoginSession.user_id==user.id))
     audit(db,user.id,'change_password','users',user.id,reason='修改密码并撤销全部登录会话')
     db.commit(); clear_cookies(response)
@@ -183,7 +163,7 @@ def change_password(body: PasswordInput,response: Response,db=Depends(get_db),us
 
 
 def admin(user):
-    if user.role != 'admin': raise HTTPException(403,'仅系统管理员可以管理账号')
+    if getattr(user, 'account_role', user.role) != 'admin': raise HTTPException(403,'仅系统管理员可以管理账号')
 
 
 @app.get('/api/users')
@@ -197,10 +177,10 @@ def users(db=Depends(get_db),user=Depends(get_user)):
 def add_user(body: UserInput,db=Depends(get_db),user=Depends(get_user)):
     admin(user)
     new = User(username=body.username.lower(),display_name=body.display_name,role=body.role,
-               password_hash=hash_password(body.password),must_change_password=True)
+               password_hash=hash_password(body.password),must_change_password=True,can_group_summary=body.can_group_summary)
     db.add(new); db.flush()
-    assign_stores(db, new, body.store_ids)
-    audit(db,user.id,'create_user','users',new.id,after={'username':new.username,'role':new.role})
+    assign_stores(db, new, body.store_ids or None, body.store_roles)
+    audit(db,user.id,'create_user','users',new.id,after=account_info(db,new))
     db.commit()
     return account_info(db,new)
 
@@ -208,16 +188,7 @@ def add_user(body: UserInput,db=Depends(get_db),user=Depends(get_user)):
 @app.put('/api/users/{user_id}')
 def edit_user(user_id: int,body: UserUpdate,db=Depends(get_db),user=Depends(get_user)):
     admin(user)
-    target = db.get(User,user_id)
-    if not target: raise HTTPException(404,'用户不存在')
-    if user_id == user.id and (body.role != 'admin' or not body.active):
-        raise HTTPException(409,'不能降权或停用当前管理员自身')
-    before = {'role':target.role,'active':target.active,'display_name':target.display_name}
-    for key,value in body.model_dump(exclude={'store_ids'}).items(): setattr(target,key,value)
-    if body.store_ids is not None: assign_stores(db,target,body.store_ids)
-    db.execute(delete(LoginSession).where(LoginSession.user_id==target.id))
-    audit(db,user.id,'update_user','users',target.id,before,body.model_dump(),reason='角色/状态变更后撤销会话')
-    db.commit(); return account_info(db,target)
+    return change_access(db,user,user_id,body,account_info,assign_stores)
 
 
 @app.post('/api/users/{user_id}/password')
@@ -279,18 +250,26 @@ def detail(module: str,record_id: int,db=Depends(get_db),user=Depends(get_user))
     return serialize(get_record(db,user,module,record_id),module,user,db)
 
 
+def guard_legacy_write(module):
+    if module in {'vehicles','sales','repairs','policies'} and not settings.legacy_business_write:
+        raise HTTPException(409,'原版本业务单据仅保留查询；新业务请从流程栏目建立，未完成旧单请先由管理员制定接续方案')
+
+
 @app.post('/api/records/{module}',status_code=201)
 def add_record(module: str,body:dict,db=Depends(get_db),user=Depends(get_user)):
+    guard_legacy_write(module)
     return serialize(create_record(db,user,module,body),module,user,db)
 
 
 @app.put('/api/records/{module}/{record_id}')
 def edit_record(module:str,record_id:int,body:UpdateInput,db=Depends(get_db),user=Depends(get_user)):
+    guard_legacy_write(module)
     return serialize(update_record(db,user,module,record_id,body.version,body.data),module,user,db)
 
 
 @app.post('/api/records/{module}/{record_id}/actions/{action}')
 def action(module:str,record_id:int,action:str,body:ActionInput,db=Depends(get_db),user=Depends(get_user)):
+    guard_legacy_write(module)
     return serialize(act_record(db,user,module,record_id,action,body),module,user,db)
 
 
@@ -343,16 +322,6 @@ def get_dashboard(end:date|None=None,days:int=Query(30,ge=1,le=366),db=Depends(g
     return result
 
 
-@app.get('/api/visualization')
-def get_visualization(end:date|None=None,days:int=Query(90),db=Depends(get_db),user=Depends(get_user)):
-    # Same role gate and store scope as /api/dashboard: the tenant hook bound by
-    # get_user() already restricts load_data() to the authorized stores. Read-only.
-    require_full(user)
-    day = end or today()
-    if day>today(): raise HTTPException(422,'可视化结束日期不能晚于今天')
-    return visualization(db,day,days)
-
-
 def report_stale(db,row):
     original=dict(db.info)
     try:
@@ -396,25 +365,6 @@ def make_report(body:ReportInput,db=Depends(get_db),user=Depends(get_user)):
     return {'id':generate_report(body.business_date,body.use_ai,body.retry_ai,user.id,store_id=single_store(db))}
 
 
-@app.post('/api/entry-draft/parse')
-def parse_entry_draft(body:EntryDraftInput,db=Depends(get_db),user=Depends(get_user)):
-    single_store(db)
-    # Same permission as actually writing the module: nobody should be able to spend
-    # AI budget on a module they could not enter by hand, and a read-only role must
-    # not reach this at all.
-    require_module(user,body.module,write=True)
-    try:
-        fields = normalise_fields(body.fields)
-        draft = extract(body.module,fields,body.text,body.images)
-    except ValueError as exc:
-        raise HTTPException(400,str(exc)) from None
-    rows = draft['rows'][:max(0,settings.ai_max_records)]
-    audit(db,user.id,'entry_draft_parse','entry_draft',None,
-          reason=f"解析批量填单草稿：模块 {body.module}，文本 {len(body.text)} 字，图片 {len(body.images)} 张，提出 {len(rows)} 行，待人工复核；未写入任何业务记录")
-    db.commit()
-    return {'module':body.module,'rows':rows,'issues':draft['issues'],'proposed':len(rows)}
-
-
 @app.get('/api/findings')
 def findings(status:str='',page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):
     require_full(user)
@@ -456,10 +406,9 @@ def audit_list(page:int=Query(1,ge=1),entity_type:str='',entity_id:int|None=None
 @app.get('/api/settings')
 def public_settings(db=Depends(get_db),user=Depends(get_user)):
     require_full(user)
-    return {'version':'0.2.0','timezone':settings.timezone,'today':today().isoformat(),'environment':settings.environment,
+    return {'version':'0.3.0','timezone':settings.timezone,'today':today().isoformat(),'environment':settings.environment,
         'scheduler_enabled':settings.scheduler_enabled,'daily_time':f'{settings.report_hour:02d}:{settings.report_minute:02d}',
         'multi_store':True,'active_store_id':db.info.get('write_store'),
-        'maintenance_enabled':os.getenv('MAINTENANCE_ENABLED','false').lower() in {'true','1'},
         'catchup_days':settings.catchup_days,'ai_allowed':settings.allow_ai,'ai_key_configured':bool(settings.deepseek_key),
         'ai_model':settings.deepseek_model,'rules':rules_config(),
         'demo_database':bool(db.get(AppMetadata,'demo') and db.get(AppMetadata,'demo').value.get('enabled'))}
@@ -469,25 +418,38 @@ def public_settings(db=Depends(get_db),user=Depends(get_user)):
 
 def account_info(db, target):
     result = user_info(target)
+    result['access_version'] = target.access_version
     stores = accessible_stores(db,target)
-    result['store_ids'] = list(db.scalars(select(UserStore.store_id).where(UserStore.user_id==target.id)))
+    memberships = list(db.scalars(select(UserStore).where(UserStore.user_id==target.id).order_by(UserStore.store_id)))
+    result['store_ids'] = [m.store_id for m in memberships]
+    result['store_roles'] = [{'store_id':m.store_id,'role':m.role or target.role,'legacy_fallback':m.role is None} for m in memberships]
     result['stores'] = [{'id':s.id,'name':s.name,'code':s.code} for s in stores]
     return result
 
 
-def assign_stores(db, target, ids):
-    ids = sorted(set(ids))
+def assign_stores(db, target, ids, store_roles=None):
+    existing = {m.store_id:m.role for m in db.scalars(select(UserStore).where(UserStore.user_id==target.id))}
+    explicit = None if store_roles is None else {m.store_id:m.role for m in store_roles}
+    if explicit is not None:
+        if len(explicit) != len(store_roles):
+            raise HTTPException(422, '同一门店不能重复分配岗位')
+        if target.role == 'admin' and explicit:
+            raise HTTPException(422, '系统管理员使用全局权限；门店岗位只能分配给普通账号')
+        if ids is not None and set(ids) != set(explicit):
+            raise HTTPException(422, '门店列表与门店岗位必须完全对应')
+    ids = sorted(set(ids if ids is not None else (explicit or {})))
     if target.role != 'admin' and not ids:
         raise HTTPException(422, '非管理员账号至少分配一家门店')
     if ids and db.scalar(select(func.count()).select_from(Store).where(Store.id.in_(ids),Store.active.is_(True))) != len(ids):
         raise HTTPException(422, '指定门店不存在或已停用')
     db.execute(delete(UserStore).where(UserStore.user_id==target.id))
-    db.add_all([UserStore(user_id=target.id,store_id=i) for i in ids])
+    db.add_all([UserStore(user_id=target.id,store_id=i,role=explicit[i] if explicit is not None else existing.get(i)) for i in ids])
+    db.flush()
 
 
 @app.get('/api/stores')
 def stores(db=Depends(get_db),user=Depends(get_user)):
-    rows = list(db.scalars(select(Store).order_by(Store.id))) if user.role=='admin' else accessible_stores(db,user)
+    rows = list(db.scalars(select(Store).order_by(Store.id))) if getattr(user,'account_role',user.role)=='admin' else accessible_stores(db,user)
     return {'items':[plain(row) for row in rows], 'active_store_id':db.info.get('write_store')}
 
 
@@ -512,73 +474,128 @@ def edit_store(store_id:int,body:StoreInput,db=Depends(get_db),user=Depends(get_
     db.commit(); return plain(row)
 
 
-def feedback_info(row):
-    # Tokens, source files, test stdout and credentials are never returned to ordinary users.
-    keys = ['id','store_id','created_by','title','description','category','status','created_at','updated_at',
-            'attempts','base_sha','head_sha','branch','review_url','approved_by','approved_at','last_error','version']
-    result={k:v for k,v in plain(row).items() if k in keys}
-    result['summary']=row.proposal.get('summary','')
-    result['files']=row.proposal.get('files',[])
-    result['tests_passed']=row.test_result.get('passed',False)
-    return result
+from .flow_api import router as flow_router
+app.include_router(flow_router)
+from .group_api import router as group_router
+app.include_router(group_router)
+from .transfer_api import router as transfer_router
+app.include_router(transfer_router)
+from .transfer_exception_api import router as transfer_exception_router
+app.include_router(transfer_exception_router)
+from .file_security_api import router as file_security_router
+app.include_router(file_security_router)
+from .master_api import router as master_router
+app.include_router(master_router)
+from .procurement_api import router as procurement_router
+app.include_router(procurement_router)
+from .vehicle_transfer_api import router as vehicle_transfer_router
+app.include_router(vehicle_transfer_router)
+from .stock_report_api import router as stock_report_router
+app.include_router(stock_report_router)
+from .reconciliation_api import router as reconciliation_router
+app.include_router(reconciliation_router)
+from .retail_api import router as retail_router
+app.include_router(retail_router)
+from .vehicle_procurement_api import router as vehicle_procurement_router
+app.include_router(vehicle_procurement_router)
+from .vehicle_operations_api import router as vehicle_operations_router
+app.include_router(vehicle_operations_router)
+from .aftercare_api import router as aftercare_router
+app.include_router(aftercare_router)
+from .business_finance_api import router as business_finance_router
+app.include_router(business_finance_router)
+from .customer_choice_api import router as customer_choice_router
+app.include_router(customer_choice_router)
+from .group_benefits_api import router as group_benefits_router
+app.include_router(group_benefits_router)
+from .repair_api import router as repair_router
+app.include_router(repair_router)
+from .customer_service_api import router as customer_service_router
+app.include_router(customer_service_router)
+from .invoice_api import router as invoice_router
+app.include_router(invoice_router)
+from .vehicle_income_api import router as vehicle_income_router
+app.include_router(vehicle_income_router)
+from .rework_extension_api import router as rework_extension_router
+app.include_router(rework_extension_router)
+from .member_pricing_api import router as member_pricing_router
+app.include_router(member_pricing_router)
+from .repair_package_api import router as repair_package_router
+app.include_router(repair_package_router)
+from .membership_api import router as membership_router
+app.include_router(membership_router)
+from .warehouse_api import router as warehouse_router
+app.include_router(warehouse_router)
+from .service_intake_api import router as service_intake_router
+app.include_router(service_intake_router)
 
 
-@app.get('/api/maintenance/status')
-def maintenance_status(db=Depends(get_db),user=Depends(get_user)):
-    admin(user)
-    enabled=os.getenv('MAINTENANCE_ENABLED','false').lower() in {'true','1'}
-    path=Path(os.getenv('MAINT_RUNTIME_DIR',str(ROOT/'data'/'maintenance')))/'status.json'
-    result={'enabled':enabled,'ready':False,'paused':False,'worker_running':False,'release':'local',
-            'message':'请用 start 脚本启动；未启用时只收集意见'}
-    try:
-        saved=json.loads(path.read_text(encoding='utf-8'))
-        for key in result:
-            if key in saved: result[key]=saved[key]
-        if __import__('time').time()-saved.get('updated_at',0)>30:
-            result.update(ready=False,worker_running=False,message='启动器状态已超过30秒未更新；请检查启动窗口')
-    except (OSError,ValueError,TypeError): pass
-    return result
+@app.get('/',include_in_schema=False)
+def home(): return FileResponse(ROOT/'web'/'index.html')
 
 
-@app.get('/api/feedback')
-def feedback_list(db=Depends(get_db),user=Depends(get_user)):
-    stmt=select(Feedback).order_by(Feedback.id.desc()).limit(200)
-    if user.role!='admin': stmt=stmt.where(Feedback.created_by==user.id)
-    return {'items':[feedback_info(r) for r in db.scalars(stmt)]}
-
-
-@app.post('/api/feedback',status_code=201)
-def add_feedback(body:FeedbackInput,db=Depends(get_db),user=Depends(get_user)):
-    store=single_store(db)
-    if db.scalar(select(func.count()).select_from(Feedback).where(Feedback.created_by==user.id,Feedback.created_at>=start_of_today_utc()))>=10:
-        raise HTTPException(429,'每日最多提交10条改进意见，请合并相关问题')
-    enabled=os.getenv('MAINTENANCE_ENABLED','false').lower() in {'true','1'}
-    row=Feedback(store_id=store,created_by=user.id,title=body.title,description=body.description,category=body.category,
-                 status='queued' if body.consent_code_review and enabled else 'new')
-    db.add(row); db.flush()
-    audit(db,user.id,'feedback','feedback',row.id,reason='已提交改进意见；'+('允许将意见与白名单源码发送DeepSeek' if body.consent_code_review else '未授权外发'))
-    db.commit(); return feedback_info(row)
-
-
-@app.post('/api/feedback/{feedback_id}/queue')
-def queue_feedback(feedback_id:int,db=Depends(get_db),user=Depends(get_user)):
-    admin(user); single_store(db)
-    row=db.get(Feedback,feedback_id)
-    if not row: raise HTTPException(404,'意见不存在')
-    if row.status not in {'new','failed','manual','expired','superseded','rejected'}: raise HTTPException(409,'该任务不能重复入队')
-    if row.attempts>=3: raise HTTPException(409,'已达到3次尝试上限，请人工处理')
-    row.status='queued'; row.last_error=''; row.approval_token_hash=''; row.approved_sha=''; row.approved_by=''; row.approved_at=None
-    audit(db,user.id,'queue_feedback','feedback',row.id,reason='管理员授权将意见与白名单源码发送DeepSeek；重新测试、重新审批')
-    db.commit(); return feedback_info(row)
-
-
-@app.get('/api/feedback/{feedback_id}/events')
-def feedback_events(feedback_id:int,db=Depends(get_db),user=Depends(get_user)):
-    row=db.get(Feedback,feedback_id)
-    if not row or (user.role!='admin' and row.created_by!=user.id): raise HTTPException(404,'意见不存在')
-    return {'items':[plain(e) for e in db.scalars(select(MaintenanceEvent).where(MaintenanceEvent.feedback_id==feedback_id).order_by(MaintenanceEvent.id))]}
-
-
-@app.get('/')
-def index(): return FileResponse(ROOT/'web'/'index.html')
 app.mount('/static',StaticFiles(directory=ROOT/'web'),name='static')
+
+from .opening_import_api import router as opening_import_router
+app.include_router(opening_import_router)
+from .recharge_bundle_api import router as recharge_bundle_router
+app.include_router(recharge_bundle_router)
+from .claims_api import router as claims_router
+app.include_router(claims_router)
+from .vehicle_imports_api import router as vehicle_imports_router
+app.include_router(vehicle_imports_router)
+from .retail_bundle_api import router as retail_bundle_router
+app.include_router(retail_bundle_router)
+
+from .vehicle_catalog_api import router as vehicle_catalog_router
+app.include_router(vehicle_catalog_router)
+
+from .inventory_reports_api import router as inventory_reports_router
+app.include_router(inventory_reports_router)
+from .service_orders_api import router as service_orders_router
+app.include_router(service_orders_router)
+
+from .sales_quote_api import router as sales_quote_router
+app.include_router(sales_quote_router)
+
+from .insurance_api import router as insurance_router
+app.include_router(insurance_router)
+
+from .addon_api import router as addon_router
+app.include_router(addon_router)
+
+from .repair_material_api import router as repair_material_router
+app.include_router(repair_material_router)
+from .visit_activity_api import router as visit_activity_router
+app.include_router(visit_activity_router)
+from .material_value_api import router as material_value_router
+app.include_router(material_value_router)
+from .business_entity_api import router as business_entity_router
+app.include_router(business_entity_router)
+
+from .retail_group_api import router as retail_group_router
+from .observation_corrections_api import router as observation_corrections_router
+from .transfer_goods_recovery_api import router as transfer_goods_recovery_router
+app.include_router(retail_group_router)
+app.include_router(observation_corrections_router)
+app.include_router(transfer_goods_recovery_router)
+
+# Registration does not enable bootstrap: the handler additionally requires an
+# opted-in local environment, a real loopback peer, a marked isolated database
+# and a short-lived one-time instance ticket. It never adopts a business DB.
+from .local_preview_api import router as local_preview_router
+app.include_router(local_preview_router)
+
+from .gate_visit_api import router as gate_visit_router
+app.include_router(gate_visit_router)
+
+from .vehicle_transport_api import router as vehicle_transport_router
+app.include_router(vehicle_transport_router)
+
+from .dossier_grant_api import router as dossier_grant_router
+app.include_router(dossier_grant_router)
+
+from .dictionary_api import router as dictionary_router
+from .parameter_api import router as parameter_router
+app.include_router(dictionary_router)
+app.include_router(parameter_router)

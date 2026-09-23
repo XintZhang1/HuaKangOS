@@ -7,9 +7,44 @@ from fastapi import HTTPException
 from .models import Store, StoreScoped, UserStore, AuditLog
 
 
+SUMMARY_ROLES = {'admin', 'manager', 'finance', 'auditor'}
+
+
+class RequestPrincipal:
+    """Request-only role projection. Never assign an active role to the ORM User."""
+    def __init__(self, user, role, **context):
+        self._account = user._account if isinstance(user, RequestPrincipal) else user
+        self.role = role
+        self.__dict__.update(context)
+
+    @property
+    def account_role(self):
+        return self._account.role
+
+    def __getattr__(self, name):
+        return getattr(self._account, name)
+
+
+def account_role(user):
+    return getattr(user, 'account_role', user.role)
+
+
+def role_for_store(db, user, store_id):
+    if not user or not user.active:
+        return None
+    if account_role(user) == 'admin':
+        return 'admin'
+    membership = db.scalar(select(UserStore).where(UserStore.user_id == user.id, UserStore.store_id == store_id))
+    return (membership.role or account_role(user)) if membership else None
+
+
+def project_user(user, role):
+    return RequestPrincipal(user, role)
+
+
 def accessible_stores(db, user):
     stmt = select(Store).where(Store.active.is_(True)).order_by(Store.id)
-    if user.role != 'admin':
+    if account_role(user) != 'admin':
         stmt = stmt.join(UserStore, UserStore.store_id == Store.id).where(UserStore.user_id == user.id)
     return list(db.scalars(stmt))
 
@@ -30,9 +65,14 @@ def attach_scope(request, db, user):
     stores = accessible_stores(db, user)
     requested = request.headers.get('X-Store-ID', '')
     ids = [s.id for s in stores]
+    roles = {s.id: role_for_store(db, user, s.id) for s in stores}
+    group_ids = [sid for sid in ids if roles[sid] in SUMMARY_ROLES]
+    can_summary = account_role(user) == 'admin' or bool(user.can_group_summary)
     if requested == 'all':
-        if user.role not in {'admin','manager','finance','auditor'}:
-            raise HTTPException(403, '该角色不能访问跨门店汇总')
+        if not can_summary or not group_ids:
+            raise HTTPException(403, '账号未获集团汇总权限，或没有可汇总的管理岗位门店')
+        if request.method not in {'GET', 'HEAD', 'OPTIONS'} and request.url.path not in {'/api/auth/password', '/api/auth/logout', '/api/auth/login'}:
+            raise HTTPException(409, '跨门店汇总为只读；请切换到具体门店')
         active = None
     elif requested:
         try: active = int(requested)
@@ -42,10 +82,12 @@ def attach_scope(request, db, user):
         active = ids[0] if ids else None
     if not ids and not request.url.path.startswith(('/api/auth/', '/api/users', '/api/stores')):
         raise HTTPException(403, '账号尚未分配可用门店，请联系管理员')
-    set_scope(db, ids if active is None else [active], active, user.role == 'admin')
-    user._store_ids = ids
-    user._stores = [{'id':s.id,'code':s.code,'name':s.name} for s in stores]
-    user._active_store_id = active
+    set_scope(db, group_ids if requested == 'all' else ([active] if active else []), active, account_role(user) == 'admin')
+    db.info['aggregate_scope'] = requested == 'all'
+    return RequestPrincipal(user, 'auditor' if requested == 'all' else roles.get(active, account_role(user)),
+        _store_ids=ids, _stores=[{'id':s.id,'code':s.code,'name':s.name,'role':roles[s.id]} for s in stores],
+        _active_store_id=active, _aggregate_scope=requested == 'all',
+        _group_store_ids=group_ids if can_summary else [], _can_group_summary=can_summary and bool(group_ids))
 
 
 @event.listens_for(Session, 'do_orm_execute')

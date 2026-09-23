@@ -1,0 +1,10 @@
+✔ single-question details require version, digest and key and keep false and zero rows (3.1647ms)
+✔ rendered chart includes only its own distribution and original rows with matching export buttons (24.5402ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 180.7108

@@ -1,0 +1,22 @@
+F...F..........                                                          [100%]
+=================================== FAILURES ===================================
+________ test_independent_search_ends_without_second_loss_stock_or_cash ________
+tests/test_transfer_goods_searches.py:85: in test_independent_search_ends_without_second_loss_stock_or_cash
+    assert row['custody_store_id'] is None
+           ^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'custody_store_id'
+_____ test_involved_manager_cannot_approve_own_search_or_other_store_files _____
+tests/test_transfer_goods_searches.py:149: in test_involved_manager_cannot_approve_own_search_or_other_store_files
+    goods.command(client, row, 'trace_approve', dict(search_id=current['searches'][-1]['id'],
+tests/test_transfer_goods_recovery.py:40: in command
+    assert response.status_code==status,response.text;return response.json()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"请选择本单实际上传的业务凭据，不可拿系统空白单代替"}
+E   assert 422 == 404
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+=========================== short test summary info ============================
+FAILED tests/test_transfer_goods_searches.py::test_independent_search_ends_without_second_loss_stock_or_cash - KeyError: 'custody_store_id'
+FAILED tests/test_transfer_goods_searches.py::test_involved_manager_cannot_approve_own_search_or_other_store_files - AssertionError: {"detail":"请选择本单实际上传的业务凭据，不可拿系统空白单代替"}
+assert 422 == 404
+ +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+2 failed, 13 passed in 62.35s (0:01:02)

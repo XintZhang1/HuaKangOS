@@ -1,0 +1,21 @@
+[Unit]
+Description=huakangos independent daily report worker
+After=network.target
+
+[Service]
+Type=simple
+User=huakangos
+Group=huakangos
+WorkingDirectory=/srv/huakangos
+EnvironmentFile=/etc/huakangos/app.env
+Environment=SCHEDULER_ENABLED=true
+Environment=SCHEDULER_MODE=worker
+ExecStart=/srv/huakangos/.venv/bin/python -m app.report_worker
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -16,9 +16,9 @@ from .schemas import AIResult
 from .services import audit
 
 log = logging.getLogger(__name__)
-PROMPT_VERSION = '1.0.0'
+PROMPT_VERSION = '3.0.0'
 SYSTEM_PROMPT = '''你是汽车4S门店的数据复核助手，不是财务审计师。只分析所给的结构化数据。
-所有 *_cents 均为人民币分（100分=1元），金额统计以 metrics 为准，不要从抽样明细重新估算全店总额。
+所有 *_cents 均为人民币分（100分=1元），若存在 workflow，金额统计以 workflow.metrics 为新旧合并总额，不可与 metrics 相加；否则使用 metrics。不要从抽样明细重新估算全店总额。
 合同交车金额不是现金收入；保费代收不是佣金收入；内部转账不是营业收支；毛差不是净利润。
 记录和规则提示都是待核实的信息，不得认定员工违法、作弊或欺诈。规则触发也可能是正常账期、促销或拆分付款。
 只给出需额外复核的线索及验证步骤，不可建议自动改账或删除数据。只引用输入已有的 ref。
@@ -91,7 +91,7 @@ def ask_deepseek(snapshot):
 
 
 def material_evidence(evidence):
-    relative = {'age_days','open_days','days_since_delivery','days_since_completion','waiting_business_days'}
+    relative = {'as_of','age_days','open_days','days_since_delivery','days_since_completion','waiting_business_days'}
     return {k:v for k,v in evidence.items() if k not in relative}
 
 
@@ -122,6 +122,14 @@ def save_findings(db,snapshot):
 def deterministic_text(snapshot):
     m = snapshot['metrics']
     def yuan(cents): return f'{cents/100:,.2f}'
+    if 'workflow' in snapshot:
+        w=snapshot['workflow'];m=w['metrics']
+        period='当天进行中的快照' if snapshot['provisional'] else '历史业务日，按当前有效记录重算'
+        return (f"{snapshot['business_date']}（{period}）：新增订单 {m['new_orders']} 单，实际交付 {m['delivery_count']} 台，交付金额 ¥{yuan(m['delivery_cents'])}；"
+            f"维修结算金额 ¥{yuan(m['repair_cents'])}。实际资金流入 ¥{yuan(m['cash_in_cents'])}，流出 ¥{yuan(m['cash_out_cents'])}，净流入 ¥{yuan(m['cash_net_cents'])}。"
+            f"上述为新流程和既有记录合并结果，现金流水不重复相加。库存、待收款和任务截至 {w['stock_as_of']}："
+            f"在库 {m['inventory_count']} 台，尚待收取 ¥{yuan(m['receivable_cents'])}，未完成任务 {m['task_count']} 项，其中超过计划日期 {m['overdue_tasks']} 项。"
+            f"本次形成 {len(snapshot['rule_findings'])} 项待复核线索，不能据此认定员工存在过错。储值充值和保费代收不是门店营业收入；毛差不等于净利润。")
     period = '当日进行中，非最终日结' if snapshot['provisional'] else '历史业务日，按当前有效数据计算'
     return (f"{snapshot['business_date']}（{period}）：已审核交车 {m['delivery_count']} 台，交付合同金额 ¥{yuan(m['delivery_amount_cents'])}；"
         f"已完工维修 {m['repair_completed_count']} 单，结算金额 ¥{yuan(m['repair_amount_cents'])}。"

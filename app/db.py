@@ -14,17 +14,6 @@ def today() -> date:
     return datetime.now(ZoneInfo(settings.timezone)).date()
 
 
-def start_of_today_utc() -> datetime:
-    """UTC-naive instant of 00:00 today in the configured timezone.
-
-    Database timestamps are UTC-naive while today() is timezone-local. Comparing
-    them directly silently disables any daily quota between 00:00 and 08:00
-    Shanghai, because the local date is then a day ahead of the UTC date.
-    """
-    midnight = datetime.now(ZoneInfo(settings.timezone)).replace(hour=0, minute=0, second=0, microsecond=0)
-    return midnight.astimezone(timezone.utc).replace(tzinfo=None)
-
-
 class Base(DeclarativeBase):
     pass
 

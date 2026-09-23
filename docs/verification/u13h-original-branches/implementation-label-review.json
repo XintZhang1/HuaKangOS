@@ -1,0 +1,460 @@
+{
+  "status": "applied_after_final_frozen_regression",
+  "method": "有界实现标签建议：原E56项＋后续已补16项＋e13r续会费HK-090＋本次按原DOCX真实措辞核对的固定面额电子券5项，共78项。五项只去掉原表未规定特殊券型/渠道造成的标签误差，没有新增用户排除项。未改requirements标签；最终同源回归通过后由root决定实现/自动验收，业务及生产验收保持未验证。",
+  "requirement_ids": [
+    "HK-010",
+    "HK-012",
+    "HK-017",
+    "HK-032",
+    "HK-034",
+    "HK-037",
+    "HK-038",
+    "HK-044",
+    "HK-047",
+    "HK-051",
+    "HK-052",
+    "HK-054",
+    "HK-055",
+    "HK-058",
+    "HK-061",
+    "HK-062",
+    "HK-063",
+    "HK-064",
+    "HK-065",
+    "HK-066",
+    "HK-067",
+    "HK-069",
+    "HK-071",
+    "HK-074",
+    "HK-078",
+    "HK-080",
+    "HK-081",
+    "HK-082",
+    "HK-083",
+    "HK-084",
+    "HK-085",
+    "HK-086",
+    "HK-087",
+    "HK-088",
+    "HK-090",
+    "HK-091",
+    "HK-092",
+    "HK-093",
+    "HK-095",
+    "HK-096",
+    "HK-097",
+    "HK-099",
+    "HK-105",
+    "HK-106",
+    "HK-107",
+    "HK-109",
+    "HK-112",
+    "HK-113",
+    "HK-114",
+    "HK-115",
+    "HK-116",
+    "HK-119",
+    "HK-120",
+    "HK-129",
+    "HK-130",
+    "HK-131",
+    "HK-132",
+    "HK-139",
+    "HK-141",
+    "HK-148",
+    "HK-154",
+    "HK-156",
+    "HK-157",
+    "HK-161",
+    "HK-162",
+    "HK-163",
+    "HK-164",
+    "HK-167",
+    "HK-168",
+    "HK-169",
+    "HK-171",
+    "HK-172",
+    "HK-174",
+    "HK-175",
+    "HK-178",
+    "HK-179",
+    "HK-182",
+    "HK-184"
+  ],
+  "conditions": [
+    "最终冻结整树同源回归通过后，root才决定是否调整实现和自动验收标签；本文件保持recommendation_pending_final_regression。",
+    "具体业务正常、拒绝、权限、原账及报表证据须与最终冻结源一致；历史21项或脚本内容不能代替当前执行结果。",
+    "公司业务和生产验收独立保持未验证，不宣称193项都已获公司或生产验收。",
+    "消费券5项按固定面额会员电子券明确范围建议已实现，特殊券型/渠道仍需公司确认，未被用户明确排除。HK-025/123既有用途和退款政策待定边界保持。"
+  ],
+  "notes": [
+    "HK-037已有结构化PDI总结果和凭据；公司逐项电子检查表配置尚未明确，按公司配置/验收边界记录。",
+    "未知历史进口数据保持未知；不能把缺少历史数据或公司环境验收当作当前功能代码缺口。",
+    "只有用户明确排除的集团中心实际清算/支付到账审批、直营门店关系准入可按排除处理。未确认的公司规则不等于授权排除。",
+    "HK-090旧说明中的续会费同额登记纠错缺口已由e13r专项补齐，此候选不扩展金额改价、会籍撤销或额外权益债务。",
+    "消费券五项不再因原表未指定的满减、百分比、实体/外部渠道被永久标为部分；当前生成仍明确是会员券批次和张数账，查询及统计容量边界保留。"
+  ],
+  "reviewed_on": "2026-09-23",
+  "suggested_implementation": "已实现",
+  "counts": {
+    "current_partial": 78,
+    "original_E_candidates": 56,
+    "subsequent_implemented_candidates": 16,
+    "e13r_HK090_candidate": 1,
+    "candidate_promotions": 78,
+    "retained_partial_scope_confirmation": 0,
+    "already_implemented_with_company_policy_boundaries": 2,
+    "coupon_scoped_implementation_candidates": 5
+  },
+  "promotion_sources": [
+    {
+      "classification": "original_audit_E",
+      "requirement_ids": [
+        "HK-010",
+        "HK-032",
+        "HK-034",
+        "HK-037",
+        "HK-044",
+        "HK-047",
+        "HK-051",
+        "HK-054",
+        "HK-055",
+        "HK-058",
+        "HK-061",
+        "HK-062",
+        "HK-063",
+        "HK-064",
+        "HK-066",
+        "HK-067",
+        "HK-071",
+        "HK-080",
+        "HK-082",
+        "HK-083",
+        "HK-084",
+        "HK-091",
+        "HK-092",
+        "HK-095",
+        "HK-096",
+        "HK-097",
+        "HK-099",
+        "HK-105",
+        "HK-106",
+        "HK-107",
+        "HK-109",
+        "HK-112",
+        "HK-113",
+        "HK-114",
+        "HK-115",
+        "HK-116",
+        "HK-119",
+        "HK-120",
+        "HK-139",
+        "HK-141",
+        "HK-148",
+        "HK-154",
+        "HK-156",
+        "HK-161",
+        "HK-163",
+        "HK-164",
+        "HK-167",
+        "HK-168",
+        "HK-171",
+        "HK-172",
+        "HK-174",
+        "HK-175",
+        "HK-178",
+        "HK-179",
+        "HK-182",
+        "HK-184"
+      ],
+      "basis": "原说明过时或实现与公司/环境验收混写；已有正常及例外模拟依据，不以菜单或模板引用充当完成。",
+      "evidence": [
+        "docs/原需业务分支审计-u13h.json",
+        "docs/原需业务分支审计-u13h.md"
+      ]
+    },
+    {
+      "classification": "implemented_branches_pending_full_regression",
+      "requirement_ids": [
+        "HK-012",
+        "HK-017",
+        "HK-038",
+        "HK-052",
+        "HK-065",
+        "HK-069",
+        "HK-074",
+        "HK-078",
+        "HK-081",
+        "HK-085",
+        "HK-086",
+        "HK-087",
+        "HK-088",
+        "HK-093",
+        "HK-157",
+        "HK-162"
+      ],
+      "groups": [
+        {
+          "ids": [
+            "HK-012",
+            "HK-065"
+          ],
+          "basis": "w35j零价赠送加装：明确原因与本店承担、独立核价、真实领料安装验收及原退。"
+        },
+        {
+          "ids": [
+            "HK-017",
+            "HK-088"
+          ],
+          "basis": "y57l非客户整车其他收入：真实供应方来源、独立应收、到账、修订、原退及发票。"
+        },
+        {
+          "ids": [
+            "HK-038"
+          ],
+          "basis": "z68m原责任返修与额外自费分类、实际责任承接、施工结算及原单边界。"
+        },
+        {
+          "ids": [
+            "HK-052",
+            "HK-069",
+            "HK-074"
+          ],
+          "basis": "v24i物资采购预付款：独立批准、实际支付、原收货分配、未履约及原款退回。"
+        },
+        {
+          "ids": [
+            "HK-078",
+            "HK-081",
+            "HK-086"
+          ],
+          "basis": "u13h/d02q原收款登记纠错及保留已实际退款切片。"
+        },
+        {
+          "ids": [
+            "HK-085"
+          ],
+          "basis": "x46k供应方应退目标修订及超收原款实际退款。"
+        },
+        {
+          "ids": [
+            "HK-087",
+            "HK-093",
+            "HK-162"
+          ],
+          "basis": "独立预收原款纠错、有效金额/账户、原退款及同源统计。"
+        },
+        {
+          "ids": [
+            "HK-157"
+          ],
+          "basis": "原专项报表API、图表、明细及CSV的已保存具体模拟。"
+        }
+      ]
+    },
+    {
+      "classification": "e13r_implemented_fee_recording_correction",
+      "requirement_ids": [
+        "HK-090"
+      ],
+      "basis": "续会费同额账户、凭证及证据更正已实现：固定金额、会员、会期、原到账日期和权益；独立审批、原源CAS、幂等、有效原账户实际退款、旧退款保持、现金7/月结21及恢复。金额改价、会籍撤销、额外权益债务不由此分支推断，也不记作用户明确排除。",
+      "evidence": [
+        "docs/续会费同额登记更正-e13r.md",
+        "docs/verification/e13r-member-fee-corrections.json"
+      ],
+      "verification": "本域与原会员/财务五模块63通过；独立现金/月结6通过、非空升级1通过及真实Chrome三岗位窄屏通过，不能替代最终整树或公司验收。"
+    },
+    {
+      "classification": "fixed_face_electronic_coupon_scope_review",
+      "requirement_ids": [
+        "HK-129",
+        "HK-130",
+        "HK-131",
+        "HK-132",
+        "HK-169"
+      ],
+      "basis": "此前五项被未规定的特殊券型或渠道阻留为部分，属于范围标签误差。现有明确基本范围已有实现和具体测试断言；不为了凑齐193项改标签，也不把未要求扩展永久作为完成前置。",
+      "evidence": [
+        "docs/verification/coupon-five-scope-review-e13r.json",
+        "docs/消费券五项范围复核-e13r.md"
+      ],
+      "company_acceptance": "未验证",
+      "production_acceptance": "未验证"
+    }
+  ],
+  "retained_partial": [],
+  "already_implemented_with_company_policy_boundaries": [
+    {
+      "id": "HK-025",
+      "title": "车辆其他出库",
+      "current_implementation": "已实现",
+      "counted_in_promotions": false,
+      "implemented_default_scope": "明确用途的车辆其他出库、独立主管批准、VIN实物确认、退出当前保管，原单退回按原成本建立新库存代次。",
+      "pending_company_decision": "公司需确认车辆其他出库实际用途是否还包含试驾/借车及报废变卖收款，以及各用途所需凭据与审批规则。原表压缩名称不能自动认定这些用途已明确包含或已排除。",
+      "boundary": "保留当前已实现默认范围，另记公司用途与正式业务验收待定，不以此直接退回实现标签。"
+    },
+    {
+      "id": "HK-123",
+      "title": "会员卡充值套餐设置",
+      "current_implementation": "已实现",
+      "counted_in_promotions": false,
+      "implemented_default_scope": "默认关闭的版本化充值组合；每份实收本金及赠金、积分、固定券、作业次数套餐明确冻结；未用完整份额可部分原款退款并回收原赠品。",
+      "pending_company_decision": "公司需批准实际组合、比例、有效期、承担及退款条款，并明确是否需要混合收费对价分摊、已用单份临时追价退款或阶梯促销；这些待定政策不是用户授权排除。",
+      "boundary": "保留已实现默认范围，公司配置、退款政策与正式业务验收独立记录，不将政策待定直接记成代码缺失。"
+    }
+  ],
+  "reconciliation_check": {
+    "source": "docs/requirements.json",
+    "partial_count": 78,
+    "current_partial_ids": [
+      "HK-010",
+      "HK-012",
+      "HK-017",
+      "HK-032",
+      "HK-034",
+      "HK-037",
+      "HK-038",
+      "HK-044",
+      "HK-047",
+      "HK-051",
+      "HK-052",
+      "HK-054",
+      "HK-055",
+      "HK-058",
+      "HK-061",
+      "HK-062",
+      "HK-063",
+      "HK-064",
+      "HK-065",
+      "HK-066",
+      "HK-067",
+      "HK-069",
+      "HK-071",
+      "HK-074",
+      "HK-078",
+      "HK-080",
+      "HK-081",
+      "HK-082",
+      "HK-083",
+      "HK-084",
+      "HK-085",
+      "HK-086",
+      "HK-087",
+      "HK-088",
+      "HK-090",
+      "HK-091",
+      "HK-092",
+      "HK-093",
+      "HK-095",
+      "HK-096",
+      "HK-097",
+      "HK-099",
+      "HK-105",
+      "HK-106",
+      "HK-107",
+      "HK-109",
+      "HK-112",
+      "HK-113",
+      "HK-114",
+      "HK-115",
+      "HK-116",
+      "HK-119",
+      "HK-120",
+      "HK-129",
+      "HK-130",
+      "HK-131",
+      "HK-132",
+      "HK-139",
+      "HK-141",
+      "HK-148",
+      "HK-154",
+      "HK-156",
+      "HK-157",
+      "HK-161",
+      "HK-162",
+      "HK-163",
+      "HK-164",
+      "HK-167",
+      "HK-168",
+      "HK-169",
+      "HK-171",
+      "HK-172",
+      "HK-174",
+      "HK-175",
+      "HK-178",
+      "HK-179",
+      "HK-182",
+      "HK-184"
+    ],
+    "retained_ids": [],
+    "expected_promotion_count": 78,
+    "matches_current_partial_minus_retained": true,
+    "duplicates": [],
+    "missing_ids": [],
+    "unexpected_ids": [],
+    "requirements_sha256_at_review": "71d66bbc08a8e46ded185b2415243680fce5d51b7a66955f23b6a5fa16b99f5b",
+    "matches_entire_current_partial_set": true
+  },
+  "previous_retained_partial_ids": [
+    "HK-129",
+    "HK-130",
+    "HK-131",
+    "HK-132",
+    "HK-169"
+  ],
+  "company_scope_confirmations": [
+    {
+      "id": "HK-129",
+      "implemented_default_scope": "固定面额会员电子券",
+      "pending_special_rules": [
+        "正式券种名称、面额、售价或免费赠送条件、适用门店、有效期、优惠承担和实际退款条款。",
+        "是否另行要求满减/百分比、实体印券/单张外发券码、外部渠道、会员互赠及其特殊查询统计。未确认不等于用户明确排除。"
+      ],
+      "blocks_basic_implementation_label": false,
+      "user_excluded": false
+    },
+    {
+      "id": "HK-130",
+      "implemented_default_scope": "固定面额会员电子券",
+      "pending_special_rules": [
+        "正式券种名称、面额、售价或免费赠送条件、适用门店、有效期、优惠承担和实际退款条款。",
+        "是否另行要求满减/百分比、实体印券/单张外发券码、外部渠道、会员互赠及其特殊查询统计。未确认不等于用户明确排除。"
+      ],
+      "blocks_basic_implementation_label": false,
+      "user_excluded": false
+    },
+    {
+      "id": "HK-131",
+      "implemented_default_scope": "固定面额会员电子券",
+      "pending_special_rules": [
+        "正式券种名称、面额、售价或免费赠送条件、适用门店、有效期、优惠承担和实际退款条款。",
+        "是否另行要求满减/百分比、实体印券/单张外发券码、外部渠道、会员互赠及其特殊查询统计。未确认不等于用户明确排除。"
+      ],
+      "blocks_basic_implementation_label": false,
+      "user_excluded": false
+    },
+    {
+      "id": "HK-132",
+      "implemented_default_scope": "固定面额会员电子券",
+      "pending_special_rules": [
+        "正式券种名称、面额、售价或免费赠送条件、适用门店、有效期、优惠承担和实际退款条款。",
+        "是否另行要求满减/百分比、实体印券/单张外发券码、外部渠道、会员互赠及其特殊查询统计。未确认不等于用户明确排除。"
+      ],
+      "blocks_basic_implementation_label": false,
+      "user_excluded": false
+    },
+    {
+      "id": "HK-169",
+      "implemented_default_scope": "固定面额会员电子券",
+      "pending_special_rules": [
+        "正式券种名称、面额、售价或免费赠送条件、适用门店、有效期、优惠承担和实际退款条款。",
+        "是否另行要求满减/百分比、实体印券/单张外发券码、外部渠道、会员互赠及其特殊查询统计。未确认不等于用户明确排除。"
+      ],
+      "blocks_basic_implementation_label": false,
+      "user_excluded": false
+    }
+  ],
+  "applied_source_digest": "d59f9ca0af273150e78d6f4af23b8e3479132e8b17961ca592dd0ea3b104ab8a",
+  "final_evidence": "docs/verification/u13h-original-branches/requirement-test-results.json",
+  "meaning": "已实现限各条明示范围；自动验证来自最终实际JUnit；公司业务验收、正式启用均未验证。原始标题、编号、原文SHA不变，没有新增用户排除项。"
+}

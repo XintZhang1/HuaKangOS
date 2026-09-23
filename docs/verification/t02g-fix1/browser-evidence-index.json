@@ -1,0 +1,86 @@
+[
+  {
+    "scenario": "preview",
+    "source_report": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-in752y5j\\acceptance.json",
+    "report_sha256": "d5dc48175036093fabb5b2c26f292bf297dcab914a70b8505b4e03663a070bc3",
+    "screenshots": [
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-in752y5j\\01_first_admin_setup_mobile.png",
+        "sha256": "e741fbf13fff067f0a5bab4fb21f986d3e608fc93292498cc56269db09f48b5f"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-in752y5j\\02_password_confirmation_refused_mobile.png",
+        "sha256": "877d19cdf76cf205dd71f27e1c6f587a2fec14ee458d82fa13790a6e17496248"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-in752y5j\\03_expired_setup_refused_mobile.png",
+        "sha256": "c31eff4aa8b00ec573728b2f0aa30219a0144445cfaae78f0a642be484098974"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-preview-browser-evidence-in752y5j\\04_local_preview_workbench_mobile.png",
+        "sha256": "9970cb83e9d39be5e749bd496d23ab5443151e00c9dd1a2c75bf3ddf0f492713"
+      }
+    ]
+  },
+  {
+    "scenario": "dossier",
+    "source_report": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-xe6xzxc1\\acceptance.json",
+    "report_sha256": "3850faa8c200918e6145193f87d90b804d32bdb108f0af9922477175b3d4eee6",
+    "screenshots": [
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-xe6xzxc1\\dossier_01_exact_scope_390px.png",
+        "sha256": "eb2185b1d62afa6751ca71af336babb76fb15351017a4b4a8af52dc84548cf07"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-xe6xzxc1\\dossier_02_review_390px.png",
+        "sha256": "c19e5bdc34649bd3d05865b4eb4cc804ee3ce681eabd4eddea826a19d77b46e6"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-xe6xzxc1\\dossier_03_received_390px.png",
+        "sha256": "4830ca4756bb12f9749f40e35d2ddc1f8dae4d68a32680f47f58a57ddd18971c"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-xe6xzxc1\\dossier_04_revoked_390px.png",
+        "sha256": "33056dac5ab6690379c952df47f74e5e4b0048519b10188dd5b2ce6b9d62b070"
+      }
+    ]
+  },
+  {
+    "scenario": "questionnaire",
+    "source_report": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-g1j31aco\\acceptance.json",
+    "report_sha256": "cdd86e6d40f387e37be983d8783b594e7a8dedcf7f8fefcc5934220f4c05c5ae",
+    "screenshots": [
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-g1j31aco\\question_first_visit_390px.png",
+        "sha256": "8ebfc9249f54538c2c4ec241373144ab793d1cd7844ad780ec7e28f1172a77de"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-g1j31aco\\question_wait_minutes_390px.png",
+        "sha256": "28fec6882446767bbb67841a26e22abe600073216361910e5b1adaf71ec7fe3a"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-g1j31aco\\incomplete_selector_chinese_390px.png",
+        "sha256": "02ef6d4a89ebb7baca9c6b01554dc3a0ab390bb0f183c32dd45c72a338bbe34b"
+      }
+    ]
+  },
+  {
+    "scenario": "masters",
+    "source_report": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-q6nz8dnj\\acceptance.json",
+    "report_sha256": "df05296e70ffbaf2df951011558651fc716da665bebaaadc34cf0b843d0e99ba",
+    "screenshots": [
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-q6nz8dnj\\master_completion_01_brand_directory.png",
+        "sha256": "5d1b8f758363665344ef2506bf3a31804348ecb8ce0b70aaf2abf72a4be7636b"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-q6nz8dnj\\master_completion_02_separate_dictionary.png",
+        "sha256": "e8ba6dc335913f643c380896d5083fd4d86acea68206ad32e97f68dfe6e68b49"
+      },
+      {
+        "path": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-q6nz8dnj\\master_completion_03_parameter_entry.png",
+        "sha256": "56122f078d27d21f8ff6a03fcc2b031391cfa4bb65f40abbb4365706bed1da59"
+      }
+    ]
+  }
+]

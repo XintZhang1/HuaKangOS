@@ -1,0 +1,29 @@
+..........F.....................                                         [100%]
+=================================== FAILURES ===================================
+___ test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope ____
+tests/test_presales_stages.py:123: in test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+    login(client,'technician')
+tests/conftest.py:30: in login
+    assert r.status_code==200,r.text
+E   AssertionError: {"detail":"用户名或密码错误，或账户已停用"}
+E   assert 401 == 200
+E    +  where 401 = <Response [401 Unauthorized]>.status_code
+=============================== warnings summary ===============================
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_visit_activity.py::test_local_month_boundary_does_not_rewrite_arrival_cohort
+  /opt/pyvenv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope - AssertionError: {"detail":"用户名或密码错误，或账户已停用"}
+assert 401 == 200
+ +  where 401 = <Response [401 Unauthorized]>.status_code
+1 failed, 31 passed, 9 warnings in 30.22s

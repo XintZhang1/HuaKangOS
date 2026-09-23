@@ -23,19 +23,24 @@ class Settings:
     timezone: str = os.getenv('APP_TIMEZONE', 'Asia/Shanghai')
     allowed_hosts: tuple = tuple(x.strip() for x in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',') if x.strip())
     cookie_secure: bool = flag('COOKIE_SECURE')
+    legacy_business_write: bool = flag('LEGACY_BUSINESS_WRITE')
     session_hours: int = int(os.getenv('SESSION_HOURS', '8'))
     scheduler_enabled: bool = flag('SCHEDULER_ENABLED', 'true')
+    scheduler_mode: str = os.getenv('SCHEDULER_MODE', 'embedded')
+    file_scan_mode: str = os.getenv('FILE_SCAN_MODE', 'quarantine')
+    file_storage_mode: str = os.getenv('FILE_STORAGE_MODE', 'blob')
+    private_file_root: str = os.getenv('PRIVATE_FILE_ROOT', '')
+    clamav_host: str = os.getenv('CLAMAV_HOST', '127.0.0.1')
+    clamav_port: int = int(os.getenv('CLAMAV_PORT', '3310'))
+    clamav_timeout_seconds: int = int(os.getenv('CLAMAV_TIMEOUT_SECONDS', '5'))
     report_hour: int = int(os.getenv('DAILY_REPORT_HOUR', '0'))
     report_minute: int = int(os.getenv('DAILY_REPORT_MINUTE', '15'))
     catchup_days: int = int(os.getenv('REPORT_CATCHUP_DAYS', '7'))
     allow_ai: bool = flag('ALLOW_AI_EXTERNAL')
-    api_docs: bool = flag('API_DOCS_ENABLED', 'true')
     deepseek_key: str = os.getenv('DEEPSEEK_API_KEY', '')
     deepseek_url: str = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com').rstrip('/')
     deepseek_model: str = os.getenv('DEEPSEEK_MODEL', 'deepseek-flash')
     ai_timeout: int = int(os.getenv('DEEPSEEK_TIMEOUT_SECONDS', '60'))
-    # 批量填单带图片时模型要先「看」图再抽取，比纯文本慢得多，单独给一个更宽的超时。
-    ai_vision_timeout: int = int(os.getenv('DEEPSEEK_VISION_TIMEOUT_SECONDS', '150'))
     ai_max_records: int = int(os.getenv('AI_MAX_RECORDS', '400'))
     inventory_aging: int = int(os.getenv('INVENTORY_AGING_DAYS', '90'))
     repair_overdue: int = int(os.getenv('REPAIR_OVERDUE_DAYS', '7'))
@@ -46,8 +51,22 @@ class Settings:
 
     def __post_init__(self):
         ZoneInfo(self.timezone)
+        if self.file_storage_mode not in {'blob','private_local'}:
+            raise ValueError('FILE_STORAGE_MODE must be blob or private_local')
+        if self.file_storage_mode=='private_local' and (not self.private_file_root or not Path(self.private_file_root).is_absolute()):
+            raise ValueError('PRIVATE_FILE_ROOT must be an absolute private local directory')
+        if self.file_scan_mode not in {'quarantine', 'structure_only', 'clamav'}:
+            raise ValueError('FILE_SCAN_MODE must be quarantine, structure_only or clamav')
+        if not (1 <= self.clamav_port <= 65535 and 1 <= self.clamav_timeout_seconds <= 30):
+            raise ValueError('Invalid ClamAV port or timeout')
+        if self.environment == 'production' and self.file_scan_mode != 'clamav':
+            raise ValueError('Production requires FILE_SCAN_MODE=clamav; unscanned uploads remain quarantined')
+        if self.scheduler_mode not in {'embedded', 'worker', 'off'}:
+            raise ValueError('SCHEDULER_MODE must be embedded, worker or off')
         if self.environment not in {'local', 'production', 'test'}:
             raise ValueError('APP_ENV must be local, production or test')
+        if self.environment=='production' and self.legacy_business_write:
+            raise ValueError('Production does not allow legacy business writes; use workflow actions')
         if self.environment == 'production' and (not self.cookie_secure or '*' in self.allowed_hosts or 'testserver' in self.allowed_hosts):
             raise ValueError('Production requires COOKIE_SECURE=true and explicit ALLOWED_HOSTS (without testserver)')
         if not (0 <= self.report_hour <= 23 and 0 <= self.report_minute <= 59):
@@ -56,9 +75,7 @@ class Settings:
             raise ValueError('Invalid session/catchup/AI limit')
         if self.allow_ai and not self.deepseek_url.startswith('https://'):
             raise ValueError('External AI requests must use HTTPS')
-        if min(self.inventory_aging, self.repair_overdue, self.receivable_grace, self.large_cash_yuan, self.ai_timeout, self.ai_vision_timeout) < 1:
+        if min(self.inventory_aging, self.repair_overdue, self.receivable_grace, self.large_cash_yuan, self.ai_timeout) < 1:
             raise ValueError('Review thresholds and timeout must be positive')
-        if self.ai_vision_timeout > 600:
-            raise ValueError('DEEPSEEK_VISION_TIMEOUT_SECONDS must not exceed 600')
 
 settings = Settings()

@@ -1,0 +1,28 @@
+{
+  "checkpoint": "t02g-fix1",
+  "baseline_manifest": "docs/verification/t02g-fix1/source-package-before.sha256",
+  "baseline_file_count": 863,
+  "final_manifest_file_count": 904,
+  "change_count": 83,
+  "change_kinds": {
+    "modified": 42,
+    "added": 41
+  },
+  "change_list_excludes": [
+    "MANIFEST.sha256",
+    "SOURCE_CHANGES.json"
+  ],
+  "excluded_directories": [
+    ".git",
+    ".pytest_cache",
+    ".venv",
+    "__pycache__",
+    "backups",
+    "playwright-report"
+  ],
+  "runtime_data_included": false,
+  "protected_file_count": 55,
+  "protected_modified": [],
+  "frozen_source_matches_final_regression": true,
+  "notes": "MANIFEST excludes itself. SOURCE_CHANGES compares the saved candidate manifest and excludes itself/MANIFEST to avoid self-hash cycles. Runtime database, credentials, raw logs and screenshots stay outside delivery."
+}

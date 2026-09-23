@@ -1,0 +1,184 @@
+{
+  "status": "scoped_implementation_recommendation_pending_final_regression",
+  "reviewed_on": "2026-09-23",
+  "bounded_requirement_ids": [
+    "HK-129",
+    "HK-130",
+    "HK-131",
+    "HK-132",
+    "HK-169"
+  ],
+  "method": "只读核对原DOCX真实措辞、五项现有API/UI实现和具体业务测试断言；未运行新测试，未更改源码或需求标签。未以菜单、模板引用或未要求的扩展替代业务证据。",
+  "original_source": {
+    "path": "docs/原始功能需求表.docx",
+    "sha256": "ddf297678e5d6d35e1dbfffc5c232c3d56748934eb22b58bbb9f9d5343689aae",
+    "table_row_indexing": "zero-based",
+    "membership_excerpt": "消费券管理：消费券类型、消费券生成、消费券赠送、消费券信息查询",
+    "analytics_excerpt": "会员统计分析：会员积分统计、消费券统计",
+    "interpretation": "原表未规定必须支持满减/百分比券、实体印券、外部渠道或会员互赠。生成按会员电子券批次及张数账实现，不声称已有单张外发券码或纸券。"
+  },
+  "declared_applicable_scope": "会员持有的固定面额电子券，按版本化规则发行/赠送和查询，可在明确适用门店占额、核销及原退，配有期间单位账与财务口径统计。",
+  "conclusion": {
+    "recommend_implemented_ids": [
+      "HK-129",
+      "HK-130",
+      "HK-131",
+      "HK-132",
+      "HK-169"
+    ],
+    "confirmed_basic_scope_code_gaps": [],
+    "new_user_exclusions": [],
+    "rationale": "此前五项被未规定的特殊券型或渠道阻留为部分，属于范围标签误差。现有明确基本范围已有实现和具体测试断言；不为了凑齐193项改标签，也不把未要求扩展永久作为完成前置。"
+  },
+  "requirements": [
+    {
+      "id": "HK-129",
+      "original_text": "消费券类型",
+      "source_table_row_zero_based": 7,
+      "implemented": "多个名称/编码的固定面额电子券规则，冻结版本、适用店、有效期、购买价、抵扣额、优惠承担及退款规则；新发行按新版本、旧批次按原版本。",
+      "entry_points": [
+        "POST /api/group/benefits/rules",
+        "集团权益页面→新增冻结规则版本"
+      ],
+      "code_refs": [
+        "app/group_benefits_api.py:13",
+        "app/group_benefits_service.py:63",
+        "web/benefits.js:44"
+      ],
+      "concrete_test_refs": [
+        "tests/test_group_benefits.py:133:test_rule_version_frozen_and_old_version_cannot_issue",
+        "tests/browser_benefits.py:41:页面发布10元抵扣/8元购买跨店固定券规则"
+      ],
+      "unimplemented_optional_extensions": [
+        "满减券、百分比折扣券、额外叠加促销引擎；原表没有枚举这些类型。"
+      ],
+      "true_code_gaps_in_declared_scope": [],
+      "implementation_recommendation": "最终同源回归通过后，可在会员固定面额电子券这一明确适用范围下标已实现。",
+      "company_acceptance": "未验证",
+      "production_acceptance": "未验证"
+    },
+    {
+      "id": "HK-130",
+      "original_text": "消费券生成",
+      "source_table_row_zero_based": 7,
+      "implemented": "按冻结规则为会员生成电子券发行批次及整数张数账；现金购买、无现金赠送及积分兑换来源分别记录，版本和原发行来源保留。",
+      "entry_points": [
+        "POST /api/group/benefits/members/{member_id}/actions/purchase",
+        "POST /api/group/benefits/members/{member_id}/actions/grant"
+      ],
+      "code_refs": [
+        "app/group_benefits_service.py:212",
+        "app/group_benefits_service.py:290",
+        "app/group_benefits_api.py:86"
+      ],
+      "concrete_test_refs": [
+        "tests/test_group_benefits.py:87:test_coupon_cross_store_capture_reverse_partial_original_refund_cash_once",
+        "tests/test_group_benefits.py:121:test_points_adjust_exchange_and_frozen_rate",
+        "tests/browser_benefits.py:54:实际24元购券生成3张独立券"
+      ],
+      "unimplemented_optional_extensions": [
+        "实体印券、单张外发券码/扫码介质及外部发券渠道；原表没有指定这些输出形式或渠道。"
+      ],
+      "true_code_gaps_in_declared_scope": [],
+      "implementation_recommendation": "最终同源回归通过后，可在会员固定面额电子券这一明确适用范围下标已实现。",
+      "company_acceptance": "未验证",
+      "production_acceptance": "未验证"
+    },
+    {
+      "id": "HK-131",
+      "original_text": "消费券赠送",
+      "source_table_row_zero_based": 7,
+      "implemented": "店长/管理员按售价为零的冻结券规则赠送，保存会员、原业务、经办人、门店及凭据；原单位账可核销，不产生现金。",
+      "entry_points": [
+        "POST /api/group/benefits/members/{member_id}/actions/grant",
+        "集团权益页面→赠送"
+      ],
+      "code_refs": [
+        "app/group_benefits_service.py:290",
+        "app/group_benefits_service.py:299",
+        "web/benefits.js:23"
+      ],
+      "concrete_test_refs": [
+        "tests/test_group_benefits.py:111:test_gift_types_keep_independent_units_and_never_create_cash[coupon-1-1000]",
+        "tests/test_group_benefits.py:173:发行店/权限/文件拒绝覆盖"
+      ],
+      "unimplemented_optional_extensions": [
+        "会员之间转赠不是当前店方向会员赠送；原表没有要求会员互赠。"
+      ],
+      "true_code_gaps_in_declared_scope": [],
+      "implementation_recommendation": "最终同源回归通过后，可在会员固定面额电子券这一明确适用范围下标已实现。",
+      "company_acceptance": "未验证",
+      "production_acceptance": "未验证"
+    },
+    {
+      "id": "HK-132",
+      "original_text": "消费券信息查询",
+      "source_table_row_zero_based": 7,
+      "implemented": "按本店已确认客户关系查询会员券批次、原规则、有效期、余额/可用/占额、当前店流水及退款信息；他店可使用单位账而不能借此读取原单财务文件。",
+      "entry_points": [
+        "GET /api/group/benefits/members?customer_id=…",
+        "集团权益页面→本店权益流水/批次"
+      ],
+      "code_refs": [
+        "app/group_benefits_service.py:102",
+        "app/group_benefits_service.py:115",
+        "app/group_benefits_api.py:79",
+        "web/benefits.js:21"
+      ],
+      "concrete_test_refs": [
+        "tests/test_group_benefits.py:87:test_coupon_cross_store_capture_reverse_partial_original_refund_cash_once",
+        "tests/test_group_benefits.py:173:跨店来源/权限拒绝",
+        "tests/browser_benefits.py:39:原店与使用店查询余额和占额"
+      ],
+      "unimplemented_optional_extensions": [
+        "实体券或外部渠道专有查询不是原表已指定的必需查询。"
+      ],
+      "existing_capacity_boundary": "规则与会员批次超过500明确拒绝；页面流水、占额、退款展示最近100条，并非无限历史列表。原单及期间统计另有入口，不将该页面描述为完整历史导出。",
+      "true_code_gaps_in_declared_scope": [],
+      "implementation_recommendation": "最终同源回归通过后，可在会员固定面额电子券这一明确适用范围下标已实现。",
+      "company_acceptance": "未验证",
+      "production_acceptance": "未验证"
+    },
+    {
+      "id": "HK-169",
+      "original_text": "消费券统计",
+      "source_table_row_zero_based": 8,
+      "implemented": "期间电子券发行、赠送、核销、原核销撤销等单位变化，核销实际对价与优惠承担、当前内部往来，同源图表/明细/CSV；内部配对不重复记收入或现金。",
+      "entry_points": [
+        "GET /api/flow/analytics",
+        "GET /api/flow/analytics/export?dataset=benefit_coupon",
+        "GET /api/group/benefits/reconciliation"
+      ],
+      "code_refs": [
+        "app/group_benefits_service.py:412",
+        "app/flow_analytics.py:386",
+        "app/flow_analytics.py:399"
+      ],
+      "concrete_test_refs": [
+        "tests/test_group_benefits.py:357:test_benefit_reports_reconcile_units_discounts_clearing_csv_and_external_amount",
+        "tests/test_group_benefits.py:377:三个数据集CSV逐格与图表合计断言"
+      ],
+      "unimplemented_optional_extensions": [
+        "未定义其他券型或外部渠道的专有统计；原表没有列这些额外统计口径。"
+      ],
+      "existing_capacity_boundary": "权益流水超过25000或往来超过50000明确拒绝，不截断后假称对账完成。",
+      "true_code_gaps_in_declared_scope": [],
+      "implementation_recommendation": "最终同源回归通过后，可在会员固定面额电子券这一明确适用范围下标已实现。",
+      "company_acceptance": "未验证",
+      "production_acceptance": "未验证"
+    }
+  ],
+  "company_rules_still_to_confirm": [
+    "正式券种名称、面额、售价或免费赠送条件、适用门店、有效期、优惠承担和实际退款条款。",
+    "是否另行要求满减/百分比、实体印券/单张外发券码、外部渠道、会员互赠及其特殊查询统计。未确认不等于用户明确排除。"
+  ],
+  "validation_boundaries": {
+    "new_test_run_performed": false,
+    "current_final_regression_result": "未预填，待root使用最终同源JUnit和实际浏览器证据映射。",
+    "existing_saved_evidence": "docs/集团权益.md:64-66记载历史21项API和真实Chromium五场景；本次只使用为历史证据，不冒充本轮run#3/#4成绩。",
+    "test_fixture_limit": "部分原API统计用例使用明确合成业务夹具及履约标记，并非全部步骤都由真实员工UI完成；浏览器脚本覆盖固定券规则、真实购买、跨店核销、超量拒绝和原退款。",
+    "business": "未验证",
+    "production": "未验证"
+  },
+  "supersedes_scope_only": "此前implementation-label-review中保留的五项C类范围阻断，改为已实现明确默认范围加公司特殊规则待确认；不变更HK-025/123政策边界。"
+}

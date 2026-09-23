@@ -1,0 +1,81 @@
+{
+  "scope": "HK-012/HK-065：销售原单零价赠送加装",
+  "candidate_directory": "E:\\proj\\huakangos_t02g_recovery_pending_20260922\\dealer_desk",
+  "source_files": {
+    "app/addon_models.py": "cbac67a3d495a7fa6b4b8126194a04f42bdda95d21d679eb27aa1466bf4a12ac",
+    "app/addon_api.py": "83d7307ed1e24dc0392b92501a8a81cff53a1be0b60334720759a0610bc1d179",
+    "app/addon_service.py": "d8cd0b45063cf2c8b70e60b3b410231e8661ec707e8fc4b39dce6b661f08530a",
+    "app/addon_backup_integrity.py": "6b253ee8ccb949ad5dafb3218d2638a30f479b0c3279954af8528e98dbdfdefa",
+    "web/addonorders.js": "ede0b2a702f35f2066da941639ecd81f5b69dd9472a4b419a1da7c7775edaf58",
+    "migrations/versions/w35j_addon_gifts.py": "e78ccec82a03ac441c1342425477064719ab7130f209adc0beea7a2feb179de7",
+    "tests/test_addon_gifts.py": "eedb9ce305d1cd487a443db11fb9e430a06163d3c08035425247ae0588c01d43",
+    "tests/browser_addon_gifts.py": "120752c06424299b302fc65058722722cdb3931284c4ed699d2168f9692d9098"
+  },
+  "migration": {
+    "revision": "w35j_addon_gifts",
+    "down_revision": "v24i_procurement_prepayments"
+  },
+  "browser_evidence": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-ez4uk9ac\\acceptance.json",
+  "browser_result": {
+    "status": "passed",
+    "synthetic_only": true,
+    "mode": "real-Windows-Chrome-HTTP",
+    "viewport": 390,
+    "passed": [
+      "销售按行冻结赠送原因及本销售门店成本承担；主管漏确认拒绝后独立批准；客户授权，VIN错配拒绝，检查不合格整改复检后仍须客户接收",
+      "零价赠送仍经过原VIN领料、实际安装与客户接收；原批次部分拆回恢复真实库存成本，无收款、退款或虚构客户资金",
+      "六个真实员工会话，库管技师均不能读取报价金额或客户价格授权文件；390px全部办理"
+    ],
+    "javascript_errors": [],
+    "screenshots": [
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-ez4uk9ac\\01_addon_frozen_quote_mobile.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-ez4uk9ac\\02_gift_approval_requires_explicit_confirmation.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-ez4uk9ac\\02_addon_wrong_vin_refused_mobile.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-ez4uk9ac\\03_addon_failed_quality_blocks_acceptance.png",
+      "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-ez4uk9ac\\05_gift_return_original_cost_without_customer_cash.png"
+    ],
+    "gift_charge_cents": 0,
+    "customer_paid_cents": 0,
+    "original_return_value_cents": 62
+  },
+  "test_results": {
+    "old_paid_regression": {
+      "passed": 12,
+      "seconds": 37.47
+    },
+    "initial_gift_special": {
+      "passed": 14,
+      "seconds": 25.97
+    },
+    "combined_final": {
+      "passed": 27,
+      "seconds": 66.6,
+      "tool_session": 5169,
+      "command": ".venv/Scripts/python.exe -m pytest -q tests/test_addon_gifts.py tests/test_addon_orders.py"
+    },
+    "combined_first": {
+      "passed": 27,
+      "seconds": 70.66
+    }
+  },
+  "limits": [
+    "合成SQLite、独立文件环境和真实Windows Chrome HTTP；不是当前整树冻结结果。",
+    "公司赠送政策、生产HTTPS、ClamAV、真实多机负载和PostgreSQL最终整树仍由主任务验证。"
+  ],
+  "browser_source_files": {
+    "app/addon_models.py": "cbac67a3d495a7fa6b4b8126194a04f42bdda95d21d679eb27aa1466bf4a12ac",
+    "app/addon_api.py": "83d7307ed1e24dc0392b92501a8a81cff53a1be0b60334720759a0610bc1d179",
+    "app/addon_service.py": "d8cd0b45063cf2c8b70e60b3b410231e8661ec707e8fc4b39dce6b661f08530a",
+    "app/addon_backup_integrity.py": "fa3831a10dd854765dc8be5d8920127c68ae1b4c3ec3f012044428b5d3ff1919",
+    "web/addonorders.js": "ede0b2a702f35f2066da941639ecd81f5b69dd9472a4b419a1da7c7775edaf58",
+    "migrations/versions/w35j_addon_gifts.py": "e78ccec82a03ac441c1342425477064719ab7130f209adc0beea7a2feb179de7",
+    "tests/test_addon_gifts.py": "c26b1492d649be697dcd0d0d2fdee5a331f6938cac331574a4735d90a1eb1100",
+    "tests/browser_addon_gifts.py": "120752c06424299b302fc65058722722cdb3931284c4ed699d2168f9692d9098"
+  },
+  "finalized_at": "2026-09-23T03:31:37.421708+00:00",
+  "browser_final_differences": [
+    "app/addon_backup_integrity.py",
+    "tests/test_addon_gifts.py"
+  ],
+  "browser_final_differences_note": "真实Chrome后仅补强离线恢复验收与对应测试，应用办理和UI代码未变；最终27项包含该恢复补强。"
+}

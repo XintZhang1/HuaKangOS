@@ -1,24 +1,11 @@
-# The application image must contain the application and nothing else.
-# In particular the controller (maintenance/), the server deploy assets and the
-# test suite must never ship inside a released artifact: the release is candidate
-# code, and the controller is trusted code that stays outside it.
 .env
 .venv
 .git
-.gitattributes
-.dockerignore
 __pycache__
 **/__pycache__
 .pytest_cache
 data
 backups
 tests
-maintenance
-deploy
-scripts
-docs
+docs/*.png
 *.zip
-*.png
-Dockerfile
-compose.yml
-MANIFEST.sha256

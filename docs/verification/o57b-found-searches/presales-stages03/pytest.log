@@ -1,0 +1,16 @@
+................................                                         [100%]
+=============================== warnings summary ===============================
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_presales_stages.py::test_real_registered_lead_actions_phase_tables_chart_csv_and_role_scope
+tests/test_visit_activity.py::test_local_month_boundary_does_not_rewrite_arrival_cohort
+  /opt/pyvenv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+32 passed, 9 warnings in 26.99s

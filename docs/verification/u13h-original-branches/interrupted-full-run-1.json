@@ -1,0 +1,11 @@
+{
+  "status": "interrupted_for_browser_fix",
+  "reason": "Real Chrome master acceptance reproduced store-switch/navigation race: delayed store completion overwrote latest requested route. Full pytest did not finish; no final pass count is claimed.",
+  "source_before": "source-before.json",
+  "logs_preserved": true,
+  "next_action": "Repair store transition, validate refusal/retry/navigation and rerun frozen whole tree.",
+  "source_digest": "e53594bbbacad75d8d5d880f663a7c8686cb792b00e68c6cc9879ada8a5fca4c",
+  "frozen_source_file_count": 660,
+  "raw_run_directory": "C:\\Users\\tiefu\\AppData\\Local\\huakangos\\verification\\u13h-final-20260923-1400",
+  "browser_failure_log": "C:/Users/tiefu/AppData/Local/Temp/huakangos-frozen-browser-06c48e19d8184dd1b6237b9e42b2db63/masters.log"
+}

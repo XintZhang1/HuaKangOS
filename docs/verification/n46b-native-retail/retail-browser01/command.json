@@ -1,0 +1,1 @@
+{"command": ["/opt/pyvenv/bin/python", "tests/browser_retail.py", "--screenshots", "/mnt/data/huakangos_runs/retail-browser01"], "cwd": "/mnt/data/huakangos_snapshots/retail-browser01/dealer_desk", "mode": "real_http_chromium_no_bridge"}

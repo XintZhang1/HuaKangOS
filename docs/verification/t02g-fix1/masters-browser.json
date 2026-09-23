@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "mode": "actual-browser-http",
+  "synthetic_only": true,
+  "steps": [
+    "真实页面维护物资品牌并绑定原目录；仍被启用物资引用的品牌不能停用",
+    "七类字典分别保存；同名不串类，说明按文本显示而不执行脚本，支持停用",
+    "参数入口打开原工位配置与本人改密对话框，不生成另一套规则或资金接口",
+    "换店后领域字典不保留前店条目"
+  ],
+  "screenshots": [
+    "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-q6nz8dnj\\master_completion_01_brand_directory.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-q6nz8dnj\\master_completion_02_separate_dictionary.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-q6nz8dnj\\master_completion_03_parameter_entry.png"
+  ],
+  "javascript_errors": [],
+  "viewport": "390x844"
+}

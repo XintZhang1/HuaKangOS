@@ -1,0 +1,18 @@
+................................................................F....... [ 92%]
+......                                                                   [100%]
+=================================== FAILURES ===================================
+_ test_original_compensation_refund_remains_possible_after_found_car_is_transferred_again _
+tests/test_vehicle_transport_lifecycle.py:105: in test_original_compensation_refund_remains_possible_after_found_car_is_transferred_again
+    v.as_user(client,'transport_manager2',2);v.old.command(client,parent,'approve');v.as_user(client,'manager',1);v.old.command(client,parent,'approve')
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_vehicle_transfers.py:43: in command
+    assert r.status_code==status,r.text;return r.json()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"请由当前待办负责人办理，主管可先转交任务"}
+E   assert 403 == 200
+E    +  where 403 = <Response [403 Forbidden]>.status_code
+=========================== short test summary info ============================
+FAILED tests/test_vehicle_transport_lifecycle.py::test_original_compensation_refund_remains_possible_after_found_car_is_transferred_again - AssertionError: {"detail":"请由当前待办负责人办理，主管可先转交任务"}
+assert 403 == 200
+ +  where 403 = <Response [403 Forbidden]>.status_code
+1 failed, 77 passed in 218.35s (0:03:38)

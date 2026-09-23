@@ -7,8 +7,8 @@ from app.db import SessionLocal, today
 from app.models import Store, User, UserStore, Feedback, DailyReport
 from app.reports import generate_report
 from app.tenancy import set_scope
-from conftest import login, PASSWORD
-from test_app import create, car, vehicle_body, cash_body, sale_body, approve
+from tests.conftest import login, PASSWORD
+from tests.test_app import create, car, vehicle_body, cash_body, sale_body, approve
 
 
 def second_store(client):
@@ -45,7 +45,7 @@ def test_multistore_separate_records_and_combined_readonly(client):
     assert client.get('/api/dashboard').json()['store_ids']==[1,two]
 
 
-@pytest.mark.parametrize('path',['/api/records/vehicles','/api/lookup/vehicles','/api/export/vehicles','/api/dashboard','/api/reports','/api/findings','/api/audit','/api/feedback'])
+@pytest.mark.parametrize('path',['/api/records/vehicles','/api/lookup/vehicles','/api/export/vehicles','/api/dashboard','/api/reports','/api/findings','/api/audit','/api/flow/cases'])
 def test_explicit_unauthorized_store_is_denied(client,path):
     two=second_store(client);login(client,'manager');switch(client,two)
     assert client.get(path).status_code==403
@@ -134,7 +134,7 @@ def test_role_membership_change_revokes_session(client):
     with TestClient(app) as staff:
         login(staff,'manager')
         u=next(u for u in client.get('/api/users').json()['items'] if u['username']=='manager')
-        r=client.put('/api/users/'+str(u['id']),json={'display_name':'店长','role':'manager','active':True,'store_ids':[two]})
+        r=client.put('/api/users/'+str(u['id']),json={'request_id':'membership-change-1','access_version':u['access_version'],'display_name':'店长','role':'manager','active':True,'store_ids':[two]})
         assert r.status_code==200
         assert staff.get('/api/dashboard').status_code==401
         info=login(staff,'manager');assert info['active_store_id']==two
@@ -152,36 +152,14 @@ def test_staff_cannot_create_stores_accounts_or_read_controller_status(client):
     login(client,'sales')
     assert client.post('/api/stores',json={'code':'NO','name':'非法','active':True}).status_code==403
     assert client.get('/api/users').status_code==403
-    assert client.get('/api/maintenance/status').status_code==403
+    assert client.get('/api/maintenance/status').status_code==404
 
 
-def test_feedback_collection_consent_ownership_and_no_secret_leak(client,monkeypatch):
-    monkeypatch.setenv('MAINTENANCE_ENABLED','true')
-    body={'title':'改进库存提示','description':'希望库存页面展示更清楚的超龄提示','consent_code_review':False}
-    first=client.post('/api/feedback',json=body);assert first.status_code==201 and first.json()['status']=='new'
-    body['consent_code_review']=True
-    second=client.post('/api/feedback',json=body);assert second.json()['status']=='queued'
-    with SessionLocal() as db:
-        row=db.get(Feedback,first.json()['id']);row.approval_token_hash='SECRET-HASH';row.test_result={'tail':'SECRET-TEST-LOG'};db.commit()
-    assert 'SECRET' not in client.get('/api/feedback').text
-    login(client,'sales')
-    assert client.get('/api/feedback').json()['items']==[]
-    assert client.get(f'/api/feedback/{first.json()["id"]}/events').status_code==404
-    assert client.post(f'/api/feedback/{first.json()["id"]}/queue',json={}).status_code==403
-    own=client.post('/api/feedback',json=body);assert own.status_code==201
-    assert len(client.get('/api/feedback').json()['items'])==1
+def test_removed_feedback_routes_all_scopes(client):
+    for sid in (1, "all"):
+        switch(client,sid)
+        assert client.get("/api/feedback").status_code==404
+        assert client.post("/api/feedback",json={}).status_code==404
 
-
-def test_feedback_cross_store_and_all_read_only(client):
-    body={'title':'门店专属建议','description':'这是一条来自第一家门店的改进意见'}
-    row=client.post('/api/feedback',json=body).json();two=second_store(client);switch(client,two)
-    assert client.get('/api/feedback').json()['items']==[]
-    assert client.post(f'/api/feedback/{row["id"]}/queue',json={}).status_code==404
-    switch(client,'all');assert client.post('/api/feedback',json=body).status_code==409
-
-
-def test_feedback_quota_and_validation(client):
-    body={'title':'门店建议','description':'希望更方便地录入库存信息'}
-    for _ in range(10):assert client.post('/api/feedback',json=body).status_code==201
-    assert client.post('/api/feedback',json=body).status_code==429
-    assert client.post('/api/feedback',json={**body,'description':'x'*12001}).status_code==422
+def test_removed_maintenance_endpoint(client):
+    assert client.get("/api/maintenance/status").status_code==404

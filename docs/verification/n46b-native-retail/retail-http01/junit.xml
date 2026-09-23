@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="5" skipped="0" tests="10" time="24.028" timestamp="2026-09-22T08:12:32.539040+00:00" hostname="localhost"><testcase classname="tests.test_retail_group_api" name="test_native_original_routes_cash_return_invoice_points_and_monthly_once" time="1.740"><failure message="AssertionError: {&quot;detail&quot;:&quot;集团承担优惠时结算价须等于抵扣额；履约店承担时须等于售价。共同承担规则尚未开放&quot;}&#10;assert 422 == 201&#10; +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code">tests/test_retail_group_api.py:214: in test_native_original_routes_cash_return_invoice_points_and_monthly_once
+    row, member, wallet, account, body = public_setup(client, points=True)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_retail_group_api.py:102: in public_setup
+    rule = benefit.rule(c, kind, allowed_store_ids=sorted({1, store}), **prices)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_group_benefits.py:28: in rule
+    assert response.status_code==201,response.text
+E   AssertionError: {"detail":"集团承担优惠时结算价须等于抵扣额；履约店承担时须等于售价。共同承担规则尚未开放"}
+E   assert 422 == 201
+E    +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code</failure></testcase><testcase classname="tests.test_retail_group_api" name="test_native_issuance_variants_and_original_scoped_prices[bonus]" time="1.112"><failure message="AssertionError: {&quot;detail&quot;:&quot;申请人与批准人必须不同，管理员也不能自批&quot;}&#10;assert 403 == 409&#10; +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code">tests/test_retail_group_api.py:270: in test_native_issuance_variants_and_original_scoped_prices
+    row, member, wallet, account, _ = public_setup(client, kind)
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_retail_group_api.py:113: in public_setup
+    rule_action(c, annex, 'approve', {'evidence_id': proof, 'reason': '不得由申请者批准自己'}, 409)
+tests/test_retail_group_api.py:65: in rule_action
+    assert r.status_code == status, r.text
+E   AssertionError: {"detail":"申请人与批准人必须不同，管理员也不能自批"}
+E   assert 403 == 409
+E    +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code</failure></testcase><testcase classname="tests.test_retail_group_api" name="test_native_issuance_variants_and_original_scoped_prices[package]" time="0.984"><failure message="AssertionError: {&quot;detail&quot;:&quot;集团承担优惠时结算价须等于抵扣额；履约店承担时须等于售价。共同承担规则尚未开放&quot;}&#10;assert 422 == 201&#10; +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code">tests/test_retail_group_api.py:270: in test_native_issuance_variants_and_original_scoped_prices
+    row, member, wallet, account, _ = public_setup(client, kind)
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_retail_group_api.py:102: in public_setup
+    rule = benefit.rule(c, kind, allowed_store_ids=sorted({1, store}), **prices)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_group_benefits.py:28: in rule
+    assert response.status_code==201,response.text
+E   AssertionError: {"detail":"集团承担优惠时结算价须等于抵扣额；履约店承担时须等于售价。共同承担规则尚未开放"}
+E   assert 422 == 201
+E    +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code</failure></testcase><testcase classname="tests.test_retail_group_api" name="test_native_issuance_variants_and_original_scoped_prices[None]" time="5.128" /><testcase classname="tests.test_retail_group_api" name="test_public_authorization_retries_strict_values_stale_versions_and_legacy_bypass" time="2.150" /><testcase classname="tests.test_retail_group_api" name="test_actual_return_wins_over_reserved_uncharged_tender_then_explicit_release" time="4.212" /><testcase classname="tests.test_retail_group_api" name="test_public_cross_store_roles_original_issuer_files_and_aggregate_are_scoped" time="0.729"><failure message="AssertionError: {&quot;detail&quot;:&quot;身份资料不匹配；请核对本地档案与客户确认结果&quot;}&#10;assert 409 == 201&#10; +  where 409 = &lt;Response [409 Conflict]&gt;.status_code">tests/test_retail_group_api.py:325: in test_public_cross_store_roles_original_issuer_files_and_aggregate_are_scoped
+    row, member, wallet, account, _ = public_setup(client, store=2)
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_retail_group_api.py:88: in public_setup
+    group.link(c, {'customer_id': customer['id']}, member['identity_id'])
+tests/test_group_membership.py:63: in link
+    assert response.status_code == status, response.text
+E   AssertionError: {"detail":"身份资料不匹配；请核对本地档案与客户确认结果"}
+E   assert 409 == 201
+E    +  where 409 = &lt;Response [409 Conflict]&gt;.status_code</failure></testcase><testcase classname="tests.test_retail_group_api" name="test_rehashed_original_allocation_and_pending_summary_mutations_are_rejected" time="1.066"><failure message="AssertionError: {&quot;detail&quot;:&quot;集团承担优惠时结算价须等于抵扣额；履约店承担时须等于售价。共同承担规则尚未开放&quot;}&#10;assert 422 == 201&#10; +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code">tests/test_retail_group_api.py:353: in test_rehashed_original_allocation_and_pending_summary_mutations_are_rejected
+    row, member, wallet, account, _ = public_setup(client)
+                                      ^^^^^^^^^^^^^^^^^^^^
+tests/test_retail_group_api.py:102: in public_setup
+    rule = benefit.rule(c, kind, allowed_store_ids=sorted({1, store}), **prices)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_group_benefits.py:28: in rule
+    assert response.status_code==201,response.text
+E   AssertionError: {"detail":"集团承担优惠时结算价须等于抵扣额；履约店承担时须等于售价。共同承担规则尚未开放"}
+E   assert 422 == 201
+E    +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code</failure></testcase><testcase classname="tests.test_retail_group_api" name="test_preserved_explicit_legacy_source_definitions_do_not_gain_v10_links" time="5.536" /><testcase classname="tests.test_retail_group_api" name="test_rule_request_does_not_default_company_policy_or_accept_fractional_units" time="0.347" /></testsuite></testsuites>

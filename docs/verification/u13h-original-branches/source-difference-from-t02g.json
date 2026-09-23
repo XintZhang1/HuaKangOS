@@ -1,0 +1,1380 @@
+{
+  "baseline": "docs/verification/t02g-fix1/source-package-before.sha256",
+  "final_source_digest": "d59f9ca0af273150e78d6f4af23b8e3479132e8b17961ca592dd0ea3b104ab8a",
+  "changes": [
+    {
+      "path": "app/addon_api.py",
+      "kind": "modified",
+      "before_sha256": "785e43e06115d1c5bfe83fd22574cf94f2cff6bace17c851f9413e70faa7cc14",
+      "after_sha256": "947e9e99afdcdd108cdfc1cbd0291d4886561df55def3ad4b4a44cb790937e82"
+    },
+    {
+      "path": "app/addon_backup_integrity.py",
+      "kind": "modified",
+      "before_sha256": "43a26d0cd516ff5d73bd2cf5ad66f7fb11239a61fc579ab7f83b5d65b9004096",
+      "after_sha256": "e0f668e5c9076523113f27648642254c890df0cdd45bee5cddaf1f7ffea7274c"
+    },
+    {
+      "path": "app/addon_models.py",
+      "kind": "modified",
+      "before_sha256": "381aa62b63eaa1edb1e9fc68c86c08ac15b9c18684bc42f50bcf7d12601ec22f",
+      "after_sha256": "cbac67a3d495a7fa6b4b8126194a04f42bdda95d21d679eb27aa1466bf4a12ac"
+    },
+    {
+      "path": "app/addon_service.py",
+      "kind": "modified",
+      "before_sha256": "750b366276a7559cb557776062e9ec75fbc78df063a501274410e590159d74de",
+      "after_sha256": "809e44bddd7e40d20c0a30edb2b29a199e0f1a119fce03f22755856ed42f678e"
+    },
+    {
+      "path": "app/aftercare_api.py",
+      "kind": "modified",
+      "before_sha256": "d48fb72fdfa6127b1d5df1b821e94ea9a83e94f0737f6f415af6df1dcf55c58c",
+      "after_sha256": "f5c70310d72c8a6ceecff7ab0594eb7a7bfff88c3aedc7468a5fe5f56b8488f1"
+    },
+    {
+      "path": "app/aftercare_backup_integrity.py",
+      "kind": "modified",
+      "before_sha256": "651e3488fab0f349ccb62d9d3c36daacae2511fbd4a2c243659adfcd200ee345",
+      "after_sha256": "2b6bf779c37ab3740bd494309415dc3a6491c5b3ba27bd77581d453b3bbb3bae"
+    },
+    {
+      "path": "app/aftercare_models.py",
+      "kind": "modified",
+      "before_sha256": "63ec6bab4aa6f551b36341850be7d1fcbac8372250a4e1374f2830dff6022d2d",
+      "after_sha256": "6b0350f16f276cc9c386bd47b2f8036091bc6d2a472da1c62f6cdbb08d3ba919"
+    },
+    {
+      "path": "app/aftercare_service.py",
+      "kind": "modified",
+      "before_sha256": "389e8c3c6cead87a6716d0cdcc06e9134df59a7822c5c35b97bd764892b7ed86",
+      "after_sha256": "3daba668676a266d2fdf93e60224e3341af612ececd5ebf96444b3b77c6d5e13"
+    },
+    {
+      "path": "app/backup_integrity.py",
+      "kind": "modified",
+      "before_sha256": "3be8241b7571b44660888a94c8a3294276ea126d368a58eb59ce975c44843f32",
+      "after_sha256": "bec73ddb25b52401832ae0dfc94091a1f355c42cdce9b16760d2e5c439c16f68"
+    },
+    {
+      "path": "app/benefit_backup_integrity.py",
+      "kind": "modified",
+      "before_sha256": "b5d1dc93a3a6d7dad499ecdd359cc838f11b611f08c015f20b5a024eab4ab5f4",
+      "after_sha256": "f8c6a3ba981e97b333b260e6aae340e01dfad0a1407950ad81c3e3ee61f65249"
+    },
+    {
+      "path": "app/business_entity_integrity.py",
+      "kind": "modified",
+      "before_sha256": "fb3125e824dd87d4b3c0a9df7f3aadd75e23d3dcef5a6b41e6cc4d1875dc75b6",
+      "after_sha256": "f2f29a6fce52744869b1cec934fa064c5df54c5a44865c8bcc7447d2fdcebe97"
+    },
+    {
+      "path": "app/business_entity_models.py",
+      "kind": "modified",
+      "before_sha256": "b49a82bb25d43aec8388da57023d1421ad6b8e2352be31b5e12013d1e6fa02f1",
+      "after_sha256": "2422fcdb4f644a33776a5eab1bbb0b4eaa85abb72241a8bd6a1268b3507d8e85"
+    },
+    {
+      "path": "app/business_entity_service.py",
+      "kind": "modified",
+      "before_sha256": "d54ae3433551b6fd2c6bd7f7131aac070a68c1cd366efb78d0c4f9d42395caef",
+      "after_sha256": "4813a24b0d5e6a75dd2713362e8a483b7c83eff79f9cc0b54d49404387ea5f0b"
+    },
+    {
+      "path": "app/business_finance_analytics.py",
+      "kind": "modified",
+      "before_sha256": "e7264f3614412958c867c5c5592b18a5794d0c8add128013448391cabdcf9ef3",
+      "after_sha256": "4b86fb74e5b567e72c52745088d8e9e6ff6c497b729c8472bb19fa0c1befbcc3"
+    },
+    {
+      "path": "app/business_finance_api.py",
+      "kind": "modified",
+      "before_sha256": "91210e522890fb0d651ace469e2ffb26eede206bb7a62d86c265bdf56f8a416e",
+      "after_sha256": "5d582589f56b8b9dbe047aafe1c9a496230b7a0f75b442151023b234ad28ccd5"
+    },
+    {
+      "path": "app/business_finance_bundle_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "6c8f761643ad5d148a44614ec4c40f952fe4c9d852e302944705780caddc0709"
+    },
+    {
+      "path": "app/business_finance_bundle_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "8b91c9567c07804f1c0e11025983d130d3a9d2e4eaf78a1da1dcf5ece857dccd"
+    },
+    {
+      "path": "app/business_finance_correction_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "c8e9f1353c80863de1eab006f7e524cdc5f430f70bd3be60385387815119e24e"
+    },
+    {
+      "path": "app/business_finance_integrity.py",
+      "kind": "modified",
+      "before_sha256": "9d65d7050302af73866b81fef999b2c8a535b20ddf5b174608ea3f96d536cb4d",
+      "after_sha256": "860b301579180db77b2c0e49a14a5a2aa45a261f2a21a49a1d9f349961c79f45"
+    },
+    {
+      "path": "app/business_finance_models.py",
+      "kind": "modified",
+      "before_sha256": "a3c0945bc857addc83819a71f6fa1f1d3bee295f6f1c7d1a4bdf11900b1f2dae",
+      "after_sha256": "d8b1163cd4d0b00f27fa05977e42f35800ce23a96fdd6c4f06804b36fefb68c9"
+    },
+    {
+      "path": "app/business_finance_partial_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "1fcef8d1123ccd7a3a872124de9b3004dc84bdbb0a088a77d0b38efda73bd816"
+    },
+    {
+      "path": "app/business_finance_partial_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "6b43380ccb54f13ea0613b7c36f3f387cad7a08f136ccc556d2c63eded96c722"
+    },
+    {
+      "path": "app/business_finance_return_adjustments.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "2e76c065aa0e5cb0972f107e58a511d2eaee449b08844dd7444ef080255f2d43"
+    },
+    {
+      "path": "app/business_finance_service.py",
+      "kind": "modified",
+      "before_sha256": "8ebbf44bec9e5a19a942a96d029d2547026e092d627c81cb0f719bbb31b84255",
+      "after_sha256": "790f96d4f34694412faaab87aae867e1168a4c1cb5ea6bd6e5c11867aa2b2b7e"
+    },
+    {
+      "path": "app/business_finance_sources.py",
+      "kind": "modified",
+      "before_sha256": "f9b2085d1b4d4842b79ca1367b4dfffdfcc71ead1b37d63c1e820051d25e6aa2",
+      "after_sha256": "619ce61174da01ad254d314e98b6a70cbf63a8dd1f6a976d8ad2a34ef57166d9"
+    },
+    {
+      "path": "app/business_finance_stored.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "27bb1dc5ffde0789203760d553a2c0aceac0fec4aed575a7b8420ecc6e55b97d"
+    },
+    {
+      "path": "app/business_finance_supplier_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "3fa7b939efb370af27018bc00e469bfc2eb04db1384280888ed379a8a51df9f8"
+    },
+    {
+      "path": "app/business_finance_supplier_refunds.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "85b5f954eba600966ab83489045877f604c4ec96e8eb63c86df95bda9b0effba"
+    },
+    {
+      "path": "app/callback_analytics.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "88be5160833f4a9d84c0ccd4e85f182ce6c10b04c7f40c878d3c42545457ea94"
+    },
+    {
+      "path": "app/cash_basis.py",
+      "kind": "modified",
+      "before_sha256": "eb1a737dc736a7eb001c770d03c2e64917a8164d8e7953605c80d41d70c2127b",
+      "after_sha256": "dcb6b4d06473ae5bdbc38108454bf9e032ed0b8c254500e2dd487e4c8e42a797"
+    },
+    {
+      "path": "app/customer_service_api.py",
+      "kind": "modified",
+      "before_sha256": "62d98ea6137915434859b4a0e247bf11c3f08658c868570cafff5b8ca2439efb",
+      "after_sha256": "b83bb4c354dba5ecddf58c2d76c7f7cf2811e657918e89c8fd8062469f6c241d"
+    },
+    {
+      "path": "app/dossier_grant_rules.py",
+      "kind": "modified",
+      "before_sha256": "9f4bb8801bd3b7c862fa2db28b3f4b3a7d395e03a7b44e875d2e8edde11dbeb6",
+      "after_sha256": "7563327920e998234de0ee05549e6a50d58b581403c3ed7c46fcbd324a181df7"
+    },
+    {
+      "path": "app/dossier_grant_service.py",
+      "kind": "modified",
+      "before_sha256": "2f9d6f6dda9040df857fb7039a8c310a6b44bb919ad173efc7b3391212558393",
+      "after_sha256": "3c919aa4686968daef8b6b8e4ebb050476876c4e16097e094793905ca16825af"
+    },
+    {
+      "path": "app/flow_analytics.py",
+      "kind": "modified",
+      "before_sha256": "118d431d8b82e78dc1cb447908841fd72466baf16ac771d9c3870991e91f96cc",
+      "after_sha256": "bf6548433a6ab46d382423f0162123b15a4e74214fa1f34eaaf4498452ae2b66"
+    },
+    {
+      "path": "app/flow_api.py",
+      "kind": "modified",
+      "before_sha256": "9d0fed1250ad01d1560b349c276a09c92b2df9091799c9e119a53c774ffdf99b",
+      "after_sha256": "af479d86ea44e028a0a9dbc1dcae27f3127dfb258ed3c1197e491fba0f9372c9"
+    },
+    {
+      "path": "app/flow_documents.py",
+      "kind": "modified",
+      "before_sha256": "958f46adbf5da1080fe34d7f4246a7910f91ce358781a9ec5f6965de4e4bec80",
+      "after_sha256": "657f81096f3f9791cf427d2d090afbb53dfb8764920adcc52e7158b53aaad290"
+    },
+    {
+      "path": "app/flow_engine.py",
+      "kind": "modified",
+      "before_sha256": "b0b82c5aa2849a51c074a67ae10b0ddb97adc2fc30a90c2c7b58f7dfa10806a4",
+      "after_sha256": "4fac3ed7a107dad48b31f55e268255a57e45c0790ee297b2cdb199debba6fa6b"
+    },
+    {
+      "path": "app/flow_specs.py",
+      "kind": "modified",
+      "before_sha256": "262e6bbb3070df8da723260b6fcc75fb802c5f9a9e26218505777d2d8ffca4dd",
+      "after_sha256": "e359cbf0a4a2e70c0d053285d9c2566a198bb7da258b16dc49e718a50ee1a7fd"
+    },
+    {
+      "path": "app/foundation_analytics.py",
+      "kind": "modified",
+      "before_sha256": "bf1ad2a44a26296d131fcb7aafea8a124e73742e391707ea4f15411df5578609",
+      "after_sha256": "3deaf86b6d003ac3cede2d2bdc00860d3aaf0f860c12a73eae3a0fdc1e9d65be"
+    },
+    {
+      "path": "app/group_aftercare.py",
+      "kind": "modified",
+      "before_sha256": "b66473b2e5e332f6d998ef1afa092eb5cf396579933510f84ab8cb759c51296e",
+      "after_sha256": "4dbc1ecadd96d8cea14388dc4b85dc626a55d7d249f03fa02c7daee7ed426cd6"
+    },
+    {
+      "path": "app/group_benefits_models.py",
+      "kind": "modified",
+      "before_sha256": "bdaf92aec0ad5b4235ca9ec324473a0d5fd8c541db0ce82b93fdd3ea66dc22a5",
+      "after_sha256": "e87dbeadca7fc4f0c01e1dcfa9bf12fa7267dae1e613055617c864533af0909b"
+    },
+    {
+      "path": "app/group_benefits_service.py",
+      "kind": "modified",
+      "before_sha256": "6b20495dadfd92873b87cfeba16b6db7d94b1b901d9ced8e6b874a2d195a7b74",
+      "after_sha256": "4d3a720e161e76f713a7852eadf72490f89cd60a23c91207ed11383639e8c983"
+    },
+    {
+      "path": "app/group_models.py",
+      "kind": "modified",
+      "before_sha256": "df2b03018132143094ab541174ed73f4df93ae659b9897879d0c0de7d73f0299",
+      "after_sha256": "839f0fa41d0be3a91dedd711a7fa0653e1405e09e66fd7ff38bef3aacc16dccb"
+    },
+    {
+      "path": "app/group_service.py",
+      "kind": "modified",
+      "before_sha256": "e1d86ee1410096f532c794713c95cc68f6dab92854cef04389a3f3efc05adccd",
+      "after_sha256": "75ab5411cc415f50cac717bb81ee0a02a2af63787b4dc4a015df2b2a5cbac0e6"
+    },
+    {
+      "path": "app/insurance_service.py",
+      "kind": "modified",
+      "before_sha256": "c83f14feb86145a69e2e20e4a7799e7e1088b4bcecc44ecd5849b7ad5ad0a1eb",
+      "after_sha256": "cab041d1a5d358f6a4d1c8d4a8074fe001f6751e68b6c1659d7a441ca1cd14e8"
+    },
+    {
+      "path": "app/invoice_analytics.py",
+      "kind": "modified",
+      "before_sha256": "b6eb3e577e53003009dc74a80f11ab4eef36067e985996fc718f834600bf3ab1",
+      "after_sha256": "44cc3d31c36fb6d7809178b8e2130977ed861eb61c9d5f64f7e02e48aa8875b7"
+    },
+    {
+      "path": "app/invoice_api.py",
+      "kind": "modified",
+      "before_sha256": "2b71d756a8b3c57c6ea646d845d2329accfe75c0a52205ba526da29dfde89768",
+      "after_sha256": "27d231f11dc2e4fe802bfc328bf52d73cf356510d690d2b7f1f08dd9a4c7d378"
+    },
+    {
+      "path": "app/invoice_backup_integrity.py",
+      "kind": "modified",
+      "before_sha256": "590c513e5fc200b21c4458eeb71ed1ae7f9029915f47686c507aa9f5fcb6b94e",
+      "after_sha256": "48ed023305b18d16bcc184105b13b27ec645049af98012b40bbeadd32cb62fb3"
+    },
+    {
+      "path": "app/invoice_service.py",
+      "kind": "modified",
+      "before_sha256": "dc26c0e1c45840181f9f1ff53cb2324882833745b407a520e0d610005ec0eccc",
+      "after_sha256": "fab098e8a12fce8b644fdca82bfed39c5c575c7dbfe2bc39c34f538329e97dac"
+    },
+    {
+      "path": "app/local_preview.py",
+      "kind": "modified",
+      "before_sha256": "fd61c32f58159d03c659084eef0d779ed7a587ae12c28c4bb29969a119fcd530",
+      "after_sha256": "093531d1c86f3083c42834013b45e861caef6b56ec6e673f305ce87d0764bd35"
+    },
+    {
+      "path": "app/local_preview_api.py",
+      "kind": "modified",
+      "before_sha256": "a530352631c8e16580203b25cb2fae46fb6763673fa9a31db039db37e2477e3b",
+      "after_sha256": "78cd43851722805d315bdd609f57fe634390a4712e01b96e285c8163df3234e5"
+    },
+    {
+      "path": "app/main.py",
+      "kind": "modified",
+      "before_sha256": "8349172ddb14060dea87aa603cb1890fbaaeb9342af28cd96a74e474c0e71875",
+      "after_sha256": "64479740f746326d70afc7efd072c015c34469bce6e508b8ede33355c24b399a"
+    },
+    {
+      "path": "app/master_data.py",
+      "kind": "modified",
+      "before_sha256": "0e599d6c257eafc996eb190fd1b0263f085d8d9079e8bcc04e8d9d693828250a",
+      "after_sha256": "39703e802e56e57083b47e39f129065b4a607eb99038222e8c579ce0f3baeaac"
+    },
+    {
+      "path": "app/material_value_analytics.py",
+      "kind": "modified",
+      "before_sha256": "67428392b158caec8ad8e038638b529f85bbe5a4a4ad1ec009dd80edbaf653db",
+      "after_sha256": "b404853524744490f61190212454db7353c3311e78b97abe4810212ddd594975"
+    },
+    {
+      "path": "app/member_pricing_analytics.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "2ed5438ea5e59b8e8e8c8d272af8cc29304a150b91b5d37b5b79b1ea52acb738"
+    },
+    {
+      "path": "app/member_pricing_api.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "3dbe73fec28b823d0e06662721042debf97e5c3c252d08664ec887527fa3ce60"
+    },
+    {
+      "path": "app/member_pricing_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "74e05b51b41618e4dde964ecc8f52c0dc943bc7187f289189658c2fff117c791"
+    },
+    {
+      "path": "app/member_pricing_models.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "b77edbdb3371eb13c1aeafe765207867cb3073915af1ac55afbc647b535395d7"
+    },
+    {
+      "path": "app/member_pricing_service.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "fb9114f0720988c06fdc80407fb006a29afdfe2d3ccedd705bab9f229e221579"
+    },
+    {
+      "path": "app/member_pricing_specs.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "d59804df0379d7971d422c7eb4d68a381464505f694fe8fe33ce6882e8337b49"
+    },
+    {
+      "path": "app/membership_backup_integrity.py",
+      "kind": "modified",
+      "before_sha256": "0d7f1af175c401c6fceb4486477e35d55323203fe009a42366640f3a9dc017af",
+      "after_sha256": "88845cedfa9bcc09a2c33d739b010badbed2dafb49f5bf5ec55ce328cbc2a28d"
+    },
+    {
+      "path": "app/membership_fee_correction_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "3784f844063d3e60b666012e6ec3dd030dad226cc6c709ac20c09343f1f60924"
+    },
+    {
+      "path": "app/membership_fee_correction_models.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "e7b19a7996ca41248bb9919d5c1fba9ced946a4731d40cd646bf8df71c2212e5"
+    },
+    {
+      "path": "app/membership_fee_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "a0dfd13674078240f15d12935c536fc2001a1eb1e7ce387608dc73352a751120"
+    },
+    {
+      "path": "app/membership_points.py",
+      "kind": "modified",
+      "before_sha256": "30290154d269a93b40418ac999e325720f4d5b009866e2bbebc092f54a0fb9e6",
+      "after_sha256": "1cf94eb74f9d31b0eb66862275b809eb4a1479ca0f9fefd27c5fdc40632ef7bc"
+    },
+    {
+      "path": "app/membership_service.py",
+      "kind": "modified",
+      "before_sha256": "8c694528a93e85c52197fbb8bdb2df4fd00d403ec03d991f73b9bd93a720fa43",
+      "after_sha256": "39824e265a9044207c60b231521862e942c774fa9425cd1e13ffc1f03e9f8173"
+    },
+    {
+      "path": "app/models.py",
+      "kind": "modified",
+      "before_sha256": "0c0e1a008a12bbaf4c1e5b9f54df5d46a39d1369c9bb6bd6068b04f2f63deac1",
+      "after_sha256": "22d50b4586e79a04d9451444fb787826053301d72fd6bfd41b200c52248fcbd5"
+    },
+    {
+      "path": "app/opening_import_service.py",
+      "kind": "modified",
+      "before_sha256": "f87e7c850679d6be74ef545cb87ba40e8b9eb2e72f05c6f99f3038cda33a1fb5",
+      "after_sha256": "e0f0574fc79324f80c943132e3edffa96fb8ff3839bfd232ae604a2745bddfa3"
+    },
+    {
+      "path": "app/operations_analytics.py",
+      "kind": "modified",
+      "before_sha256": "7d4e55d7cd3916e5fe0598134004fe28a82d7f4bcd51759ef24167356d615041",
+      "after_sha256": "1f3f0298339eaaec9b9e245b94d5fbe065c4f9c0387a1510c291e62959bd1b66"
+    },
+    {
+      "path": "app/payment_cash_integrity.py",
+      "kind": "modified",
+      "before_sha256": "addde76f5ba966b4d37cf310c9800e4bd755d9f286131b78b309ea06d7efb567",
+      "after_sha256": "b1bb09ad1571ca9fb4fb3bb46e50ab91e0364a8f6a1bbc26f8043cf2bce93fe1"
+    },
+    {
+      "path": "app/preview_runtime.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "48574fca98cfc809978b50178dfb9b02f21b1c5b41b660b1bfd67fad3f725c6e"
+    },
+    {
+      "path": "app/procurement_api.py",
+      "kind": "modified",
+      "before_sha256": "1ed0b52d14834c8e4fcf0c31f80dc1f36e929dc4a3ae7cf65b77c615a25d2297",
+      "after_sha256": "8be40f27f6030cbf51251a826f14e93094a6fe9f28dad8e0f1589dbb90890492"
+    },
+    {
+      "path": "app/procurement_prepayment_api.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "0411b8728a8945d927aad8dcfb957959d88491ac02f688de3c8793beb6df171b"
+    },
+    {
+      "path": "app/procurement_prepayment_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "c85ca32787a7fffd27bc7ca2b9f7affba1d58e020339d38b82f008abc417a6d8"
+    },
+    {
+      "path": "app/procurement_prepayment_models.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "5ad67ee2b4f5416fc9b16a59ad4a86493799c2a5eb3e21ffd1a4366ccdf922b4"
+    },
+    {
+      "path": "app/procurement_prepayment_service.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "ab82b1124950fe32a3266e68d8e7f50d122bbccf9dfaa366d79b8a8f256c6372"
+    },
+    {
+      "path": "app/procurement_prepayment_sources.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "caec47211daca6e32e41b2b2ff99c94bc9e4f8f3ca53578a9d1e25e01e9e817c"
+    },
+    {
+      "path": "app/procurement_service.py",
+      "kind": "modified",
+      "before_sha256": "ff89754f04a9706c98d5ba523af23597c66e4c8737449b2d91dfbd69927fedda",
+      "after_sha256": "135aac829c470716aa4df150bd102b4781ff8738247982f3c7544a3080ac49e8"
+    },
+    {
+      "path": "app/questionnaire_analytics.py",
+      "kind": "modified",
+      "before_sha256": "e2c8bdd31da5584484f204dda9480d56067fbb1ea33f31ec39e8c7df26360d58",
+      "after_sha256": "88b74d0f737d027013b816d024768c4596a7c781a97e6276735a0432eba7b424"
+    },
+    {
+      "path": "app/recharge_bundle_integrity.py",
+      "kind": "modified",
+      "before_sha256": "6734722f9e92312b7365c38a596f13c0dd502be8a17292d40b2f3aa4f9755dc6",
+      "after_sha256": "c58faf9936b671312982884b281a7140932a1e3c5fdce6f4e3fb18240e3d1922"
+    },
+    {
+      "path": "app/recharge_bundle_service.py",
+      "kind": "modified",
+      "before_sha256": "4453694ae8559ade40995e3938fdf15ecbcbdac34871afb0dea0a42485f4e10e",
+      "after_sha256": "2d3b4277848d5c7240c48e6413741b329783ff0e07a64ae49789d4de8656fb7f"
+    },
+    {
+      "path": "app/reconciliation_backup_integrity.py",
+      "kind": "modified",
+      "before_sha256": "9e98d3ddf3908e17f8099ea47216ef61e52c2ab84b129bff0a7eba0ed73edfb2",
+      "after_sha256": "1af2491fba2fe9f3d44ab41ea29a588f5c82a93330a8582c922fd98555e15e5a"
+    },
+    {
+      "path": "app/reconciliation_service.py",
+      "kind": "modified",
+      "before_sha256": "d8825d21a900a0fff90fc25cd9973adee104e937262ddf48017d810b645ac1fc",
+      "after_sha256": "22e678a7b6ea8c32f7b1c007c7f3a85266775cdeea2c827a23a09affb864d122"
+    },
+    {
+      "path": "app/reconciliation_v13.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "0d32fea5794c711dad5bcf0d43ec56558d0d4edd453c230f0dcbf3e1418b41ca"
+    },
+    {
+      "path": "app/reconciliation_v14.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "f60ffe6f4eeae8ed95d658ff0f86bcff368404dc336e75cb3a4fbc3ec9bb144d"
+    },
+    {
+      "path": "app/reconciliation_v15.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "4a64db91b60db938a9c17f25faea2f27fa92a08e14deb8fbcf6f7479e1960a8d"
+    },
+    {
+      "path": "app/reconciliation_v17.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "ef7f73a8dec027ca4d89e6838af4a30b0b55777a79c61846caad9fadfb4a822a"
+    },
+    {
+      "path": "app/reconciliation_v18.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "53cba43c7874f193e79fb0af28ad78fabbfa50dadb1da4aad3aa136181c642eb"
+    },
+    {
+      "path": "app/reconciliation_v19.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "07cf0564a027288617a94e5e0ca239101685d0817f8ce68f20d3e1ee1ec8ebdc"
+    },
+    {
+      "path": "app/reconciliation_v20.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "451aaba5d378342361f55e9b5b056c6784a3fcff323fd0b44d80520394051cec"
+    },
+    {
+      "path": "app/reconciliation_v21.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "3f3f3376af79f3d323f0c036ce72b79aede26bc6644e7a27f0764333d8ddfd36"
+    },
+    {
+      "path": "app/repair_api.py",
+      "kind": "modified",
+      "before_sha256": "ef8be3ff0ed21254cc60198a7a5c7f107d49b6f905a5159150f269155e716e54",
+      "after_sha256": "3381f4a0a2517e274f5726a7a0562363249dcabca386d9d9dbcd4f1520b4a7cd"
+    },
+    {
+      "path": "app/repair_package_aftercare.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "b9d9ba796ae99068175eb67cb975a8e6ca966647b38f3fe053b90f582616e8b7"
+    },
+    {
+      "path": "app/repair_package_analytics.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "71c79e5b5ad9b837d45a314efb18cd588795f34db7771976b7e349b137759841"
+    },
+    {
+      "path": "app/repair_package_api.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "2d9b57551a0246b0666d947053b0a221f5946954882bc69444cb641efe8cd7a1"
+    },
+    {
+      "path": "app/repair_package_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "4dbbeb1ef735183f1d661866faef19b347e5da757aff36b0e8f08cf31c539bf3"
+    },
+    {
+      "path": "app/repair_package_models.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "139e489a777b155a78bcc7fceeefaa6072580499614134a691c00acce7b7eeb3"
+    },
+    {
+      "path": "app/repair_package_service.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "27d82b4be2f5ee39febdc10f5dee6b3b390bdd204fc2cfb130303565432febaf"
+    },
+    {
+      "path": "app/repair_package_sources.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "d4f240073e85830f5a8aa44f22c66761f50326c5731710fff230b6a1c07d9c9b"
+    },
+    {
+      "path": "app/repair_service.py",
+      "kind": "modified",
+      "before_sha256": "f1e92a5a55cc7029abda9fccec29994aba2a5d293809478cd1aaa787b30df974",
+      "after_sha256": "e35a28c21220bb6db5b4fb3b3523a1843acae2167b438635d13d6206805fffb5"
+    },
+    {
+      "path": "app/retail_api.py",
+      "kind": "modified",
+      "before_sha256": "2af91e4ea1ab487a3a76434975c5a352be0587503ed7729a68354397d4612ea0",
+      "after_sha256": "677eb064326fa241a53ddf90bdc9ef40f1d61e898a869bd786c3b981eff4f526"
+    },
+    {
+      "path": "app/retail_backup_integrity.py",
+      "kind": "modified",
+      "before_sha256": "a14070474fbd31e50d82cd6d099fb57b65ad6db32b2accadd15f92fab0f550b0",
+      "after_sha256": "3fc53d691e1f52dedc097c31cbcb3b410796ee37e79435dca45a19be2dccac24"
+    },
+    {
+      "path": "app/retail_bundle_api.py",
+      "kind": "modified",
+      "before_sha256": "c70985ec8bff30aee215722bcbe89b1022750eada31bbc70ca47b2bc81be06c8",
+      "after_sha256": "c1a559e49c90258c1948e712d1f4eafa2ee8fa59eb8e8a949abbcb7a0d485225"
+    },
+    {
+      "path": "app/retail_bundle_integrity.py",
+      "kind": "modified",
+      "before_sha256": "89e330ab99f113920df2fbb6425f99e004b2e51c23792a9e19a7dfbc67513c0b",
+      "after_sha256": "aebd61b80f704912e08bb27bc3b5bb652638268e99b18d719787a4e12c6800ed"
+    },
+    {
+      "path": "app/retail_bundle_service.py",
+      "kind": "modified",
+      "before_sha256": "b7947dd572e6f96224e53ddfb8e9352578b8410d35951ff8b37853b34a13209b",
+      "after_sha256": "213ff83f67796e47cf3566f8641a726dbe3a4e541641f3aa82d48c220473d9c8"
+    },
+    {
+      "path": "app/retail_group_service.py",
+      "kind": "modified",
+      "before_sha256": "09c20cad041f6fbd84dd78e62c8eb95a3601bd22d451c78d86affbc046d8427e",
+      "after_sha256": "76de6ddeb142934804a78fc3931e86b6026caa56b42e126258fafaaff5648738"
+    },
+    {
+      "path": "app/retail_service.py",
+      "kind": "modified",
+      "before_sha256": "10d07b70a56f6c818897a6de73438d21fdbf1a29d74022d15e36c0ff4fd6e91d",
+      "after_sha256": "434382a3bfefe8f3b4eb244c9eba99857904a858eeffb480d02ad44e5bd0347e"
+    },
+    {
+      "path": "app/rework_extension_api.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "d51d60137b0d2a6673744730bf918f407a3760318647d1b8030d2a3e92f7bcd3"
+    },
+    {
+      "path": "app/rework_extension_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "b8227273890d73a62922f910d241e5a285e5d52ab52163043df2b1ced2e215d9"
+    },
+    {
+      "path": "app/rework_extension_models.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "b2a8118d7b05e6ecb78edc2d09b2ed39cbdbb4ba6816d7aac8919bea706232d0"
+    },
+    {
+      "path": "app/rework_extension_service.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "1191c0507ffb34d11f508730044de40aec9924244354bc6ec238a1efd91e9fb9"
+    },
+    {
+      "path": "app/rework_extension_sources.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "b5e4ae8322c88500ee8082ccc9c1d8552834f544c717d9e901da5c07a105f307"
+    },
+    {
+      "path": "app/service_intake_backup_integrity.py",
+      "kind": "modified",
+      "before_sha256": "24782fc2bc264430831723d975de768ea4edbfdbf7ca4ac569e84decca1610a4",
+      "after_sha256": "7a264a6f0518a862ccc4cff3bf6a76162bb72961d67efacd2e846c154a2336b4"
+    },
+    {
+      "path": "app/service_intake_service.py",
+      "kind": "modified",
+      "before_sha256": "ab8e0095356b84f6c0e4bfcb92e46846fed85d9e7e75a46f304b44f28e711452",
+      "after_sha256": "b02e16042de956e6ddee6e96447ef7f5a437090004ffb1e0d55315ca559e8a54"
+    },
+    {
+      "path": "app/supplier_overpayment_analytics.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "d1620818ff5206248babd8c632a16ef191cff087156d838d5f7effba1ba27b8a"
+    },
+    {
+      "path": "app/vehicle_income_analytics.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "07dfa23850932061647f573be6fa552880699cb41d4166c79e81395e973a2266"
+    },
+    {
+      "path": "app/vehicle_income_api.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "459441ba42cbd039e9205d5982bf739d65171a8db101586162cec3e10584deb8"
+    },
+    {
+      "path": "app/vehicle_income_integrity.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "a3698cacbf7e49bc36812d2b2b5146ee29aad87cb467b09e219b800cf1abb644"
+    },
+    {
+      "path": "app/vehicle_income_models.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "4412fd1f954205094d88071b9fa4fe16fcdecef20fbecaffa18c59a6b94dd77b"
+    },
+    {
+      "path": "app/vehicle_income_service.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "def1b5f24290272a845c3680a63dc4c5ce962837d9b7b9c97732457cc6f1af8d"
+    },
+    {
+      "path": "app/vehicle_income_specs.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "2c9078271b0eff0c8c2584b3899de0731fa71d17ae252af9cc9f66c4d881f4d7"
+    },
+    {
+      "path": "app/vehicle_operations_service.py",
+      "kind": "modified",
+      "before_sha256": "fdb3150c1856cee551a667714293ba21e91c0a00d292dfaef487b4139e13aaed",
+      "after_sha256": "d67f716b4c814209d977b51ea4c6112cee9ac6d4eb3fe730060d61ae31e60156"
+    },
+    {
+      "path": "migrations/versions/a79n_recharge_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "bba9b23e004f1c161ceda49c8fcd8246c7c85b1108efa8b07426dc0b6e293bb6"
+    },
+    {
+      "path": "migrations/versions/b80o_member_pricing.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "323c2f021a1f5311d46845d5edbdb1aed2c2079aa812d41887febe6b1e0715da"
+    },
+    {
+      "path": "migrations/versions/c91p_repair_packages.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "5a10f199f63fe283d5622153bb828c4562cb68b2d554e19b99e8379c49147a91"
+    },
+    {
+      "path": "migrations/versions/d02q_partial_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "7eecc1938bc07e3aa7165c8229800a843e531431dabbf0af97f277ed2ffc1da9"
+    },
+    {
+      "path": "migrations/versions/e13r_member_fee_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "0c19c48f04934f193a09387573bdb445cf6d80e8b5b110c2dc0fafa9d530a55b"
+    },
+    {
+      "path": "migrations/versions/u13h_finance_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "6d0fcbc563455e18da8f0f330b0b0ea5a504432584c106bae87a18a4f692eb66"
+    },
+    {
+      "path": "migrations/versions/v24i_procurement_prepayments.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "62cc70e2f74d8420bdf526d6b1eff963b654aebf04d5e8d32e65061416bb5d28"
+    },
+    {
+      "path": "migrations/versions/w35j_addon_gifts.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "e78ccec82a03ac441c1342425477064719ab7130f209adc0beea7a2feb179de7"
+    },
+    {
+      "path": "migrations/versions/x46k_supplier_overpayment.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "7d71c7c2358b247fcc49d5106f372732bee36a3fdddf437614d113e3975a4368"
+    },
+    {
+      "path": "migrations/versions/y57l_vehicle_income.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "e81e3eab3e8b8fbff57eeb6b74f96dbe2d042fb4e49f0fa2d9dc80b27dd36963"
+    },
+    {
+      "path": "migrations/versions/z68m_rework_extensions.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "3a1460772ff741f1d75cddba33dc3e9e564e2adcf0e6ef84566e0efc38bf3da0"
+    },
+    {
+      "path": "scripts/preview_launcher.ps1",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "f8d4a6c0a05973f2c1abf792380918677ee43ff4891c72048ec561a47b5e94b0"
+    },
+    {
+      "path": "scripts/requirements.py",
+      "kind": "modified",
+      "before_sha256": "a7f63e38293b373ab1e9b0956286401220287b4def2b4c8359874eb56804d9d6",
+      "after_sha256": "31a5536f58ce4e599ee663ff4e700dcfdca9c92a8982b331dc13bed5c1c935d4"
+    },
+    {
+      "path": "scripts/verify_candidate.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "d45bf893746ba1d5d5bb8ddf6618021f9f125aaf255308979969c5e86d6c18a2"
+    },
+    {
+      "path": "start-preview.ps1",
+      "kind": "modified",
+      "before_sha256": "31a50d8240761b7c5bbd152f39bd7f4fcbd96fc275a07478387dfe357e6cf981",
+      "after_sha256": "2dc0cf542713c34e79aa2252092d8ca3bf919aec7bfb17ad1fdcc9fea3b054be"
+    },
+    {
+      "path": "tests/browser_addon_gifts.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "120752c06424299b302fc65058722722cdb3931284c4ed699d2168f9692d9098"
+    },
+    {
+      "path": "tests/browser_business_finance.py",
+      "kind": "modified",
+      "before_sha256": "1296102e8fd69c0085318c2c3dad828d50327ae29c537ef09f046f5132b56ac0",
+      "after_sha256": "4486698954b62fbc4ee47adfe6b714524c04e939552ef8fc8846262ec9f4048f"
+    },
+    {
+      "path": "tests/browser_callback_analytics.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "5351ae0aa3bc957a6ee26b8436a35371e300dbcd80c9d76ec6617c027e1c7487"
+    },
+    {
+      "path": "tests/browser_customer_service.py",
+      "kind": "modified",
+      "before_sha256": "b28df1a34b9349d65a1c446cfd6d1097bf59c637d2c1224b7c527d8c383d3f82",
+      "after_sha256": "e0d93c19eedfd7aec11dd5776b85f4d8b05995de66450ccf5fc2e709baa41657"
+    },
+    {
+      "path": "tests/browser_huakangos.py",
+      "kind": "modified",
+      "before_sha256": "eef85bcc09431dd50625a076efda98caa532800e31b4c5d8a9a2863890633814",
+      "after_sha256": "2d00c3c0373e3b2c5d5939c75783f62467354154765feaad223aaec74c27733f"
+    },
+    {
+      "path": "tests/browser_insurance_invoices.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "a15f80a73955bc3c3974b6b6f2a338c749048d462d60a23d6ca606e45e49ff0d"
+    },
+    {
+      "path": "tests/browser_local_preview.py",
+      "kind": "modified",
+      "before_sha256": "f7d2b7ee7e18337c8e9a3bae621a09107b06a828499bf4e9824879796a02bbe0",
+      "after_sha256": "72e0f4fc6e9d9f958ec27638db3e163667b25ecfba0b8fe452a83d237fd0f563"
+    },
+    {
+      "path": "tests/browser_master_completion.py",
+      "kind": "modified",
+      "before_sha256": "032243a7627a0d859653ce9e3759ab5fba62bedf76dc47e5c3585871887fe25b",
+      "after_sha256": "4ba529b2523542930b85cda6b74915080999ab8d74980b0bc1abd77a396b231f"
+    },
+    {
+      "path": "tests/browser_masters.py",
+      "kind": "modified",
+      "before_sha256": "faac36ef5c6a7a4d35821ee371580ecd9b75f78a5ad01729cd3d447e96ecfc94",
+      "after_sha256": "78a9196c5935584b1f055c6944f987e97e47b36aa8e3d8fd5fc6d7ed302e5012"
+    },
+    {
+      "path": "tests/browser_member_fee_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "e2feb0cae9e2ac1d880ab6519c4f4f952e6116fb78d91e9f4af4938f32a6f9f6"
+    },
+    {
+      "path": "tests/browser_member_pricing.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "d7ba82b88f661585ffdfc6f8f1ebf515e4b0dabf3697493ebfa0578998d8e085"
+    },
+    {
+      "path": "tests/browser_procurement_prepayments.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "d43c23c2ea33bb517f7a5e67ca7259217fc2c054246a19444b10a5fe82088986"
+    },
+    {
+      "path": "tests/browser_questionnaire_exports.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "aeb426f175517ceb14af438eb48cd5ddb5b055df9fe91860c50ed88a0f6af7bb"
+    },
+    {
+      "path": "tests/browser_recharge_bundles.py",
+      "kind": "modified",
+      "before_sha256": "5008273f65d54420bdf7bc467bdda87437783fc06fd8ee28c92bc45097152621",
+      "after_sha256": "4a92672854d71f70b4b783a9a2dcdb0531be5820bc89add25721c1384265d012"
+    },
+    {
+      "path": "tests/browser_repair_packages.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "bf3cc4d6da5c207197463912bf4e4342eec9e103f08b15c80cabd66d166d37d0"
+    },
+    {
+      "path": "tests/browser_rework_extensions.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "7712dc46f9ade86aa89c997eb38807ca42d07409d28f72c5004ad7d762f8803f"
+    },
+    {
+      "path": "tests/browser_smoke.py",
+      "kind": "modified",
+      "before_sha256": "26850239527239002ce412ef799648c925399906d5fb0e9c1ba24fbfb564763b",
+      "after_sha256": "abe902a03a539e9ea2125c253371553bb4df9a0b31bee76347b1d4bdcd3e2ee4"
+    },
+    {
+      "path": "tests/browser_store_switch.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "8d8ff00a33d557d343f67f9d95a209ad5cd2a471b411d7c078f9cab7333fac3c"
+    },
+    {
+      "path": "tests/browser_vehicle_income.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "92852bbe932a00b64a820a6603bc58cc1fa24f07960664ebc04961321050ecf2"
+    },
+    {
+      "path": "tests/conftest.py",
+      "kind": "modified",
+      "before_sha256": "1321e8a9c87c2bcd908509af3af9951688fd7233fddd3a37d1fe3bf67b11f1ca",
+      "after_sha256": "6559f7b03c866f477c53da8ceb7862793655b58f641edb4915af0b67189b76eb"
+    },
+    {
+      "path": "tests/js/business_finance_corrections.test.cjs",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "a610c7f749febfb0be379b1c3cb53b8dfa58428e1829ffbe005f3e928a081b4b"
+    },
+    {
+      "path": "tests/js/dossier_grants.test.cjs",
+      "kind": "modified",
+      "before_sha256": "5a973139c46dc32bdac08d5f6a9cf73f062cd4d70f393b995e8bb18a194c37f5",
+      "after_sha256": "4d0f9c6d465e2247c79998e795ea2aa36539c96300d63862324f374d911e6ed9"
+    },
+    {
+      "path": "tests/js/questionnaire_exports.test.cjs",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "1d6e9ccaa0d4dfc4ef0e4e1f3d36ef543f166605d0fd83ef27b94017823e039d"
+    },
+    {
+      "path": "tests/js/store_switch.test.cjs",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "e16afdbbdf94708223343c8b34d492c2ffbca2f85e8ffc889e2f3a2e255c17e2"
+    },
+    {
+      "path": "tests/js/time_display.test.cjs",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "ddaacbc96c11ed443e6e5dbdd0d4349eb334c124c1cda00f6b5c4524372e77cc"
+    },
+    {
+      "path": "tests/test_addon_gifts.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "eedb9ce305d1cd487a443db11fb9e430a06163d3c08035425247ae0588c01d43"
+    },
+    {
+      "path": "tests/test_callback_analytics.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "108195bd624454b36c021ab19603bcb1bf6832438f7a872ddd19a2565dc05c6b"
+    },
+    {
+      "path": "tests/test_dossier_grant_ui.py",
+      "kind": "modified",
+      "before_sha256": "0b9ae80cda570e772e2692cf798c2d09366386f10c892471e964b302c7f10679",
+      "after_sha256": "5ada162a5afc9caef5e9741ecfedee0102530824ae616495aee6f37d63e2370b"
+    },
+    {
+      "path": "tests/test_dossier_vehicle_permissions.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "73224e3e2fb2f3069a9585a8f390f021235b37c84169fb1bf439c51697cd9fb9"
+    },
+    {
+      "path": "tests/test_finance_correction_migrations.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "f632c92f0f3552c33d5e2d0acef50fae4891d04c4454b92d147445a00e9aad94"
+    },
+    {
+      "path": "tests/test_finance_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "a8852da7cabf67500a09383d756a366d9eb8ba16e0f7b86f6f188b9e7a2db44a"
+    },
+    {
+      "path": "tests/test_insurance_invoices.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "8a9bb844f307a4b28a81ed5a85112a9f8ee955eb3194e566fbe7023556ca3916"
+    },
+    {
+      "path": "tests/test_local_preview.py",
+      "kind": "modified",
+      "before_sha256": "3fa26e13877a0515d2e3e32b087acdb11129c00b2e4ac433553fddeb5c7f414b",
+      "after_sha256": "f88bd1184214b994e39961d55efa88ae7cd84aefc219cc5d50e9932cea91730a"
+    },
+    {
+      "path": "tests/test_member_fee_correction_migration.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "c13e8e9b0aa3185e5f1ab24109dd458b37bb0c28e4bf43f2aa6ae0885336a953"
+    },
+    {
+      "path": "tests/test_member_fee_correction_reconciliation.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "e65c5ba49b8c0e0009ef8b3a8eb29ea41dcbea845e327642f9a4358a304983ce"
+    },
+    {
+      "path": "tests/test_member_fee_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "3d47b7fbc4f1ebdb999012488e3580a1b5a22359b0d29bf352f1416519d8d604"
+    },
+    {
+      "path": "tests/test_member_pricing.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "4c5ee989060ad5ea921f48bdd494a0b33d95cdbea59fc7cb2dedb5ebde543e8f"
+    },
+    {
+      "path": "tests/test_member_pricing_reconciliation.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "342c25065916c127a31ca4c3553439a9e511605299a54cc6aff14a3242b651ee"
+    },
+    {
+      "path": "tests/test_member_pricing_upgrade.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "4f5227288546329e8e63420aa87d9b832b84e1544749a1d61827cf18f470da26"
+    },
+    {
+      "path": "tests/test_original_requirement_simulations.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "5415eddc73fb4c58007d9b6fd574db4bfd49cbe74a832fce4c65be2567fa88b5"
+    },
+    {
+      "path": "tests/test_partial_correction_migration.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "7bedba6ecbb0b88e098de1ca97db3c27ee0fbf00deda205fd4db5af6bc4b2039"
+    },
+    {
+      "path": "tests/test_partial_correction_reconciliation.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "edd056ae8d726e91781760390713206b93f4534d36530776bbed98ae98fc5684"
+    },
+    {
+      "path": "tests/test_partial_receipt_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "6821c3a64c3f9b1cde28b2221289c5b8db4df5f53cd16af61ffac88e3dae3b5b"
+    },
+    {
+      "path": "tests/test_preview_runtime.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "afb154434168595d7533b1ab54814a83fc36dc4ef6e1a6f0e774bbdebf0e6b9a"
+    },
+    {
+      "path": "tests/test_procurement_prepayment_upgrade.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "36fea44afd0e4018e982301d299a04971a5da44f243aaf4a539da3718410d606"
+    },
+    {
+      "path": "tests/test_procurement_prepayments.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "930d08d21fb8bd0264b601e2ce2ee1e8517bfb3a7c2fcbd4b61004071bfe40c4"
+    },
+    {
+      "path": "tests/test_questionnaire_export_scope.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "f0c6d80f89d65a77269096c68f2ff8c3a9e8f58c4d9fb416d015ba10aef9689c"
+    },
+    {
+      "path": "tests/test_questionnaire_versions.py",
+      "kind": "modified",
+      "before_sha256": "9f5217f8d7d68caa5eaa26f4553641d7e30c807a36db76ec6f5a6e6aa64b899d",
+      "after_sha256": "9ea2aa944df8981ea2b615936d3af17a1dedf689803ee9566d69d3bfee5ee9fa"
+    },
+    {
+      "path": "tests/test_recharge_correction_migration.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "b44b94f551e914a67ff615f3dca5c27b307f7a32b35a74a038851def6c321846"
+    },
+    {
+      "path": "tests/test_recharge_correction_reconciliation.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "4d3046a3946d27c7d430b1242dc1c12995575196fd6cbf6ee4da1612ebb905b1"
+    },
+    {
+      "path": "tests/test_recharge_corrections.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "b8af1a30b2600b9f8caf6203b51b8b8f080b955c54e4e41cb85885cec4771cc7"
+    },
+    {
+      "path": "tests/test_reconciliation_v13.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "225e4d489a7fdc895760130ab8cf017fdef9327e1f55fb576cce13749fcc5a83"
+    },
+    {
+      "path": "tests/test_repair_package_points_value.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "895cd4433a363c67fdf691afe2ba6772f4486ab9e840870b4a7144df018442e1"
+    },
+    {
+      "path": "tests/test_repair_package_reconciliation.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "3736048297a2fc5d4492441d5497df71d475202845e297903cf9ef7ebb909fa7"
+    },
+    {
+      "path": "tests/test_repair_package_upgrade.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "c0f77766a0e5d572ba32b57a90b55e53b6f4778f847a1c51d762aded0068b052"
+    },
+    {
+      "path": "tests/test_repair_packages.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "4eb16bbf1fb6595b7a2c7fb4d9363faf7725555ad4feecae1976805c44918587"
+    },
+    {
+      "path": "tests/test_rework_extension_reconciliation.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "8337ed6c4b3bf8066756fca746b51fc7fd615c01cd6c9062b5f8de9e56fd33d8"
+    },
+    {
+      "path": "tests/test_rework_extension_upgrade.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "625d92093e4a094d878070ef57e714e25cf9833d354de43496c82cbf417293ab"
+    },
+    {
+      "path": "tests/test_rework_extensions.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "19ecf2fa2fb75c3756f5bc66756ef648eca6438fb5498363e31d9e3d71af03ae"
+    },
+    {
+      "path": "tests/test_service_intake.py",
+      "kind": "modified",
+      "before_sha256": "d2ddbf059ea6b117dfc04419aa010634fffed3e63984c65d2d7a9abc18666f89",
+      "after_sha256": "c9ec6942217ed37386522ab4987f5913e6c49f8957473b55aa74f41ba2fd44f2"
+    },
+    {
+      "path": "tests/test_supplier_overpayment_reporting.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "4c27f9da097af84cc28d6721562c66cde0d21171828625b0c7b7e04de43ff704"
+    },
+    {
+      "path": "tests/test_supplier_overpayments.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "7bb1a9688e0dfec830e1c07a0ce65bce22f11bece90f98debd72db8a9dde8266"
+    },
+    {
+      "path": "tests/test_test_storage_isolation.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "f4537890427da7dcd993957f1eca2cbdb2bf363868e6a15d37feb199dbe081c8"
+    },
+    {
+      "path": "tests/test_time_display.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "840d8be87118f18b83b56b04b412e2541a11f858d7dc5018918601236b2d6996"
+    },
+    {
+      "path": "tests/test_transfer_loss_reporting.py",
+      "kind": "modified",
+      "before_sha256": "0ba46a05eede9528269e7b608dbe3037775d031b46c92c900b42ff415cba3ab9",
+      "after_sha256": "3af6855ea72adf078af4d3689ff3e233ded3bd0386d20eb2eb3a2ffebd55df51"
+    },
+    {
+      "path": "tests/test_vehicle_income.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "2b5ceedd02f7a8897574fa3bb7e3160fb45e27ea10f5996794bad1258399235e"
+    },
+    {
+      "path": "tests/test_vehicle_income_reconciliation.py",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "ad57a6c68261ebe240552ee1de048eb7cf2cff88cafbf0def7a3060fecda801c"
+    },
+    {
+      "path": "tests/test_vehicle_transport_finance.py",
+      "kind": "modified",
+      "before_sha256": "b2c78b07044defb6d3e4577ef055ffa24f97fe3bf42f5b6cb0bd8557c88d752f",
+      "after_sha256": "8e0bbeb24badcf0b53815fa403ae4dffc84f5a180abf74ea7deb74f8aa4ab2d5"
+    },
+    {
+      "path": "web/addonorders.js",
+      "kind": "modified",
+      "before_sha256": "39dc02d94421f24396f920b3e93639a37d789129d72911c14fa9a4a794abd8b4",
+      "after_sha256": "466e0a9c69eb426db5e44a34940f36ce3129d495b87ddb35a613030b6483a6da"
+    },
+    {
+      "path": "web/aftercare.js",
+      "kind": "modified",
+      "before_sha256": "acd424b659e02c472e55ec0c797690086a075f06878ee30ba01a7d8d1c7df92c",
+      "after_sha256": "0c477ff5165d23dabfd704b306026c4a22a976a6af18e6a379e0a6d06a54261d"
+    },
+    {
+      "path": "web/app.js",
+      "kind": "modified",
+      "before_sha256": "df9f708b592f9f7e32fb2466479a3d0db198556113ade0742c22cb5ac8721f70",
+      "after_sha256": "1f41bd35b372b859cb6a5f3f61af6e6b1924a0799e81b8ad6327cb8eeacb92dd"
+    },
+    {
+      "path": "web/benefits.js",
+      "kind": "modified",
+      "before_sha256": "1e23d497510c966da6a0f4c4fd3f677cd1552197c5dc782bf25d20a204a9652b",
+      "after_sha256": "bd9dc6337114ce63f7fed9108f195ab7b9a7c9c97b43d8b211ae5e826ec2907d"
+    },
+    {
+      "path": "web/businessfinance.js",
+      "kind": "modified",
+      "before_sha256": "389c4f49cfd864a8d67b20e7b5054303eec66bea95161e2acbc368469fd617aa",
+      "after_sha256": "730bb6094ae68bdecef05f555a448f6e992147ef43852978646fca2fddcfa0e6"
+    },
+    {
+      "path": "web/customerservice.js",
+      "kind": "modified",
+      "before_sha256": "d4655ca29b3349be68e4dd1a4fde60255e13ce2de6d35164a9c571747f1013a6",
+      "after_sha256": "b4b3e461b2c62700161fc9bea2b7f69d13445f1f378884ed50fbb4eb05d2d89e"
+    },
+    {
+      "path": "web/dossiergrants.js",
+      "kind": "modified",
+      "before_sha256": "24286870bedd53fb1e8537a3a07a9c3e23f85b79f6d8c5818db2b238183ad1d5",
+      "after_sha256": "deb2b3ff8a63b3332ac2bb755a7f490e550b88eb06b8c24de00155199f46d95f"
+    },
+    {
+      "path": "web/group.js",
+      "kind": "modified",
+      "before_sha256": "7c92de6972c44b926c38640de901b74caf5d49e8dbe9ec59bad5fc3e18ee14a1",
+      "after_sha256": "a0af1e9eb6b2f0aa1753d8eaa4a6da6ea803ff07752c2d4d2a467bd414242dba"
+    },
+    {
+      "path": "web/index.html",
+      "kind": "modified",
+      "before_sha256": "f4d33b92cc601baa76b9a7e405cfa9a0077f104d87c1f70a669f6d883812efdd",
+      "after_sha256": "e4e3f540ae818203479e32995f44ff4a0ce590a67338033cf409f46331dd29d1"
+    },
+    {
+      "path": "web/insuranceorders.js",
+      "kind": "modified",
+      "before_sha256": "33eeb85d771f30c4367ba38c5836ac3ef6d320ea5c7f6f8a001282a6a4dd4a08",
+      "after_sha256": "d8d8c13297a5f83b97d184a0e5d1474071e4c31ed184f0825734a8eee2983d8d"
+    },
+    {
+      "path": "web/invoices.js",
+      "kind": "modified",
+      "before_sha256": "df8491e0178bd396513f907c71a4b45cf36899325c50ce14865d03e0a8bb4cca",
+      "after_sha256": "9b6f8efedc93b51d2813abe8ca03a0a993bd8afa54a4dbf76fdb7da32b453ea5"
+    },
+    {
+      "path": "web/localpreview.js",
+      "kind": "modified",
+      "before_sha256": "e033396580f1d948ba2490dd65cc2343aeffc92d50f9ee42f0b06712b39338f9",
+      "after_sha256": "49769351dce5bc531fd3da31373937984f5dc34ca478e8ee7f2107c4d2418689"
+    },
+    {
+      "path": "web/masters.js",
+      "kind": "modified",
+      "before_sha256": "84496535656f18c31169f607d474f32f4a18dd8666dbb705018a8ad36abcb6de",
+      "after_sha256": "4167f4567be41c037a888e0945fb95503aa646fd012b97f34d521f24f12fdf7a"
+    },
+    {
+      "path": "web/memberpricing.js",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "1859799981316af723ebe1a8d9f718961e39139a769c62d1087d313c955360d5"
+    },
+    {
+      "path": "web/membership.js",
+      "kind": "modified",
+      "before_sha256": "4800a7bcc2118df65f849786a0366f861ec9a836f67a11e4eb308c9d4cfe4d16",
+      "after_sha256": "3d51773b16365fcd238be8f60ee5a1914fa7cd0e8e524c79fd9a3c3dac328ac4"
+    },
+    {
+      "path": "web/procurement.js",
+      "kind": "modified",
+      "before_sha256": "385b63f7631729f405bf2c99d8b7b11b2f7d2476a06bdb54b56c13f27f6cd0d0",
+      "after_sha256": "a60e0b71e3fb7f68f59c6f94411f6b7174574c1c7a4ebe32f627ea7c14e308ff"
+    },
+    {
+      "path": "web/rechargebundles.js",
+      "kind": "modified",
+      "before_sha256": "245e7a116212d663ebb5b3907f28f5550aeb7257cba3d9d16e9050797746badc",
+      "after_sha256": "9cd49c12ba1195e3dd4e8c59ac0fc07eb9aa334cf57e3080224a88726f13a5a7"
+    },
+    {
+      "path": "web/repair.js",
+      "kind": "modified",
+      "before_sha256": "ddd1ffcfd2fd7dc154a7b6aba7303deadd739d3625eb5f9435454a4648c1dc2a",
+      "after_sha256": "86bdaa1e2e3019d70ecae1173fcf426e1c34f30d1dc5abac2e4fe4f7a223a121"
+    },
+    {
+      "path": "web/repairpackages.js",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "ced98884de700d7117c79d31e6699e18d4625bdb778f151c06f9214110f5d4a7"
+    },
+    {
+      "path": "web/retail.js",
+      "kind": "modified",
+      "before_sha256": "5e696bb5c84e1a1e785a352dca804b68f6d486571fee6141e39dac084d0bce50",
+      "after_sha256": "9da69b794ab5e44421c4979387b12b1e845f40324c975623a13a2ee8ebe5aa52"
+    },
+    {
+      "path": "web/retailbundles.js",
+      "kind": "modified",
+      "before_sha256": "5790486feb3e25f2e48e3ffa47ab989fa806b11cbbebe44a1fe8a6f166bbcd7c",
+      "after_sha256": "63f712ca4a76bb2cf7ec925a5a432a1bdc878ea9c35b1c5acbac2f35f884e015"
+    },
+    {
+      "path": "web/reworkextensions.js",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "261c37cc7b7f3f26ea36e62129af12036571a9ff1364c55530af7630ab5886a3"
+    },
+    {
+      "path": "web/serviceintake.js",
+      "kind": "modified",
+      "before_sha256": "696c653c3add39346940f84483ee5e63ee0fd9b56e8c7b22211347ec5a906324",
+      "after_sha256": "70c2fc7317e4c378161614fb5cc911862627d3c9685d028160733310027b946e"
+    },
+    {
+      "path": "web/vehicleincome.js",
+      "kind": "added",
+      "before_sha256": null,
+      "after_sha256": "f1a85fc29e01d7b5534b5aa53e55f61873fdb73d9d67c6d3c396bde1c9d111a0"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "mode": "actual-browser-http",
+  "synthetic_only": true,
+  "viewport": "390x844",
+  "steps": [
+    "真实页面指定门店和员工；文件默认全不选，电话金额独立选择，发起人不能自批",
+    "原店不同人员从真实页面独立批准原版本与逐件文件",
+    "指定员工真实下载字节一致；同内容未选文件、同店同岗位其他员工、原单原地址均拒绝",
+    "撤销后旧链接拒绝；接收页面重新核验清除原单及下载按钮，不声称远程删除既有副本"
+  ],
+  "screenshots": [
+    "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-xe6xzxc1\\dossier_01_exact_scope_390px.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-xe6xzxc1\\dossier_02_review_390px.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-xe6xzxc1\\dossier_03_received_390px.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-xe6xzxc1\\dossier_04_revoked_390px.png"
+  ],
+  "javascript_errors": []
+}

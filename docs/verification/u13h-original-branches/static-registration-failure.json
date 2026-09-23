@@ -1,0 +1,9 @@
+{
+  "status": "reproduced_static_assertion_failure",
+  "test": "tests/test_dossier_grant_ui.py::test_new_page_scripts_and_runtime_catalog_registered",
+  "old_assertion": "api('/api/dossier-grants/catalog') literal substring",
+  "current_behavior": "Explicit target-store catalog list includes the dossier path; current real browser grant/recipient/revocation group passes.",
+  "isolated_result": "1 failed, 1.50 seconds",
+  "required_fix": "Keep route registration check and exercise actual scoped request set/dossier result in deterministic JavaScript switch test; no runtime workaround.",
+  "whole_tree": "still running unchanged; collect complete result before editing test source"
+}

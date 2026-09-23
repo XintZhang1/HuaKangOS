@@ -1,0 +1,1 @@
+{"command": ["/opt/pyvenv/bin/python", "-m", "pytest", "-q", "--tb=short", "tests/test_vehicle_transport_upgrade.py::test_nonempty_q79d_to_current_preserves_originals_replays_then_real_loss_found", "--junitxml=/mnt/data/huakangos_runs/vehicle-upgrade-debug05/junit.xml"], "cwd": "/mnt/data/huakangos_runs/vehicle-upgrade-debug05/source", "synthetic_only": true}

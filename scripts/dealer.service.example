@@ -1,5 +1,5 @@
 [Unit]
-Description=DealerDesk 4S management service
+Description=huakangos Huakang Group operations service
 After=network.target
 
 [Service]

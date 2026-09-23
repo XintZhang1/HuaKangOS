@@ -1,0 +1,23 @@
+{
+  "status": "failed_preserved",
+  "summary": "1730 passed, 2 failed, 1 Windows symlink skip; 662 source files unchanged",
+  "raw_directory": "C:\\Users\\tiefu\\AppData\\Local\\huakangos\\verification\\u13h-final-02-20260923-1420",
+  "failures": [
+    {
+      "class": "tests.test_dossier_grant_ui",
+      "name": "test_new_page_scripts_and_runtime_catalog_registered",
+      "message": "assert \"api('/api/dossier-grants/catalog')\" in '\\'use strict\\';\\r\\n// Workflow forms and choices come from server definitions. All authorization,\\r\\n// state checks ...Page();else $(\\'#app\\').innerHTML=`<div class=\"errorpage\"><h1>启动页面时遇到问题</h1><p>${E(err.message)}</p></div>`;}})();\\r\\n'"
+    },
+    {
+      "class": "tests.test_rework_extension_upgrade",
+      "name": "test_nonempty_y57l_upgrade_preserves_cash_vin_original_receipts_and_blob_then_new_contract",
+      "message": "AssertionError: {\"detail\":\"维修记录同时变化，请刷新核对，保留原请求编号确认结果\"}\nassert 409 == 200\n +  where 409 = <Response [409 Conflict]>.status_code"
+    }
+  ],
+  "resolutions_pending": [
+    "Keep literal route registration plus actual five-catalog scoped Node assertions",
+    "Preserve historical z68m migration/restore assertions, then migrate to current head before invoking current application hooks"
+  ],
+  "runtime_known_failures": 0,
+  "next_run": "Pending focused validation and explicit same-amount membership renewal fee correction branch"
+}

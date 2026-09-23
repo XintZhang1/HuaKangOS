@@ -1,0 +1,27 @@
+{
+  "status": "scoped_passed_not_final_whole_tree",
+  "modules": [
+    "tests/test_partial_correction_reconciliation.py",
+    "tests/test_repair_package_reconciliation.py",
+    "tests/test_business_entities.py"
+  ],
+  "passed": 36,
+  "seconds": 140.64,
+  "boundaries": [
+    "SQLite isolated synthetic data",
+    "Statement21/cash7 integration preserves older snapshots",
+    "Later new fee cash drilldown assertions are in dedicated e13r reconciliation evidence"
+  ],
+  "runtime_integration": [
+    "app/cash_basis.py",
+    "app/flow_analytics.py",
+    "app/operations_analytics.py",
+    "app/reconciliation_service.py",
+    "app/reconciliation_v21.py",
+    "app/reconciliation_backup_integrity.py",
+    "app/backup_integrity.py",
+    "app/business_entity_service.py",
+    "app/business_entity_models.py",
+    "app/business_entity_integrity.py"
+  ]
+}

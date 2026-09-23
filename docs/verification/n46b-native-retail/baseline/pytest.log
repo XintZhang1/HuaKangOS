@@ -1,0 +1,171 @@
+........................................................................ [  6%]
+........................................................................ [ 12%]
+..............F......................................................... [ 19%]
+........................................................................ [ 25%]
+........................................................................ [ 32%]
+..............................................FFFFFFF..FFFFF............ [ 38%]
+........................................................................ [ 44%]
+...........................................................s............ [ 51%]
+........................................................................ [ 57%]
+........................................................................ [ 64%]
+........................................................................ [ 70%]
+........................................................................ [ 77%]
+........................................................................ [ 83%]
+........................................................................ [ 89%]
+........................................................................ [ 96%]
+.........................................                                [100%]
+=================================== FAILURES ===================================
+_ test_delivered_and_converted_need_source_facts_and_successor_is_still_checked _
+tests/test_business_entity_domains.py:166: in test_delivered_and_converted_need_source_facts_and_successor_is_still_checked
+    assert '仍有未结业务或独立待办' in entities.blockers(db)
+                            ^^^^^^^^^^^^^^^^^^^^^
+app/business_entity_service.py:137: in blockers
+    if entity_has_unsettled(db,offsets):reasons.append('仍有原物资找回后的反向店间往来')
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/transfer_goods_recovery_service.py:76: in entity_has_unsettled
+    if not db.info.get('_business_entity_authority'):raise HTTPException(403,'须先完成经营主体配置授权')
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   fastapi.exceptions.HTTPException: 403: 须先完成经营主体配置授权
+_______________ test_first_admin_login_then_replay_never_resets ________________
+tests/test_local_preview.py:57: in test_first_admin_login_then_replay_never_resets
+    assert p.client.get('/api/local-preview/status').json()['bootstrap_required'] is True
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'bootstrap_required'
+______________ test_invalid_ticket_refused_without_data[missing] _______________
+tests/test_local_preview.py:84: in test_invalid_ticket_refused_without_data
+    r=submit(p,headers=headers);assert r.status_code==403,r.text
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"Not Found"}
+E   assert 404 == 403
+E    +  where 404 = <Response [404 Not Found]>.status_code
+_______________ test_invalid_ticket_refused_without_data[wrong] ________________
+tests/test_local_preview.py:84: in test_invalid_ticket_refused_without_data
+    r=submit(p,headers=headers);assert r.status_code==403,r.text
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"Not Found"}
+E   assert 404 == 403
+E    +  where 404 = <Response [404 Not Found]>.status_code
+______________ test_invalid_ticket_refused_without_data[expired] _______________
+tests/test_local_preview.py:84: in test_invalid_ticket_refused_without_data
+    r=submit(p,headers=headers);assert r.status_code==403,r.text
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"Not Found"}
+E   assert 404 == 403
+E    +  where 404 = <Response [404 Not Found]>.status_code
+_______________ test_invalid_ticket_refused_without_data[future] _______________
+tests/test_local_preview.py:84: in test_invalid_ticket_refused_without_data
+    r=submit(p,headers=headers);assert r.status_code==403,r.text
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"Not Found"}
+E   assert 404 == 403
+E    +  where 404 = <Response [404 Not Found]>.status_code
+______________ test_invalid_ticket_refused_without_data[instance] ______________
+tests/test_local_preview.py:84: in test_invalid_ticket_refused_without_data
+    r=submit(p,headers=headers);assert r.status_code==403,r.text
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"Not Found"}
+E   assert 404 == 403
+E    +  where 404 = <Response [404 Not Found]>.status_code
+_______________ test_invalid_ticket_refused_without_data[header] _______________
+tests/test_local_preview.py:84: in test_invalid_ticket_refused_without_data
+    r=submit(p,headers=headers);assert r.status_code==403,r.text
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: {"detail":"Not Found"}
+E   assert 404 == 403
+E    +  where 404 = <Response [404 Not Found]>.status_code
+__________________ test_flag_remote_origin_and_ordinary_login __________________
+tests/test_local_preview.py:98: in test_flag_remote_origin_and_ordinary_login
+    assert remote.get('/api/local-preview/status').status_code==403
+E   AssertionError: assert 404 == 403
+E    +  where 404 = <Response [404 Not Found]>.status_code
+E    +    where <Response [404 Not Found]> = get('/api/local-preview/status')
+E    +      where get = <starlette.testclient.TestClient object at 0x7f620c53b790>.get
+________________ test_password_and_username_validation_no_echo _________________
+tests/test_local_preview.py:110: in test_password_and_username_validation_no_echo
+    r=submit(p,password=password);assert r.status_code==422
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 404 == 422
+E    +  where 404 = <Response [404 Not Found]>.status_code
+_________ test_existing_user_unmarked_db_and_wrong_path_never_adopted __________
+tests/test_local_preview.py:119: in test_existing_user_unmarked_db_and_wrong_path_never_adopted
+    assert submit(p).status_code==409
+E   AssertionError: assert 404 == 409
+E    +  where 404 = <Response [404 Not Found]>.status_code
+E    +    where <Response [404 Not Found]> = submit(namespace(root=PosixPath('/tmp/pytest-of-root/pytest-0/test_existing_user_unmarked_db0/huakangos/test-preview'), clien...hD9-qwl6wyVIt', headers={'X-App-Request': '1', 'X-Local-Preview-Token': '7lLPRO1rt3ylkcJ2aD6UMQBFV6w6dWu8vAeThfUSGBE'}))
+______________ test_competing_first_admin_requests_only_one_wins _______________
+tests/test_local_preview.py:137: in test_competing_first_admin_requests_only_one_wins
+    assert sorted(results)==[200,409],results
+E   AssertionError: [404, 404]
+E   assert [404, 404] == [200, 409]
+E     
+E     At index 0 diff: 404 != 200
+E     
+E     Full diff:
+E       [
+E     -     200,
+E     -     409,
+E     ?       ^
+E     +     404,
+E     ?       ^
+E     +     404,
+E       ]
+____________ test_rotated_link_invalidates_old_but_reuses_instance _____________
+tests/test_local_preview.py:147: in test_rotated_link_invalidates_old_but_reuses_instance
+    assert submit(p).status_code==403
+E   AssertionError: assert 404 == 403
+E    +  where 404 = <Response [404 Not Found]>.status_code
+E    +    where <Response [404 Not Found]> = submit(namespace(root=PosixPath('/tmp/pytest-of-root/pytest-0/test_rotated_link_invalidates_0/huakangos/test-preview'), clien...IDp6YodJ_uUIn', headers={'X-App-Request': '1', 'X-Local-Preview-Token': 'e04C0OaVDOImgwnwI8N02wI75pWwyDGBsm6meIuXXl0'}))
+=============================== warnings summary ===============================
+tests/test_visit_activity.py::test_local_month_boundary_does_not_rewrite_arrival_cohort
+  /opt/pyvenv/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_business_entity_domains.py::test_delivered_and_converted_need_source_facts_and_successor_is_still_checked - fastapi.exceptions.HTTPException: 403: 须先完成经营主体配置授权
+FAILED tests/test_local_preview.py::test_first_admin_login_then_replay_never_resets - KeyError: 'bootstrap_required'
+FAILED tests/test_local_preview.py::test_invalid_ticket_refused_without_data[missing] - AssertionError: {"detail":"Not Found"}
+assert 404 == 403
+ +  where 404 = <Response [404 Not Found]>.status_code
+FAILED tests/test_local_preview.py::test_invalid_ticket_refused_without_data[wrong] - AssertionError: {"detail":"Not Found"}
+assert 404 == 403
+ +  where 404 = <Response [404 Not Found]>.status_code
+FAILED tests/test_local_preview.py::test_invalid_ticket_refused_without_data[expired] - AssertionError: {"detail":"Not Found"}
+assert 404 == 403
+ +  where 404 = <Response [404 Not Found]>.status_code
+FAILED tests/test_local_preview.py::test_invalid_ticket_refused_without_data[future] - AssertionError: {"detail":"Not Found"}
+assert 404 == 403
+ +  where 404 = <Response [404 Not Found]>.status_code
+FAILED tests/test_local_preview.py::test_invalid_ticket_refused_without_data[instance] - AssertionError: {"detail":"Not Found"}
+assert 404 == 403
+ +  where 404 = <Response [404 Not Found]>.status_code
+FAILED tests/test_local_preview.py::test_invalid_ticket_refused_without_data[header] - AssertionError: {"detail":"Not Found"}
+assert 404 == 403
+ +  where 404 = <Response [404 Not Found]>.status_code
+FAILED tests/test_local_preview.py::test_flag_remote_origin_and_ordinary_login - AssertionError: assert 404 == 403
+ +  where 404 = <Response [404 Not Found]>.status_code
+ +    where <Response [404 Not Found]> = get('/api/local-preview/status')
+ +      where get = <starlette.testclient.TestClient object at 0x7f620c53b790>.get
+FAILED tests/test_local_preview.py::test_password_and_username_validation_no_echo - assert 404 == 422
+ +  where 404 = <Response [404 Not Found]>.status_code
+FAILED tests/test_local_preview.py::test_existing_user_unmarked_db_and_wrong_path_never_adopted - AssertionError: assert 404 == 409
+ +  where 404 = <Response [404 Not Found]>.status_code
+ +    where <Response [404 Not Found]> = submit(namespace(root=PosixPath('/tmp/pytest-of-root/pytest-0/test_existing_user_unmarked_db0/huakangos/test-preview'), clien...hD9-qwl6wyVIt', headers={'X-App-Request': '1', 'X-Local-Preview-Token': '7lLPRO1rt3ylkcJ2aD6UMQBFV6w6dWu8vAeThfUSGBE'}))
+FAILED tests/test_local_preview.py::test_competing_first_admin_requests_only_one_wins - AssertionError: [404, 404]
+assert [404, 404] == [200, 409]
+  
+  At index 0 diff: 404 != 200
+  
+  Full diff:
+    [
+  -     200,
+  -     409,
+  ?       ^
+  +     404,
+  ?       ^
+  +     404,
+    ]
+FAILED tests/test_local_preview.py::test_rotated_link_invalidates_old_but_reuses_instance - AssertionError: assert 404 == 403
+ +  where 404 = <Response [404 Not Found]>.status_code
+ +    where <Response [404 Not Found]> = submit(namespace(root=PosixPath('/tmp/pytest-of-root/pytest-0/test_rotated_link_invalidates_0/huakangos/test-preview'), clien...IDp6YodJ_uUIn', headers={'X-App-Request': '1', 'X-Local-Preview-Token': 'e04C0OaVDOImgwnwI8N02wI75pWwyDGBsm6meIuXXl0'}))
+13 failed, 1107 passed, 1 skipped, 1 warning in 1566.53s (0:26:06)

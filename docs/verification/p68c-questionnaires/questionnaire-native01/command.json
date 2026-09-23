@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/opt/pyvenv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short",
+    "--junitxml=/mnt/data/huakangos_runs/questionnaire-native01/junit.xml",
+    "tests/test_questionnaire_versions.py",
+    "tests/test_customer_service.py",
+    "tests/test_observation_corrections.py"
+  ],
+  "cwd": "/mnt/data/huakangos_snapshots/questionnaire-native01/dealer_desk",
+  "start_utc": "2026-09-22T09:10:47Z"
+}

@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "mode": "real-Windows-Chrome-HTTP",
+  "synthetic_only": true,
+  "viewport": "390x844",
+  "callback_count": 3,
+  "completed": 2,
+  "cancelled": 1,
+  "screenshots": [
+    "01_employee_callback.png",
+    "02_manager_callback_rows.png",
+    "03_finance_counts_only.png"
+  ],
+  "javascript_errors": [],
+  "steps": [
+    "客服创建销售与维修回访，接手、反复跟进、结案及取消实际办理",
+    "主管图表、明细、真实CSV下载和原单下钻一致，跟进不重计",
+    "财务同数汇总不暴露原文、电话和原单"
+  ],
+  "limits": [
+    "旧callback及已完成销售/维修是明确的合成历史fixture，不能据此证明原销售或维修全过程已通过浏览器验证"
+  ],
+  "original_evidence_directory": "C:\\Users\\tiefu\\AppData\\Local\\Temp\\huakangos-browser-evidence-82ndrf2x"
+}

@@ -1,0 +1,30 @@
+{
+  "checkpoint": "e13r_member_fee_correction_reconciliation",
+  "date": "2026-09-23",
+  "candidate_only": true,
+  "test_file": "tests/test_member_fee_correction_reconciliation.py",
+  "test_sha256": "e65c5ba49b8c0e0009ef8b3a8eb29ea41dcbea845e327642f9a4358a304983ce",
+  "command": ".venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider tests/test_member_fee_correction_reconciliation.py",
+  "final_result": {"passed": 6, "failed": 0, "skipped": 0, "duration_seconds": 23.86, "session": 54866},
+  "isolation": "conftest temporary SQLite; BLOB attachments; structure_only synthetic scan; AI and scheduler disabled; UTF-8 and no bytecode",
+  "verified": [
+    "Real API renewal fee, two same-amount recording corrections and subsequent actual original-account refund; original fee, membership period and original cash unchanged",
+    "Original receipt remains on its original prior-month business date; actual refund belongs to its current actual date; fee income is counted once",
+    "Cash and renewal-fee charts, row totals and CSV are identical; Chinese cash categories and correction/original-renewal/actual-refund case routes are verified",
+    "Frozen definition 20 does not expand; definition 21 adds three count-only local sources with zero cash/value contribution",
+    "Effective cash definition 7 excludes replaced originals and correction reversal rows, preserving only the final effective receipt and real refund",
+    "Independent full SQLite restore succeeds; recomputed-digest cash-chain, fake-income, old-definition expansion and unknown-source tampering are rejected"
+  ],
+  "resolved_test_issue": "Initial run 5 passed and 1 failed because this new test used ignored start/end report query parameters; corrected to API date_from/date_to without weakening cross-period assertions. No runtime change by this test owner.",
+  "nonempty_migration": {
+    "test_file": "tests/test_member_fee_correction_migration.py",
+    "test_sha256": "c13e8e9b0aa3185e5f1ab24109dd458b37bb0c28e4bf43f2aa6ae0885336a953",
+    "command": ".venv/Scripts/python.exe -B -m pytest -q -p no:cacheprovider tests/test_member_fee_correction_migration.py",
+    "result": {"passed": 1, "failed": 0, "skipped": 0, "duration_seconds": 4.93},
+    "from": "d02q_partial_corrections",
+    "to": "e13r_member_fee_corrections",
+    "verified": "Real API fixture has two periods, one renewal fee, one 19900-fen original cash receipt and nonempty BLOB evidence. All old-table rows and file bytes are identical after upgrade; three new tables are empty; FK check and independent full restore pass; new-table columns and FK semantics match current models; expanded fee_correction and membership_refund CHECK contracts exist.",
+    "resolved_test_issue": "First draft compared physical column/FK declaration ordinals. Normalized by semantic column/FK fields without dropping datatype, nullability, defaults, primary-key or reference checks. No runtime or migration edits."
+  },
+  "limits": "Synthetic API/SQLite integration and SQLite nonempty migration only; no browser, company data, PostgreSQL, production deployment, or whole-tree acceptance claimed."
+}

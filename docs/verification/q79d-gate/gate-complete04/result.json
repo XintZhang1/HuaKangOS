@@ -1,0 +1,12 @@
+{
+  "label": "gate-complete04",
+  "exit_code": 0,
+  "seconds": 124.66824730400003,
+  "source_unchanged": true,
+  "changed_paths": [],
+  "tests": 119,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 119
+}

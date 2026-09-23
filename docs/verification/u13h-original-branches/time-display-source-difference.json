@@ -1,0 +1,23 @@
+{
+  "scope": "UTC-naive display correction only; API/business/ledger/migration source unchanged",
+  "files": {
+    "tests/browser_member_fee_corrections.py": {
+      "before": "8a56496dbdc98ba78278360afb2a1b97f63757d99562d693e001faafecbf10de",
+      "after": "e2feb0cae9e2ac1d880ab6519c4f4f952e6116fb78d91e9f4af4938f32a6f9f6"
+    },
+    "tests/js/time_display.test.cjs": {
+      "before": null,
+      "after": "ddaacbc96c11ed443e6e5dbdd0d4349eb334c124c1cda00f6b5c4524372e77cc"
+    },
+    "tests/test_time_display.py": {
+      "before": null,
+      "after": "840d8be87118f18b83b56b04b412e2541a11f858d7dc5018918601236b2d6996"
+    },
+    "web/app.js": {
+      "before": "1f0ad421e7849d1c9b5ed06070ad876b8a858a8e2f8fa7a15e8e11ea9ba74cdc",
+      "after": "1f41bd35b372b859cb6a5f3f61af6e6b1924a0799e81b8ad6327cb8eeacb92dd"
+    }
+  },
+  "from_run": "u13h-final-03-20260923-1522",
+  "to_run": "u13h-final-04-20260923-1553"
+}

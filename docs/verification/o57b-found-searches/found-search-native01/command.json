@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/opt/pyvenv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--tb=short",
+    "--junitxml=/mnt/data/huakangos_runs/found-search-native01/junit.xml",
+    "tests/test_transfer_goods_searches.py"
+  ],
+  "cwd": "/mnt/data/huakangos_snapshots/found-search-native01/dealer_desk",
+  "start_utc": "2026-09-22T08:41:35Z"
+}

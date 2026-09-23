@@ -1,0 +1,6 @@
+{
+  "changed_since_first_run": [
+    "tests/test_transfer_loss_reporting.py"
+  ],
+  "runtime_and_migrations_unchanged": true
+}

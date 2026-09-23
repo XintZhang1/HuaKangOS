@@ -29,6 +29,9 @@ class UserStore(Base):
     __tablename__ = 'user_stores'
     user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), primary_key=True)
     store_id: Mapped[int] = mapped_column(ForeignKey('stores.id'), primary_key=True)
+    # NULL is an explicit compatibility mode for existing global-role accounts.
+    role: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    __table_args__ = (CheckConstraint("role IS NULL OR role IN ('manager','sales','inventory','service','finance','auditor','reception','technician','customer_service')", name='ck_user_store_role'),)
 
 
 class User(Base):
@@ -38,10 +41,12 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(80))
     password_hash: Mapped[str] = mapped_column(String(300))
     role: Mapped[str] = mapped_column(String(20))
+    can_group_summary: Mapped[bool] = mapped_column(Boolean, default=False, server_default='0')
+    access_version: Mapped[int] = mapped_column(Integer, default=1, server_default='1')
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    __table_args__ = (CheckConstraint("role IN ('admin','manager','sales','inventory','service','finance','auditor')", name='ck_user_role'),)
+    __table_args__ = (CheckConstraint("role IN ('admin','manager','sales','inventory','service','finance','auditor','reception','technician','customer_service')", name='ck_user_role'), CheckConstraint('access_version >= 1', name='ck_user_access_version'))
 
 
 class LoginSession(Base):
@@ -77,7 +82,10 @@ class DocumentMixin(StoreScoped):
 
 class Vehicle(DocumentMixin, Base):
     __tablename__ = 'vehicles'
-    vin: Mapped[str] = mapped_column(String(17), unique=True)
+    vin: Mapped[str] = mapped_column(String(17))
+    # Each physical receipt has its own immutable store owner. Generation 0
+    # preserves the original global VIN uniqueness for legacy creation paths.
+    inventory_generation: Mapped[int] = mapped_column(Integer, default=0, server_default='0')
     brand: Mapped[str] = mapped_column(String(80))
     model: Mapped[str] = mapped_column(String(120))
     color: Mapped[str] = mapped_column(String(40), default='')
@@ -86,6 +94,8 @@ class Vehicle(DocumentMixin, Base):
     purchase_cost_cents: Mapped[int] = mapped_column(BigInteger)
     list_price_cents: Mapped[int] = mapped_column(BigInteger)
     __table_args__ = (
+        UniqueConstraint('vin', 'inventory_generation', name='uq_vehicle_vin_generation'),
+        CheckConstraint('inventory_generation >= 0', name='ck_vehicle_generation'),
         UniqueConstraint('store_id', 'doc_no', name='uq_vehicle_store_doc'),
         CheckConstraint('purchase_cost_cents >= 0 AND list_price_cents >= 0', name='ck_vehicle_money'),
         CheckConstraint("approval_state IN ('draft','submitted','approved','rejected','void')", name='ck_vehicle_approval'),
@@ -298,3 +308,63 @@ class BotReceipt(Base):
     __tablename__ = 'bot_receipts'
     event_id: Mapped[str] = mapped_column(String(160), primary_key=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+# Register the independently versioned workflow tables.
+from . import flow_models  # noqa: E402,F401
+from . import vehicle_transfer_models  # noqa: E402,F401
+from . import vehicle_procurement_models  # noqa: E402,F401
+from . import reconciliation_models  # noqa: E402,F401
+from . import retail_models  # noqa: E402,F401
+from . import repair_models  # noqa: E402,F401
+from . import customer_service_models  # noqa: E402,F401
+from . import group_benefits_models  # noqa: E402,F401
+from . import group_models  # noqa: E402,F401
+from . import transfer_models  # noqa: E402,F401
+from . import transfer_exception_models  # noqa: E402,F401
+from . import file_security_models  # noqa: E402,F401
+from . import master_models  # noqa: E402,F401
+from . import procurement_models  # noqa: E402,F401
+from . import invoice_models  # noqa: E402,F401
+from . import warehouse_models  # noqa: E402,F401
+from . import membership_models  # noqa: E402,F401
+from . import membership_fee_correction_models  # noqa: E402,F401
+from . import service_intake_models  # noqa: E402,F401
+from . import aftercare_models  # noqa: E402,F401
+from . import group_aftercare_models  # noqa: E402,F401
+from . import vehicle_operations_models  # noqa: E402,F401
+from . import business_finance_models  # noqa: E402,F401
+from . import private_file_models  # noqa: E402,F401
+from . import opening_import_models  # noqa: E402,F401
+from . import recharge_bundle_models  # noqa: E402,F401
+from . import claims_models  # noqa: E402,F401
+from . import vehicle_imports_models  # noqa: E402,F401
+from . import retail_bundle_models  # noqa: E402,F401
+
+from . import vehicle_catalog_models  # explicit model hierarchy, no text inference
+
+from . import service_orders_models  # noqa: E402,F401
+
+from . import sales_quote_models  # noqa: E402,F401
+
+from . import procurement_cost_models  # noqa: E402,F401
+
+from . import addon_models  # noqa: E402,F401
+from . import user_access_models as _user_access_models
+
+from . import insurance_models  # register immutable insurance facts
+from . import business_entity_models  # approved legal identities and source attribution
+
+from . import retail_group_models, observation_corrections_models, transfer_goods_recovery_models  # n46a explicit domain registration
+
+from . import transfer_goods_search_models  # o57b append-only original return-transit tracing
+
+from . import questionnaire_models  # p68c immutable issued questionnaire versions
+from . import gate_visit_models  # noqa: E402,F401
+
+from .vehicle_transport_models import *  # noqa: F401,F403
+
+from . import dossier_grant_models  # explicit read-only original-record/file grants
+from . import vehicle_income_models  # original supplier vehicle income, separate from customer receipts
+from . import rework_extension_models  # explicit original responsibility grants and local quote classification
+from . import member_pricing_models  # independently approved local membership price provenance
+from . import repair_package_models  # explicit prepaid work/material components and original-source returns

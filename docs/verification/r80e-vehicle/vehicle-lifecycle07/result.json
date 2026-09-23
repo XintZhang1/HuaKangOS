@@ -1,0 +1,12 @@
+{
+  "label": "vehicle-lifecycle07",
+  "exit_code": 0,
+  "seconds": 39.364463959000204,
+  "source_unchanged": true,
+  "changed_paths": [],
+  "tests": 8,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 8
+}

@@ -1,0 +1,12 @@
+{
+  "label": "gate-native01",
+  "exit_code": 0,
+  "seconds": 30.24965692300009,
+  "source_unchanged": true,
+  "changed_paths": [],
+  "tests": 34,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 34
+}

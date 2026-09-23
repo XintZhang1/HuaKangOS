@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .models import MODULES, Vehicle, Sale, Repair, Policy, CashEntry, AuditLog, User
 from .schemas import INPUTS, ActionInput
 from .security import require_module
-from .db import today
+from .db import today, utcnow
 
 LINK_FIELDS = {'sales':'sale_id','repairs':'repair_id','policies':'policy_id','vehicles':'vehicle_id'}
 PREFIXES = {'vehicles':'V','sales':'S','repairs':'R','policies':'P','cash':'C'}
@@ -37,11 +37,20 @@ def serialize(row, module: str, user: User | None = None, db: Session | None = N
     if module == 'vehicles':
         sale = db.scalar(select(Sale).where(Sale.active_vehicle_id == row.id)) if db is not None else None
         data['stock_state'] = ('sold' if sale.sale_stage == 'delivered' else 'reserved') if sale else 'available'
+        if db is not None:
+            from .flow_models import VehicleHold
+            hold = db.scalar(select(VehicleHold).where(VehicleHold.vehicle_id == row.id))
+            if hold: data['stock_state'] = 'sold' if hold.delivered else 'reserved'
+            from .vehicle_transfer_analytics import availability_flags
+            flag=availability_flags(db).get(row.id)
+            if flag:data['stock_state']=flag
         if row.approval_state != 'approved': data['stock_state'] = 'inactive'
         data['stock_age_days'] = max(0, (today()-row.business_date).days) if data['stock_state'] not in {'sold','inactive'} else 0
-        if user and user.role == 'sales':
+        if user and user.role in {'sales','inventory'}:
             for field in ('purchase_cost_cents','purchase_cost','supplier','note'):
                 data.pop(field, None)
+            if user.role=='inventory':
+                data.pop('list_price',None);data.pop('list_price_cents',None)
     if module == 'sales' and db is not None:
         vehicle = db.get(Vehicle, row.vehicle_id)
         data['vehicle_label'] = f'{vehicle.vin} · {vehicle.model}' if vehicle else ''
@@ -92,6 +101,10 @@ def validate_relations(db: Session, module: str, values: dict, approving=False):
             raise HTTPException(422, '关联记录不存在或已作废')
         if (approving or module == 'sales') and row.approval_state != 'approved':
             raise HTTPException(422, '关联业务必须先审核通过')
+        if module == 'sales':
+            from .flow_models import VehicleHold
+            if db.scalar(select(VehicleHold).where(VehicleHold.vehicle_id == row.id)):
+                raise HTTPException(409, '该车辆已由流程订单占用，不可重复销售')
         if module == 'sales' and row.business_date > values['business_date']:
             raise HTTPException(422, '订单日期不能早于该车入库日期')
 
@@ -153,6 +166,17 @@ def act_record(db, user, module, record_id, action, request: ActionInput):
     row = get_record(db, user, module, record_id)
     check_version(row, request.version)
     before = plain(row)
+    from .flow_models import VehicleHold, PaymentLink
+    if module == 'cash' and (row.category.startswith(('group_member_','procurement_','benefit_','vehicle_procurement_','interstore_clearing','business_finance_','service_')) or db.scalar(select(PaymentLink.id).where(PaymentLink.cash_id == row.id))):
+        raise HTTPException(409, '此款项由业务流程确认，不可从旧入口修改或作废')
+    if module == 'vehicles' and action=='void':
+        from .transfer_service import authority
+        from .vehicle_transfer_models import VehicleCustody
+        with authority(db,user,{'admin','manager','inventory'}):
+            if db.scalar(select(VehicleCustody.id).where(VehicleCustody.vin==row.vin.upper())):
+                raise HTTPException(409,'此VIN已有采购或跨店保管事实，须由原业务退货或调拨处理，不可从旧入口作废')
+    if module == 'vehicles' and action == 'void' and db.scalar(select(VehicleHold).where(VehicleHold.vehicle_id == row.id)):
+        raise HTTPException(409, '该车辆已由流程订单占用，不能作废')
     if action == 'submit':
         require_module(user, module, True)
         may_edit(user,row)
@@ -173,9 +197,12 @@ def act_record(db, user, module, record_id, action, request: ActionInput):
                 vehicle = db.scalar(select(Vehicle).where(Vehicle.id == row.vehicle_id).with_for_update())
                 if vehicle.approval_state != 'approved':
                     raise HTTPException(409, '该车辆尚未审核入库')
+                from .vehicle_transfer_service import assert_vehicle_available
+                assert_vehicle_available(db,user,vehicle)
                 occupied = db.scalar(select(Sale.id).where(Sale.active_vehicle_id == row.vehicle_id))
-                if occupied:
+                if occupied or db.scalar(select(VehicleHold).where(VehicleHold.vehicle_id==vehicle.id)):
                     raise HTTPException(409, '该车已有生效订单，不能重复占用库存')
+                vehicle.updated_at=utcnow()
                 row.active_vehicle_id = row.vehicle_id
                 row.purchase_cost_snapshot_cents = vehicle.purchase_cost_cents
             row.approval_state = 'approved'

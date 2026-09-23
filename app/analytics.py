@@ -3,24 +3,28 @@ from collections import Counter, defaultdict
 from bisect import bisect_right
 from datetime import date, timedelta
 from decimal import Decimal
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, and_
 from .models import MODULES, AuditLog
 from .config import settings
 from .db import today
 from .services import PREFIXES
 
-BASIS = ('只统计已审核单据，金额按“分”存。交付按交车日、维修按完工日。'
-         '保费代收不算收入，佣金单列，内部转账不计入总收支。'
-         '毛差＝结算金额−录入成本，不含税费、返利、工资、折旧，不等于净利润。'
-         '已生成的日报保留当时快照。')
+BASIS = ('金额单位为人民币分；汇总仅计入已审核记录。交付合同金额按实际交车日，维修结算金额按完工日；'
+         '保费代收不计为门店营业收入，预计佣金单列；内部转账不计入门店总收支。'
+         '销售和维修毛差仅为合同/结算金额减录入直接成本，不含税费、返利、薪酬、折旧等，非会计净利润。'
+         '历史日期按当前数据库有效状态重新计算，不是时点账簿还原；已保存日报保留生成时快照。')
 
 
 def source_revision(db) -> int:
-    return db.scalar(select(func.max(AuditLog.id)).where(AuditLog.entity_type.in_(list(MODULES)), AuditLog.action.in_(['create','update','submit','approve','reject','advance','void','seed']))) or 0
+    return db.scalar(select(func.max(AuditLog.id)).where(or_(
+        and_(AuditLog.entity_type.in_(list(MODULES)),AuditLog.action.in_(['create','update','submit','approve','reject','advance','void','seed'])),
+        and_(AuditLog.entity_type.in_(['flow','flow_master']),~AuditLog.action.in_(['download','export']))))) or 0
 
 
 def load_data(db, end: date) -> dict:
     data = {module:list(db.scalars(select(model).where(model.business_date <= end).order_by(model.id))) for module,model in MODULES.items()}
+    from .cash_basis import effective_cash
+    data['cash']=effective_cash(db,data['cash'])
     # Date-indexed cumulative collections keep the dashboard O(days * rows), not O(sales * cash).
     events = defaultdict(list)
     fields = {'sales':'sale_id','repairs':'repair_id','policies':'policy_id'}
@@ -37,6 +41,8 @@ def load_data(db, end: date) -> dict:
         for event_day,amount in sorted(values):
             total += amount; dates.append(event_day); totals.append(total)
         index[key] = (dates,totals)
+    from .flow_models import VehicleHold,Case
+    data['_flow_delivered'] = set(db.scalars(select(VehicleHold.vehicle_id).join(Case,Case.id==VehicleHold.case_id).where(VehicleHold.delivered.is_(True),Case.completed_date<=end)))
     data['_collections'] = index
     data['_by_id'] = {module:{row.id:row for row in data[module]} for module in MODULES}
     return data
@@ -59,7 +65,7 @@ def daily_metrics(data, day: date):
     cash = [r for r in approved(data,'cash',day) if r.business_date == day]
     vehicles = approved(data,'vehicles',day)
     allocated = {r.vehicle_id:r for r in approved(data,'sales',day)}
-    on_hand = [v for v in vehicles if v.id not in allocated or not allocated[v.id].delivery_date or allocated[v.id].delivery_date > day]
+    on_hand = [v for v in vehicles if v.id not in data.get('_flow_delivered',set()) and (v.id not in allocated or not allocated[v.id].delivery_date or allocated[v.id].delivery_date > day)]
     cash_in = sum(r.amount_cents for r in cash if r.direction == 'in' and r.category != 'transfer')
     cash_out = sum(r.amount_cents for r in cash if r.direction == 'out' and r.category != 'transfer')
     result = {
@@ -110,6 +116,7 @@ def detect(data, day: date):
     sales = approved(data,'sales',day)
     occupied = {r.vehicle_id:r for r in sales}
     for v in cars.values():
+        if v.id in data.get('_flow_delivered',set()):continue
         s = occupied.get(v.id)
         if s and s.delivery_date and s.delivery_date <= day: continue
         age = (day-v.business_date).days
@@ -258,6 +265,33 @@ def build_snapshot(db, day: date):
         'ai_record_count':len(ai_records),'ai_omitted_record_count':max(0,len(records)-len(ai_records)),
         'ai_omitted_finding_count':max(0,len(candidates)-len(ai_findings)),
         'provisional':day == today()}
+    # Keep the original legacy snapshot for reproducibility. Combined totals are
+    # explicitly separate and MUST NOT be added to the legacy totals.
+    from .flow_models import Case,Task
+    from .flow_engine import paid_amount
+    from .flow_analytics import build_analytics,bounded
+    from types import SimpleNamespace
+    if db.scalar(select(Case.id).limit(1)):
+        flow=build_analytics(db,SimpleNamespace(role='admin'),day,day)
+        snapshot['workflow']={'metrics':flow['metrics'],'stock_as_of':flow['stock_as_of'],
+            'basis':'新流程与既有记录的合并口径，不能与 metrics 相加；现金流水仅计一次。库存、待收款和待办按生成时当前状态。',
+            'previous_day':build_analytics(db,SimpleNamespace(role='admin'),day-timedelta(days=1),day-timedelta(days=1))['metrics']}
+        def add_flow(rule,row,title,evidence,action,severity='medium'):
+            snapshot['rule_findings'].append({'rule_code':rule,'severity':severity,'entity_type':'flow','entity_id':row.id,
+                'ref':f'WF-{row.id}','title':title,'evidence':evidence,'suggested_action':action})
+        rows=bounded(db,Case);byid={r.id:r for r in rows}
+        for task in bounded(db,Task,select(Task).where(Task.status=='open',Task.due_date<today())):
+            row=byid.get(task.case_id)
+            if row and row.business_date<=day:
+                add_flow('FLOW_TASK_'+task.key.upper(),row,'业务任务超过计划日期',
+                    {'as_of':today().isoformat(),'due_date':task.due_date.isoformat(),'task_id':task.id},'核对是否等待客户、材料或接手；确认负责人和下一次处理日期。')
+        for row in rows:
+            if row.business_date>day or row.state in {'cancelled','rejected'}:continue
+            if row.kind in {'order','repair'} and row.cost_cents is not None and row.amount_cents<row.cost_cents:
+                add_flow('FLOW_NEGATIVE_MARGIN',row,'约定金额低于直接成本',{'amount_cents':row.amount_cents,'cost_cents':row.cost_cents},'核对报价、录入成本和承担方；内部服务或促销不直接认定异常。')
+            if row.state=='credit_open' and row.due_date and row.due_date<today():
+                add_flow('FLOW_CREDIT_OVERDUE',row,'月结业务已过约定收款日期',{'due_date':row.due_date.isoformat(),'remaining_cents':row.amount_cents-paid_amount(db,row)},'核对约定账期、付款记录以及到账凭据。')
+        snapshot['ai_omitted_finding_count']=max(0,len(snapshot['rule_findings'])-settings.ai_max_records)
     return snapshot
 
 
@@ -266,6 +300,7 @@ def external_payload(snapshot):
     keys = ('business_date','currency','amount_unit','basis','metrics','previous_day','rule_settings','records',
             'record_count_before_ai_cap','ai_record_count','ai_omitted_record_count','ai_omitted_finding_count','provisional')
     result = {k:snapshot[k] for k in keys}
+    if 'workflow' in snapshot:result['workflow']=snapshot['workflow']
     result['rule_findings'] = snapshot['rule_findings'][:settings.ai_max_records]
     return result
 

@@ -1,0 +1,12 @@
+{
+  "label": "vehicle-restore02",
+  "exit_code": 0,
+  "seconds": 69.75920921700026,
+  "source_unchanged": true,
+  "changed_paths": [],
+  "tests": 28,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 28
+}
