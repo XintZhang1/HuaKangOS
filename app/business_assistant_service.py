@@ -289,6 +289,9 @@ TOOLS=[
          {**OP_ARGS,'summary':{'type':'string','description':'简明说明将新增或修改什么'}},['operation_id','summary']),
     tool('record_issue','记录操作受阻的问题，区分缺资料、业务规则、系统错误、模型填错和未支持。不得写入客户信息或密钥。',
          {'category':{'type':'string','enum':sorted(ISSUE_CATEGORIES)},'summary':{'type':'string'},'operation_id':{'type':'string'}},['category','summary']),
+    tool('find_workflows','查已发布的操作指引：员工问“这件事在哪里办、谁有权限、要准备什么、有没有批量或更快的做法”时先查它。只返回帮助内容，不含业务数据，也不代表员工已有权限。',
+         {'query':{'type':'string','description':'员工的说法或业务关键词，例如“员工账号”“门店设置”“加装出票”'},
+          'category':{'type':'string','description':'可选：系统管理、整车销售、维修、物资、财务、会员、客户等'}},['query']),
 ]
 
 SYSTEM_PROMPT='''你是华慷集团 huakangos 的业务助手，用最少、易懂的中文帮助员工完成业务。
@@ -310,6 +313,7 @@ read_data 只能查询；prepare_operation 只生成待确认卡片，员工点�
 不接收和处理密码、API密钥、验证码；不让员工把这些输入对话。不生成用于执行的SQL、命令或代码，不输出隐藏权限说明。
 当数据有变，以新查询结果为准。避免重复创建同一资料。若此前操作状态不确定，先核对原记录，不能再建一份。
 已有工单优先用find_cases/get_case/prepare_case_action/prepare_customer_contact，不必先查接口目录。其他目标先用list_operations查对应领域，不熟悉领域时才查领域目录。常用领域：masters车型基础资料；flow售前接待、通用业务和客户资料；customer-choice查找客户；sales-quotes车辆报价；service-intake维修预约；repair-orders维修工单；customer-service客户服务；membership会员卡。
+员工问“这件事在哪里办、谁有权限、要准备什么材料、有没有批量或更快的做法”时，先find_workflows查已发布的操作指引，按指引告诉他入口、岗位和限制；指引写明只对某个岗位开放的（例如员工账号、门店设置、操作记录只对系统管理员），直接说清是哪个岗位，不要只说“我这边没有入口”。账号、密码、重置密码、参数发布这类涉及凭据或配置的操作只指路并整理清单：不接收密码、不代提交。指引里确实没有的才说暂无对应入口，并说明你能替他整理什么。
 operation_id必须逐字使用list_operations返回的id（包含HTTP方法和路径，例如GET /api/customer-choice/matches）。domain只是目录名，不能用作operation_id。
 类型/动作/表单字典必须先读取：GET /api/masters/catalog 或 GET /api/flow/catalog，assistant_kind可指定要查的类型。操作卡需要的所有字段要按本次具体目的收集，不要求员工知道内部编号。
 联系电话不是售前接待必填项。没有电话时可按姓名查客户；查询无匹配则按员工给出的新客户资料准备接待，不能额外要求电话或让员工确认不存在的重复档案。有真实匹配时再让员工选择已有客户或明确新建。需要电话的回访可在安排回访时补充。
@@ -390,6 +394,9 @@ async def run_tools(db,request,user,thread_id,name,args,config):
         from .business_assistant_case_tools import handle_case_tool
         return await handle_case_tool(db,request,user,thread_id,name,args,config)
     if name=='record_issue':return record_issue(db,user,thread_id,args.get('category'),args.get('summary'),args.get('operation_id',''),synthetic=config.synthetic)
+    if name=='find_workflows':
+        from .business_assistant_guides import find_workflows
+        return find_workflows(args.get('query',''),getattr(user,'role',''),args.get('category',''))
     if name=='read_data':
         operation_id=args.get('operation_id','')
         operation=gateway.inspect_operation(operation_id)

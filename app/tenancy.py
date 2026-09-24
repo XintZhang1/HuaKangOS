@@ -77,7 +77,13 @@ def attach_scope(request, db, user):
     elif requested:
         try: active = int(requested)
         except ValueError: raise HTTPException(422, '门店参数无效')
-        if active not in ids: raise HTTPException(403, '没有该门店的访问权限，或门店已停用')
+        if active not in ids:
+            # Deactivating the store the employee is currently in must not look like a
+            # permission problem: the page has to tell them to pick another store.
+            store = db.get(Store, active)
+            if not store or not store.active:
+                raise HTTPException(409, '当前门店已停用或不存在，请重新选择门店后再办理')
+            raise HTTPException(403, '没有该门店的访问权限')
     else:
         active = ids[0] if ids else None
     if not ids and not request.url.path.startswith(('/api/auth/', '/api/users', '/api/stores')):
