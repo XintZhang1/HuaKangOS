@@ -78,10 +78,16 @@ def attach_scope(request, db, user):
         try: active = int(requested)
         except ValueError: raise HTTPException(422, '门店参数无效')
         if active not in ids:
-            # Deactivating the store the employee is currently in must not look like a
-            # permission problem: the page has to tell them to pick another store.
-            store = db.get(Store, active)
-            if not store or not store.active:
+            # Deactivating the store the employee is currently in must not look like a permission
+            # problem: the page has to tell them to pick another store. Only reveal that state for
+            # a store this account is actually assigned to (or for an administrator, who sees every
+            # store); any other id keeps the uniform permission error so an unrelated store's
+            # existence or active flag cannot be probed.
+            is_admin = account_role(user) == 'admin'
+            assigned = db.scalar(select(UserStore).where(UserStore.user_id == user.id,
+                                                         UserStore.store_id == active))
+            store = db.get(Store, active) if (is_admin or assigned) else None
+            if is_admin or (store is not None and not store.active):
                 raise HTTPException(409, '当前门店已停用或不存在，请重新选择门店后再办理')
             raise HTTPException(403, '没有该门店的访问权限')
     else:

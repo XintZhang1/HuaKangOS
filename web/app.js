@@ -134,12 +134,12 @@ function storeSwitchShell(){
  document.title=title+' · huakangos 华慷集团';
 }
 async function readStoreContext(store){const user=await api('/api/auth/me',{store,storeRequest:true}),catalogs=await readStoreCatalog(store,true);return {user,...catalogs};}
-async function switchStore(target,route=null){
+async function switchStore(target,route=null,notice=''){
  if(!state.user)return;
  const pending={version:++storeContextVersion,target:String(target),previous:String(state.store),route};
  state.storeSwitch=pending;renderId++;closeModal();clearBusinessViews();shell();
  const current=()=>state.storeSwitch===pending&&storeContextVersion===pending.version;
- const commit=async(context,store,nextRoute)=>{if(!current())return;Object.assign(state,context);state.store=store;state.storeSwitch=null;state.page=1;state.q='';state.status='';state.taskScope=['admin','manager','auditor'].includes(state.user.role)?'all':'mine';state.route=nextRoute;history.replaceState(null,'','#'+nextRoute);rememberStore();shell();await render();};
+ const commit=async(context,store,nextRoute)=>{if(!current())return;Object.assign(state,context);state.store=store;state.storeSwitch=null;state.page=1;state.q='';state.status='';state.taskScope=['admin','manager','auditor'].includes(state.user.role)?'all':'mine';state.route=nextRoute;history.replaceState(null,'','#'+nextRoute);rememberStore();shell();await render();if(notice)toast(notice);};
  try{const context=await readStoreContext(pending.target);if(current())await commit(context,pending.target,pending.route||(pending.target==='all'?'analytics/overview':'work'));}
  catch(error){
   if(!current())return;
@@ -151,8 +151,9 @@ async function switchStore(target,route=null){
 }
 function activeStoreOptions(list){return (list||[]).filter(store=>store.active!==false);}
 function reconcileStore(list){
- // The store this page works in can disappear: another tab or the store page may deactivate it.
- // Switching to a usable store with a clear notice beats a permission error nobody can act on.
+ // Used while a fresh context is being established (boot, saving a store): pick a usable store
+ // before anything is in flight. Runtime recovery goes through switchStore instead, so the
+ // context epoch, cached views and role catalogues are reset together.
  const options=activeStoreOptions(list);
  if(!options.length)return null;
  if(options.some(store=>String(store.id)===String(state.store)))return null;
@@ -160,7 +161,7 @@ function reconcileStore(list){
  state.store=String(fallback.id);rememberStore();
  return fallback;
 }
-async function recoverStoreContext(){const user=await api('/api/auth/me',{store:null,storeRequest:true});state.user=user;state.stores=user.stores||[];return reconcileStore(state.stores);}
+async function reReadStores(){const user=await api('/api/auth/me',{store:null,storeRequest:true});state.user=user;state.stores=user.stores||[];return activeStoreOptions(state.stores);}
 async function boot(){
  state.store=String(state.user.active_store_id||state.user.stores?.[0]?.id||'');
  const previousStore=savedStore(state.user);
@@ -177,8 +178,12 @@ async function render(){if(state.storeSwitch){storeSwitchShell();return;}const c
  if(current!==renderId)return;$('#main').innerHTML=html;bindFilters();if(type==='workflows'&&!key)bindWorkflowGuides();if(type==='business-assistant'&&typeof bindBusinessAssistantPage==='function')bindBusinessAssistantPage();document.title=( $('h1')?.textContent||'门店经营台')+' · huakangos 华慷集团';if(type==='workflow-form')await workflowOpenForm(key);else if(typeof applyWorkflowFormIntent==='function')applyWorkflowFormIntent();
  }catch(err){if(current===renderId&&typeof workflowFormIntent!=='undefined')workflowFormIntent=null;if(current===renderId&&state.user){
   if(err.storeUnavailable){
-   try{const moved=await recoverStoreContext();if(current!==renderId)return;shell();
-    if(moved){toast(`当前门店已停用，已切换到「${moved.name}」。请核对右上角门店后再办理。`);await render();return;}
+   try{
+    const options=await reReadStores();if(current!==renderId)return;
+    if(options.length){
+     await switchStore(String(options[0].id),state.route,`当前门店已停用，已切换到「${options[0].name}」。请核对右上角门店后再办理。`);
+     return;
+    }
     $('#main').innerHTML=`<div class="panel errorpage"><h2>暂时无法显示</h2><p class="notice error">当前账号还没有可用门店：请在“门店设置”启用门店，或让管理员分配门店。</p>${b('refresh','重新读取')}</div>`;return;
    }catch(recoveryError){if(current!==renderId)return;$('#main').innerHTML=`<div class="panel errorpage"><h2>暂时无法显示</h2><p class="notice error">${E(recoveryError.message)}</p>${b('refresh','重新读取')}</div>`;return;}
   }
@@ -312,7 +317,7 @@ async function userDialog(id){
  await formDialog(row?'编辑员工':'新增员工',fields,row||{},(v,form)=>{const fd=new FormData(form),ids=fd.getAll('store_ids').map(Number);return api('/api/users'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:{...v,...(row?{access_version:row.access_version,request_id:editRequest}:{}),store_ids:v.role==='admin'?[]:ids,store_roles:v.role==='admin'?[]:ids.map(id=>({store_id:id,role:fd.get('store_role_'+id)}))}});},{extra:checks,notice:'非管理员至少选择一家门店及对应岗位。集团汇总仅包含有管理、财务或审计岗位的授权门店，办理业务需切回具体门店。变更授权后原登录会话失效；他人修改后须关闭窗口、刷新员工列表再核对，旧页面不会覆盖新授权。'});
 }
 async function storesPage(){const d=await api('/api/stores');state.rows=d.items;return heading('门店设置','',b('newstore','新增门店','','primary'))+`<section class="panel">${table(['门店','门店编码','状态','操作'],d.items.map(r=>[E(r.name),E(r.code),pill(r.active?'done':'cancelled',r.active?'启用':'停用'),b('editstore','编辑',`data-id="${r.id}"`)]))}</section>`;}
-async function storeDialog(id){const row=id?state.rows.find(r=>r.id===id):null;const options={};await formDialog(row?'编辑门店':'新增门店',[F('name','门店名称'),F('code','门店编码'),F('active','启用','bool',false)],row||{active:true},async v=>{await api('/api/stores'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:v});const d=await api('/api/stores',{store:null});state.stores=d.items;const moved=reconcileStore(state.stores);shell();if(moved)options.success=`当前门店已停用，已切换到「${moved.name}」。请核对右上角门店后再办理。`;},options);}
+async function storeDialog(id){const row=id?state.rows.find(r=>r.id===id):null;const options={};await formDialog(row?'编辑门店':'新增门店',[F('name','门店名称'),F('code','门店编码'),F('active','启用','bool',false)],row||{active:true},async v=>{await api('/api/stores'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:v});const d=await api('/api/stores',{store:null});state.stores=d.items;const usable=activeStoreOptions(state.stores);const doomed=!usable.some(store=>String(store.id)===String(state.store));if(doomed&&usable.length){options.success=`当前门店已停用，已切换到「${usable[0].name}」。请核对右上角门店后再办理。`;await switchStore(String(usable[0].id),'stores');}else{reconcileStore(state.stores);shell();}},options);}
 async function passwordDialog(required=false){await formDialog('修改个人密码',[F('current_password','当前密码','password'),F('new_password','新密码','password')],{},async v=>{await api('/api/auth/password',{method:'POST',body:v});state.user=null;loginPage();},{notice:required?'请设置至少12位的个人密码，完成后重新登录。':'修改密码后需要重新登录。'});}
 const auditLabels={create:'建立记录',update:'修改记录',submit:'提交审核',approve:'审核通过',reject:'退回',void:'作废',advance:'确认进度',login:'登录',download:'下载文件',export:'导出',create_user:'新增员工',update_user:'修改员工',create_store:'新增门店',update_store:'修改门店',change_password:'修改密码',reset_password:'重置密码',review:'复核记录',flow_create:'建立流程业务',flow_action:'办理业务',document:'生成文件',upload:'上传凭据'};
 async function auditPage(){const d=await api('/api/audit?page='+state.page);state.rows=d.items;return heading('操作记录','业务办理、资料修改及文件下载均保留记录。')+`<section class="panel">${table(['时间','操作人','操作','业务范围','说明',''],d.items.map(r=>[time(r.occurred_at),E(r.actor_name),E(auditLabels[r.action]||r.reason||'业务操作'),E(legacyNames[r.entity_type]||({flow:'业务流程',users:'员工账号',stores:'门店',findings:'数据复核'}[r.entity_type])||'资料管理'),`<span class="wrap">${E(r.reason||'—')}</span>`,b('auditdetail','详情',`data-id="${r.id}"`)]))}${pager(d.total)}</section>`;}
