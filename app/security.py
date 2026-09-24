@@ -91,7 +91,12 @@ def get_user(request: Request, db: Session = Depends(get_db)) -> User:
     if user.must_change_password and request.url.path not in {'/api/auth/me','/api/auth/password','/api/auth/logout'}:
         raise HTTPException(403, '首次登录必须修改密码')
     from .tenancy import attach_scope
-    return attach_scope(request, db, user)
+    principal = attach_scope(request, db, user)
+    # The refusal log (评审申请的依据) needs to know who was refused and in which store.
+    request.state.user_id = principal.id
+    request.state.store_id = getattr(principal, '_active_store_id', None)
+    request.state.role = principal.role
+    return principal
 
 
 def require_module(user: User, module: str, write: bool = False):

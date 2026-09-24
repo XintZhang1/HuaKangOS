@@ -38,6 +38,7 @@ DOMAINS = {
  'users':'员工账号', 'audit':'操作记录', 'business-entities':'经营主体与账户归属',
  'findings':'数据复核', 'reports':'每日汇总', 'dashboard':'经营看板',
  'records':'原有单据', 'lookup':'原有单据查询', 'vehicle-imports':'整车请款与批量导入',
+ 'escalations':'评审申请',
 }
 # Never exposed to the assistant, not even for reading: credentials, sessions, deployment
 # settings, brand images, raw files, exports and initial-balance imports stay manual.
@@ -64,6 +65,79 @@ MANAGEMENT_READERS = {
 # export token in their path; tests/test_business_assistant_scope.py re-scans every GET
 # handler and fails when a new file/CSV route is added without being excluded here.
 DENIED = re.compile(r'/(?:files|download|export|opening|example)(?:/|$)|(?:\.csv|\.docx|\.pdf)$')
+# Owner decision 2026-09-24 (P1): the assistant prepares ordinary business steps for the
+# employee's own role, but never a judgement or money/goods-confirmation step. A denylist
+# cannot cover 42 wildcard `/actions/{action}` routes (business-finance `collect`/`execute`
+# post real cash), so preparation is **fail-closed**: only the reviewed (route, action) pairs
+# below may be prepared, and any other action — including one added to the application later —
+# is refused and stays on the native page. `None` means "whatever the case page itself offers"
+# (the flow-spec catalogue), still filtered by DECISION_TOKENS. Widening this table is a
+# deliberate, reviewable edit; tests/test_business_assistant_scope.py proves the default.
+PREPARABLE_ACTIONS = {
+    '/api/flow/cases/{case_id}/actions/{action}': None,
+    '/api/vehicle-imports/batches/{batch_id}/actions/{action}': frozenset({'trial', 'reassign'}),
+}
+# Belt-and-braces for the routes above: an action whose name carries a judgement or a money/goods
+# confirmation never becomes a confirmation card.
+DECISION_TOKENS = ('approve', 'reject', 'void', 'cancel', 'confirm', 'consent', 'reopen', 'seal',
+                   'review', 'settle', 'credit', 'revise', 'commit', 'refund', 'pay', 'receive',
+                   'invoice', 'quality', 'inspect', 'dispose', 'write_off', 'terminate',
+                   'collect', 'execute', 'receipt')
+# Writes that are deliberately outside the assistant even though they are registered routes:
+# accounts/credentials, store and legal-entity configuration, parameter rules, finding review,
+# daily-report generation and the arbitrary legacy record CRUD.
+CLASSIFIED_BLOCKED_WRITES = frozenset({
+    'POST /api/users', 'POST /api/users/batch', 'PUT /api/users/{user_id}',
+    'POST /api/users/{user_id}/password', 'POST /api/stores', 'PUT /api/stores/{store_id}',
+    'POST /api/business-entities/applications',
+    'POST /api/business-entities/applications/{case_id}/actions/{action}',
+    'POST /api/findings/{finding_id}/review', 'POST /api/reports/generate', 'POST /api/reports/preview',
+    'POST /api/records/{module}', 'PUT /api/records/{module}/{record_id}',
+    'POST /api/records/{module}/{record_id}/actions/{action}',
+    # Multipart upload of the imported document itself: files stay on the original page.
+    'POST /api/vehicle-imports/orders/{case_id}/batches',
+    # An employee may *submit* an escalation request; handling one (claim/done/reject/cancel) is
+    # the superior's own act on the escalation page and is never prepared for them.
+    'POST /api/escalations/{escalation_id}/actions/{action}',
+})
+
+
+def is_decision_action(action):
+    key = str(action or '').strip().lower()
+    return any(token in key for token in DECISION_TOKENS)
+
+
+def flow_action_keys():
+    """The case page's own action catalogue (flow specs), the only dynamic allowlist."""
+    from .flow_specs import SPECS
+    return {action.key for spec in SPECS.values() for action in spec['actions']}
+
+
+def action_is_preparable(path, action):
+    """Reviewed (route, action) pairs only; anything else stays a native-page step."""
+    if path not in PREPARABLE_ACTIONS:
+        return False
+    key = str(action or '').strip().lower()
+    if not key or is_decision_action(key):
+        return False
+    allowed = PREPARABLE_ACTIONS[path]
+    return key in flow_action_keys() if allowed is None else key in allowed
+
+
+def assert_not_decision_action(action):
+    if is_decision_action(action):
+        raise HTTPException(403, '“%s”属于批准、驳回、作废或钱货确认这类判断动作，只能由有权限的岗位'
+                                 '在原业务页面本人办理；我可以说明入口、所需资料和当前进度。'
+                                 '权限不够时请在“评审申请”里向上级提交。' % str(action))
+
+
+def assert_preparable_action(path, action):
+    if action_is_preparable(path, action):
+        return
+    assert_not_decision_action(action)
+    raise HTTPException(403, '“%s”这类动作不能由助手代办，请在原业务页面由本人办理；'
+                             '我可以说明入口、所需资料和当前进度。权限不够时请在“评审申请”里向上级提交。'
+                        % str(action))
 SECRET_KEYS = {'password','password_hash','new_password','current_password','api_key',
                'deepseek_key','token','access_token','refresh_token','authorization',
                'cookie','csrf','csrf_hash','session_id','content','blob','object_key','storage_path'}
@@ -279,6 +353,7 @@ def _parameters(op,path_args,query):
 
 def validate_operation(operation_id,path_args=None,query=None,body=None):
     op=_operation(operation_id);path_args,query=_parameters(op,path_args or {},query or {})
+    if 'action' in path_args:assert_preparable_action(op['path'],path_args['action'])
     value=copy.deepcopy(body)
     if op['method']=='GET':
         if value not in (None,{}):raise HTTPException(422,'查询操作不能提交修改内容')

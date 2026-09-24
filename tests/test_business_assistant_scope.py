@@ -1,8 +1,10 @@
 """What the assistant may read follows the employee's own role; writes stay reviewed-only."""
 import asyncio
+import re
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 
 from app import business_assistant_gateway as gateway
 from app.business_assistant_service import SYSTEM_PROMPT, run_tools
@@ -118,3 +120,117 @@ def test_no_file_or_csv_producing_route_is_offered_to_the_model():
 def test_the_known_sample_download_route_is_not_advertised():
     assert 'GET /api/vehicle-imports/orders/{case_id}/example/{kind}' not in gateway._operations()
     assert gateway.DENIED.search('/api/vehicle-imports/orders/1/example/vehicles')
+
+
+@pytest.mark.parametrize('action', ['approve', 'reject', 'cancel_request', 'cancel_approve', 'confirm',
+                                   'consent', 'reopen', 'seal', 'review', 'settle', 'internal_settle',
+                                   'credit', 'revise', 'commit', 'refund', 'pay', 'receive',
+                                   'invoice_issue', 'quality', 'inspect', 'reinspect', 'dispose',
+                                   'write_off', 'terminate'])
+def test_judgement_actions_are_never_prepared(action):
+    """Owner decision (P1): approvals, refusals, voiding and money/goods confirmation stay manual."""
+    with pytest.raises(HTTPException) as refused:
+        gateway.validate_operation('POST /api/flow/cases/{case_id}/actions/{action}',
+                                   {'case_id': 1, 'action': action}, {}, {'version': 1, 'values': {}})
+    assert refused.value.status_code == 403
+    assert '原业务页面' in refused.value.detail and '评审申请' in refused.value.detail
+
+
+@pytest.mark.parametrize('action', ['follow', 'start', 'finish', 'deliver', 'material', 'quote',
+                                    'remind', 'rework', 'rectify'])
+def test_ordinary_business_steps_are_still_preparable(action):
+    gateway.validate_operation('POST /api/flow/cases/{case_id}/actions/{action}',
+                               {'case_id': 1, 'action': action}, {}, {'version': 1, 'values': {}})
+
+
+def test_the_import_batch_actions_route_is_the_one_widened_write():
+    offered = gateway._operations()
+    batch_actions = 'POST /api/vehicle-imports/batches/{batch_id}/actions/{action}'
+    assert batch_actions in offered
+    body = {'request_id': 'synthetic-key-00000001', 'version': 1, 'source_case_version': 1,
+            'values': {'reason': '试用'}}
+    for action in ('trial', 'reassign'):
+        gateway.validate_operation(batch_actions, {'batch_id': 1, 'action': action}, {}, dict(body))
+    for action in ('review', 'confirm', 'cancel'):
+        with pytest.raises(HTTPException):
+            gateway.validate_operation(batch_actions, {'batch_id': 1, 'action': action}, {}, dict(body))
+    # The multipart upload of the document itself stays on the original page.
+    assert 'POST /api/vehicle-imports/orders/{case_id}/batches' not in offered
+
+
+def test_every_registered_write_is_classified_prepare_or_blocked():
+    """Fail-closed: a new write route must be classified before the model may prepare it."""
+    import json
+    from pathlib import Path
+    from fastapi.routing import APIRoute
+    from app.main import app
+    reviewed = set(json.loads(Path(gateway.__file__).with_name('business_assistant_capabilities.json')
+                              .read_text(encoding='utf-8'))['operations'])
+    unclassified = []
+    for route in app.routes:
+        if not isinstance(route, APIRoute) or not route.path.startswith('/api/'):
+            continue
+        domain = route.path.split('/')[2]
+        if domain not in gateway.DOMAINS or domain in gateway.CLOSED_DOMAINS or gateway.DENIED.search(route.path):
+            continue
+        for method in route.methods & {'POST', 'PUT'}:
+            operation = method + ' ' + route.path
+            if operation not in reviewed and operation not in gateway.CLASSIFIED_BLOCKED_WRITES:
+                unclassified.append(operation)
+    assert not unclassified, unclassified
+
+
+def test_every_wildcard_action_route_is_fail_closed():
+    """Only reviewed (route, action) pairs are preparable; everything else stays on the page.
+
+    A denylist cannot cover these routes: `POST /api/business-finance/orders/{key}/actions/{action}`
+    posts real cash through `collect`/`execute`, so the default must be refusal.
+    """
+    reviewed = gateway._operations()
+    wildcards = sorted(op for op in reviewed if '{action}' in op and op.startswith('POST'))
+    assert len(wildcards) > 10, 'the wildcard inventory changed unexpectedly'
+    for operation in wildcards:
+        path = operation.split(' ', 1)[1]
+        if path in gateway.PREPARABLE_ACTIONS:
+            continue
+        assert not gateway.action_is_preparable(path, 'follow'), operation
+        assert not gateway.action_is_preparable(path, 'trial'), operation
+        assert not gateway.action_is_preparable(path, 'arrive'), operation
+        assert not gateway.action_is_preparable(path, 'acquire'), operation
+        args = {name: 1 for name in re.findall(r'\{([a-z_]+)\}', path) if name != 'action'}
+        args['action'] = 'follow'
+        # Either the reviewable action policy refuses (403) or the route's own parameter pattern
+        # refuses (422); neither may ever produce a confirmation card.
+        with pytest.raises(HTTPException) as refused:
+            gateway.validate_operation(operation, args, {},
+                                       {'request_id': 'synthetic-key-00000002', 'version': 1, 'values': {}})
+        assert refused.value.status_code in (403, 422), operation
+        if refused.value.status_code == 403:
+            assert '原业务页面' in refused.value.detail
+    for money_action in ('collect', 'execute'):
+        operation = 'POST /api/business-finance/orders/{key}/actions/{action}'
+        assert operation in reviewed
+        with pytest.raises(HTTPException):
+            gateway.validate_operation(operation, {'key': 1, 'action': money_action}, {},
+                                       {'request_id': 'synthetic-key-00000003', 'version': 1, 'values': {}})
+
+
+def test_the_preparable_allowlist_names_reviewed_post_routes():
+    reviewed = set(gateway._operations())
+    for path in gateway.PREPARABLE_ACTIONS:
+        assert 'POST ' + path in reviewed, path
+        for action in gateway.PREPARABLE_ACTIONS[path] or ():
+            assert gateway.action_is_preparable(path, action), (path, action)
+            assert not gateway.is_decision_action(action), (path, action)
+
+
+def test_the_escalation_request_is_prepared_but_never_handled_for_the_reviewer():
+    """An employee may ask the assistant to prepare their own escalation card (owner decision P2)."""
+    reviewed = gateway._operations()
+    assert 'POST /api/escalations' in reviewed and 'GET /api/escalations/refusals' in reviewed
+    prepared = gateway.validate_operation('POST /api/escalations', {}, {},
+                                          {'refusal_id': 1, 'subject': '给这张单批准 5% 折扣',
+                                           'case_reference': 'XC-R09-01'})
+    assert prepared['body']['refusal_id'] == 1
+    assert 'POST /api/escalations/{escalation_id}/actions/{action}' in gateway.CLASSIFIED_BLOCKED_WRITES
+    assert gateway.DOMAINS.get('escalations')
