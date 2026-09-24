@@ -101,15 +101,38 @@ def test_an_invented_page_route_is_rejected(monkeypatch):
         builder.make_data()
 
 
-def test_a_sub_page_of_a_real_page_is_accepted(monkeypatch):
-    """The front end dispatches on the first segment: dictionaries/public, masters/suppliers."""
+def test_a_real_sub_page_from_the_catalogue_is_accepted(monkeypatch):
+    """dictionaries/public and masters/insurers are real sub-pages a script may route to."""
     def change(rounds):
         for item in rounds['rounds']:
             for step in item.get('steps') or []:
                 if step['route'] == 'stores':
-                    step['route'] = 'stores/some-sub-page'
+                    step['route'] = 'masters/vehicle_brands'
     source_with_change(monkeypatch, 'rounds.json', change)
     assert builder.make_data()
+
+
+def test_an_invented_sub_page_is_rejected(monkeypatch):
+    """A real root must not make an invented child acceptable (masters/not_a_kind)."""
+    for route in ('masters/not_a_kind', 'stores/secret-admin', 'dictionaries/nope', 'master/nope'):
+        def change(rounds, route=route):
+            for item in rounds['rounds']:
+                for step in item.get('steps') or []:
+                    if step['route'] == 'stores':
+                        step['route'] = route
+        source_with_change(monkeypatch, 'rounds.json', change)
+        with pytest.raises(AssertionError):
+            builder.make_data()
+
+
+def test_sub_page_keys_come_from_the_real_catalogues():
+    from app.dictionary_api import DICTIONARIES
+    from app.flow_api import MASTERS
+    from app.master_data import CATALOG
+    keys = builder.sub_page_keys()
+    assert keys['dictionaries'] == set(DICTIONARIES)
+    assert keys['masters'] == set(CATALOG)
+    assert keys['master'] == set(MASTERS)
 
 
 def test_sub_page_keys_exist_in_the_real_catalogues():
