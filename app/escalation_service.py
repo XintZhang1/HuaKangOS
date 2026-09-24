@@ -1,32 +1,73 @@
-"""评审申请的创建、查看与处理。只记录请求和结果，不改变权限、也不执行业务动作。"""
-import re
+"""评审申请的创建、查看与处理。只记录请求和结果，不改变权限、也不执行业务动作。
+
+评审只能引用**系统自己记下的被挡记录**（escalation_refusals）：申请人自述的类别不作数，
+否则"业务规则不允许"的事会被改写成"岗位权限不足"绕过规则。岗位判定一律用当前门店的
+实际岗位（请求主体已按门店投影），不是账号级岗位。
+"""
+from datetime import timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import select
 
 from .db import utcnow
-from .escalation_models import (CATEGORY_LABELS, Escalation, EscalationEvent, STATUS_LABELS,
+from .escalation_models import (CATEGORY_LABELS, Escalation, EscalationEvent, Refusal, STATUS_LABELS,
                                 TARGET_LABELS, STATUSES)
 from .security import ROLES
 from .services import audit, plain
 from .tenancy import single_store
 
-OPERATION_PATTERN = re.compile(r'^(GET|POST|PUT) /api/[A-Za-z0-9_/{}.-]{2,180}$')
 REVIEWER_ROLES = {'manager', 'admin'}
 MAX_ROWS = 200
+MAX_REFUSALS = 12
+REFUSAL_HOURS = 24
+AUTHORITY_HINTS = ('权限', '岗位', '无权', '只有', '仅限', '不属于', '未获')
+AMOUNT_HINTS = ('额度', '限额', '上限', '授权金额', '超出授权')
+REFUSAL_CATEGORIES = ('authority', 'amount', 'rule')
 
 
 def account_role(user):
     return getattr(user, 'account_role', user.role)
 
 
-def target_role_for(user):
-    """本店店长；店长本人或管理员提出时转集团管理员（由服务端判定，模型与前端不能指定）。"""
-    return 'admin' if account_role(user) in {'admin', 'manager'} else 'manager'
+def store_role(user):
+    """当前门店的实际岗位。请求主体已按门店投影，权限判定必须用它。"""
+    return getattr(user, 'role', None) or 'unknown'
 
 
-def is_reviewer(user):
-    return account_role(user) in REVIEWER_ROLES
+def classify_refusal(status_code, message):
+    """把系统自己的拒绝分类；分不出权限/额度的一律算业务规则，不能走评审。"""
+    text = str(message or '')
+    if any(hint in text for hint in AMOUNT_HINTS):
+        return 'amount'
+    if any(hint in text for hint in AUTHORITY_HINTS):
+        return 'authority'
+    return 'rule'
+
+
+def record_refusal(db, *, store_id, user, method, path, status_code, message, source='page'):
+    """记下被挡住的一步（系统自己的事实），供评审申请引用。
+
+    只记 403，以及确实带权限/额度语义的 422；表单校验、登录过期、评审接口自身和助手
+    自己的策略拒绝都不记录：那些不是"岗位不够"。
+    """
+    if not store_id or not path.startswith('/api/'):
+        return None
+    if path.startswith(('/api/escalations', '/api/auth', '/api/business-assistant')):
+        return None
+    if status_code not in (403, 422):
+        return None
+    category = classify_refusal(status_code, message)
+    if status_code == 422 and category == 'rule':
+        return None
+    row = Refusal(store_id=store_id, user_id=user.id, role=store_role(user), method=method,
+                  path=path[:240], status_code=status_code, message=str(message or '')[:2000],
+                  category=category, source=source)
+    db.add(row)
+    db.flush()
+    cutoff = utcnow() - timedelta(days=7)
+    for stale in db.scalars(select(Refusal).where(Refusal.user_id == user.id, Refusal.created_at < cutoff)):
+        db.delete(stale)
+    return row
 
 
 def view(db, row):
@@ -41,32 +82,58 @@ def view(db, row):
             'events': [plain(event) for event in events]}
 
 
+def refusal_view(row):
+    return {'id': row.id, 'method': row.method, 'path': row.path,
+            'operation_id': '%s %s' % (row.method, row.path), 'status_code': row.status_code,
+            'message': row.message, 'category': row.category,
+            'category_label': CATEGORY_LABELS.get(row.category, row.category),
+            'created_at': row.created_at}
+
+
+def refusals(db, user):
+    """本店最近被系统挡住、还没有用于评审申请的记录。"""
+    store = single_store(db)
+    rows = db.scalars(select(Refusal).where(Refusal.user_id == user.id, Refusal.store_id == store,
+                                            Refusal.consumed_at.is_(None))
+                      .order_by(Refusal.id.desc()).limit(MAX_REFUSALS)).all()
+    return {'items': [refusal_view(row) for row in rows],
+            'categories': CATEGORY_LABELS,
+            'notice': '这里只显示系统确实拒绝过你的操作。业务规则不允许的事项会标成“业务规则”，不能提交评审。'}
+
+
 def create(db, user, payload):
     store = single_store(db)
-    if payload.reason_category == 'rule':
-        # 规则不允许的事项不能靠评审绕过：这正是“模型或上级自造审批”的边界。
-        raise HTTPException(422, '业务规则明确不允许的事项不能通过评审绕过，请按页面提示处理')
+    receipt = db.scalar(select(Refusal).where(Refusal.id == payload.refusal_id,
+                                              Refusal.user_id == user.id, Refusal.store_id == store))
+    if not receipt:
+        raise HTTPException(404, '找不到这条被挡记录：请先在原页面按提示办理一次，被系统挡住后再回来提交')
+    if receipt.consumed_at is not None:
+        raise HTTPException(409, '这条被挡记录已经用过了，请重新在页面办理一次')
+    if receipt.created_at < utcnow() - timedelta(hours=REFUSAL_HOURS):
+        raise HTTPException(409, '这条被挡记录已超过 %d 小时，请重新在页面办理一次' % REFUSAL_HOURS)
+    if receipt.category == 'rule':
+        raise HTTPException(422, '系统挡住这一步的原因是业务规则（%s），不能通过评审绕过，请按页面提示处理'
+                            % receipt.message[:60])
+    if payload.reason_category and payload.reason_category != receipt.category:
+        raise HTTPException(422, '系统记录的原因属于“%s”，请按系统记录提交'
+                            % CATEGORY_LABELS.get(receipt.category, receipt.category))
     subject = (payload.subject or '').strip()
-    blocked = (payload.blocked_message or '').strip()
     case_reference = (payload.case_reference or '').strip()
-    operation_id = (payload.operation_id or '').strip()
     if len(subject) < 5:
         raise HTTPException(422, '请写清要办的事（至少 5 个字），例如“给这张单批准 5% 折扣”')
-    if len(blocked) < 8:
-        raise HTTPException(422, '请把系统提示的原文填进来，上级要按它核对是哪一步被挡住')
-    if operation_id and not OPERATION_PATTERN.fullmatch(operation_id):
-        raise HTTPException(422, '操作编号格式不正确，例如 POST /api/flow/cases/{case_id}/actions/{action}')
     duplicate = db.scalar(select(Escalation).where(
         Escalation.store_id == store, Escalation.requester_id == user.id, Escalation.subject == subject,
         Escalation.case_reference == case_reference, Escalation.status.in_(('open', 'claimed'))))
     if duplicate:
         raise HTTPException(409, '同一件事已经提交过评审，请等待处理或先撤回')
-    row = Escalation(store_id=store, requester_id=user.id, requester_role=user.role,
-                     target_role=target_role_for(user), subject=subject, case_reference=case_reference,
-                     operation_id=operation_id, blocked_message=blocked, reason_category=payload.reason_category,
-                     status='open')
+    row = Escalation(store_id=store, requester_id=user.id, requester_role=store_role(user),
+                     target_role='admin' if store_role(user) in {'admin', 'manager'} else 'manager',
+                     subject=subject, case_reference=case_reference,
+                     operation_id='%s %s' % (receipt.method, receipt.path), blocked_message=receipt.message,
+                     reason_category=receipt.category, status='open')
     db.add(row)
     db.flush()
+    receipt.consumed_at, receipt.consumed_by_id = utcnow(), row.id
     db.add(EscalationEvent(store_id=store, escalation_id=row.id, actor_id=user.id, action='submit', note=subject))
     audit(db, user.id, 'escalation_submit', 'escalations', row.id, reason='提交评审申请：' + subject[:60])
     db.commit()
@@ -76,14 +143,15 @@ def create(db, user, payload):
 def listing(db, user, scope='mine', status=''):
     if scope not in {'mine', 'to_review'}:
         raise HTTPException(422, '查询范围不正确')
+    role = store_role(user)
     if scope == 'to_review':
-        if not is_reviewer(user):
-            raise HTTPException(403, '只有店长或管理员可以查看待评审')
+        if role not in REVIEWER_ROLES:
+            raise HTTPException(403, '只有本店店长或管理员可以查看待评审')
         # 不能看到自己提交的申请，也不能自己批准自己——与“管理员不能自己申请自己批准”一致。
         statement = select(Escalation).where(Escalation.requester_id != user.id,
                                              Escalation.status.in_(('open', 'claimed')))
-        if account_role(user) != 'admin':
-            statement = statement.where(Escalation.target_role == account_role(user))
+        # 收件人由服务端指定：店长只看发给店长的，集团管理员只看发给集团管理员的。
+        statement = statement.where(Escalation.target_role == role)
     else:
         statement = select(Escalation).where(Escalation.requester_id == user.id)
     if status:
@@ -104,19 +172,19 @@ def act(db, user, escalation_id, action, version, note=''):
     if row.version != version:
         raise HTTPException(409, '这条申请已被其他人处理，请刷新后核对')
     note = (note or '').strip()
-    role = account_role(user)
+    role = store_role(user)
     if action == 'cancel':
-        if row.requester_id != user.id and role != 'admin':
+        if row.requester_id != user.id and account_role(user) != 'admin':
             raise HTTPException(403, '只有申请人本人或管理员可以撤回')
         if row.status not in {'open', 'claimed'}:
             raise HTTPException(409, '这条申请已经处理完，不能撤回')
         row.status = 'cancelled'
     else:
-        if not is_reviewer(user):
-            raise HTTPException(403, '只有店长或管理员可以处理评审申请')
+        if role not in REVIEWER_ROLES:
+            raise HTTPException(403, '只有本店店长或管理员可以处理评审申请')
         if row.requester_id == user.id:
             raise HTTPException(403, '不能自己批准自己提交的评审，请交给另一位有权限的同事')
-        if role != 'admin' and row.target_role != role:
+        if row.target_role != role:
             raise HTTPException(403, '这条申请不属于你的岗位')
         if action == 'claim':
             if row.status != 'open':
@@ -125,7 +193,7 @@ def act(db, user, escalation_id, action, version, note=''):
         elif action in {'done', 'reject'}:
             if row.status not in {'open', 'claimed'}:
                 raise HTTPException(409, '这条申请已经处理完')
-            if row.claimed_by_id not in (None, user.id) and role != 'admin':
+            if row.claimed_by_id not in (None, user.id):
                 raise HTTPException(403, '这条申请已由其他人接手')
             if len(note) < 3:
                 raise HTTPException(422, '请写明处理结果或驳回原因（至少 3 个字）')

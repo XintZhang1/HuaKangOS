@@ -1,13 +1,13 @@
 {
   "checkpoint": "assistant-write-scope-and-escalations-20260924",
   "application_version": "0.4.0-dev",
-  "database_head": "h47e_escalations",
+  "database_head": "h48f_escalation_refusals",
   "release_accepted": false,
   "company_accepted": false,
   "production_deployed": false,
   "source_baseline_archive": "huakangos_r80e-vehicle-checkpoint_20260922.zip",
   "source_baseline_sha256": "c766b72542b32ebc2b709498f8c3f3c45f7d723e1bac267a57b746f2c409fa59",
-  "current_same_tree_run": "TARGETED PASSED: 230项相关Python测试（含12项升级评审通道）0失败/0错误；真实Chrome升级链路5步0 JS报错；h47e_escalations尚未做全量后端重跑",
+  "current_same_tree_run": "PASSED全量: 2462通过、2跳过、0失败/0错误；167模块，1637.59秒，857个源码文件前后未变（digest 5fe713f2…）",
   "scope_correction": "docs/需求范围纠正_20260922.md",
   "scope_audit": "docs/原始需求范围复核.md",
   "environment_gates": {
@@ -15,7 +15,6 @@
     "real_postgresql": "PENDING: 未执行g35t真实PostgreSQL；布尔默认值离线DDL检查不等于真实库通过。"
   },
   "next_work": [
-    "合并前补一次h47e_escalations全量后端重跑，当前只有目标回归证据",
     "用户按手册试用并整理仓库（R02/R03试用脚本已交，待试用反馈）",
     "整理服务器配置并执行部署侧验证，当前未部署",
     "公司实际业务、会员/月结周期及未完成体验项继续验收"
@@ -32,23 +31,23 @@
   },
   "verification_report": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
   "requirement_mapping_audit": "docs/需求逐项核对-employee-assistant-files-20260924.json",
-  "source_digest": "eea01b023b34729d743b52937af7ad5401e4a7c752d4c70e45f82234e4b7b8fe",
+  "source_digest": "5fe713f2a856fb672a9a49c84d2e2f88845339d4cb45324e8f84e48017cc5c7e",
   "repair_baseline": {
     "checkpoint": "t02g-dossier-masters",
     "manifest": "docs/verification/t02g-fix1/source-package-before.sha256",
     "prior_source_changes": "docs/verification/t02g-fix1/source-changes-before.json"
   },
   "last_verified_checkpoint": {
-    "checkpoint": "historical-quarantine-20260924",
-    "verification_report": "docs/verification/historical-test-quarantine-20260924/测试报告.md",
-    "source_digest": "bbd88bb414e48ddf559652fb259286f8b16857d2ded8262f3b377292ef63b041",
-    "current_same_tree_run": "PASSED全量: 2412通过、2跳过、0失败/0错误；166模块，1531.56秒，源码前后未变"
+    "checkpoint": "assistant-write-scope-and-escalations-20260924",
+    "verification_report": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
+    "source_digest": "5fe713f2a856fb672a9a49c84d2e2f88845339d4cb45324e8f84e48017cc5c7e",
+    "current_same_tree_run": "PASSED全量: 2462通过、2跳过、0失败/0错误；167模块，1637.59秒，857文件前后未变"
   },
-  "active_objective": "业务助手写入范围（决策动作不代提交）与升级评审通道；试用侧R02/R03脚本待反馈",
+  "active_objective": "业务助手写入范围（通配动作白名单 + 默认拒绝）与评审通道（必须引用系统被挡记录）；试用侧R02/R03脚本待反馈",
   "progress_record": "docs/助手权限与评审设计_20260924.md",
   "current_working_evidence": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
   "current_run_directory": "docs/verification/assistant-write-scope-and-escalations-20260924",
-  "current_frozen_source_files": 856,
+  "current_frozen_source_files": 857,
   "statement_definition": 21,
   "cash_definition": 7,
   "development_and_simulation_delivered": true,
@@ -56,34 +55,45 @@
     "url": "http://127.0.0.1:8000/",
     "existing_accounts_preserved": true,
     "bootstrap_required": false,
-    "source_fingerprint": "33022521574bba0d76d20fcf049df95f8ed7f6aadeb47ac2eb8e14ba94db48c4",
+    "source_fingerprint": "0a47e977dd4f9abe3adf08399726e37f5a2b310e904532143430c26e70527855",
     "evidence": "docs/verification/assistant-thinking-20260924/user-preservation.json",
-    "restarted_at": "2026-09-25T00:45+08:00",
-    "migration_applied": "h47e_escalations",
-    "verified_after_restart": "11账号/3门店/0升级单；/api/escalations 返回401（路由存在）而非404；/static/escalations.js 200"
+    "restarted_at": "2026-09-25T01:54+08:00",
+    "migration_applied": "h48f_escalation_refusals",
+    "verified_after_restart": "重启后核对：11账号/3门店；alembic head=h48f_escalation_refusals；三张评审表已建且0行；/api/escalations/refusals 返回401（已注册）"
   },
   "escalation": {
     "tables": [
       "escalations",
-      "escalation_events"
+      "escalation_events",
+      "escalation_refusals"
     ],
-    "migration": "h47e_escalations",
-    "down_revision": "g35t_assistant_thinking",
+    "migration": "h48f_escalation_refusals",
+    "down_revision": "h47e_escalations",
     "endpoints": [
       "GET /api/escalations?scope=mine|to_review",
+      "GET /api/escalations/refusals",
       "POST /api/escalations",
       "POST /api/escalations/{id}/actions/{claim|done|reject|cancel}"
     ],
-    "rule_category_refused": 422,
+    "refusal_receipt_required": true,
+    "refusal_categories": "服务端按系统原话判定：authority / amount / rule；rule 提交即422",
+    "receipt_lifetime_hours": 24,
+    "reviewer_role_source": "当前门店岗位（store_role），不是账号级岗位",
+    "admin_queue_scope": "集团管理员只看到 target_role=admin 的申请",
     "self_approval_blocked": true,
     "recipient_decided_server_side": "门店经理；提交人即门店经理时上送集团管理员"
   },
   "assistant_write_scope": {
-    "decision_actions_refused": true,
-    "decision_tokens_count": 24,
-    "widened_non_decision_route": "POST /api/vehicle-imports/batches/{batch_id}/actions/{action}（仅trial/reassign）",
+    "wildcard_action_policy": "白名单 + 默认拒绝（PREPARABLE_ACTIONS）",
+    "preparable_action_routes": [
+      "/api/flow/cases/{case_id}/actions/{action}（动作取自flow spec目录且非判断类）",
+      "/api/vehicle-imports/batches/{batch_id}/actions/{action}（仅trial/reassign）"
+    ],
+    "decision_tokens_count": 27,
     "multipart_uploads_blocked": true,
-    "fail_closed_for_unclassified_routes": true
+    "fail_closed_for_unclassified_routes": true,
+    "escalation_request_preparable": true,
+    "escalation_handling_blocked": true
   },
   "assistant": {
     "provider": "deepseek",

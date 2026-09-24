@@ -1,4 +1,7 @@
-"""评审申请接口：员工提交、上级查看与处理。不改变权限，也不执行业务动作。"""
+"""评审申请接口：员工提交、上级查看与处理。不改变权限，也不执行业务动作。
+
+提交必须引用系统自己记下的被挡记录（`GET /api/escalations/refusals`），类别由服务端判定。
+"""
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -6,7 +9,7 @@ from pydantic import Field
 from sqlalchemy.orm import Session
 
 from .db import get_db
-from .escalation_service import act, create, listing
+from .escalation_service import act, create, listing, refusals
 from .master_data import Strict
 from .security import get_user
 
@@ -14,11 +17,10 @@ router = APIRouter(prefix='/api/escalations', tags=['评审申请'])
 
 
 class CreateInput(Strict):
+    refusal_id: int = Field(gt=0, strict=True)
     subject: str = Field(min_length=5, max_length=160)
     case_reference: str = Field(default='', max_length=80)
-    operation_id: str = Field(default='', max_length=200)
-    blocked_message: str = Field(min_length=8, max_length=2000)
-    reason_category: Literal['authority', 'amount', 'rule']
+    reason_category: Literal['authority', 'amount', ''] = ''
 
 
 class ActionInput(Strict):
@@ -30,6 +32,11 @@ class ActionInput(Strict):
 def index(scope: Literal['mine', 'to_review'] = Query('mine'), status: str = Query(''),
           db: Session = Depends(get_db), user=Depends(get_user)):
     return listing(db, user, scope=scope, status=status)
+
+
+@router.get('/refusals')
+def refusal_index(db: Session = Depends(get_db), user=Depends(get_user)):
+    return refusals(db, user)
 
 
 @router.post('', status_code=201)

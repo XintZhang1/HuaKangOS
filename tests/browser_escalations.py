@@ -29,19 +29,23 @@ def exercise(browser, base, password, output):
         sales_password = employee_login(sales, base, 'esc-sales', 'Xc-Trial-Password-01')
         assert sales_password
         assert sales.locator('a[href="#escalations"]').count() == 1
+        # A review request must cite a refusal the system itself recorded: try a page the
+        # salesperson may not read, then submit from that record.
+        req(sales, '/api/audit', status=403)
         harness.navigate(sales, 'escalations', '评审申请')
         assert sales.locator('[data-act=esctab]').count() == 1, '员工不应看到待我评审页签'
-        sales.locator('[data-act=escnew]').click()
+        expect(sales.locator('#main')).to_contain_text('系统刚挡住的这一步')
+        expect(sales.locator('#main')).to_contain_text('GET /api/audit')
+        sales.locator('[data-act=escnew]').first.click()
+        expect(sales.locator('#modal [name=refusal_id]')).to_have_count(1)   # the dialog loads the refusal list first
         sales.locator('#modal [name=subject]').fill('给这张单批准 5% 折扣')
         sales.locator('#modal [name=case_reference]').fill('XC-R09-01')
-        sales.locator('#modal [name=blocked_message]').fill('没有该模块的操作权限，请联系店长')
-        sales.locator('#modal [name=reason_category]').select_option('authority')
         harness.save_modal(sales)
         expect(sales.locator('#main')).to_contain_text('给这张单批准 5% 折扣')
         expect(sales.locator('#main')).to_contain_text('待处理')
         harness.assert_fits_mobile(sales)
         images.append(harness.take_screenshot(sales, output, 'escalation_01_employee_submitted.png'))
-        steps.append('销售提交评审申请，列表显示待处理，且看不到“待我评审”页签')
+        steps.append('销售被系统挡住一次→选该记录提交评审，列表显示待处理，且看不到“待我评审”页签')
         mgr_ctx = browser.new_context(viewport={'width': 390, 'height': 844}, locale='zh-CN')
         mgr = mgr_ctx.new_page()
         mgr.on('pageerror', lambda error: errors.append(str(error)))
@@ -52,10 +56,11 @@ def exercise(browser, base, password, output):
         expect(mgr.locator('#main')).to_contain_text('给这张单批准 5% 折扣')
         steps.append('店长在“待我评审”里看到本店同事的申请')
         mgr.locator('[data-act=escview]').first.click()
-        expect(mgr.locator('#modal')).to_contain_text('没有该模块的操作权限')
+        expect(mgr.locator('#modal')).to_contain_text('没有查看全店审计日志的权限')
         expect(mgr.locator('#modal')).to_contain_text('岗位权限不足')
+        expect(mgr.locator('#modal')).to_contain_text('GET /api/audit')
         mgr.locator('#modal').get_by_role('button', name='×').click()
-        steps.append('查看详情能看到系统提示原文与类别')
+        steps.append('查看详情能看到被挡的操作、系统提示原文与类别')
         mgr.locator('[data-act=escclaim]').first.click()
         expect(mgr.locator('#main')).to_contain_text('已接手')
         mgr.locator('[data-act=escdone]').first.click()

@@ -53,3 +53,30 @@ class EscalationEvent(Base):
     action: Mapped[str] = mapped_column(String(20))
     note: Mapped[str] = mapped_column(Text, default='')
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
+class Refusal(Base):
+    """系统自己记下的"哪一步被挡住"：评审申请只能引用这条记录，不能只凭申请人自述。
+
+    由接口中间件在返回 403/422 时写入；申请提交时核验归属、门店、时效与是否已使用。
+    这样"业务规则不允许"的事项无法被改写成"岗位权限不足"绕过规则。
+    """
+    __tablename__ = 'escalation_refusals'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    store_id: Mapped[int] = mapped_column(ForeignKey('stores.id'), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    role: Mapped[str] = mapped_column(String(30))
+    method: Mapped[str] = mapped_column(String(10))
+    path: Mapped[str] = mapped_column(String(240))
+    status_code: Mapped[int] = mapped_column()
+    message: Mapped[str] = mapped_column(Text, default='')
+    category: Mapped[str] = mapped_column(String(20))
+    source: Mapped[str] = mapped_column(String(20), default='page')
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    consumed_by_id: Mapped[int | None] = mapped_column(ForeignKey('escalations.id'), nullable=True)
+    __table_args__ = (
+        CheckConstraint("category in ('authority','amount','rule')", name='ck_escalation_refusal_category'),
+        CheckConstraint("source in ('page','assistant')", name='ck_escalation_refusal_source'),
+        Index('ix_escalation_refusals_user', 'user_id', 'store_id', 'consumed_at'),
+    )

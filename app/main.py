@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import select, func, or_, delete, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm.exc import StaleDataError
@@ -104,6 +105,39 @@ async def validation_error(request,exc): return validation_response(exc)
 
 @app.exception_handler(RequestValidationError)
 async def request_validation_error(request,exc): return validation_response(exc)
+
+
+def note_refusal(request,status_code,detail):
+    """记下系统自己拒绝的一步，作为评审申请的唯一依据。
+
+    只有真实返回的 403（以及带权限/额度语义的 422）才会被记录；记录失败绝不影响原响应。
+    """
+    try:
+        user_id = getattr(request.state,'user_id',None)
+        store_id = getattr(request.state,'store_id',None)
+        if not user_id or not store_id: return
+        from .db import SessionLocal
+        from .escalation_service import record_refusal
+        from .security import User
+        with SessionLocal() as db:
+            user = db.get(User,user_id)
+            if not user or not user.active: return
+            class _Principal:
+                id = user.id
+                role = getattr(request.state,'role',user.role) or user.role
+                account_role = user.role
+                def __getattr__(self,name): return getattr(user,name)
+            record_refusal(db, store_id=store_id, user=_Principal(), method=request.method,
+                           path=request.url.path, status_code=status_code, message=detail)
+            db.commit()
+    except Exception as exc:                       # evidence must never break the response
+        log.warning('Refusal evidence not recorded (%s)',type(exc).__name__)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request,exc):
+    if exc.status_code in (403,422): note_refusal(request,exc.status_code,exc.detail)
+    return JSONResponse({'detail':exc.detail},status_code=exc.status_code,headers=getattr(exc,'headers',None))
 
 @app.exception_handler(IntegrityError)
 async def integrity_error(request,exc):
