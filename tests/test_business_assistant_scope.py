@@ -84,3 +84,37 @@ def test_every_visible_operation_still_resolves_to_its_own_registered_route():
     for operation, op in gateway._operations().items():
         assert (op['path'], op['method']) in registered, operation
         assert op['manual_route'] and not op['manual_route'].startswith('/')
+
+
+def test_no_file_or_csv_producing_route_is_offered_to_the_model():
+    """Fail-closed: a new download/CSV endpoint must be excluded before it can be advertised.
+
+    Media type lives in the handler body (`Response(..., media_type='text/csv')`) rather than on
+    the route, so the catalogue cannot see it: scan the handler source and require every such GET
+    to be kept out of the operation catalogue by DENIED or an explicit exclusion.
+    """
+    import inspect
+    import re
+    from fastapi.routing import APIRoute
+    from app.main import app
+    marker = re.compile(r"media_type\s*=\s*['\"]text/csv|FileResponse\(|StreamingResponse\(")
+    visible = set(gateway._operations())
+    leaked = []
+    for route in app.routes:
+        if not isinstance(route, APIRoute) or not route.path.startswith('/api/') or 'GET' not in route.methods:
+            continue
+        try:
+            source = inspect.getsource(route.endpoint)
+        except (OSError, TypeError):
+            continue
+        if not marker.search(source):
+            continue
+        operation = 'GET ' + route.path
+        if operation in visible:
+            leaked.append(operation)
+    assert not leaked, leaked
+
+
+def test_the_known_sample_download_route_is_not_advertised():
+    assert 'GET /api/vehicle-imports/orders/{case_id}/example/{kind}' not in gateway._operations()
+    assert gateway.DENIED.search('/api/vehicle-imports/orders/1/example/vehicles')

@@ -29,12 +29,17 @@ def model_config(monkeypatch):
     monkeypatch.setattr(service,'load_config',lambda:service.AssistantConfig(True,'synthetic-no-network','deepseek-flash',5,True))
 
 
-def test_catalog_is_subset_of_frozen_reviewed_capabilities_and_keeps_new_business_helpers():
+def test_catalog_keeps_writes_reviewed_and_reads_inside_the_approved_scope():
+    """Owner decision 2026-09-24: reads follow the employee's own scope, writes stay reviewed."""
     policy=json.loads(Path(gateway.__file__).with_name('business_assistant_capabilities.json').read_text(encoding='utf-8'))
     exposed={item['id'] for item in gateway.catalog()}
-    assert exposed<=set(policy['operations'])
+    assert {op for op in exposed if not op.startswith('GET ')}<=set(policy['operations'])
     assert {'POST /api/vehicle-catalog/entry','GET /api/vehicle-catalog/entry-options','GET /api/claims/{case_id}/options/{action}','GET /api/warehouse/return-sources'}<=exposed
-    assert not any('/business-assistant/' in item or '/auth/' in item or '/files' in item or '/opening/' in item for item in exposed)
+    # Reads may now cover management pages, but never credentials, files, exports or imports.
+    assert not any('/business-assistant/' in op or '/auth/' in op or '/files' in op or '/export' in op
+                   or '/opening' in op or '/local-preview' in op or '/branding' in op or '/settings' in op
+                   for op in exposed)
+    assert {'GET /api/users','GET /api/audit','GET /api/stores','GET /api/parameters/catalog'}<=exposed
 
 
 def test_new_route_in_existing_business_domain_is_not_automatically_a_model_tool():

@@ -22,7 +22,12 @@ def invoke(client,operation,path=None,query=None,body=None,store=1):
 def test_discovery_excludes_credentials_files_opening_and_arbitrary_urls():
     ids={row['id'] for row in gateway.catalog()}
     assert 'POST /api/flow/cases' in ids and 'POST /api/masters/{kind}' in ids
-    assert all('/auth/' not in op and '/users' not in op and '/opening/' not in op and '/files' not in op for op in ids)
+    # Reads now cover the management pages the employee's own role can open, but credentials,
+    # files, exports, imports and deployment settings stay out of the catalogue.
+    assert 'GET /api/users' in ids and 'GET /api/audit' in ids
+    assert all('/auth/' not in op and '/opening/' not in op and '/files' not in op and '/export' not in op
+               and '/local-preview' not in op and '/branding' not in op and '/business-assistant/' not in op
+               for op in ids)
     for op in ('GET https://example.org','POST /api/auth/password','POST /api/masters/opening/confirm','GET /api/flow/files/{file_id}'):
         with pytest.raises(HTTPException):gateway.inspect_operation(op)
     with pytest.raises(HTTPException):gateway.validate_operation('GET /api/flow/master/{kind}',{'kind':'templates'})
@@ -67,7 +72,12 @@ def test_forwarding_retains_native_owner_and_financial_role_scope(client):
     assert invoke(client,'GET /api/flow/master/{kind}',{'kind':'customers'})['data']['total']==0
     assert invoke(client,'GET /api/flow/master/{kind}',{'kind':'accounts'})['status']==403
     assert invoke(client,'POST /api/masters/{kind}',{'kind':'vehicle_brands'},body={'request_id':'synthetic-key-00000001','values':{'code':'BAD','name':'禁止建品牌'}})['status']==403
-    assert invoke(client,'GET /api/flow/master/{kind}',{'kind':'customers'},store=999)['status'] in {403,404}
+    # A store id the employee does not work in is refused. Since 2026-09-24 an unknown/deactivated
+    # store answers 409 with the actionable "当前门店已停用或不存在" message so the page can recover;
+    # a store that exists and is active but is not theirs stays 403. Either way nothing is returned.
+    unavailable=invoke(client,'GET /api/flow/master/{kind}',{'kind':'customers'},store=999)
+    assert unavailable['status'] in {403,404,409},unavailable
+    assert 'data' not in unavailable or unavailable.get('data',{}).get('total') is None
 
 
 def test_native_idempotency_and_customer_ownership_survive_gateway(client):
