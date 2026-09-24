@@ -19,7 +19,7 @@ from .config import settings, ROOT
 from .branding import PRODUCT_TITLE
 from .db import engine, get_db, today, utcnow
 from .models import Store, UserStore, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
-from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput
+from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, BatchUserInput, StoreRoleInput, StoreRole
 from .security import get_user, authenticate, set_session, clear_cookies, user_info, require_full, require_module, verify_password, hash_password, ROLES
 from .services import serialize, plain, audit, readable_query, get_record, create_record, update_record, act_record, check_version
 from .analytics import dashboard, source_revision, build_snapshot, external_payload, rules_config
@@ -28,9 +28,11 @@ from .scheduler import ReportScheduler
 from .tenancy import accessible_stores, single_store, attach_scope
 from .user_access_service import change_access
 import os
+from typing import get_args
 
 log = logging.getLogger(__name__)
 scheduler = ReportScheduler()
+USERNAME_PATTERN = re.compile(r'^[a-zA-Z0-9_.-]{3,40}$')
 
 
 @asynccontextmanager
@@ -184,6 +186,56 @@ def add_user(body: UserInput,db=Depends(get_db),user=Depends(get_user)):
     audit(db,user.id,'create_user','users',new.id,after=account_info(db,new))
     db.commit()
     return account_info(db,new)
+
+
+def batch_row_error(number,message):
+    raise HTTPException(422,'第 %d 行：%s' % (number,message))
+
+
+@app.post('/api/users/batch',status_code=201)
+def add_users_batch(body: BatchUserInput,db=Depends(get_db),user=Depends(get_user)):
+    """Several staff accounts in one transaction; only a system administrator may call this.
+
+    Every row is checked before the first write, so a wrong line never leaves half the paste
+    created. Each account keeps the single-path rules: store role, audit record and
+    "first login must change password". System administrator accounts are excluded on
+    purpose and still go through the single form.
+    """
+    admin(user)
+    store = db.get(Store,body.store_id)
+    if not store or not store.active:
+        raise HTTPException(422,'指定门店不存在或已停用，请刷新门店列表后重试')
+    allowed = set(get_args(StoreRole))
+    prepared,seen = [],set()
+    for number,row in enumerate(body.rows,start=1):
+        username = row.username.strip().lower()
+        if not USERNAME_PATTERN.fullmatch(username):
+            batch_row_error(number,'登录账号只能填 3–40 位字母、数字、下划线、点或短横线')
+        if username in seen:
+            batch_row_error(number,'登录账号 %s 在本次粘贴里重复了' % username)
+        seen.add(username)
+        display_name = row.display_name.strip()
+        if not display_name:
+            batch_row_error(number,'员工姓名不能为空')
+        role = row.role.strip()
+        if role not in allowed:
+            batch_row_error(number,'岗位“%s”不能批量建立；系统管理员账号请用“新增员工”单独建立' % row.role)
+        prepared.append((username,display_name,role))
+    taken = set(db.scalars(select(User.username).where(User.username.in_(list(seen)))))
+    for number,(username,_,_) in enumerate(prepared,start=1):
+        if username in taken:
+            batch_row_error(number,'登录账号 %s 已经存在' % username)
+    created = []
+    for username,display_name,role in prepared:
+        account = User(username=username,display_name=display_name,role=role,
+                       password_hash=hash_password(body.password),must_change_password=True,
+                       can_group_summary=False)
+        db.add(account); db.flush()
+        assign_stores(db,account,[store.id],[StoreRoleInput(store_id=store.id,role=role)])
+        audit(db,user.id,'create_user','users',account.id,after=account_info(db,account))
+        created.append(account_info(db,account))
+    db.commit()
+    return {'created':created,'count':len(created),'store':{'id':store.id,'name':store.name}}
 
 
 @app.put('/api/users/{user_id}')

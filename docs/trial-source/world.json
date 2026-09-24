@@ -4,7 +4,7 @@
   "title": "XC 虚拟经营世界（星驰汽车）",
   "notice": "本世界全部为虚构演练资料，用于本机独立预览库：不接入公司库、不使用真实客户或车辆、不真转账、不发消息、不开票。上传的凭据文件一律标明“试用”。",
   "accounts": [
-    {"username": "xc-admin", "display_name": "XC 管理员", "role": "admin", "store": "XC-CD", "purpose": "门店、账号、参数与复核；管理员也不能自己申请自己批准"},
+    {"username": "admin", "display_name": "本地预览管理员", "role": "admin", "store": "XC-CD", "purpose": "首次设置生成的管理员账号（登录名默认 admin）；门店、账号、参数与复核，管理员也不能自己申请自己批准"},
     {"username": "xc-manager", "display_name": "沈店长", "role": "manager", "store": "XC-CD", "purpose": "核价、采购与退款审批"},
     {"username": "xc-reception", "display_name": "周接待", "role": "reception", "store": "XC-CD", "purpose": "售前接待与分派"},
     {"username": "xc-sales", "display_name": "陆销售", "role": "sales", "store": "XC-CD", "purpose": "接待、报价、合同、交车"},

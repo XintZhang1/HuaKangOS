@@ -367,17 +367,25 @@ def page(data):
         checks = ''.join('<li>%s</li>' % html.escape(note) for note in item['checks'])
         requirements = ''.join('<li>%s %s</li>' % (html.escape(row['id']), html.escape(row['title']))
                                for row in item['requirements'])
+        data_rows = ''.join('<tr>%s</tr>' % ''.join('<td>%s</td>' % html.escape(str(cell)) for cell in
+                                                   [row['label'], row['value'], row['note']]) for row in item['data'])
+        data_block = ('<h3>本轮数据</h3><table><thead><tr><th>项目</th><th>填写值</th><th>说明</th></tr></thead>'
+                      '<tbody>%s</tbody></table>' % data_rows) if data_rows else ''
+        record_block = ('<h3>记录表</h3><table><thead><tr><th>步号</th><th>谁</th><th>单号</th><th>结果</th>'
+                        '<th>问题一句话</th></tr></thead><tbody>%s</tbody></table>'
+                        % ''.join('<tr><td>%s</td><td>%s</td><td></td><td></td><td></td></tr>'
+                                  % (html.escape(step['no']), html.escape(step['actor'])) for step in item['steps']))
         articles.append(
             '<article id="%s"><h2>%s %s · %s —— %s</h2><p class="scenario">%s</p>'
             '<h3>覆盖需求</h3><ul class="tight">%s</ul>'
-            '<h3>开始前准备</h3><ul>%s</ul>%s<h3>操作步骤</h3><ol class="steps">%s</ol>'
+            '<h3>开始前准备</h3><ul>%s</ul>%s%s<h3>操作步骤</h3><ol class="steps">%s</ol>'
             '<h3>分支与找坑</h3><ul>%s</ul><h3>新用户观察点</h3><ul>%s</ul>'
-            '<h3>结束核对</h3><ul>%s</ul><p class="report">报表核对：%s</p></article>' % (
+            '<h3>结束核对</h3><ul>%s</ul><p class="report">报表核对：%s</p>%s</article>' % (
                 item['id'], item['id'], html.escape(item['module']), html.escape(item['group']),
                 html.escape(item['title']), html.escape(item['scenario']), requirements,
                 ''.join('<li>%s</li>' % html.escape(note) for note in item['prerequisites']),
                 '<p class="fallback">前置不足时：%s</p>' % html.escape(item['fallback']) if item.get('fallback') else '',
-                steps, branches, observations, checks, html.escape(item['report_check'])))
+                data_block, steps, branches, observations, checks, html.escape(item['report_check']), record_block))
     css = ("body{font:15px/1.7 system-ui,'Microsoft YaHei',sans-serif;margin:0;color:#1c2024;background:#f5f6f8}"
            ".wrap{max-width:1000px;margin:0 auto;padding:24px}"
            "h1{font-size:22px}h2{font-size:19px;border-top:1px solid #d9dde2;padding-top:16px}"

@@ -53,7 +53,14 @@ def test_explicit_unauthorized_store_is_denied(client,path):
 
 @pytest.mark.parametrize('header',['0','-1','9999','nan','1 OR 1=1','1,2'])
 def test_invalid_or_unknown_store_headers(client,header):
-    switch(client,header);assert client.get('/api/records/vehicles').status_code in {403,422}
+    switch(client,header);response=client.get('/api/records/vehicles')
+    if header in {'0','-1','9999'}:
+        # A store that does not exist is a stale page context, not a permission problem: the page
+        # has to tell the employee to pick another store (XC-ISSUE-002).
+        assert response.status_code==409,response.text
+        assert '当前门店已停用或不存在' in response.json()['detail']
+    else:
+        assert response.status_code in {403,422}
 
 
 def test_staff_cannot_forge_store_or_use_all(client):

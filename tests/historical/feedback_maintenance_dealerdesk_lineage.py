@@ -1,4 +1,13 @@
-"""意见收集必须在「自动维护关闭」时完全可用，并且绝不外发。
+"""历史遗留：DealerDesk 反馈/维护线的测试，**不参与本目录测试集**。
+
+为什么不能跑：它请求 `GET/POST /api/feedback` 与 `GET /api/maintenance/status`，而这两个接口在
+huakangos 线里根本不存在（`app/` 下没有 feedback/maintenance 的 API 模块；`maintenance/` 目录是
+另一套开发维护工具，不是这里的路由）。它此前让全量回归出现 11 项失败，因此按业主决定
+（2026-09-24：标注历史遗留并移出测试集）改名并移入 `tests/historical/`。
+
+恢复条件：如果确实要在本线做“员工反馈/维护开关”，需要单独设计（接口、岗位、状态机、审计、
+与现有 business-assistant 问题清单的关系），再把本文件改回 `test_` 名称。
+""""""意见收集必须在「自动维护关闭」时完全可用，并且绝不外发。
 
 这些端点此前没有任何测试覆盖，而它们正是暂缓自动维护时唯一继续使用的功能。
 关键安全属性：只要 MAINTENANCE_ENABLED 不为 true，即便员工勾选了外发授权，
@@ -12,7 +21,7 @@ from sqlalchemy import func, select
 from app.db import SessionLocal
 from app.main import app
 from app.models import Feedback, MaintenanceEvent
-from conftest import login
+from tests.conftest import login
 
 
 @pytest.fixture

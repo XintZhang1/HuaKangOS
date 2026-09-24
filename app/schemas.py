@@ -186,6 +186,20 @@ class UserInput(Strict):
     password: str = Field(min_length=12, max_length=128)
 
 
+class BatchUserRow(Strict):
+    """One pasted staff row. Row-level rules live in the handler so the error names the line."""
+    username: str = Field(max_length=40)
+    display_name: str = Field(max_length=80)
+    role: str = Field(max_length=40)
+
+
+class BatchUserInput(Strict):
+    # Staff only: a second system administrator still goes through the single form.
+    store_id: int = Field(gt=0)
+    password: str = Field(min_length=12, max_length=128)
+    rows: list[BatchUserRow] = Field(min_length=1, max_length=50)
+
+
 class UserUpdate(Strict):
     request_id: str = Field(min_length=8, max_length=80, pattern=r'^[A-Za-z0-9_-]+$')
     access_version: int = Field(gt=0, strict=True)

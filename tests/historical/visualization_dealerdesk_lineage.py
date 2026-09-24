@@ -1,4 +1,13 @@
-"""可视化数据层契约测试（服务端）。
+"""历史遗留：DealerDesk 数据可视化线的测试，**不参与本目录测试集**。
+
+为什么不能跑：它请求 `GET /api/visualization`，而 huakangos 线没有挂载该路由——`app/visualization.py`
+里的 `visualization(db, day, days)` 在本线没有被任何 router 引用，前端 `web/` 也没有任何调用者
+（本线的“数据可视化”是 `#analytics/overview` + `/api/flow/analytics`）。它此前让全量回归出现
+26 项失败，因此按业主决定（2026-09-24：标注历史遗留并移出测试集）改名并移入 `tests/historical/`。
+
+恢复条件：先决定“数据可视化”用哪一套（当前是 flow analytics），若确实要恢复这份逐日聚合接口，
+需要重新挂载 router、接回前端页面、补岗位/门店范围校验，再把本文件改回 `test_` 名称。
+""""""可视化数据层契约测试（服务端）。
 
 浏览器模块按同一契约并行实现，因此这里断言的是精确载荷形状：
 金额一律为整数分、数据集零填充不省略、排行降序封顶、GET 不产生任何写入。
@@ -11,7 +20,7 @@ from app.analytics import BASIS
 from app.db import SessionLocal, today
 from app.main import app
 from app.models import MODULES, AuditLog, CashEntry, DailyReport, Finding, Policy, Repair, Sale, User, Vehicle
-from conftest import login
+from tests.conftest import login
 
 PAYLOAD_KEYS = {'end_date','start_date','days','currency','kpis','trends','breakdowns','rankings','notes'}
 KPI_KEYS = ('delivery_amount','delivery_count','new_order_count','repair_completed_count','repair_amount',

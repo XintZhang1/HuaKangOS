@@ -35,10 +35,35 @@ DOMAINS = {
  'inventory-reports':'整车库存报表', 'stock-reports':'物资库存报表',
  'repair-material-reports':'维修领退料报表', 'visit-activity-reports':'来访回访报表',
  'material-value':'物资成本报表', 'parameters':'设置入口', 'stores':'门店资料',
+ 'users':'员工账号', 'audit':'操作记录', 'business-entities':'经营主体与账户归属',
+ 'findings':'数据复核', 'reports':'每日汇总', 'dashboard':'经营看板',
+ 'records':'原有单据', 'lookup':'原有单据查询', 'vehicle-imports':'整车请款与批量导入',
+}
+# Never exposed to the assistant, not even for reading: credentials, sessions, deployment
+# settings, brand images, raw files, exports and initial-balance imports stay manual.
+CLOSED_DOMAINS = {'auth', 'local-preview', 'branding', 'settings', 'business-assistant',
+                  'export', 'health', 'workflow-guides', 'opening-import', 'records-download'}
+# Static projection of the real checks for the management pages, so the assistant can answer
+# "can I do this?" instead of guessing. None means the endpoint itself decides by role/store.
+MANAGEMENT_READERS = {
+ 'users': {'admin'},
+ 'audit': {'admin', 'manager', 'auditor'},
+ 'business-entities': {'admin', 'manager', 'finance', 'auditor'},
+ 'findings': {'admin', 'manager', 'finance', 'auditor'},
+ 'reports': {'admin', 'manager', 'finance', 'auditor'},
+ 'dashboard': {'admin', 'manager', 'finance', 'auditor'},
+ 'stores': {'admin', 'manager', 'sales', 'inventory', 'service', 'finance', 'auditor',
+            'reception', 'technician', 'customer_service'},
+ 'parameters': {'admin', 'manager', 'sales', 'inventory', 'service', 'finance', 'auditor',
+                'reception', 'technician', 'customer_service'},
+ 'vehicle-imports': {'admin', 'manager', 'inventory', 'finance', 'auditor'},
 }
 # Credentials, external integrations, deployments, arbitrary legacy CRUD, raw file
-# contents, initial balance imports and formal entity policy editors stay manual.
-DENIED = re.compile(r'/(?:files|download|export|opening)(?:/|$)|(?:\.csv|\.docx|\.pdf)$')
+# contents, initial balance imports and formal entity policy editors stay manual. `/example`
+# covers the downloadable sample/template endpoints (text/csv attachments) that carry no
+# export token in their path; tests/test_business_assistant_scope.py re-scans every GET
+# handler and fails when a new file/CSV route is added without being excluded here.
+DENIED = re.compile(r'/(?:files|download|export|opening|example)(?:/|$)|(?:\.csv|\.docx|\.pdf)$')
 SECRET_KEYS = {'password','password_hash','new_password','current_password','api_key',
                'deepseek_key','token','access_token','refresh_token','authorization',
                'cookie','csrf','csrf_hash','session_id','content','blob','object_key','storage_path'}
@@ -77,30 +102,63 @@ def _reviewed_operations():
 
 @lru_cache(maxsize=1)
 def _operations():
+    """Queries follow the employee's own role scope; write operations stay reviewed-only.
+
+    Everything a role can read in its own pages may be read by the assistant (the endpoint still
+    enforces role, store scope and tenancy). Preparing writes beyond the reviewed list is a later,
+    risk-classified step; approval/void actions stay on the original page.
+    """
     from .main import app
     reviewed=_reviewed_operations()
     result={}
     for route in app.routes:
         if not isinstance(route,APIRoute) or not route.path.startswith('/api/'):continue
         domain=route.path.split('/')[2]
-        if domain not in DOMAINS or DENIED.search(route.path):continue
+        if domain not in DOMAINS or domain in CLOSED_DOMAINS or DENIED.search(route.path):continue
         for method in sorted(route.methods & {'GET','POST','PUT'}):
             op_id=method+' '+route.path
-            if op_id not in reviewed:continue
-            if domain in {'stores','parameters'} and method!='GET':continue
+            if method=='GET':
+                if route.body_field:continue
+            elif op_id not in reviewed:continue
+            if domain in {'stores','parameters','users'} and method!='GET':continue
             if route.body_field and 'multipart/' in getattr(route.body_field.field_info,'media_type',''):continue
             # Structured financial/stock operations live in dedicated domains, not
             # legacy record edits; only declared JSON request bodies are accepted.
             if method!='GET' and route.body_field and not issubclass(route.body_field.type_,BaseModel):continue
             body_schema=route.body_field.type_.model_json_schema() if route.body_field else None
             props=(body_schema or {}).get('properties',{})
+            module=route.path.split('/')[3] if domain in {'records','lookup'} and len(route.path.split('/'))>3 else None
+            manual=ROUTES.get(domain,domain)
+            if domain=='records' and module:manual='legacy/'+module
+            elif domain=='lookup':manual='work'
             label=DOMAINS[domain]+' · '+('查询' if method=='GET' else '办理' if '/actions/' in route.path else '修改' if method=='PUT' else '新增')
             result[op_id]={'id':op_id,'label':label,'domain':domain,'description':route.summary or route.name,
-                'method':method,'path':route.path,'write':method!='GET',
+                'method':method,'path':route.path,'write':method!='GET','module':module,
                 'idempotent':method=='GET' or 'request_id' in props,
                 'body_schema':body_schema,'route':route,
-                'manual_route':ROUTES.get(domain,domain)}
+                'manual_route':manual}
     return result
+
+
+def role_may_read(role,op):
+    """True/False when a static rule exists; None when the endpoint decides by role and store."""
+    if op['method']!='GET':return None
+    if op['domain'] in {'records','lookup'}:
+        from .security import READ
+        module=op.get('module')
+        if not module or module.startswith('{'):return None
+        return module in READ.get(role,set())
+    allowed=MANAGEMENT_READERS.get(op['domain'])
+    if allowed is None:return None
+    return role in allowed
+
+
+def role_note(role,op):
+    allowed=MANAGEMENT_READERS.get(op['domain'])
+    if allowed is None:return ''
+    if role in allowed:return ''
+    from .security import ROLES
+    return '这个入口只对%s开放。' % '、'.join(sorted(ROLES.get(item,item) for item in allowed))
 
 
 def _declared_dispatch(op,path):
@@ -115,14 +173,20 @@ def _declared_dispatch(op,path):
             return
     raise HTTPException(422,'此操作当前不可用，请刷新业务目录')
 
-def catalog(domain='',query=''):
+def catalog(domain='',query='',role=None):
     words=str(query).lower().strip().split()
     items=[]
     for op in _operations().values():
         if domain and domain not in {op['domain'],DOMAINS[op['domain']]}:continue
         hay=(op['id']+' '+op['label']+' '+op['description']).lower()
         if words and not all(w in hay for w in words):continue
-        items.append({k:op[k] for k in ('id','label','domain','description','write','idempotent','manual_route')})
+        row={k:op[k] for k in ('id','label','domain','description','write','idempotent','manual_route')}
+        if role:
+            may=role_may_read(role,op)
+            if may is not None:row['role_may_read']=may
+            note=role_note(role,op)
+            if note:row['role_note']=note
+        items.append(row)
     # The model can narrow by domain; return discovery info rather than quietly
     # dropping operations beyond a result cap.
     return items
