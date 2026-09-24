@@ -3,6 +3,7 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 
 from app import business_assistant_gateway as gateway
 from app.business_assistant_service import SYSTEM_PROMPT, run_tools
@@ -118,3 +119,61 @@ def test_no_file_or_csv_producing_route_is_offered_to_the_model():
 def test_the_known_sample_download_route_is_not_advertised():
     assert 'GET /api/vehicle-imports/orders/{case_id}/example/{kind}' not in gateway._operations()
     assert gateway.DENIED.search('/api/vehicle-imports/orders/1/example/vehicles')
+
+
+@pytest.mark.parametrize('action', ['approve', 'reject', 'cancel_request', 'cancel_approve', 'confirm',
+                                   'consent', 'reopen', 'seal', 'review', 'settle', 'internal_settle',
+                                   'credit', 'revise', 'commit', 'refund', 'pay', 'receive',
+                                   'invoice_issue', 'quality', 'inspect', 'reinspect', 'dispose',
+                                   'write_off', 'terminate'])
+def test_judgement_actions_are_never_prepared(action):
+    """Owner decision (P1): approvals, refusals, voiding and money/goods confirmation stay manual."""
+    with pytest.raises(HTTPException) as refused:
+        gateway.validate_operation('POST /api/flow/cases/{case_id}/actions/{action}',
+                                   {'case_id': 1, 'action': action}, {}, {'version': 1, 'values': {}})
+    assert refused.value.status_code == 403
+    assert '原业务页面' in refused.value.detail and '评审申请' in refused.value.detail
+
+
+@pytest.mark.parametrize('action', ['follow', 'start', 'finish', 'deliver', 'material', 'quote',
+                                    'remind', 'rework', 'rectify'])
+def test_ordinary_business_steps_are_still_preparable(action):
+    gateway.validate_operation('POST /api/flow/cases/{case_id}/actions/{action}',
+                               {'case_id': 1, 'action': action}, {}, {'version': 1, 'values': {}})
+
+
+def test_the_import_batch_actions_route_is_the_one_widened_write():
+    offered = gateway._operations()
+    batch_actions = 'POST /api/vehicle-imports/batches/{batch_id}/actions/{action}'
+    assert batch_actions in offered
+    body = {'request_id': 'synthetic-key-00000001', 'version': 1, 'source_case_version': 1,
+            'values': {'reason': '试用'}}
+    for action in ('trial', 'reassign'):
+        gateway.validate_operation(batch_actions, {'batch_id': 1, 'action': action}, {}, dict(body))
+    for action in ('review', 'confirm', 'cancel'):
+        with pytest.raises(HTTPException):
+            gateway.validate_operation(batch_actions, {'batch_id': 1, 'action': action}, {}, dict(body))
+    # The multipart upload of the document itself stays on the original page.
+    assert 'POST /api/vehicle-imports/orders/{case_id}/batches' not in offered
+
+
+def test_every_registered_write_is_classified_prepare_or_blocked():
+    """Fail-closed: a new write route must be classified before the model may prepare it."""
+    import json
+    from pathlib import Path
+    from fastapi.routing import APIRoute
+    from app.main import app
+    reviewed = set(json.loads(Path(gateway.__file__).with_name('business_assistant_capabilities.json')
+                              .read_text(encoding='utf-8'))['operations'])
+    unclassified = []
+    for route in app.routes:
+        if not isinstance(route, APIRoute) or not route.path.startswith('/api/'):
+            continue
+        domain = route.path.split('/')[2]
+        if domain not in gateway.DOMAINS or domain in gateway.CLOSED_DOMAINS or gateway.DENIED.search(route.path):
+            continue
+        for method in route.methods & {'POST', 'PUT'}:
+            operation = method + ' ' + route.path
+            if operation not in reviewed and operation not in gateway.CLASSIFIED_BLOCKED_WRITES:
+                unclassified.append(operation)
+    assert not unclassified, unclassified

@@ -529,6 +529,8 @@ def edit_store(store_id:int,body:StoreInput,db=Depends(get_db),user=Depends(get_
 
 from .flow_api import router as flow_router
 app.include_router(flow_router)
+from .escalation_api import router as escalation_router
+app.include_router(escalation_router)
 from .group_api import router as group_router
 app.include_router(group_router)
 from .transfer_api import router as transfer_router

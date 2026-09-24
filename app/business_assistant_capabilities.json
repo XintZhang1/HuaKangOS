@@ -270,6 +270,7 @@
     "POST /api/vehicle-catalog/entry",
     "POST /api/vehicle-catalog/model-assignment",
     "POST /api/vehicle-catalog/vehicle-assignment",
+    "POST /api/vehicle-imports/batches/{batch_id}/actions/{action}",
     "POST /api/vehicle-income",
     "POST /api/vehicle-income/{key}/actions/{action}",
     "POST /api/vehicle-operations/orders",

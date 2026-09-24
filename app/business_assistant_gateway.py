@@ -64,6 +64,38 @@ MANAGEMENT_READERS = {
 # export token in their path; tests/test_business_assistant_scope.py re-scans every GET
 # handler and fails when a new file/CSV route is added without being excluded here.
 DENIED = re.compile(r'/(?:files|download|export|opening|example)(?:/|$)|(?:\.csv|\.docx|\.pdf)$')
+# Owner decision 2026-09-24 (P1): the assistant prepares ordinary business steps for the
+# employee's own role, but never a judgement step. A key is matched as a substring of the
+# action on `/actions/{action}` routes. Relaxing one of these is a deliberate, reviewable edit.
+DECISION_TOKENS = ('approve', 'reject', 'void', 'cancel', 'confirm', 'consent', 'reopen', 'seal',
+                   'review', 'settle', 'credit', 'revise', 'commit', 'refund', 'pay', 'receive',
+                   'invoice', 'quality', 'inspect', 'dispose', 'write_off', 'terminate')
+# Writes that are deliberately outside the assistant even though they are registered routes:
+# accounts/credentials, store and legal-entity configuration, parameter rules, finding review,
+# daily-report generation and the arbitrary legacy record CRUD.
+CLASSIFIED_BLOCKED_WRITES = frozenset({
+    'POST /api/users', 'POST /api/users/batch', 'PUT /api/users/{user_id}',
+    'POST /api/users/{user_id}/password', 'POST /api/stores', 'PUT /api/stores/{store_id}',
+    'POST /api/business-entities/applications',
+    'POST /api/business-entities/applications/{case_id}/actions/{action}',
+    'POST /api/findings/{finding_id}/review', 'POST /api/reports/generate', 'POST /api/reports/preview',
+    'POST /api/records/{module}', 'PUT /api/records/{module}/{record_id}',
+    'POST /api/records/{module}/{record_id}/actions/{action}',
+    # Multipart upload of the imported document itself: files stay on the original page.
+    'POST /api/vehicle-imports/orders/{case_id}/batches',
+})
+
+
+def is_decision_action(action):
+    key = str(action or '').strip().lower()
+    return any(token in key for token in DECISION_TOKENS)
+
+
+def assert_not_decision_action(action):
+    if is_decision_action(action):
+        raise HTTPException(403, '“%s”属于批准、驳回、作废或钱货确认这类判断动作，只能由有权限的岗位'
+                                 '在原业务页面本人办理；我可以说明入口、所需资料和当前进度。'
+                                 '权限不够时请在“评审申请”里向上级提交。' % str(action))
 SECRET_KEYS = {'password','password_hash','new_password','current_password','api_key',
                'deepseek_key','token','access_token','refresh_token','authorization',
                'cookie','csrf','csrf_hash','session_id','content','blob','object_key','storage_path'}
@@ -279,6 +311,7 @@ def _parameters(op,path_args,query):
 
 def validate_operation(operation_id,path_args=None,query=None,body=None):
     op=_operation(operation_id);path_args,query=_parameters(op,path_args or {},query or {})
+    if 'action' in path_args:assert_not_decision_action(path_args['action'])
     value=copy.deepcopy(body)
     if op['method']=='GET':
         if value not in (None,{}):raise HTTPException(422,'查询操作不能提交修改内容')
