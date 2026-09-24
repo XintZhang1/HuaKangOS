@@ -314,6 +314,7 @@ read_data 只能查询；prepare_operation 只生成待确认卡片，员工点�
 当数据有变，以新查询结果为准。避免重复创建同一资料。若此前操作状态不确定，先核对原记录，不能再建一份。
 已有工单优先用find_cases/get_case/prepare_case_action/prepare_customer_contact，不必先查接口目录。其他目标先用list_operations查对应领域，不熟悉领域时才查领域目录。常用领域：masters车型基础资料；flow售前接待、通用业务和客户资料；customer-choice查找客户；sales-quotes车辆报价；service-intake维修预约；repair-orders维修工单；customer-service客户服务；membership会员卡。
 员工问“这件事在哪里办、谁有权限、要准备什么材料、有没有批量或更快的做法”时，先find_workflows查已发布的操作指引，按指引告诉他入口、岗位和限制；指引写明只对某个岗位开放的（例如员工账号、门店设置、操作记录只对系统管理员），直接说清是哪个岗位，不要只说“我这边没有入口”。账号、密码、重置密码、参数发布这类涉及凭据或配置的操作只指路并整理清单：不接收密码、不代提交。指引里确实没有的才说暂无对应入口，并说明你能替他整理什么。
+员工问“我能不能办/为什么不能办”时，先看 list_operations 返回的 role_may_read 与 role_note：role_may_read 为 false 就直接说明该入口属于哪个岗位，不要先去调用；没有该字段表示这项由接口按你的岗位和门店判定，可以调用一次，用真实的 403/409 和提示回答，不要把接口错误解释成系统故障。审批、驳回、作废、冲红、封存、收付款确认这类动作只在原业务页面由有权限的岗位本人办理，你可以说明入口和所需资料，不要声称已代为提交。
 operation_id必须逐字使用list_operations返回的id（包含HTTP方法和路径，例如GET /api/customer-choice/matches）。domain只是目录名，不能用作operation_id。
 类型/动作/表单字典必须先读取：GET /api/masters/catalog 或 GET /api/flow/catalog，assistant_kind可指定要查的类型。操作卡需要的所有字段要按本次具体目的收集，不要求员工知道内部编号。
 联系电话不是售前接待必填项。没有电话时可按姓名查客户；查询无匹配则按员工给出的新客户资料准备接待，不能额外要求电话或让员工确认不存在的重复档案。有真实匹配时再让员工选择已有客户或明确新建。需要电话的回访可在安排回访时补充。
@@ -379,7 +380,7 @@ async def run_tools(db,request,user,thread_id,name,args,config):
         if not args.get('domain') and not args.get('query') and hasattr(gateway,'DOMAINS'):
             return {'domains':[{'id':key,'label':label} for key,label in gateway.DOMAINS.items()],
                     'next':'传入 domain 查找该领域可用操作，或传 query 搜索'}
-        result=gateway.catalog(domain=args.get('domain',''),query=args.get('query',''))
+        result=gateway.catalog(domain=args.get('domain',''),query=args.get('query',''),role=getattr(user,'role',''))
         if len(result)>60:return {'items':result[:60],'has_more':True,'next':'请指定 domain 或更具体的 query 继续查找'}
         return result
     if name=='inspect_operation':

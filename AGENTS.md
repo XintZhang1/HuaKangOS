@@ -12,6 +12,14 @@ web/workflowcontent.js owns pure help search/rendering and the in-page screensho
 
 The previous selected-file assistant contract remains: the employee selects/uploads supported bounded files, chooses rows/text, reviews outgoing content and explicitly sends it. Parsing isn't business evidence; generated forms require explicit human confirmation through original role/store/version/idempotency boundaries. Never give the model arbitrary filesystem paths, shell/code tools or automatic submission.
 
+### Assistant scope decision · 2026-09-24 (owner-approved)
+
+The owner asked to let the assistant work beyond the published guides and the reviewed capability list, judging by the employee's own role/modules, with escalation to a superior when authority is missing. Four owner decisions recorded in docs/助手权限与评审设计_20260924.md: reads cover business **and** management pages by the employee's own role; approval/void/cash-confirmation actions are pointed at, never prepared; escalation solves only authority/amount gaps, never a business rule; the escalation recipient is the store manager (group administrator when the requester is that manager), decided server-side.
+
+P0 is implemented: `app/business_assistant_gateway.py` exposes every readable management query (`users`, `audit`, `stores`, `parameters`, `business-entities`, `findings`, `reports`, `dashboard`, legacy `records`/`lookup`, `vehicle-imports`) while `POST/PUT` still require the reviewed list and `stores`/`parameters`/`users` writes stay closed; `CLOSED_DOMAINS` (auth, local preview, branding, settings, assistant itself, export, health, guides, opening import) and `DENIED` (files, downloads, exports, `.csv/.docx/.pdf`) never reach the model; `list_operations` now returns `role_may_read`/`role_note` so the model answers authority questions from the system instead of guessing. Evidence: docs/verification/assistant-scope-20260924/测试报告.md.
+
+Still pending and not to be assumed: **P1** write preparation by risk class (fail-closed default for unclassified new routes) and **P2** the escalation task type with the superior inbox — both need their own round, migration and tests. Approval outcomes are never produced by the model, permissions are never changed by it, and escalation must not become a way to bypass a business rule.
+
 ### Preserved earlier handoff
 
 ## Current checkpoint: employee journeys · 2026-09-24
