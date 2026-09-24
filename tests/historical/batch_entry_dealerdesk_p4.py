@@ -1,3 +1,17 @@
+"""历史遗留：DealerDesk P4 批次录入线的测试，**不参与本目录测试集**。
+
+来源：仓库历史的 DealerDesk P4 批次录入提交（967db54、2d69414、6c14f19）。
+原因：它导入的 `app.schemas.EntryDraftInput`、`DEFAULT_BODY_LIMIT`、`ENTRY_DRAFT_BODY_LIMIT`
+在 huakangos 线中并不存在，因此在本目录无法导入、也无法运行；此前 npm 无关的全量回归一直被它
+在收集阶段挡住。
+
+处置（业主要求，2026-09-24）：改名为不带 `test_` 前缀并移入 `tests/historical/`，作为历史资料保留，
+**不作为任何测试证据**。pytest 的默认收集规则与 `scripts/verify_candidate.py` 都按 `test_*.py`
+匹配，所以它不再被收集。
+
+若要恢复运行：需要先把 P4 线的 schema 与批录入接口引入本线（当前没有该模块），并补齐迁移与
+权限/岗位/门店边界测试；在那之前不要把本文件改回 `test_` 名称。
+"""
 from dataclasses import replace
 from typing import get_args
 import base64
