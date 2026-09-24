@@ -59,8 +59,11 @@ MANAGEMENT_READERS = {
  'vehicle-imports': {'admin', 'manager', 'inventory', 'finance', 'auditor'},
 }
 # Credentials, external integrations, deployments, arbitrary legacy CRUD, raw file
-# contents, initial balance imports and formal entity policy editors stay manual.
-DENIED = re.compile(r'/(?:files|download|export|opening)(?:/|$)|(?:\.csv|\.docx|\.pdf)$')
+# contents, initial balance imports and formal entity policy editors stay manual. `/example`
+# covers the downloadable sample/template endpoints (text/csv attachments) that carry no
+# export token in their path; tests/test_business_assistant_scope.py re-scans every GET
+# handler and fails when a new file/CSV route is added without being excluded here.
+DENIED = re.compile(r'/(?:files|download|export|opening|example)(?:/|$)|(?:\.csv|\.docx|\.pdf)$')
 SECRET_KEYS = {'password','password_hash','new_password','current_password','api_key',
                'deepseek_key','token','access_token','refresh_token','authorization',
                'cookie','csrf','csrf_hash','session_id','content','blob','object_key','storage_path'}
