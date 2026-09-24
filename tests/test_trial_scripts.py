@@ -95,10 +95,42 @@ def test_an_invented_page_route_is_rejected(monkeypatch):
         for item in rounds['rounds']:
             for step in item.get('steps') or []:
                 if step['route'] == 'stores':
-                    step['route'] = 'stores/secret-admin'
+                    step['route'] = 'secret-admin'
     source_with_change(monkeypatch, 'rounds.json', change)
     with pytest.raises(AssertionError):
         builder.make_data()
+
+
+def test_a_sub_page_of_a_real_page_is_accepted(monkeypatch):
+    """The front end dispatches on the first segment: dictionaries/public, masters/suppliers."""
+    def change(rounds):
+        for item in rounds['rounds']:
+            for step in item.get('steps') or []:
+                if step['route'] == 'stores':
+                    step['route'] = 'stores/some-sub-page'
+    source_with_change(monkeypatch, 'rounds.json', change)
+    assert builder.make_data()
+
+
+def test_sub_page_keys_exist_in_the_real_catalogues():
+    """A sub-page must name a real group/kind, not just a real root."""
+    from types import SimpleNamespace
+    from app.dictionary_api import DICTIONARIES
+    from app.master_data import public_catalog
+    kinds = set(public_catalog(SimpleNamespace(role='admin'))['kinds'])
+    checked = 0
+    for item in builder.make_data()['rounds']:
+        for step in item.get('steps') or []:
+            parts = step['route'].split('/')
+            if len(parts) != 2:
+                continue
+            checked += 1
+            root, key = parts
+            if root == 'dictionaries':
+                assert key in DICTIONARIES, step['no']
+            elif root == 'masters':
+                assert key in kinds, step['no']
+    assert checked >= 3, 'the ready rounds must exercise sub-pages'
 
 
 def test_an_unknown_account_or_role_is_rejected(monkeypatch):

@@ -191,7 +191,11 @@ def make_data():
             route = step['route']
             if route:
                 known = routes | {item['entry']['route'] for item in workflows.values()}
-                assert route in known, step['no'] + ' unknown route ' + route
+                # The front end dispatches on the first segment (dictionaries/public,
+                # masters/suppliers), so a sub-page is valid when its root is a known route.
+                roots = routes | {item['entry']['route'].split('/')[0] for item in workflows.values()}
+                assert route in known or route.split('/')[0] in roots, \
+                    step['no'] + ' unknown route ' + route
             if step['search']:
                 assert search_hits(step['search'], workflow, requirements), \
                     '%s search %r does not reach %s' % (step['no'], step['search'], step['workflow'])
