@@ -3,7 +3,7 @@ import json,uuid
 from contextlib import contextmanager
 from datetime import timedelta
 from fastapi import HTTPException
-from sqlalchemy import select,func
+from sqlalchemy import select,func,or_
 from sqlalchemy.exc import IntegrityError,OperationalError
 from sqlalchemy.orm.exc import StaleDataError
 from .db import today,utcnow
@@ -32,6 +32,7 @@ PURPOSES={'other_in':'wh_other_in','other_in_return':'wh_other_return','consumab
 EXTERNAL_PURPOSES={'purchase','issue','return','count','procurement_receipt','procurement_return','transfer_out','transfer_in','transfer_return','repair_issue_v3','repair_return_v3','retail_dispatch','retail_return'}
 OUT={'other_in_return','consumable','gift','disposal','local_move'}
 RETURNS={'other_in_return':'wh_other_in','consumable_return':'wh_consumable','gift_return':'wh_gift'}
+RETURN_ORIGINS={'other_in_return':'other_in','consumable_return':'consumable','gift_return':'gift'}
 @contextmanager
 def authority(db,user,roles):
     from .tenancy import single_store,role_for_store
@@ -65,13 +66,65 @@ def action_keys(row,doc):
     if row.state=='transit':return ['accept','reject_transit','assign']
     if row.state=='returning':return ['return_transit','assign']
     return []
+
+def _return_query(db,user,operation):
+    """Only this domain's completed original batches, with actual returns deducted."""
+    from .tenancy import single_store
+    sid=single_store(db)
+    if operation not in RETURNS:raise HTTPException(422,'请选择其他入库、耗材或礼品的原单退回')
+    returned=select(StockMove.original_id.label('source_id'),func.sum(func.abs(StockMove.quantity_milli)).label('qty'),
+        func.sum(func.abs(StockMove.value_cents)).label('value')).where(StockMove.store_id==sid,StockMove.original_id.is_not(None)).group_by(StockMove.original_id).subquery()
+    return select(StockMove,Case,Document,Item,func.coalesce(returned.c.qty,0).label('returned_quantity_milli'),func.coalesce(returned.c.value,0).label('returned_value_cents')).join(
+        Case,Case.id==StockMove.case_id).join(Document,Document.id==Case.id).join(Item,Item.id==StockMove.item_id).outerjoin(returned,returned.c.source_id==StockMove.id).where(
+        StockMove.store_id==sid,Case.store_id==sid,Document.store_id==sid,Item.store_id==sid,
+        Case.kind=='warehouse',Case.flow_version==2,Case.state=='completed',Document.operation==RETURN_ORIGINS[operation],
+        Document.item_id==StockMove.item_id,StockMove.purpose==RETURNS[operation],StockMove.original_id.is_(None),
+        StockMove.quantity_milli>0 if operation=='other_in_return' else StockMove.quantity_milli<0,
+        Case.id.in_(flow.case_query(user).with_only_columns(Case.id)))
+
+def _return_summary(user,operation,entry):
+    move,case,doc,item,returned,returned_value=entry
+    remaining=abs(move.quantity_milli)-returned
+    result={'original_move_id':move.id,'source_case_id':case.id,'source_number':case.number,'business_date':move.business_date,
+        'operation':operation,'item_id':item.id,'item_name':item.name,'sku':item.sku,'unit':item.unit,
+        'original_quantity_milli':abs(move.quantity_milli),'returned_quantity_milli':returned,'remaining_quantity_milli':remaining,
+        'can_return':user.role in PHYSICAL and item.active and remaining>0}
+    if user.role in MONEY:result.update(original_value_cents=abs(move.value_cents),returned_value_cents=returned_value,remaining_value_cents=abs(move.value_cents)-returned_value)
+    return result
+
+def return_sources(db,user,operation,q='',original_move_id=None,page=1,page_size=30):
+    with authority(db,user,READ):
+        query=_return_query(db,user,operation)
+        if original_move_id is not None:query=query.where(StockMove.id==original_move_id)
+        else:
+            query=query.where(Item.active.is_(True),func.abs(StockMove.quantity_milli)>query.selected_columns.returned_quantity_milli,
+                Item.id.in_(select(Enrollment.item_id)))
+        if q.strip():query=query.where(or_(Item.name.contains(q.strip(),autoescape=True),Item.sku.contains(q.strip(),autoescape=True),Case.number.contains(q.strip(),autoescape=True)))
+        total=db.scalar(select(func.count()).select_from(query.subquery()))
+        entries=list(db.execute(query.order_by(StockMove.business_date.desc(),StockMove.id.desc()).offset((page-1)*page_size).limit(page_size)))
+        if original_move_id is not None and not entries:raise HTTPException(404,'未找到该原批次，请从对应作业重新选择')
+        return {'items':[_return_summary(user,operation,entry) for entry in entries],'total':total,'page':page,'page_size':page_size}
+
+def _verified_return_source(db,user,operation,original_id,item_id):
+    entry=db.execute(_return_query(db,user,operation).where(StockMove.id==original_id,StockMove.item_id==item_id)).first()
+    if not entry:raise HTTPException(422,'请选择同一物资已完成的对应原仓储批次')
+    return entry
 def describe(db,user,row):
     d=one(db,Document,row.id);item=one(db,Item,d.item_id);money=user.role in MONEY
     result={k:getattr(row,k) for k in ['id','number','state','version','store_id','business_date','due_date']}
     result.update({k:getattr(d,k) for k in ['operation','item_id','quantity_milli','source_location_id','destination_location_id','original_move_id','reason','recipient']})
     result.update(operation_label=NAMES[d.operation],item_name=item.name,unit=item.unit,can_money=money,
         actions=[{'key':k,'label':LABELS[k]} for k in action_keys(row,d) if user.role in ROLES[k]])
-    result['stock_moves']=[{'id':m.id,'quantity_milli':m.quantity_milli,'purpose':m.purpose,'original_id':m.original_id,**({'value_cents':m.value_cents} if money else {})} for m in rows(db,StockMove,case_id=row.id)]
+    result['stock_moves']=[]
+    for m in rows(db,StockMove,case_id=row.id):
+        record={'id':m.id,'quantity_milli':m.quantity_milli,'purpose':m.purpose,'original_id':m.original_id,'business_date':m.business_date,**({'value_cents':m.value_cents} if money else {})}
+        operation=next((op for op,purpose in RETURNS.items() if purpose==m.purpose),None)
+        if operation:
+            entry=db.execute(_return_query(db,user,operation).where(StockMove.id==m.id)).first()
+            if entry:
+                source=_return_summary(user,operation,entry);record['return_source']=source
+                record.update(return_operation=operation,returnable_milli=source['remaining_quantity_milli'],returned_milli=source['returned_quantity_milli'],can_return=source['can_return'])
+        result['stock_moves'].append(record)
     result['transit_quantity_milli']=sum(b.quantity_milli for b in rows(db,Balance,transit_case_id=row.id))
     ob=db.scalar(select(Observation).where(Observation.case_id==row.id))
     if ob:
@@ -129,6 +182,7 @@ def create(db,user,key,v):
                 if op in RETURNS:
                     move=one(db,StockMove,original or 0)
                     if move.item_id!=item.id or move.purpose!=RETURNS[op]:raise HTTPException(422,'只能退回同一物资对应作业的原始收发')
+                    _verified_return_source(db,user,op,move.id,item.id)
                     remaining=abs(move.quantity_milli)-sum(abs(m.quantity_milli) for m in rows(db,StockMove,original_id=move.id))
                     if qty>remaining:raise HTTPException(409,'退回数量超过原始收发尚未退回的数量')
                 elif original:raise HTTPException(422,'此作业不能指定原收发记录')
@@ -243,6 +297,7 @@ def _act(db,user,row,doc,item,action,v):
         task(db,user,row,'wh_execute');evidence(db,user,row,v['evidence_id']);qty=doc.quantity_milli*(-1 if op in OUT else 1)
         if op in RETURNS:
             original=one(db,StockMove,doc.original_move_id);previous=rows(db,StockMove,original_id=original.id)
+            _verified_return_source(db,user,op,original.id,item.id)
             remaining=abs(original.quantity_milli)-sum(abs(x.quantity_milli) for x in previous);remaining_value=abs(original.value_cents)-sum(abs(x.value_cents) for x in previous)
             if abs(qty)>remaining:raise HTTPException(409,'原收发已被其他退回使用，当前数量超过可退余量')
             value=portion(remaining_value,abs(qty),remaining)

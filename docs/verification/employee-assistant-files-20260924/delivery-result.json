@@ -1,0 +1,40 @@
+{
+  "delivered_local_trial": true,
+  "date": "2026-09-24",
+  "database_head": "f24s_business_assistant",
+  "new_migrations": 0,
+  "full_regression": {
+    "status": "passed",
+    "passed": 1907,
+    "tests": 1908,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "seconds": 1384.94,
+    "module_count": 150,
+    "source_file_count": 725,
+    "source_digest": "6f08632d009ea977362efbc01e169b38ce811ffeb013c98be3bf2a8af63fc5b8",
+    "source_changed": []
+  },
+  "javascript_syntax_files": 59,
+  "node_tests_passed": 156,
+  "real_browser_groups": 5,
+  "provider_requests": 11,
+  "provider_scope": "one synthetic CSV lead; HTTP integration, not browser",
+  "model_can_execute_code": false,
+  "reviewed_capabilities": 285,
+  "original_preview_rows_preserved": 74,
+  "preview_url": "http://127.0.0.1:8000/",
+  "source_fingerprint": "16950c1f9506e277a20b44a21b2ba18ce2d3e3ac22556c738d671640f819149e",
+  "requirements": 193,
+  "company_accepted": false,
+  "production_deployed": false,
+  "current_postgresql_validation": "pending",
+  "skip_reasons": [
+    {
+      "test": "test_symlink_file_and_root_rejected",
+      "reason": "This Windows host does not permit symlink creation"
+    }
+  ],
+  "cleanup_warning": "One synthetic-only temporary SQLite remained after automatic approval denied deletion with blocked by policy. Temporary API configuration deleted."
+}

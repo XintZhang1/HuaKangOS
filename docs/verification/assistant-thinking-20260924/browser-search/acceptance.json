@@ -1,0 +1,86 @@
+{
+  "status": "passed",
+  "synthetic_only": true,
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 1440,
+      "height": 1000
+    }
+  ],
+  "employee_role": "sales",
+  "steps": [
+    "默认普通搜索即时展示本地匹配；停顿后仍不请求 AI。",
+    "普通搜索结果可直接进入原接待页面或打开原新建表单；只打开，不提交。",
+    "普通搜索即使没有结果也不请求 AI；显示显式切换 AI 搜索的入口。",
+    "点击 AI 搜索才执行一次；普通结果与 AI 结果分开，真实接口过滤不存在、重复和恶意 ID。",
+    "AI 结果的进入页面和新建表单复用本店原入口；返回后同查询缓存有效，没有自动办理。",
+    "AI 模式输入不触发请求；按 Enter 才搜索，即使有本地匹配也可显式请求；同查询按钮和切换模式复用缓存。",
+    "composition 事件模拟：中文选字期间及完成后均不请求，点击搜索才提交完整文字。",
+    "AI 结果只打开已有指引，不提交业务，也不发送助手消息。",
+    "AI 搜索失败保留原输入，显示中文说明，可点击搜索重试。",
+    "模型没有合适结果时不捏造流程或入口。",
+    "AI 请求进行中切回普通，立即恢复本地结果；迟到回复不会重新显示或切换模式。",
+    "关闭搜索并切店后旧请求失效，重新打开默认普通搜索。",
+    "390px 手机及 1440px 电脑两种模式均可用，无横向溢出；全程无业务写入或接待数量变化。"
+  ],
+  "screenshots": [
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-search-preserved-20260924\\06_mobile_normal_original_form.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-search-preserved-20260924\\01_mobile_normal_no_matches.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-search-preserved-20260924\\02_mobile_ai_matches.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-search-preserved-20260924\\07_mobile_ai_original_form.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-search-preserved-20260924\\03_mobile_ai_no_matches.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-search-preserved-20260924\\04_desktop_normal_matches.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-search-preserved-20260924\\05_desktop_ai_matches.png"
+  ],
+  "page_errors": [],
+  "read_only_recommendation_requests": [
+    {
+      "query": "刚来了位叔叔不知道从哪里开始",
+      "trigger": "manual"
+    },
+    {
+      "query": "客户档案",
+      "trigger": "manual"
+    },
+    {
+      "query": "这位顾客只说需要替他办一件事",
+      "trigger": "manual"
+    },
+    {
+      "query": "店里这一件事情想请你指个路",
+      "trigger": "manual"
+    },
+    {
+      "query": "店里这一件事情想请你指个路",
+      "trigger": "manual"
+    },
+    {
+      "query": "想找一件完全不在经营范围内的事情",
+      "trigger": "manual"
+    },
+    {
+      "query": "等一等再回答这件暂时说不清的事情",
+      "trigger": "manual"
+    },
+    {
+      "query": "换一家店以前尚未找到办事的位置",
+      "trigger": "manual"
+    },
+    {
+      "query": "客户档案",
+      "trigger": "manual"
+    }
+  ],
+  "api_business_writes": [],
+  "external_model_requests": 0,
+  "scripted_model_calls": 9,
+  "limitations": [
+    "模型推荐回复为固定脚本，不证明真实 DeepSeek 理解或推荐质量。",
+    "中文输入法使用 composition 事件模拟，未操作 Windows 实际输入法。",
+    "真实本机 HTTP 浏览器检查，不替代生产 HTTPS 或公司业务验收。"
+  ]
+}

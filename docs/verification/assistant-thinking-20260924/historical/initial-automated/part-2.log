@@ -1,0 +1,28 @@
+..F....................................................                  [100%]
+================================== FAILURES ===================================
+____ test_reviewed_wildcard_cannot_shadow_a_new_unreviewed_static_handler _____
+
+client = <starlette.testclient.TestClient object at 0x0000013B2B9C5010>
+
+    def test_reviewed_wildcard_cannot_shadow_a_new_unreviewed_static_handler(client):
+        touched=[]
+        async def newly_added():touched.append(True);return {'changed':True}
+        route=APIRoute('/api/flow/master/new-code-command',newly_added,methods=['GET'])
+        app.router.routes.insert(0,route);gateway._operations.cache_clear()
+        try:
+            with pytest.raises(HTTPException) as error:invoke(client,'GET /api/flow/master/{kind}',{'kind':'new-code-command'})
+>           assert error.value.status_code==403 and touched==[]
+E           AssertionError: assert (422 == 403)
+E            +  where 422 = HTTPException(status_code=422, detail='资料类别填写不正确，请先查询对应目录中的准确类别键；这是类别参数错误，不代表没有权限。本次未执行').status_code
+E            +    where HTTPException(status_code=422, detail='资料类别填写不正确，请先查询对应目录中的准确类别键；这是类别参数错误，不代表没有权限。本次未执行') = <ExceptionInfo HTTPException(status_code=422, detail='资料类别填写不正确，请先查询对应目录中的准确类别键；这是类别参数错误，不代表没有权限。本次未执行') tblen=8>.value
+
+tests\test_business_assistant_capabilities.py:57: AssertionError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\starlette\testclient.py:45
+  E:\proj\huakangos_t02g_recovery_pending_20260922\dealer_desk\.venv\Lib\site-packages\starlette\testclient.py:45: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_business_assistant_capabilities.py::test_reviewed_wildcard_cannot_shadow_a_new_unreviewed_static_handler
+1 failed, 54 passed, 1 warning in 49.13s

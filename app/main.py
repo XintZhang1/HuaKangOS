@@ -57,9 +57,10 @@ async def safety_headers(request: Request, call_next):
         if origin and origin.rstrip('/') != str(request.base_url).rstrip('/'):
             return JSONResponse({'detail':'请求来源不匹配，请使用同一个地址访问'},status_code=403)
         is_vehicle_import = bool(re.fullmatch(r'/api/vehicle-imports/orders/[1-9][0-9]*/batches',request.url.path))
-        is_upload = (request.url.path.startswith('/api/flow/cases/') and request.url.path.endswith('/files')) or is_vehicle_import
+        is_assistant_preview = request.url.path == '/api/business-assistant/file-preview' and request.method == 'POST'
+        is_upload = (request.url.path.startswith('/api/flow/cases/') and request.url.path.endswith('/files')) or is_vehicle_import or is_assistant_preview or request.url.path == '/api/branding/photo' and request.method == 'POST'
         is_opening = request.url.path == '/api/opening-import/preflight'
-        limit = 256 * 1024 if is_vehicle_import else 12 * 1024 * 1024 if is_upload else 1_000_000 if is_opening else 100_000
+        limit = 21 * 1024 * 1024 if is_assistant_preview else 256 * 1024 if is_vehicle_import else 12 * 1024 * 1024 if is_upload else 1_000_000 if is_opening else 100_000
         accepted = 'multipart/form-data' if is_upload else 'application/json'
         if not request.headers.get('content-type','').lower().startswith(accepted):
             return JSONResponse({'detail':'提交格式不正确，请从对应页面重新操作'},status_code=415)
@@ -599,3 +600,12 @@ from .dictionary_api import router as dictionary_router
 from .parameter_api import router as parameter_router
 app.include_router(dictionary_router)
 app.include_router(parameter_router)
+
+from .branding_api import router as branding_router
+app.include_router(branding_router)
+
+from .business_assistant_api import router as business_assistant_router
+app.include_router(business_assistant_router)
+
+from .workflow_guides_api import router as workflow_guides_router
+app.include_router(workflow_guides_router)

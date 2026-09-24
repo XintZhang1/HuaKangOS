@@ -7,7 +7,7 @@ function voContext(){return `${state.user?.id}:${state.store}`;}
 function voOptions(rows,label){return rows.map(r=>`<option value="${r.id}">${E(label(r))}</option>`).join('');}
 async function voLocations(){const [locs,warehouses]=await Promise.all([procurementAll('/api/masters/locations?active=true'),procurementAll('/api/masters/warehouses?active=true')]);const allowed=warehouses.filter(w=>['vehicles','mixed'].includes(w.warehouse_type));return locs.filter(l=>allowed.some(w=>w.id===l.warehouse_id)).map(l=>({...l,label:allowed.find(w=>w.id===l.warehouse_id).name+' / '+l.name}));}
 async function vehicleOperationsPage(){
- const catalog=await api('/api/vehicle-operations/catalog');if(!catalog.can_read)return empty('请先选择获权门店','整车作业依照本店岗位与实车凭据办理。');
+ const catalog=await api('/api/vehicle-operations/catalog');if(!catalog.can_read)return empty('请选择门店','整车作业依照本店岗位与实车凭据办理。');
  const d=await api('/api/vehicle-operations/orders?page='+state.page);
  return heading('整车库位与出退库','核对实车、明确库位；移库与原车退回分别留据。',catalog.can_create?b('vo-new','建立车辆作业','','primary'):'')+storeNotice()+panel('本店车辆作业',table(['单号／车辆','作业','状态',''],d.items.map(r=>[`${E(r.number)}<br>${E(r.vin)}<br>${E(r.model)}`,E(r.kind_label),E(r.status_label),b('open','办理',`data-route="vehicle-operation/${r.id}"`)])))+pager(d.total)+panel('使用范围','<p>其他出库用于经批准退出可售库存的实际处置、内部转用等。临时借车和试驾不通过该入口。旧地址没有明确库位时，须先现场定位。</p><p>客户退车从原销售售后方案进入；收车先隔离，经检查、主管判定和实车放行后建立新的库存代次。</p>');
 }

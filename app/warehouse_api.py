@@ -63,6 +63,10 @@ def items(page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=100),db=Depends(
 @router.get('/items/{item_id}/stock')
 def item_stock(item_id:int,db=Depends(get_db),user=Depends(get_user)):
     with svc.authority(db,user,svc.READ):return svc.stock_view(db,user,item_id)
+@router.get('/return-sources')
+def return_sources(operation:Literal['other_in_return','consumable_return','gift_return'],q:str=Query('',max_length=100),
+                   original_move_id:int|None=Query(None,gt=0),page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),db=Depends(get_db),user=Depends(get_user)):
+    return svc.return_sources(db,user,operation,q,original_move_id,page,page_size)
 @router.get('/cases')
 def cases(page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),db=Depends(get_db),user=Depends(get_user)):
     with svc.authority(db,user,svc.READ):

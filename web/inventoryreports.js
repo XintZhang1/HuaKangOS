@@ -17,7 +17,7 @@ async function vehiclePeriodPage(){
  let d;try{d=await api('/api/inventory-reports/vehicles?'+new URLSearchParams(state.dates));}catch(error){if(error.status===422)return irPeriodError('整车期间入出存',error);throw error;}
  return heading('整车期间入出存','每台车按原库存编号与代次核对实际出入库。')+storeNotice()+dateFilters()+
  `<div class="notice ${d.complete?'':'error'}">库内库存来源：${d.complete?'本次所列代次均可核对':'存在不完整来源；不展示完整期末合计'}。<br>在途来源：${d.transit_complete?'本次授权范围内可核对':'存在对店历史确认不可读的调拨，不能确认其历史在途数量'}。</div>`+
- `<p class="muted">${E(d.definition)}</p><p class="muted">查询快照：${time(d.as_of)}</p>`+
+ `<p class="muted">${E(d.definition)}</p><p class="muted">查询时间：${time(d.as_of)}</p>`+
  d.charts.map(c=>panel(c.title,chartSVG(c)+b('inventory-report-export','导出此图原始行',`data-kind="vehicles" data-key="${c.table}"`))).join('')+
  Object.entries(d.tables).map(([key,t])=>irTable('vehicles',key,t)).join('');
 }
@@ -33,7 +33,7 @@ async function procurementCohortPage(){
 
 async function warehousePeriodPage(){
  const ctx=warehouseReportContext(),options=await Promise.all(['items','warehouses'].map((kind,i)=>api('/api/inventory-reports/warehouses/options/'+kind+(ctx.filters[i?'warehouse_id':'item_id']?'?selected_id='+ctx.filters[i?'warehouse_id':'item_id']:''))));
- const filterHTML=`<form id="warehouse-report-filters" class="filterbar">${[['items','item_id','物资'],['warehouses','warehouse_id','仓库']].map(([kind,key,label],i)=>`<label>${label}<div data-warehouse-report-kind="${kind}"><div class="lookuprow"><input type="search" placeholder="输入名称或编码" aria-label="查找${label}">${b('warehouse-report-lookup','查找')}</div><select name="${key}"><option value="">全部${label}</option>${options[i].items.map(o=>`<option value="${o.id}" ${String(o.id)===String(ctx.filters[key])?'selected':''}>${E(o.label)}</option>`).join('')}</select><small>${options[i].has_more?'结果超过100条，请输入名称或编码查找。':'包含有权查询的停用历史资料。'}</small></div></label>`).join('')}<button type="submit" class="primary">筛选库位</button>${b('warehouse-report-clear','清除物资和仓库')}</form>`;
+ const filterHTML=`<form id="warehouse-report-filters" class="filterbar">${[['items','item_id','物资'],['warehouses','warehouse_id','仓库']].map(([kind,key,label],i)=>`<label>${label}<select name="${key}" data-search-select data-warehouse-report-kind="${kind}" data-search-all="全部${label}" data-search-placeholder="全部${label}（输入名称或编码）"><option value="">全部${label}</option>${options[i].items.map(o=>`<option value="${o.id}" ${String(o.id)===String(ctx.filters[key])?'selected':''}>${E(o.label)}</option>`).join('')}</select></label>`).join('')}${b('warehouse-report-clear','清除筛选')}</form>`;
  let d;try{d=await api('/api/inventory-reports/warehouses?'+new URLSearchParams({...state.dates,...ctx.filters}));}catch(error){if([422,409].includes(error.status))return irPeriodError('库位期间入出存',error)+filterHTML;throw error;}
  return heading('库位期间入出存','基于真实启用桥接、库位收发和店内在途的原始账。')+storeNotice()+dateFilters()+filterHTML+
  `<div class="notice ${d.complete?'':'error'}">全期间来源：${d.complete?'完整':'有未知期初或覆盖缺口'}。<br>期末来源：${d.closing_complete?'已知并可核对；这不代表全期间完整':'来源不足，不能生成完整期末图'}。</div>`+
@@ -44,9 +44,23 @@ async function warehousePeriodPage(){
 
 document.addEventListener('submit',event=>{if(event.target.id!=='warehouse-report-filters')return;event.preventDefault();warehouseReportContext().filters=Object.fromEntries([...new FormData(event.target)].filter(([,v])=>v!==''));state.page=1;render();});
 
+// History filters deliberately retain their own scoped endpoint, including inactive records.
+function warehouseHistoryLookup(kind,query){if(!['items','warehouses'].includes(kind))throw new Error('筛选类型无效');return api('/api/inventory-reports/warehouses/options/'+kind+'?'+new URLSearchParams({q:query}));}
+function enhanceWarehouseReportChoices(){
+ if(typeof registerLiveChoiceLoader!=='function')return;
+ document.querySelectorAll('#warehouse-report-filters select[data-warehouse-report-kind]:not([data-warehouse-choice-ready])').forEach(select=>{
+  const kind=select.dataset.warehouseReportKind;registerLiveChoiceLoader(select,query=>warehouseHistoryLookup(kind,query));select.dataset.warehouseChoiceReady='1';
+ });
+}
+new MutationObserver(enhanceWarehouseReportChoices).observe(document.documentElement,{childList:true,subtree:true});
+document.addEventListener('DOMContentLoaded',enhanceWarehouseReportChoices);
+document.addEventListener('change',event=>{
+ const select=event.target;if(!select.matches?.('#warehouse-report-filters select[data-warehouse-report-kind]')||event.liveChoiceReason==='edit')return;
+ const filters=warehouseReportContext().filters;if(select.value)filters[select.name]=select.value;else delete filters[select.name];state.page=1;render();
+});
+
 document.addEventListener('click',async event=>{
  const clear=event.target.closest('[data-act="warehouse-report-clear"]');if(clear){warehouseReportContext().filters={};state.page=1;render();return;}
- const lookup=event.target.closest('[data-act="warehouse-report-lookup"]');if(lookup){lookup.disabled=true;try{const box=lookup.closest('[data-warehouse-report-kind]'),select=box.querySelector('select'),data=await api('/api/inventory-reports/warehouses/options/'+box.dataset.warehouseReportKind+'?q='+encodeURIComponent(box.querySelector('input').value));select.innerHTML='<option value="">全部</option>'+data.items.map(o=>`<option value="${o.id}">${E(o.label)}</option>`).join('');box.querySelector('small').textContent=data.has_more?'结果超过100条，请细化关键词。':'已更新匹配资料，选择后点击筛选库位。';}catch(error){toast(error.message,true);}finally{lookup.disabled=false;}return;}
  const button=event.target.closest('[data-act="inventory-report-export"]');if(!button)return;
  button.disabled=true;
  try{await download(`/api/inventory-reports/${button.dataset.kind}/export/${button.dataset.key}?`+new URLSearchParams({...state.dates,...(button.dataset.kind==='warehouses'?warehouseReportContext().filters:{})}),'huakangos_库存采购统计.csv');}

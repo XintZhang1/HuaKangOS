@@ -1,0 +1,1443 @@
+{
+  "addon-orders": {
+    "src": "workflow-assets/addon-orders.png",
+    "caption": "销售加装明细：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "销售加装明细",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-sale-addon"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "4b4c12ef5df0cbe5c63fb97e58fe7ecc1e8fbb36e0e3fd01ba85224b7d1c182c",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "aftercare": {
+    "src": "workflow-assets/aftercare.png",
+    "caption": "售后纠正：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "售后纠正",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-sale-aftercare"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "77652bba784e12963a743e79ef0a9ed0f13b097440d79889976ff5cbd72c90cb",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "analytics/members": {
+    "src": "workflow-assets/analytics-members.png",
+    "caption": "数据可视化：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "数据可视化",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-168"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "31ac8b8d6ff2356f427be6e66a1221e4482a05454e1dff48ebf1a73f578911c4",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "analytics/sales": {
+    "src": "workflow-assets/analytics-sales.png",
+    "caption": "数据可视化：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "数据可视化",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-141"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "00958ee0414d1c1af206a1e9d24bf4acdf1272778461ddf0e991069a5027708d",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "audit": {
+    "src": "workflow-assets/audit.png",
+    "caption": "操作记录：合成演示入口（审计）",
+    "role": "auditor",
+    "role_label": "审计",
+    "page_title": "操作记录",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-audit-business-history"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "49434e1d6e86ec72d9847d88a958a2a03191ef89e0fd353f32fc34947e9560c4",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "business-finance": {
+    "src": "workflow-assets/business-finance.png",
+    "caption": "业务财务结算：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "业务财务结算",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-cash-correction",
+      "wf-customer-advance",
+      "wf-customer-statement",
+      "wf-supplier-other-return-money"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "02f18e78e364348128105e928b4abf9f6ffcbb10c330deafc31372b4164cb52c",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "cases/lead": {
+    "src": "workflow-assets/cases-lead.png",
+    "caption": "售前接待：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "售前接待",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-reception",
+      "wf-intent-followup",
+      "wf-intent-callback"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "c15fcac57bae3fa647e4a57db4ed8346d80f4bd3ddbc99f51ab551b81162b295",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "claims": {
+    "src": "workflow-assets/claims.png",
+    "caption": "理赔索赔与客户报销：合成演示入口（服务顾问）",
+    "role": "service",
+    "role_label": "服务顾问",
+    "page_title": "理赔索赔与客户报销",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-repair-claim",
+      "wf-customer-reimbursement"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "b444df7de396501a00d9edf285db8373525a4fd688bf64e4a4dcb6c3c9424ab4",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "clearing": {
+    "src": "workflow-assets/clearing.png",
+    "caption": "店间实际清算：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "店间实际清算",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-transfer-clearing"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "91c34ccf8e0d49d9525da94854710acd6aa59cc4c116ab12a61881dd8a5b2d70",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "customer-questionnaires": {
+    "src": "workflow-assets/customer-questionnaires.png",
+    "caption": "问卷题目版本：合成演示入口（主管）",
+    "role": "manager",
+    "role_label": "主管",
+    "page_title": "问卷题目版本",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-questionnaire-design-and-answer"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "18a3a1218810a947920d8b2dd724a0aed15567100da45bb9aff7c74c257ce90b",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "customer-reminders": {
+    "src": "workflow-assets/customer-reminders.png",
+    "caption": "车辆提醒与续保提取：合成演示入口（服务顾问）",
+    "role": "service",
+    "role_label": "服务顾问",
+    "page_title": "车辆提醒与续保提取",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-vehicle-reminders",
+      "wf-insurance-renewal"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "b37fe7271cd6086fdba78d7661279b9304aa3c720c82f270052edbc28e9f8677",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "customer-service": {
+    "src": "workflow-assets/customer-service.png",
+    "caption": "客户服务工作台：合成演示入口（服务顾问）",
+    "role": "service",
+    "role_label": "服务顾问",
+    "page_title": "客户服务工作台",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-sales-repair-callback",
+      "wf-customer-consultation-complaint-rescue"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "6896077a1b04cac49fd9703fdc0bf4c4a81ff954d407060188aa96c95ea01b2b",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "customer-vehicles": {
+    "src": "workflow-assets/customer-vehicles.png",
+    "caption": "客户车辆档案：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "客户车辆档案",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-customer-vehicle"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "5b50dae296711c36d15b364ea209cde2c45c9c19e626462618ee79e2321e8808",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "dictionaries": {
+    "src": "workflow-assets/dictionaries.png",
+    "caption": "分类设置：合成演示入口（主管）",
+    "role": "manager",
+    "role_label": "主管",
+    "page_title": "分类设置",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-dictionary-settings"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "21edcc6630c7781d460785bea5953efbde13937cc33051499a8cb62c49027804",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "dossier-grants/received": {
+    "src": "workflow-assets/dossier-grants-received.png",
+    "caption": "档案授权：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "档案授权",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-cross-store-service-history"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "16c3d784a7a48f0d9f6fd2561829a189923a9ae7e3fab0f7d244df745c738b59",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "group": {
+    "src": "workflow-assets/group.png",
+    "caption": "集团会员：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "集团会员",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-coupons-and-benefits"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "ed327f4b94c101f2835e6ae99aec7cdfd2c16cfe387645d24fb5bfa797afab9f",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "insurance-orders": {
+    "src": "workflow-assets/insurance-orders.png",
+    "caption": "保险核价与结算：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "保险核价与结算",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-insurance-order"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "f6fb46ff0eba5a0ca0ce04d550de989c9dcffb11953ae0d68952c78b5b45946c",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "invoices": {
+    "src": "workflow-assets/invoices.png",
+    "caption": "开票与原票冲红：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "开票与原票冲红",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-invoice-issue-red"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "1f8d68c3aaefd40e2eae4a214a3cfa6e6f2d068b267fb26c5f3bc10556cbbc40",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "master/customers": {
+    "src": "workflow-assets/master-customers.png",
+    "caption": "客户档案：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "客户档案",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-customer-profile"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "016415ee15be0f857089371eac6cba5514db48a3cd482a3c99c71e90b9cb3a0d",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "master/items": {
+    "src": "workflow-assets/master-items.png",
+    "caption": "物资目录：合成演示入口（库管）",
+    "role": "inventory",
+    "role_label": "库管",
+    "page_title": "物资目录",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-material-catalog-masters"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "49fe5a4976dfbe1ccc7396438e487e6f90b480ac30d98c7051cb369540028109",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "masters": {
+    "src": "workflow-assets/masters.png",
+    "caption": "经营主数据：合成演示入口（主管）",
+    "role": "manager",
+    "role_label": "主管",
+    "page_title": "经营主数据",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-suppliers-and-insurers",
+      "wf-workshops-and-jobs",
+      "wf-warehouse-location-masters"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "31531b18de128d6eff859913ee41941164df446b068112ac66dd1cff8b4cfa09",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "masters/agency_projects": {
+    "src": "workflow-assets/masters-agency-projects.png",
+    "caption": "代办项目：合成演示入口（服务顾问）",
+    "role": "service",
+    "role_label": "服务顾问",
+    "page_title": "代办项目",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-agency-project-master"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "74438c980754efc5af56a032f3bdb6ee09cff2881ccd7a99b3e7aa9991b6e2e4",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "material-value": {
+    "src": "workflow-assets/material-value.png",
+    "caption": "物资收入成本对照：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "物资收入成本对照",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-161"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "0cd9eeba2c65559579850a4454011bf980c72d21625df2b6fdba2025338bfe1e",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "member-pricing": {
+    "src": "workflow-assets/member-pricing.png",
+    "caption": "会员价格规则：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "会员价格规则",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-member-level-rules"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "a1582741684be06bbe376881b572e5187beab995318bbf762efc5977010013f7",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "membership": {
+    "src": "workflow-assets/membership.png",
+    "caption": "会员卡与续会：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "会员卡与续会",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-member-topup-refund",
+      "wf-member-card",
+      "wf-member-points",
+      "wf-member-renew-tier",
+      "wf-member-principal"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "78a42d6f7cd1b9efc60e3d846782732ba3c88e5a92c66e29a9d6f7c8765315a7",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "parameters": {
+    "src": "workflow-assets/parameters.png",
+    "caption": "参数与个人密码：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "参数与个人密码",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-parameters-password-brand"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "d34030b0a29281637c2e04a30ff9648e884f32bf0765c3c156a25113e3568711",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "procurement": {
+    "src": "workflow-assets/procurement.png",
+    "caption": "采购与供应商结算：合成演示入口（库管）",
+    "role": "inventory",
+    "role_label": "库管",
+    "page_title": "采购与供应商结算",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-material-purchase",
+      "wf-material-purchase-return"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "dd96afc236c404065c8f30fb225ed67aac3003e70c6a4cd549670b67cbc25e19",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "procurement-cohort": {
+    "src": "workflow-assets/procurement-cohort.png",
+    "caption": "物资采购订货统计：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "物资采购订货统计",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-153"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "765a4de4d71e37a2b4a98659caad00867c654c5eb849cf2fa50ea7a5a63369e5",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "recharge-bundles": {
+    "src": "workflow-assets/recharge-bundles.png",
+    "caption": "会员充值组合套餐：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "会员充值组合套餐",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-recharge-bundle"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "62883d683444d4e3abdd10f1854d6e3bca10a8cf0df3c8003eff73949289f33c",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "reconciliation": {
+    "src": "workflow-assets/reconciliation.png",
+    "caption": "业务对账与月结：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "业务对账与月结",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-period-close",
+      "wf-report-163"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "421da1fa14f51787a829249fee6a0b669fdc736d941ecee7a7e0b521da10f6db",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "repair-materials": {
+    "src": "workflow-assets/repair-materials.png",
+    "caption": "维修实际领退料分析：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "维修实际领退料分析",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-149"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "eb48caa071c5d968b46e9315395bd7f85b15d8fa2a6c0365e369e28e77b5991a",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "repair-orders": {
+    "src": "workflow-assets/repair-orders.png",
+    "caption": "维修明细工单：合成演示入口（服务顾问）",
+    "role": "service",
+    "role_label": "服务顾问",
+    "page_title": "维修明细工单",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-repair-complete",
+      "wf-repair-materials"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "b01cddd358d9fe0541f8c223adfd1aa30eb9e3dbff9ac14a46fc5518f0b5b166",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "repair-packages": {
+    "src": "workflow-assets/repair-packages.png",
+    "caption": "维修组合套餐：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "维修组合套餐",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-repair-package",
+      "wf-customer-repair-package"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "aff59a050e8ff4847e000a5a8a6fb69679438c1ed903dd28249aa19b4c580e57",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "retail": {
+    "src": "workflow-assets/retail.png",
+    "caption": "精品销售与退货：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "精品销售与退货",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-retail-sale",
+      "wf-retail-return"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "b487d731b6898c67b8d239e0e9ee726c18528a6b547ebc060f66c68f00c9c3ef",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "retail-bundles": {
+    "src": "workflow-assets/retail-bundles.png",
+    "caption": "精品销售套餐：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "精品销售套餐",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-retail-bundle"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "40becff715a6252f1df5ed39c64ab09c4cb29c12b6cf4b0550434a74df6dc1f9",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "sales-quotes": {
+    "src": "workflow-assets/sales-quotes.png",
+    "caption": "车辆报价与预订：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "车辆报价与预订",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-reservation-contract",
+      "wf-sale-delivery",
+      "wf-sale-cancellation"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "45267e4caa655417f4c5cb83196e4f6a049e6ca40687c0b91068dcc1db7d3ce0",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "service-intake/appointments": {
+    "src": "workflow-assets/service-intake-appointments.png",
+    "caption": "维修预约与到店：合成演示入口（前台）",
+    "role": "reception",
+    "role_label": "前台",
+    "page_title": "维修预约与到店",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-repair-intake"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "821033f34268ddf8aa18bfbe386121c79ef624622b7ec3e84892e1c277ecaccc",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "service-intake/reworks": {
+    "src": "workflow-assets/service-intake-reworks.png",
+    "caption": "原单责任返修：合成演示入口（服务顾问）",
+    "role": "service",
+    "role_label": "服务顾问",
+    "page_title": "原单责任返修",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-repair-rework"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "b39ab581ffefbaf48cff690b4a32927040955922fa91c3ebd2f39170c18b009f",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "service-orders": {
+    "src": "workflow-assets/service-orders.png",
+    "caption": "代办与其它客户服务：合成演示入口（销售）",
+    "role": "sales",
+    "role_label": "销售",
+    "page_title": "代办与其它客户服务",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-agency-service",
+      "wf-other-customer-income",
+      "wf-other-service-income"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "2aed1a72e995f3c684ccd65c0e115f7e7229c431da8347d4dae4e35a06c292dd",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "stores": {
+    "src": "workflow-assets/stores.png",
+    "caption": "门店设置：合成演示入口（系统管理员）",
+    "role": "admin",
+    "role_label": "系统管理员",
+    "page_title": "门店设置",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-store-management"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "7330675a13cc8910642436e881310af597005a5e72ed8888d1bee0071e2906de",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/addon_actual_facts": {
+    "src": "workflow-assets/table-addon-actual-facts.png",
+    "caption": "期间加装客户验收及原单退货：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "期间加装客户验收及原单退货",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-139"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "7e508d72bcf48b70745dbff6c6b79d41eddd86dd31d48c8206cc19cacb5a11ce",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/benefit_coupon": {
+    "src": "workflow-assets/table-benefit-coupon.png",
+    "caption": "消费券变动明细：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "消费券变动明细",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-169"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "2092734cc4372043987397e5ac0e6f87d3696ce783846c9d27a29cb6cbbf1f0d",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/callbacks": {
+    "src": "workflow-assets/table-callbacks.png",
+    "caption": "客户回访明细：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "客户回访明细",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-165"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "2eed2071b32e6f4fae28a138e54532146354d2c1e600996d53fe711f938d58f1",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/cash": {
+    "src": "workflow-assets/table-cash.png",
+    "caption": "实际收支明细：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "实际收支明细",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-160"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "b4f93e32c18dcd2738b7e0ebe67a35d8ed873ef64a9a3f5e655cd95aca957782",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/customer_value": {
+    "src": "workflow-assets/table-customer-value.png",
+    "caption": "期间客户已记录业务归集：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "期间客户已记录业务归集",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-167"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "2a7bc00ed2df9e8ef40df39535098cfc300ca1e4aecec88f0912f03b4e02d4bb",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/customer_vehicle_stats": {
+    "src": "workflow-assets/table-customer-vehicle-stats.png",
+    "caption": "当前客户车辆身份统计：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "当前客户车辆身份统计",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-164"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "7cfd65b5605d1f6ecf3ba0c1d78d1cf6ab0f33eb9c422ee4eac5dbc123be2f21",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/deliveries": {
+    "src": "workflow-assets/table-deliveries.png",
+    "caption": "交付明细：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "交付明细",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-138",
+      "wf-report-142"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "a3b397b3fac98c63788ee740b3284f55af97dea6842b69bc643e3f49b3ed9958",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/finance_advances": {
+    "src": "workflow-assets/table-finance-advances.png",
+    "caption": "当前本店客户预收余额：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "当前本店客户预收余额",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-162"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "0f17f5131c34a3d3bea5ddd0b32923996b634323882538d5342b5436b75edc7f",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/leads": {
+    "src": "workflow-assets/table-leads.png",
+    "caption": "接待客户批次：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "接待客户批次",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-134",
+      "wf-report-135"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "3dd01ef1d8243684dd455a67f98ecd6b68cd3951a928e84d5dd854f929841203",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/movements": {
+    "src": "workflow-assets/table-movements.png",
+    "caption": "物资出入库明细：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "物资出入库明细",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-150",
+      "wf-report-151"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "03f51c639a3c216459efc8b080f39ce0947f902757ce6f2bcea3130f54f0b64d",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/orders": {
+    "src": "workflow-assets/table-orders.png",
+    "caption": "销售订单明细：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "销售订单明细",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-137"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "5157503ed5d1f5a37b9fe7c1f18ea8bbd8d1ce5cba42133b0df02b46aab20ae7",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/receivables": {
+    "src": "workflow-assets/table-receivables.png",
+    "caption": "当前待收款：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "当前待收款",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-157",
+      "wf-report-158",
+      "wf-report-159"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "52061d6769d7e93204e591de554bf0f6a5ecb0f16e264e49e5c1630a3ba32e89",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/repair_projects": {
+    "src": "workflow-assets/table-repair-projects.png",
+    "caption": "已交车维修的最终报价项目：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "已交车维修的最终报价项目",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-148"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "0b34c7d0b5a4aaf91c8f84cc7e65e14585c907c789a2054a032371d46047155d",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/repairs": {
+    "src": "workflow-assets/table-repairs.png",
+    "caption": "维修工单明细：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "维修工单明细",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-147"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "d003da870241c6354634a7388ae1ba0d9e6be2ebb414131145d4380a670b99c8",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/retail_installation": {
+    "src": "workflow-assets/table-retail-installation.png",
+    "caption": "期间精品实际安装范围：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "期间精品实际安装范围",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-156"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "672b8e00a4db0ced20916849524de34102c84382eefd4647a7350d9688fc2972",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/retail_settlements": {
+    "src": "workflow-assets/table-retail-settlements.png",
+    "caption": "期间精品履约与退货冲减：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "期间精品履约与退货冲减",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-154"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "7ad4ecc5002a68ddfd87638332beb860472165b97b90edb82903657bc71cf5ef",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/service_appointments": {
+    "src": "workflow-assets/table-service-appointments.png",
+    "caption": "按预约开始日期的接待批次：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "按预约开始日期的接待批次",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-146"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "dc6dc699f731311ba8dc2b20befa350aa4f49ead8537d0978106e76b0981453e",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/service_fee_facts": {
+    "src": "workflow-assets/table-service-fee-facts.png",
+    "caption": "期间代办及其它服务实际收费事实：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "期间代办及其它服务实际收费事实",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-140"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "2e1e32c93b0737a1031e2e18ac363662d8ae60f9a3bfb653f57dd678afc8936a",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "table/warehouse_local_moves": {
+    "src": "workflow-assets/table-warehouse-local-moves.png",
+    "caption": "期间店内移库配对明细：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "期间店内移库配对明细",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-155"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "fd232564abc69597fc555a36b23e46681debb6a3ce66b273ea179ea031e90f8f",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "transfers": {
+    "src": "workflow-assets/transfers.png",
+    "caption": "跨店物资调拨：合成演示入口（库管）",
+    "role": "inventory",
+    "role_label": "库管",
+    "page_title": "跨店物资调拨",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-material-transfer"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "12cc1ce252f905e8f5203a56a42364d36c428d9a6d602bd5ee5d34ffe7306d42",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "users": {
+    "src": "workflow-assets/users.png",
+    "caption": "员工账号：合成演示入口（系统管理员）",
+    "role": "admin",
+    "role_label": "系统管理员",
+    "page_title": "员工账号",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-employee-store-roles"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "84a2c76aa9045893b59e9e15a9ec0aa4f79855693af3237410cd6d258dc4bf58",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "vehicle-catalog": {
+    "src": "workflow-assets/vehicle-catalog.png",
+    "caption": "车型目录：合成演示入口（库管）",
+    "role": "inventory",
+    "role_label": "库管",
+    "page_title": "车型目录",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-vehicle-catalog",
+      "wf-vehicle-catalog-one-form"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "bc4c2918c80acb7dd8606bafe9ad48a623ec97cb70ecfab9342755e9cfa3a2d6",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "vehicle-income": {
+    "src": "workflow-assets/vehicle-income.png",
+    "caption": "厂家及供应商整车其他收入：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "厂家及供应商整车其他收入",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-vehicle-other-income"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "bf5724fdb43a8e71a1bd8700cd22a2464db7edb54a91e74b6c1d194809279ced",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "vehicle-operations": {
+    "src": "workflow-assets/vehicle-operations.png",
+    "caption": "整车库位与出退库：合成演示入口（库管）",
+    "role": "inventory",
+    "role_label": "库管",
+    "page_title": "整车库位与出退库",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-vehicle-other-out",
+      "wf-vehicle-local-move"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "e0fdd2b50411f770833e798456a0723f0457af9459fdb591e9d2cf028d68b75f",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "vehicle-period": {
+    "src": "workflow-assets/vehicle-period.png",
+    "caption": "整车期间入出存：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "整车期间入出存",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-143",
+      "wf-report-144",
+      "wf-report-145"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "54cd5f3676884e05f2c162262fefd1e2d1353ea393d6946e1ea6482b441fdda7",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "vehicle-procurement": {
+    "src": "workflow-assets/vehicle-procurement.png",
+    "caption": "整车采购与付款：合成演示入口（库管）",
+    "role": "inventory",
+    "role_label": "库管",
+    "page_title": "整车采购与付款",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-vehicle-purchase",
+      "wf-vehicle-batch-import",
+      "wf-vehicle-purchase-return"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "d0323eb74f39a20195a47574089c9584126dff428ea057ba580341a2b5b445db",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "vehicle-transfers": {
+    "src": "workflow-assets/vehicle-transfers.png",
+    "caption": "整车跨店调拨：合成演示入口（库管）",
+    "role": "inventory",
+    "role_label": "库管",
+    "page_title": "整车跨店调拨",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-vehicle-transfer"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "ffd405643da351add62866e45bbde001fa9ea24d41373edb11e790743fdc22e3",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "visit-activity": {
+    "src": "workflow-assets/visit-activity.png",
+    "caption": "跟进与进出厂统计：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "跟进与进出厂统计",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-136",
+      "wf-report-166"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "898b3bae196da8217623404e527113fc4f1a234d1b354819bb6c90b563f3f309",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "warehouse": {
+    "src": "workflow-assets/warehouse.png",
+    "caption": "库位与仓储作业：合成演示入口（库管）",
+    "role": "inventory",
+    "role_label": "库管",
+    "page_title": "库位与仓储作业",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-material-other-in",
+      "wf-consumable-issue-return",
+      "wf-gift-issue-return",
+      "wf-material-other-out",
+      "wf-material-stock-query",
+      "wf-material-local-move",
+      "wf-material-stock-count"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "00fce40fff454f412461fae7da4d4262370042991e1fed2c9634c4d6bb6c793e",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  },
+  "warehouse-period": {
+    "src": "workflow-assets/warehouse-period.png",
+    "caption": "库位期间入出存：合成演示入口（财务）",
+    "role": "finance",
+    "role_label": "财务",
+    "page_title": "库位期间入出存",
+    "capture_kind": "entry",
+    "synthetic_only": true,
+    "workflow_ids": [
+      "wf-report-152"
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "sha256": "324da133aa790e2f5bd0331555cdfe352c9126343501e2715f86b1f2f0c9699a",
+    "role_attempts": [],
+    "reviewed_for_publication": true,
+    "captured_at": "2026-09-24T05:52:39.065169+00:00"
+  }
+}

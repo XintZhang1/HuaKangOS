@@ -23,7 +23,7 @@ async function reconciliationPage(id){
  if(r.definition_version>=11)html+='<div class="notice">自第 11 版起保留本店原退运查找、独立复核、实际结束结果及再次找到关联。它们采用生成时点口径，不增加第二笔损失、库存或现金。</div>';
  if(r.definition_version>=12)html+='<div class="notice">自第12版起保留本店原整车差异、双方独立复核、原损失、实际找回、原赔付与原款关联。实车观察不等于入库，目标不等于现金；各来源表不得合并相加。</div>';
  if(r.definition_version===1)html+='<div class="notice">本批次沿用历史核对范围，不含新增的库位、续会及专用发票明细。需要扩展核对时，请保留原版并重算或复开新版本。</div>';
- if(r.source_changed)html+='<div class="notice">原来源已有晚到、冲正或当前未收款变化。历史快照保持原样；提交或封存前须重算。已封存版本可由店长复开。</div>';
+ if(r.source_changed)html+='<div class="notice">账目已变化，请重新计算后提交。已封存的请联系店长重开。</div>';
  if(r.successor_id)html+=panel('后继版本',b('open','打开最新后继',`data-route="reconciliation/${r.successor_id}"`));
  html+=panel('核对要点',`<p>期间真实收入 ${money(r.summary.period_cash_in_cents)} 元，期间真实支出 ${money(r.summary.period_cash_out_cents)} 元。当前未收款 ${money(r.summary.current_receivable_cents)} 元。</p><p>本金、权益、库存和往来各自核对，不能与现金直接相加。处理差异须先在原业务完成必要纠正，再重算本期来源；备注不会替代真实账务。</p>${b('reconcile-action','下载本版本完整来源 CSV','data-key="export"')}`);
  if(r.definition_version>=10)html+=panel('原单位待恢复负债（冻结时点）',table(['原单／原单位','种类／原有效期','C 面额 / P 对价 / S 结算（元）','可办理状态'],(r.summary.retail_group_pending_original_units||[]).map(x=>[b('open','查看原精品单',`data-route="retail/${x.case_id}"`)+` · 原单位${x.unit_id}`,E({principal:'本金',bonus:'赠金',coupon:'券',package:'套餐'}[x.kind]||x.kind)+` · ${E(x.original_expires_on||'不适用')}`,`${money(x.credit_cents)} / ${money(x.consideration_cents)} / ${money(x.settlement_cents)}`,x.restorable?'已具备原路恢复条件；恢复后仍用原有效期':'待后续实际退回凑齐原单位；当前不可消费、无需重复催办'])));

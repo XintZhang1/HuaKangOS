@@ -1,6 +1,9 @@
 """Scoped showroom catalogue; identities are linked explicitly, never by name."""
 from fastapi import HTTPException
 from sqlalchemy import select,or_
+import hashlib
+import unicodedata
+from pydantic import ValidationError
 from .db import utcnow
 from .models import Vehicle,Sale
 from .flow_models import VehicleHold
@@ -12,6 +15,93 @@ from .services import plain,audit
 
 READ={'admin','manager','sales','service','inventory','finance','auditor'}
 WRITE={'admin','manager','inventory'}
+
+
+def entry_options(db,user):
+    masters._ensure_role(user,WRITE);sid=single_store(db)
+    brands=bounded(db,VehicleBrand,select(VehicleBrand).where(VehicleBrand.store_id==sid,VehicleBrand.active.is_(True)))
+    brand_ids={r.id for r in brands}
+    series=bounded(db,VehicleSeries,select(VehicleSeries).where(VehicleSeries.store_id==sid,VehicleSeries.active.is_(True)))
+    return {'brands':[{'id':r.id,'name':r.name,'code':r.code,'version':r.version} for r in brands],
+        'series':[{'id':r.id,'brand_id':r.brand_id,'name':r.name,'code':r.code,'version':r.version} for r in series if r.brand_id in brand_ids]}
+
+
+def _entry_name(value):
+    return ' '.join(unicodedata.normalize('NFKC',value).split()).casefold()
+
+
+def _entry_code(kind,*parts):
+    # The existing per-store code constraint also protects concurrent submissions.
+    digest=hashlib.sha256('\x1f'.join(str(p) for p in parts).encode()).hexdigest()[:28]
+    return 'Q'+kind+'_'+digest
+
+
+def _entry_parent(db,user,sid,kind,values,parent=None):
+    model,_,label,_,_=masters.kind_config(kind)
+    prefix='brand' if kind=='vehicle_brands' else 'series'
+    record_id=values[prefix+'_id'];version=values[prefix+'_version'];name=values[prefix+'_name']
+    if record_id is not None:
+        if name or version is None:raise HTTPException(422,'请重新选择'+label)
+        row=masters.require_active(db,kind,record_id)
+        if row.version!=version:raise HTTPException(409,label+'已更新，请重新打开表单选择')
+        if parent is not None and row.brand_id!=parent.id:raise HTTPException(422,'车系不属于所选品牌，请重新选择车系')
+        return row,False
+    if version is not None or not _entry_name(name):raise HTTPException(422,'请填写'+label+'名称或选择已有资料')
+    statement=select(model).where(model.store_id==sid)
+    if parent is not None:statement=statement.where(model.brand_id==parent.id)
+    matches=[r for r in bounded(db,model,statement) if _entry_name(r.name)==_entry_name(name)]
+    if len(matches)>1:raise HTTPException(409,'已有多个同名'+label+'，请从列表选择')
+    if matches:
+        if not matches[0].active:raise HTTPException(409,'同名'+label+'已停用，请先在资料中核对')
+        return matches[0],False
+    fields={'name':name,'code':_entry_code(prefix.upper(),parent.id if parent else '',_entry_name(name)),'active':True}
+    if parent is not None:fields['brand_id']=parent.id
+    row=model(store_id=sid,**fields);db.add(row);db.flush()
+    audit(db,user.id,'master_create','typed_master',row.id,None,plain(row),reason='新增车型时填写'+label)
+    return row,True
+
+
+def create_entry(db,user,key,values):
+    """One explicit hierarchy submission; no stock, historical link, or price edits."""
+    masters._ensure_role(user,WRITE)
+    def operation(sid):
+        # PostgreSQL serializes quick entries per store; SQLite/unique codes fail
+        # closed on competing writers. A conflict rolls the entire entry back.
+        from .models import Store
+        if not db.scalar(select(Store).where(Store.id==sid,Store.active.is_(True)).with_for_update()):
+            raise HTTPException(409,'当前门店不可用')
+        brand,brand_created=_entry_parent(db,user,sid,'vehicle_brands',values)
+        series,series_created=_entry_parent(db,user,sid,'vehicle_series',values,brand)
+        model_fields={k:values[k] for k in ('name','model_year','fuel_type','seats','displacement_ml','battery_wh','guide_price_cents')}
+        model_fields.update(brand=brand.name,active=True,code=_entry_code('MODEL',series.id,values['model_year'],_entry_name(values['name'])))
+        try:parsed=masters.VehicleModelInput.model_validate(model_fields).model_dump()
+        except ValidationError as exc:
+            errors=exc.errors();detail=str(errors[0].get('ctx',{}).get('error',''))
+            raise HTTPException(422,detail or '请检查车型名称、品牌、年款和动力参数') from exc
+        all_models=bounded(db,VehicleModel,select(VehicleModel).where(VehicleModel.store_id==sid,VehicleModel.model_year==values['model_year']))
+        named=[r for r in all_models if _entry_name(r.name)==_entry_name(values['name'])]
+        relations={r.model_id:r for r in bounded(db,ModelClassification,select(ModelClassification).where(ModelClassification.store_id==sid))}
+        matches=[r for r in named if r.id in relations and relations[r.id].series_id==series.id]
+        unassigned=[r for r in named if r.id not in relations and _entry_name(r.brand)==_entry_name(brand.name)]
+        if len(matches)>1:raise HTTPException(409,'同一车系已有多个同名年款，请先在车型目录核对')
+        if unassigned:raise HTTPException(409,'已有同名年款待确认车系，请在车型目录确认归属后再使用')
+        model_created=not matches
+        if matches:
+            model=matches[0];relation=relations[model.id]
+            if not model.active:raise HTTPException(409,'该车型已停用，请先在车型资料中核对')
+            if any(getattr(model,k)!=parsed[k] for k in model_fields if k not in {'code','brand'}):
+                raise HTTPException(409,'该车系已有同名年款，但参数不同，请打开已有车型核对')
+        else:
+            model=VehicleModel(store_id=sid,**parsed);db.add(model);db.flush()
+            audit(db,user.id,'master_create','typed_master',model.id,None,plain(model),reason='新增车型')
+            relation=ModelClassification(store_id=sid,model_id=model.id,series_id=series.id);db.add(relation);db.flush()
+            audit(db,user.id,'classify','vehicle_catalog',relation.id,None,plain(relation),reason='新增车型时选择所属品牌和车系')
+        return {'model':plain(model),'brand':plain(brand),'series':plain(series),'classification':plain(relation),
+            'created':{'brand':brand_created,'series':series_created,'model':model_created}}
+    try:return masters._command(db,user,key,'vehicle_catalog:entry',values,operation)
+    except HTTPException:
+        db.rollback()
+        raise
 
 
 def bounded(db,model,statement=None):

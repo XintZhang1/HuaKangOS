@@ -1,0 +1,61 @@
+{
+  "checkpoint": "employee-simplicity-20260923",
+  "application_version": "0.4.0-dev",
+  "database_head": "e13r_member_fee_corrections",
+  "release_accepted": false,
+  "company_accepted": false,
+  "production_deployed": false,
+  "source_baseline_archive": "huakangos_r80e-vehicle-checkpoint_20260922.zip",
+  "source_baseline_sha256": "c766b72542b32ebc2b709498f8c3f3c45f7d723e1bac267a57b746f2c409fa59",
+  "current_same_tree_run": "全量1757通过、1旧标题断言失败、1跳过；仅更新旧断言后test_app.py的86项通过，未再执行最终同树全绿全量",
+  "scope_correction": "docs/需求范围纠正_20260922.md",
+  "scope_audit": "docs/原始需求范围复核.md",
+  "environment_gates": {
+    "real_browser": "本轮5项真实Windows Chrome HTTP专项通过；完整逐岗主线按手册待员工试用，不继承此前浏览器成绩。",
+    "real_postgresql": "PENDING: not executed for final u13h/e13r source; SQLite, earlier PostgreSQL evidence and prepare_only do not establish current PostgreSQL acceptance."
+  },
+  "next_work": [
+    "按从零试用操作手册收集公司员工反馈",
+    "补充券套餐积分和月结的逐格试用样例",
+    "正式环境与当前PostgreSQL验证仍单列待验收"
+  ],
+  "excluded": [
+    "group center actual funds clearing or bank/payment/arrival approval interfaces",
+    "peer directly operated store counterparty relationship/cooperation approval module"
+  ],
+  "previous_checkpoint": {
+    "checkpoint": "t02g-dossier-masters",
+    "current_same_tree_run": "full-t02g-03: RUNNING; not yet a pass",
+    "latest_referenced_report_in_package": false
+  },
+  "verification_report": "docs/verification/u13h-original-branches/测试报告.md",
+  "requirement_mapping_audit": "docs/原需业务分支审计-u13h.json",
+  "source_digest": "d59f9ca0af273150e78d6f4af23b8e3479132e8b17961ca592dd0ea3b104ab8a",
+  "repair_baseline": {
+    "checkpoint": "t02g-dossier-masters",
+    "manifest": "docs/verification/t02g-fix1/source-package-before.sha256",
+    "prior_source_changes": "docs/verification/t02g-fix1/source-changes-before.json"
+  },
+  "last_verified_checkpoint": {
+    "checkpoint": "u13h-original-branches",
+    "database_head": "e13r_member_fee_corrections",
+    "current_same_tree_run": "PASSED: 1753通过、1项Windows符号链接限制跳过、0失败/错误；138模块/1754用例，1393.43秒",
+    "source_digest": "d59f9ca0af273150e78d6f4af23b8e3479132e8b17961ca592dd0ea3b104ab8a",
+    "verification_report": "docs/verification/u13h-original-branches/测试报告.md"
+  },
+  "active_objective": "员工界面简化、缺资料补救，以及逐步试用手册交付",
+  "progress_record": "docs/从零试用操作手册.md",
+  "current_working_evidence": "docs/verification/employee-simplicity-20260923/delivery-result.json",
+  "current_run_directory": "C:\\Users\\tiefu\\AppData\\Local\\huakangos\\verification\\employee-simplicity-full-20260923",
+  "current_frozen_source_files": 677,
+  "statement_definition": 21,
+  "cash_definition": 7,
+  "development_and_simulation_delivered": true,
+  "local_preview": {
+    "url": "http://127.0.0.1:8000/",
+    "existing_accounts_preserved": true,
+    "bootstrap_required": false,
+    "source_fingerprint": "466b7bcbde92027c7bfd16d534b8a21fed9201777cfb465f505e70c36bfdc6c8",
+    "evidence": "docs/verification/employee-simplicity-20260923/preview-preservation.json"
+  }
+}

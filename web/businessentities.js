@@ -9,7 +9,7 @@ const beFields={code:'主体编码',tax_identifier:'主体识别号',legal_name:
 function beLegal(entity){return entity?facts({'法定名称':entity.legal_name,'主体识别号':entity.tax_identifier,'资料版本':entity.revision,'登记地址':entity.registered_address}):'<div class="notice warn">尚未批准经营主体；“华慷集团”产品名称不能代替实际经营主体。</div>';}
 async function businessEntitiesPage(){
  const c=beContext(),catalog=await api('/api/business-entities/catalog');
- if(!catalog.can_read)return heading('经营主体与账户归属')+'<div class="notice">请切换到获权的具体门店。</div>';
+ if(!catalog.can_read)return heading('经营主体与账户归属')+'<div class="notice">请选择门店</div>';
  const data=await api('/api/business-entities/configuration'),list=await api('/api/business-entities/applications');c.configuration=data;
  const buttons=catalog.can_create?Object.entries(beOperations).map(([key,label])=>b('be-new','申请'+label,`data-kind="${key}"`)).join(''):'';
  return heading('经营主体与账户归属','管理员提出来源资料，另一名主管独立核对批准。',buttons)+

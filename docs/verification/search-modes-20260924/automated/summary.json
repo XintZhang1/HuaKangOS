@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "scope": "targeted workflow help and recommendation API; all frontend Node tests; NOT the full backend suite",
+  "source_file_count": 812,
+  "source_digest": "5a2fbbee080f84ff4b8a048f3dafe88f97ec73cef0c2ada17c733a1cb57ef141",
+  "source_changed": [],
+  "module_count": 2,
+  "seconds": 40.81,
+  "tests": 34,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 34,
+  "javascript_files": 63,
+  "node_test_files": 23,
+  "node_returncode": 0,
+  "partitions": [
+    {
+      "partition": 1,
+      "modules": [
+        "tests/test_workflow_guide_recommendations.py"
+      ],
+      "returncode": 0,
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "partition": 2,
+      "modules": [
+        "tests/test_workflow_guides.py"
+      ],
+      "returncode": 0,
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

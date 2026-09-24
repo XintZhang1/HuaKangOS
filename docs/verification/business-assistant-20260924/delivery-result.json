@@ -1,0 +1,41 @@
+{
+  "delivered_local_trial": true,
+  "date": "2026-09-24",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "database_head": "f24s_business_assistant",
+  "full_regression": {
+    "status": "passed",
+    "passed": 1833,
+    "tests": 1834,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1,
+    "seconds": 1428.6,
+    "module_count": 144,
+    "source_file_count": 694,
+    "source_digest": "2dff4a42dafcb1e3fe9408b562a0534fe2f3bf9ecd5a28fd754b08dc1a4d4faa",
+    "source_changed": []
+  },
+  "javascript_syntax_files": 55,
+  "node_tests_passed": 59,
+  "real_model_workflows": [
+    "new lead after missing information questions",
+    "callback after phone supplementation",
+    "brand creation with actual mobile Chrome confirmation"
+  ],
+  "browser_cold_start_refresh_login": "passed without model calls",
+  "original_preview_rows_preserved": 74,
+  "preview_url": "http://127.0.0.1:8000/#business-assistant",
+  "source_fingerprint": "1e227b9382803a826c3c2d711ef90ec62fe11f89117df43c62f69e1af12d338d",
+  "requirements": 193,
+  "company_accepted": false,
+  "production_deployed": false,
+  "current_postgresql_validation": "pending",
+  "skip_reasons": [
+    {
+      "test": "test_symlink_file_and_root_rejected",
+      "reason": "This Windows host does not permit symlink creation"
+    }
+  ]
+}

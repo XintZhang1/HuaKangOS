@@ -6,7 +6,7 @@ const viLabels={trial:'试执行并回滚',review:'主管复核清单',confirm:'
 const viFieldLabels={source_row:'来源行编号',line_id:'采购车型行',vin:'VIN',amount_cents:'请款额（元）',manifest_row_id:'原请款清单行',shipped_date:'实际发运日期',expected_date:'预计到货日期',received_date:'实际验收日期',location_id:'实际库位编号'};
 async function vehicleImportsPage(id){
  const c=viContext(),catalog=await api('/api/vehicle-imports/catalog');
- if(!catalog.can_read)return heading('车辆清单导入')+'<div class="notice">请选择获权的具体门店。</div>';
+ if(!catalog.can_read)return heading('车辆清单导入')+'<div class="notice">请选择门店</div>';
  const [order,batches,manifest]=await Promise.all([api('/api/vehicle-procurement/orders/'+id),api(`/api/vehicle-imports/orders/${id}/batches`),api(`/api/vehicle-imports/orders/${id}/manifest`)]);
  c.order=order;c.catalog=catalog;c.manifest=manifest.items;
  return heading('车辆请款与批量交接',E(order.number))+panel('原单与责任',`<p>每份清单只对应本采购单。预检和试执行不办理业务；另一主管复核后，由编制人确认自己的实际动作。请款不会付款，发运不会自动验收入库。</p><div class="row">${b('open','原采购单与实际付款',`data-route="vehicle-procurement/${order.id}"`)}${catalog.prepare_kinds.map(k=>b('vi-new','导入'+catalog.kinds[k],`data-kind="${k}"`)).join('')}</div>`)

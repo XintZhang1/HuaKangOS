@@ -2,7 +2,7 @@
 let customerServiceUI={};
 function clearCustomerServiceSession(){customerServiceUI={};}
 function careContext(){const key=String(state.user?.id)+':'+state.store;if(customerServiceUI.key!==key)customerServiceUI={key};return customerServiceUI;}
-async function careCatalog(){const c=careContext();if(!c.catalog)c.catalog=await api('/api/customer-service/catalog');if(!c.catalog.can_read)throw new Error('请在获权的具体门店办理客户服务。');return c.catalog;}
+async function careCatalog(){const c=careContext();if(!c.catalog)c.catalog=await api('/api/customer-service/catalog');if(!c.catalog.can_read)throw new Error('请选择门店');return c.catalog;}
 const careAPI='/api/customer-service';
 const careActionNames={start:'接手办理',followup:'登记跟进',handoff:'交接给同事',close:'登记结案',cancel:'取消本次服务'};
 const careLocalLabels={internal:'内部核对',in_person:'当面反馈',phone:'电话跟进',progress:'处理有进展',contacted:'已联系确认',unreachable:'未联系到',declined:'客户不需要',normal:'普通',urgent:'紧急',active:'有效',revoked:'已撤销'};

@@ -368,3 +368,5 @@ from . import vehicle_income_models  # original supplier vehicle income, separat
 from . import rework_extension_models  # explicit original responsibility grants and local quote classification
 from . import member_pricing_models  # independently approved local membership price provenance
 from . import repair_package_models  # explicit prepaid work/material components and original-source returns
+
+from . import business_assistant_models  # owner/store-scoped confirmed business assistant

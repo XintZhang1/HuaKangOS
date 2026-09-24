@@ -1,0 +1,381 @@
+{
+  "mode": "DeepSeek observed-form actions / real Windows Chrome HTTP",
+  "synthetic_only": true,
+  "remote_calls": 20,
+  "call_budget": 35,
+  "models": [
+    "deepseek-flash"
+  ],
+  "usage": {
+    "prompt_tokens": 19902,
+    "completion_tokens": 1281,
+    "total_tokens": 21183
+  },
+  "scenarios": [
+    {
+      "code": "S01-empty-quote",
+      "role": "sales",
+      "prepositioned_route": "sales-quotes",
+      "task": "尝试建立车辆报价。此店尚无车型和客户。点击建立报价，查看缺少的资料和补救入口；不要编造未知资料。出现具体补充指引后停止。",
+      "success": true,
+      "model_report": "点击建立车辆报价，查看缺少的资料和补救入口。",
+      "rounds": 1,
+      "question": "",
+      "screenshot": "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\deepseek-form-trial-20260923-a\\S01-empty-quote.png"
+    },
+    {
+      "code": "S02-brand",
+      "role": "manager",
+      "prepositioned_route": "masters/vehicle_brands",
+      "task": "通过页面新增并启用品牌：编码 DS-B，名称 合成远程品牌。保存后停止。",
+      "success": true,
+      "model_report": "填写编码、名称并勾选启用后保存",
+      "rounds": 2,
+      "question": "",
+      "screenshot": "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\deepseek-form-trial-20260923-a\\S02-brand.png"
+    },
+    {
+      "code": "S03-series",
+      "role": "manager",
+      "prepositioned_route": "masters/vehicle_series",
+      "task": "通过页面新增并启用车系：编码 DS-S，名称 合成远程车系，所属品牌选择已存在的 合成远程品牌。保存后停止。",
+      "success": false,
+      "model_report": "",
+      "rounds": 7,
+      "screenshot": "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\deepseek-form-trial-20260923-a\\S03-series.png"
+    },
+    {
+      "code": "S04-model",
+      "role": "manager",
+      "prepositioned_route": "masters/vehicle_models",
+      "task": "通过页面新增并启用车型：编码 DS-E，名称 合成远程纯电车，品牌 合成远程品牌，年款2026，纯电，5座，发动机排量0毫升，动力电池容量60000瓦时，指导价120000元。保存后停止。",
+      "success": true,
+      "model_report": "填写全部车型参数并保存",
+      "rounds": 2,
+      "question": "",
+      "screenshot": "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\deepseek-form-trial-20260923-a\\S04-model.png"
+    },
+    {
+      "code": "S06-lead-no-phone",
+      "role": "sales",
+      "prepositioned_route": "cases/lead",
+      "task": "新建售前接待：客户姓名 合成远程无电话客户，暂不填联系电话，关注车型 合成远程纯电车，客户来源 展厅到店，说明 合成试用接待。保存后停止。",
+      "success": true,
+      "model_report": "填写必填客户姓名、关注车型、客户来源和说明，暂不填联系电话，最后点击建立业务保存",
+      "rounds": 2,
+      "question": "",
+      "screenshot": "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\deepseek-form-trial-20260923-a\\S06-lead-no-phone.png"
+    },
+    {
+      "code": "S07-assign",
+      "role": "manager",
+      "prepositioned_route": "case/1",
+      "task": "把这条售前接待分派给员工 模拟销售。查找并明确选择该员工后提交，保存后停止。",
+      "success": false,
+      "model_report": "输入“模拟销售”后页面仅显示“模拟销售 · 销售”文本，但观察到的控件中没有可点击的实际搜索结果按钮；此前误点“取消”导致弹窗关闭。需要系统提供搜索结果控件或明确选择方式。",
+      "rounds": 6,
+      "question": "查找“模拟销售”后没有出现可点击的搜索结果选项，请确认应如何明确选择该员工，或提供搜索结果控件。",
+      "screenshot": "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\deepseek-form-trial-20260923-a\\S07-assign.png"
+    }
+  ],
+  "issues": [
+    {
+      "scenario": "S03-series",
+      "category": "model_input",
+      "confirmed": true,
+      "reason": "控件在本轮执行前已变化，请重新观察。",
+      "round": 5
+    },
+    {
+      "scenario": "S07-assign",
+      "category": "missing_information",
+      "confirmed": false,
+      "reason": "查找“模拟销售”后没有出现可点击的搜索结果选项，请确认应如何明确选择该员工，或提供搜索结果控件。",
+      "round": 6
+    }
+  ],
+  "javascript_errors": [],
+  "network": [
+    {
+      "role": "sales",
+      "path": "/api/flow/cases",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/flow/master/customers",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/vehicle-catalog",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/masters/catalog",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/catalog",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_brands",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_brands",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_brands",
+      "method": "POST",
+      "status": 201
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_brands",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_brands",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_series",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/lookup/vehicle_brands",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_series",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/lookup/vehicle_brands",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_series",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_series",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/lookup/vehicle_brands",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_series",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/lookup/vehicle_brands",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/lookup/vehicle_brands",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_series",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_series",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_models",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_models",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_models",
+      "method": "POST",
+      "status": 201
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_models",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/masters/vehicle_models",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/flow/cases",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/flow/cases",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/flow/cases",
+      "method": "POST",
+      "status": 201
+    },
+    {
+      "role": "sales",
+      "path": "/api/flow/cases",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/flow/cases/1",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/customer-choice/matches",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/flow/cases",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "sales",
+      "path": "/api/flow/cases",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/cases/1",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/lookup/employee",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/cases/1",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/lookup/employee",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/cases/1",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/cases/1",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/lookup/employee",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/cases/1",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/cases/1",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "role": "manager",
+      "path": "/api/flow/cases/1",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "preconditions": [
+    "新临时SQLite与附件隔离，随机本机端口；从未连接原试用库或8000服务。",
+    "管理员登录、建立主管和销售账号、强制改密由测试脚本执行；随机密码不进入模型请求或证据。",
+    "每场景首个页面由测试脚本打开；业务表单填写与提交由模型根据可见控件选择。",
+    "独立HTTP只读核验结果不冒充模型操作；没有通过API预建品牌、车型、客户或接待。"
+  ],
+  "limitations": [
+    "覆盖8个指定场景，不等于操作手册全部步骤或193项需求验收。",
+    "未执行资金、库存、会员核销、文件上传、手机相机与生产HTTPS。",
+    "一次模型失败不能直接判定前端缺陷；问题类别需按可见错误及请求复核。"
+  ]
+}

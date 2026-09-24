@@ -1,0 +1,59 @@
+{
+  "checkpoint": "search-modes-20260924",
+  "targeted": {
+    "status": "passed",
+    "scope": "targeted workflow help and recommendation API; all frontend Node tests; NOT the full backend suite",
+    "source_file_count": 812,
+    "source_digest": "5a2fbbee080f84ff4b8a048f3dafe88f97ec73cef0c2ada17c733a1cb57ef141",
+    "source_changed": [],
+    "module_count": 2,
+    "seconds": 40.81,
+    "tests": 34,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 34,
+    "javascript_files": 63,
+    "node_test_files": 23,
+    "node_returncode": 0,
+    "partitions": [
+      {
+        "partition": 1,
+        "modules": [
+          "tests/test_workflow_guide_recommendations.py"
+        ],
+        "returncode": 0,
+        "tests": 25,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "partition": 2,
+        "modules": [
+          "tests/test_workflow_guides.py"
+        ],
+        "returncode": 0,
+        "tests": 9,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "node_tests_passed": 197,
+  "browser_scenarios": [
+    13,
+    12
+  ],
+  "real_model_requests": 0,
+  "scripted_model_requests": 9,
+  "quick_forms": 40,
+  "workflows": 111,
+  "original_requirements": 193,
+  "new_migrations": 0,
+  "source_fingerprint": "772d530c677438f04c0d3f416279cba938730ec7c5a1020361f6f43d114516fa",
+  "original_rows_preserved": 81,
+  "company_accepted": false,
+  "production_deployed": false
+}

@@ -19,6 +19,7 @@ async function mastersPage(kind){
 }
 function masterFen(value){const s=String(value).trim();if(!/^\d+(\.\d{1,2})?$/.test(s))throw new Error('金额须为非负数字，最多两位小数。');const [yuan,fen='']=s.split('.');const n=Number(yuan)*100+Number(fen.padEnd(2,'0'));if(!Number.isSafeInteger(n))throw new Error('金额超出允许范围。');return n;}
 async function masterDataDialog(kind,id){
+ if(kind==='vehicle_models'&&!id)return catalogEntryDialog();
  const c=masterContext(),spec=(await typedCatalog()).kinds[kind];if(!spec?.can_write||!canWrite())throw new Error('当前门店岗位不能维护此资料。');
  const row=id?c.rows?.find(r=>r.id===id):null;if(id&&!row)throw new Error('请刷新后重新打开资料。');
  const rendered=await Promise.all(spec.fields.map(async f=>{
@@ -29,7 +30,7 @@ async function masterDataDialog(kind,id){
   return fieldHTML(f,value);
  }));
  const request_id=requestKey();
- modal((row?'编辑':'新增')+spec.label,`<form><div class="notice">只影响以后选择的有效资料。原业务快照、库存账和会员权益不会因编辑资料自动重写。</div>${kind==='member_tiers'?'<p class="fieldhelp">本页比例是参考值；保存资料不会批准或修改会员实际报价，请另行办理本店会员价格独立批准。</p>':''}<div class="formgrid">${rendered.join('')}</div><div class="formerror" role="alert"></div><div class="modalfoot">${b('close','取消')}<button type="submit" class="primary">确认保存</button></div></form>`,async form=>{
+ modal((row?'编辑':'新增')+spec.label,`<form><div class="notice">修改后用于新业务。</div>${kind==='member_tiers'?'<p class="fieldhelp">本页比例是参考值；保存资料不会批准或修改会员实际报价，请另行办理本店会员价格独立批准。</p>':''}<div class="formgrid">${rendered.join('')}</div><div class="formerror" role="alert"></div><div class="modalfoot">${b('close','取消')}<button type="submit" class="primary">确认保存</button></div></form>`,async form=>{
   const fd=new FormData(form),values={};for(const f of spec.fields){const value=fd.get(f.key);values[f.key]=f.type==='bool'?value!==null:f.type==='money_cents'?masterFen(value):['ref','int'].includes(f.type)?value?Number(value):null:String(value??'').trim();}
   await api('/api/masters/'+kind+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:{request_id,...(row?{version:row.version}:{}),values}});
   closeModal();await render();toast('经营主资料已保存');

@@ -22,7 +22,10 @@ async function warehouseCasePage(id){
  if(row.operation==='local_move')html+=panel('实物在途',`<p>尚在途 ${whQty(row.transit_quantity_milli)} ${E(row.unit)}。发出后须实际接收或原位接回；不改变门店总库存。</p>`);
  if(row.count){const c=row.count;html+=panel('实盘观察与期间收发','<div class="formgrid">'+[['开始账面',c.baseline_quantity_milli],['现场实盘',c.counted_quantity_milli],['原观察差额',c.difference_milli],['期间净收发',c.movement_bridge_milli],['当前账面',c.current_book_milli],['差额处理后应有',c.projected_milli]].map(([name,n])=>`<div>${E(name)}<p><strong>${whQty(n)}</strong> ${E(row.unit)}</p></div>`).join('')+'</div>'+'<p>差额以本次实盘观察为准；后续正常收发逐笔衔接。若差额影响既有预占，先按原业务解除或核对，不能自动挪用。</p>'+table(['期间流水','原单','数量','原因'],c.entries.map(e=>[e.id,b('open','查看原单',`data-route="case/${e.case_id}"`),whQty(e.quantity_milli),whReason(e.reason)])));}
  html+=panel('办理本步骤','<div class="row">'+row.actions.map(a=>b('wh-action',a.label,`data-key="${a.key}"`)).join('')+(canWrite()?b('upload','上传本单实际凭据'):'')+b('open','查看实际库位',`data-route="warehouse-item/${row.item_id}"`)+'</div>');
- html+=panel('本单实物收发',table(row.can_money?['原始流水','数量','价值（元）','原收发']:['原始流水','数量','原收发'],row.stock_moves.map(m=>row.can_money?[m.id,whQty(m.quantity_milli),money(m.value_cents),m.original_id||'—']:[m.id,whQty(m.quantity_milli),m.original_id||'—'])));
+ html+=panel('本单实物收发',table(row.can_money?['日期／流水','数量','价值（元）','原收发','办理']:['日期／流水','数量','原收发','办理'],row.stock_moves.map(m=>{
+  const cells=[E(m.business_date||'')+'<br>'+m.id,whQty(m.quantity_milli)];if(row.can_money)cells.push(money(m.value_cents));cells.push(m.original_id||'—');
+  cells.push(m.can_return?b('wh-original-return','退回这批',`data-operation="${m.return_operation}" data-original="${m.id}"`)+`<p>可退 ${whQty(m.returnable_milli)} ${E(row.unit)}</p>`:'—');return cells;
+ })));
  html+=panel('已有凭据',(state.row.files||[]).map(f=>`<div class="filerecord"><div class="filetext"><strong>${E(f.name)}</strong><p>${E(f.label)} · ${E(f.security?.label||'等待检查')}</p>${f.security?.can_use?b('download','下载',`data-id="${f.id}"`):'检查通过后可使用'}</div></div>`).join('')||'<p>先上传本单凭据；其他入库核价使用受限的合同或收款凭据类别。</p>');
  html+=panel('岗位责任与交接',table(['任务','经办人','期限','状态'],state.row.tasks.map(t=>[E(t.title),E(t.assignee_name),E(t.due_date),pill(t.status)])));return html;
 }
@@ -32,6 +35,7 @@ async function warehouseItemPage(id){
 }
 function whLocationLines(locs,qty='0'){return `<div data-wh-location class="panelbody"><label>实际库位<select name="location">${whOptions(locs,l=>l.name)}</select></label><label>该库位数量<input name="location_qty" required inputmode="decimal" value="${E(qty)}"></label>${b('wh-remove-location','删除该分配')}</div>`;}
 async function whNew(op){
+ if(['other_in_return','consumable_return','gift_return'].includes(op))return whReturnNew(op);
  const [all,locs]=await Promise.all([procurementAll('/api/warehouse/items?page_size=100'),procurementAll('/api/masters/locations?active=true')]);
  const items=all.filter(i=>op==='activate'?!i.enabled:i.enabled);if(!items.length)throw new Error(op==='activate'?'没有尚未定位的物资，请先建物资目录。':'请先完成物资真实库位启用。');if(!locs.length)throw new Error('请先配置物资仓及实际库位。');
  const outs=['other_in_return','consumable','gift','disposal','local_move'],returns=['other_in_return','consumable_return','gift_return'];let html=`<label>物资<select name="item_id">${whOptions(items,i=>`${i.name} · 当前账面 ${whQty(i.quantity_milli)} ${i.unit}`)}</select></label>`;

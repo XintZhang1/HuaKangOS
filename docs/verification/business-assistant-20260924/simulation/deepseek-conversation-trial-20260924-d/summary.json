@@ -1,0 +1,700 @@
+{
+  "mode": "real remote model + native assistant HTTP",
+  "synthetic_only": true,
+  "success": false,
+  "transcript": [
+    {
+      "step": 1,
+      "user": "帮我登记一条新客户的售前接待，还没填写资料。",
+      "session": {
+        "id": "47579a6a-5259-459d-a445-8f42004d3a22",
+        "title": "帮我登记一条新客户的售前接待，还没填写资料。",
+        "created_at": "2026-09-23T16:40:55Z",
+        "updated_at": "2026-09-23T16:41:08Z",
+        "busy": false,
+        "messages": [
+          {
+            "id": 1,
+            "role": "user",
+            "content": "帮我登记一条新客户的售前接待，还没填写资料。",
+            "created_at": "2026-09-23T16:40:55Z"
+          },
+          {
+            "id": 2,
+            "role": "assistant",
+            "content": "售前接待需要以下信息，请提供：\n\n1. **客户姓名**（新客户必填）\n2. **客户来源**（必选）：展厅到店 / 电话咨询 / 网络咨询 / 转介绍\n3. 关注车型（可选）\n4. 联系电话（可选，有的话我顺便查一下是否已有档案）\n5. 说明（可选）\n\n请把这几项发我，我来准备登记卡片。",
+            "created_at": "2026-09-23T16:41:08Z"
+          }
+        ],
+        "proposals": []
+      }
+    },
+    {
+      "step": 2,
+      "user": "这是新客户，按新档案登记。客户叫合成对话客户，今天从展厅到店咨询，关注合成纯电车，暂时没有联系电话。请登记接待。",
+      "session": {
+        "id": "47579a6a-5259-459d-a445-8f42004d3a22",
+        "title": "帮我登记一条新客户的售前接待，还没填写资料。",
+        "created_at": "2026-09-23T16:40:55Z",
+        "updated_at": "2026-09-23T16:41:15Z",
+        "busy": false,
+        "messages": [
+          {
+            "id": 1,
+            "role": "user",
+            "content": "帮我登记一条新客户的售前接待，还没填写资料。",
+            "created_at": "2026-09-23T16:40:55Z"
+          },
+          {
+            "id": 2,
+            "role": "assistant",
+            "content": "售前接待需要以下信息，请提供：\n\n1. **客户姓名**（新客户必填）\n2. **客户来源**（必选）：展厅到店 / 电话咨询 / 网络咨询 / 转介绍\n3. 关注车型（可选）\n4. 联系电话（可选，有的话我顺便查一下是否已有档案）\n5. 说明（可选）\n\n请把这几项发我，我来准备登记卡片。",
+            "created_at": "2026-09-23T16:41:08Z"
+          },
+          {
+            "id": 3,
+            "role": "user",
+            "content": "这是新客户，按新档案登记。客户叫合成对话客户，今天从展厅到店咨询，关注合成纯电车，暂时没有联系电话。请登记接待。",
+            "created_at": "2026-09-23T16:41:08Z"
+          },
+          {
+            "id": 4,
+            "role": "assistant",
+            "content": "已生成待确认卡片，请核对：\n\n- 业务类型：售前接待\n- 客户姓名：合成对话客户\n- 客户来源：展厅到店\n- 关注车型：合成纯电车\n- 已核对另建独立档案：是\n- 联系电话：未填\n\n确认无误请点击卡片上的确认按钮，系统才会正式登记。",
+            "created_at": "2026-09-23T16:41:15Z"
+          }
+        ],
+        "proposals": [
+          {
+            "id": "8c446966-2b63-4d72-80d1-097f31227432",
+            "operation_id": "POST /api/flow/cases",
+            "label": "新建售前接待",
+            "summary": "登记新客户售前接待：合成对话客户，展厅到店，关注合成纯电车，无联系电话",
+            "details": {
+              "path_args": {},
+              "query": {},
+              "body": {
+                "request_id": "6806c4b0-8d62-4024-a109-f86482479319",
+                "kind": "lead",
+                "values": {
+                  "customer_name": "合成对话客户",
+                  "source": "展厅到店",
+                  "model": "合成纯电车",
+                  "confirm_new_customer": true
+                }
+              }
+            },
+            "display_fields": [
+              {
+                "label": "业务类型",
+                "value": "售前接待"
+              },
+              {
+                "label": "客户姓名",
+                "value": "合成对话客户"
+              },
+              {
+                "label": "客户来源",
+                "value": "展厅到店"
+              },
+              {
+                "label": "关注车型",
+                "value": "合成纯电车"
+              },
+              {
+                "label": "已核对另建独立档案",
+                "value": "是"
+              }
+            ],
+            "manual_route": "work",
+            "digest": "805af2d5e61350394c9a37279bf6ef32cc90020c2092421d27f2446f601d6883",
+            "status": "pending",
+            "expires_at": "2026-09-23T17:11:14Z",
+            "created_at": "2026-09-23T16:41:14Z",
+            "result": null
+          }
+        ]
+      }
+    },
+    {
+      "explicit_employee_confirmation": "登记新客户售前接待：合成对话客户，展厅到店，关注合成纯电车，无联系电话",
+      "result": {
+        "id": "8c446966-2b63-4d72-80d1-097f31227432",
+        "operation_id": "POST /api/flow/cases",
+        "label": "新建售前接待",
+        "summary": "登记新客户售前接待：合成对话客户，展厅到店，关注合成纯电车，无联系电话",
+        "details": {
+          "path_args": {},
+          "query": {},
+          "body": {
+            "request_id": "6806c4b0-8d62-4024-a109-f86482479319",
+            "kind": "lead",
+            "values": {
+              "customer_name": "合成对话客户",
+              "source": "展厅到店",
+              "model": "合成纯电车",
+              "confirm_new_customer": true
+            }
+          }
+        },
+        "display_fields": [
+          {
+            "label": "业务类型",
+            "value": "售前接待"
+          },
+          {
+            "label": "客户姓名",
+            "value": "合成对话客户"
+          },
+          {
+            "label": "客户来源",
+            "value": "展厅到店"
+          },
+          {
+            "label": "关注车型",
+            "value": "合成纯电车"
+          },
+          {
+            "label": "已核对另建独立档案",
+            "value": "是"
+          }
+        ],
+        "manual_route": "work",
+        "digest": "805af2d5e61350394c9a37279bf6ef32cc90020c2092421d27f2446f601d6883",
+        "status": "succeeded",
+        "expires_at": "2026-09-23T17:11:14Z",
+        "created_at": "2026-09-23T16:41:14Z",
+        "result": {
+          "status": 201,
+          "message": "已办理",
+          "data": {
+            "id": 1,
+            "number": "HK20260924-CE7F9C73C6DA",
+            "kind": "lead",
+            "state": "unassigned",
+            "title": "合成对话客户 · 售前接待",
+            "owner_id": 2,
+            "customer_id": 1,
+            "parent_id": null,
+            "vehicle_id": null,
+            "version": 1,
+            "flow_version": 2,
+            "store_id": 1,
+            "kind_label": "售前接待",
+            "state_label": "待分派",
+            "data": {
+              "customer_name": "合成对话客户",
+              "customer_phone": "",
+              "model": "合成纯电车",
+              "source": "展厅到店",
+              "note": "",
+              "customer_id": "",
+              "confirm_new_customer": true
+            },
+            "business_date": "2026-09-24",
+            "due_date": "2026-09-24",
+            "completed_date": null,
+            "updated_at": "2026-09-23T16:41:15.078080Z",
+            "owner_name": "合成对话销售",
+            "store_name": "默认门店",
+            "amount_cents": 0,
+            "paid_cents": 0
+          },
+          "route": "case/1"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "user": "主管已把刚才这条接待分派给我。请帮我安排接待回访。",
+      "session": {
+        "id": "47579a6a-5259-459d-a445-8f42004d3a22",
+        "title": "帮我登记一条新客户的售前接待，还没填写资料。",
+        "created_at": "2026-09-23T16:40:55Z",
+        "updated_at": "2026-09-23T16:41:16Z",
+        "busy": false,
+        "messages": [
+          {
+            "id": 1,
+            "role": "user",
+            "content": "帮我登记一条新客户的售前接待，还没填写资料。",
+            "created_at": "2026-09-23T16:40:55Z"
+          },
+          {
+            "id": 2,
+            "role": "assistant",
+            "content": "售前接待需要以下信息，请提供：\n\n1. **客户姓名**（新客户必填）\n2. **客户来源**（必选）：展厅到店 / 电话咨询 / 网络咨询 / 转介绍\n3. 关注车型（可选）\n4. 联系电话（可选，有的话我顺便查一下是否已有档案）\n5. 说明（可选）\n\n请把这几项发我，我来准备登记卡片。",
+            "created_at": "2026-09-23T16:41:08Z"
+          },
+          {
+            "id": 3,
+            "role": "user",
+            "content": "这是新客户，按新档案登记。客户叫合成对话客户，今天从展厅到店咨询，关注合成纯电车，暂时没有联系电话。请登记接待。",
+            "created_at": "2026-09-23T16:41:08Z"
+          },
+          {
+            "id": 4,
+            "role": "assistant",
+            "content": "已生成待确认卡片，请核对：\n\n- 业务类型：售前接待\n- 客户姓名：合成对话客户\n- 客户来源：展厅到店\n- 关注车型：合成纯电车\n- 已核对另建独立档案：是\n- 联系电话：未填\n\n确认无误请点击卡片上的确认按钮，系统才会正式登记。",
+            "created_at": "2026-09-23T16:41:15Z"
+          },
+          {
+            "id": 5,
+            "role": "user",
+            "content": "主管已把刚才这条接待分派给我。请帮我安排接待回访。",
+            "created_at": "2026-09-23T16:41:15Z"
+          },
+          {
+            "id": 6,
+            "role": "assistant",
+            "content": "这条接待单当前是「待接待反馈」，可办事项里有「安排接待回访」，但需要以下信息：\n\n1. **联系电话**（必填，目前档案里没有）\n2. **下次处理日期**（必填，未来日期）\n3. **本次沟通结果**（必填）\n\n请提供这三项，我来准备回访安排卡片。",
+            "created_at": "2026-09-23T16:41:16Z"
+          }
+        ],
+        "proposals": [
+          {
+            "id": "8c446966-2b63-4d72-80d1-097f31227432",
+            "operation_id": "POST /api/flow/cases",
+            "label": "新建售前接待",
+            "summary": "登记新客户售前接待：合成对话客户，展厅到店，关注合成纯电车，无联系电话",
+            "details": {
+              "path_args": {},
+              "query": {},
+              "body": {
+                "request_id": "6806c4b0-8d62-4024-a109-f86482479319",
+                "kind": "lead",
+                "values": {
+                  "customer_name": "合成对话客户",
+                  "source": "展厅到店",
+                  "model": "合成纯电车",
+                  "confirm_new_customer": true
+                }
+              }
+            },
+            "display_fields": [
+              {
+                "label": "业务类型",
+                "value": "售前接待"
+              },
+              {
+                "label": "客户姓名",
+                "value": "合成对话客户"
+              },
+              {
+                "label": "客户来源",
+                "value": "展厅到店"
+              },
+              {
+                "label": "关注车型",
+                "value": "合成纯电车"
+              },
+              {
+                "label": "已核对另建独立档案",
+                "value": "是"
+              }
+            ],
+            "manual_route": "work",
+            "digest": "805af2d5e61350394c9a37279bf6ef32cc90020c2092421d27f2446f601d6883",
+            "status": "succeeded",
+            "expires_at": "2026-09-23T17:11:14Z",
+            "created_at": "2026-09-23T16:41:14Z",
+            "result": {
+              "status": 201,
+              "message": "已办理",
+              "data": {
+                "id": 1,
+                "number": "HK20260924-CE7F9C73C6DA",
+                "kind": "lead",
+                "state": "unassigned",
+                "title": "合成对话客户 · 售前接待",
+                "owner_id": 2,
+                "customer_id": 1,
+                "parent_id": null,
+                "vehicle_id": null,
+                "version": 1,
+                "flow_version": 2,
+                "store_id": 1,
+                "kind_label": "售前接待",
+                "state_label": "待分派",
+                "data": {
+                  "customer_name": "合成对话客户",
+                  "customer_phone": "",
+                  "model": "合成纯电车",
+                  "source": "展厅到店",
+                  "note": "",
+                  "customer_id": "",
+                  "confirm_new_customer": true
+                },
+                "business_date": "2026-09-24",
+                "due_date": "2026-09-24",
+                "completed_date": null,
+                "updated_at": "2026-09-23T16:41:15.078080Z",
+                "owner_name": "合成对话销售",
+                "store_name": "默认门店",
+                "amount_cents": 0,
+                "paid_cents": 0
+              },
+              "route": "case/1"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "user": "补充联系电话13900007771，下次处理日期2026-09-27，本次沟通结果：已确认意向，三日后回访。请准备安排回访。",
+      "session": {
+        "id": "47579a6a-5259-459d-a445-8f42004d3a22",
+        "title": "帮我登记一条新客户的售前接待，还没填写资料。",
+        "created_at": "2026-09-23T16:40:55Z",
+        "updated_at": "2026-09-23T16:41:19Z",
+        "busy": false,
+        "messages": [
+          {
+            "id": 1,
+            "role": "user",
+            "content": "帮我登记一条新客户的售前接待，还没填写资料。",
+            "created_at": "2026-09-23T16:40:55Z"
+          },
+          {
+            "id": 2,
+            "role": "assistant",
+            "content": "售前接待需要以下信息，请提供：\n\n1. **客户姓名**（新客户必填）\n2. **客户来源**（必选）：展厅到店 / 电话咨询 / 网络咨询 / 转介绍\n3. 关注车型（可选）\n4. 联系电话（可选，有的话我顺便查一下是否已有档案）\n5. 说明（可选）\n\n请把这几项发我，我来准备登记卡片。",
+            "created_at": "2026-09-23T16:41:08Z"
+          },
+          {
+            "id": 3,
+            "role": "user",
+            "content": "这是新客户，按新档案登记。客户叫合成对话客户，今天从展厅到店咨询，关注合成纯电车，暂时没有联系电话。请登记接待。",
+            "created_at": "2026-09-23T16:41:08Z"
+          },
+          {
+            "id": 4,
+            "role": "assistant",
+            "content": "已生成待确认卡片，请核对：\n\n- 业务类型：售前接待\n- 客户姓名：合成对话客户\n- 客户来源：展厅到店\n- 关注车型：合成纯电车\n- 已核对另建独立档案：是\n- 联系电话：未填\n\n确认无误请点击卡片上的确认按钮，系统才会正式登记。",
+            "created_at": "2026-09-23T16:41:15Z"
+          },
+          {
+            "id": 5,
+            "role": "user",
+            "content": "主管已把刚才这条接待分派给我。请帮我安排接待回访。",
+            "created_at": "2026-09-23T16:41:15Z"
+          },
+          {
+            "id": 6,
+            "role": "assistant",
+            "content": "这条接待单当前是「待接待反馈」，可办事项里有「安排接待回访」，但需要以下信息：\n\n1. **联系电话**（必填，目前档案里没有）\n2. **下次处理日期**（必填，未来日期）\n3. **本次沟通结果**（必填）\n\n请提供这三项，我来准备回访安排卡片。",
+            "created_at": "2026-09-23T16:41:16Z"
+          },
+          {
+            "id": 7,
+            "role": "user",
+            "content": "补充联系电话13900007771，下次处理日期2026-09-27，本次沟通结果：已确认意向，三日后回访。请准备安排回访。",
+            "created_at": "2026-09-23T16:41:17Z"
+          },
+          {
+            "id": 8,
+            "role": "assistant",
+            "content": "已生成待确认卡片，请核对：\n\n- 业务：售前接待 HK20260924-CE7F9C73C6DA（待接待反馈）\n- 办理事项：安排接待回访\n- 联系电话：13900007771\n- 下次处理日期：2026-09-27\n- 本次沟通结果：已确认意向，三日后回访\n\n确认无误请点击卡片上的确认按钮，系统才会正式办理。",
+            "created_at": "2026-09-23T16:41:19Z"
+          }
+        ],
+        "proposals": [
+          {
+            "id": "8c446966-2b63-4d72-80d1-097f31227432",
+            "operation_id": "POST /api/flow/cases",
+            "label": "新建售前接待",
+            "summary": "登记新客户售前接待：合成对话客户，展厅到店，关注合成纯电车，无联系电话",
+            "details": {
+              "path_args": {},
+              "query": {},
+              "body": {
+                "request_id": "6806c4b0-8d62-4024-a109-f86482479319",
+                "kind": "lead",
+                "values": {
+                  "customer_name": "合成对话客户",
+                  "source": "展厅到店",
+                  "model": "合成纯电车",
+                  "confirm_new_customer": true
+                }
+              }
+            },
+            "display_fields": [
+              {
+                "label": "业务类型",
+                "value": "售前接待"
+              },
+              {
+                "label": "客户姓名",
+                "value": "合成对话客户"
+              },
+              {
+                "label": "客户来源",
+                "value": "展厅到店"
+              },
+              {
+                "label": "关注车型",
+                "value": "合成纯电车"
+              },
+              {
+                "label": "已核对另建独立档案",
+                "value": "是"
+              }
+            ],
+            "manual_route": "work",
+            "digest": "805af2d5e61350394c9a37279bf6ef32cc90020c2092421d27f2446f601d6883",
+            "status": "succeeded",
+            "expires_at": "2026-09-23T17:11:14Z",
+            "created_at": "2026-09-23T16:41:14Z",
+            "result": {
+              "status": 201,
+              "message": "已办理",
+              "data": {
+                "id": 1,
+                "number": "HK20260924-CE7F9C73C6DA",
+                "kind": "lead",
+                "state": "unassigned",
+                "title": "合成对话客户 · 售前接待",
+                "owner_id": 2,
+                "customer_id": 1,
+                "parent_id": null,
+                "vehicle_id": null,
+                "version": 1,
+                "flow_version": 2,
+                "store_id": 1,
+                "kind_label": "售前接待",
+                "state_label": "待分派",
+                "data": {
+                  "customer_name": "合成对话客户",
+                  "customer_phone": "",
+                  "model": "合成纯电车",
+                  "source": "展厅到店",
+                  "note": "",
+                  "customer_id": "",
+                  "confirm_new_customer": true
+                },
+                "business_date": "2026-09-24",
+                "due_date": "2026-09-24",
+                "completed_date": null,
+                "updated_at": "2026-09-23T16:41:15.078080Z",
+                "owner_name": "合成对话销售",
+                "store_name": "默认门店",
+                "amount_cents": 0,
+                "paid_cents": 0
+              },
+              "route": "case/1"
+            }
+          },
+          {
+            "id": "70ed4378-1421-4862-a828-41da635d2748",
+            "operation_id": "POST /api/flow/cases/{case_id}/actions/{action}",
+            "label": "业务流程与本店资料 · 办理",
+            "summary": "安排接待回访：补充联系电话13900007771，下次处理日期2026-09-27，沟通结果已确认意向，三日后回访",
+            "details": {
+              "path_args": {
+                "case_id": 1,
+                "action": "remind"
+              },
+              "query": {},
+              "body": {
+                "request_id": "d35987e8-5a22-4d90-8cbc-a35bc3f28e39",
+                "version": 3,
+                "values": {
+                  "customer_phone": "13900007771",
+                  "due_date": "2026-09-27",
+                  "result": "已确认意向，三日后回访"
+                }
+              }
+            },
+            "display_fields": [
+              {
+                "label": "case_id",
+                "value": "1"
+              },
+              {
+                "label": "action",
+                "value": "remind"
+              },
+              {
+                "label": "联系电话",
+                "value": "13900007771"
+              },
+              {
+                "label": "下次处理日期",
+                "value": "2026-09-27"
+              },
+              {
+                "label": "本次沟通结果",
+                "value": "已确认意向，三日后回访"
+              }
+            ],
+            "manual_route": "work",
+            "digest": "43c7a71384f2d0b1032b6534b53825dc35251f455e44c416a26fcd8b82352715",
+            "status": "pending",
+            "expires_at": "2026-09-23T17:11:18Z",
+            "created_at": "2026-09-23T16:41:18Z",
+            "result": null
+          }
+        ]
+      }
+    },
+    {
+      "explicit_employee_confirmation": "安排接待回访：补充联系电话13900007771，下次处理日期2026-09-27，沟通结果已确认意向，三日后回访",
+      "result": {
+        "id": "70ed4378-1421-4862-a828-41da635d2748",
+        "operation_id": "POST /api/flow/cases/{case_id}/actions/{action}",
+        "label": "业务流程与本店资料 · 办理",
+        "summary": "安排接待回访：补充联系电话13900007771，下次处理日期2026-09-27，沟通结果已确认意向，三日后回访",
+        "details": {
+          "path_args": {
+            "case_id": 1,
+            "action": "remind"
+          },
+          "query": {},
+          "body": {
+            "request_id": "d35987e8-5a22-4d90-8cbc-a35bc3f28e39",
+            "version": 3,
+            "values": {
+              "customer_phone": "13900007771",
+              "due_date": "2026-09-27",
+              "result": "已确认意向，三日后回访"
+            }
+          }
+        },
+        "display_fields": [
+          {
+            "label": "case_id",
+            "value": "1"
+          },
+          {
+            "label": "action",
+            "value": "remind"
+          },
+          {
+            "label": "联系电话",
+            "value": "13900007771"
+          },
+          {
+            "label": "下次处理日期",
+            "value": "2026-09-27"
+          },
+          {
+            "label": "本次沟通结果",
+            "value": "已确认意向，三日后回访"
+          }
+        ],
+        "manual_route": "work",
+        "digest": "43c7a71384f2d0b1032b6534b53825dc35251f455e44c416a26fcd8b82352715",
+        "status": "succeeded",
+        "expires_at": "2026-09-23T17:11:18Z",
+        "created_at": "2026-09-23T16:41:18Z",
+        "result": {
+          "status": 200,
+          "message": "已办理",
+          "data": {
+            "id": 1,
+            "number": "HK20260924-CE7F9C73C6DA",
+            "kind": "lead",
+            "state": "reminder",
+            "title": "合成对话客户 · 售前接待",
+            "owner_id": 2,
+            "customer_id": 1,
+            "parent_id": null,
+            "vehicle_id": null,
+            "version": 6,
+            "flow_version": 2,
+            "store_id": 1,
+            "kind_label": "售前接待",
+            "state_label": "接待回访中",
+            "data": {
+              "customer_name": "合成对话客户",
+              "customer_phone": "13900007771",
+              "model": "合成纯电车",
+              "source": "展厅到店",
+              "note": "",
+              "customer_id": "",
+              "confirm_new_customer": true,
+              "due_date": "2026-09-27",
+              "result": "已确认意向，三日后回访"
+            },
+            "business_date": "2026-09-24",
+            "due_date": "2026-09-27",
+            "completed_date": null,
+            "updated_at": "2026-09-23T16:41:19.484467Z",
+            "owner_name": "合成对话销售",
+            "store_name": "默认门店",
+            "amount_cents": 0,
+            "paid_cents": 0
+          },
+          "route": "case/1"
+        }
+      }
+    }
+  ],
+  "checks": [
+    "缺少姓名和来源时保留问答，未创建接待",
+    "相同待确认操作重复确认返回原结果",
+    "本人确认后通过原生入口创建唯一无电话接待",
+    "缺电话时尚未登记回访，保留员工补充入口",
+    "相同待确认操作重复确认返回原结果",
+    "本人确认后电话、回访状态、日期通过原生记录核对；仍只有一条接待"
+  ],
+  "user_messages": 4,
+  "user_message_budget": 6,
+  "preconditions": [
+    "新临时SQLite、附件隔离、随机端口，无原试用数据。",
+    "脚本登录并创建销售账号；随机密码不进入模型或证据。",
+    "助手确认创建接待后，主管通过原生接口将该接待分派给此销售；该步骤明确为准备，不计为模型操作。"
+  ],
+  "assistant_status": {
+    "enabled": true,
+    "ready": true,
+    "model": "deepseek-flash",
+    "provider": "deepseek",
+    "synthetic": true,
+    "message": "可以开始办理业务",
+    "limits": {
+      "max_message_chars": 6000,
+      "proposal_minutes": 30
+    }
+  },
+  "callback_phone_metadata": {
+    "required": true,
+    "label": "联系电话"
+  },
+  "issues": {
+    "items": [
+      {
+        "id": 1,
+        "session_id": "47579a6a-5259-459d-a445-8f42004d3a22",
+        "category": "model",
+        "summary": "助手操作未完成：没有找到此操作名称，请重新查找当前业务的操作目录；不要据此判断业务不支持。本次未执行",
+        "operation_id": "POST /api/flow/lead",
+        "status_code": 422,
+        "synthetic": true,
+        "created_at": "2026-09-23T16:41:11Z"
+      }
+    ]
+  },
+  "business_success": true,
+  "browser_contract": {
+    "executed": true,
+    "success": false,
+    "width": 390,
+    "session_source": "复用本次合成销售已登录会话，只在内存向Chrome传递Cookie；不写入证据。",
+    "additional_model_calls": 0,
+    "javascript_errors": [],
+    "failure": "Locator expected to have text '业务助手'\nActual value: None\nError: element(s) not found \nCall log:\n  - Expect \"to_have_text\" with timeout 5000ms\n  - waiting for locator(\"#main h1\")\n"
+  },
+  "provider_calls": 16,
+  "provider_budget": 40,
+  "test_budget_blocked_requests": 0,
+  "models": [
+    "deepseek-flash"
+  ],
+  "usage": {
+    "prompt_tokens": 50732,
+    "completion_tokens": 1382,
+    "total_tokens": 52114
+  }
+}

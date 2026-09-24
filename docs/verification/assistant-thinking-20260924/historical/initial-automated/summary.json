@@ -1,0 +1,73 @@
+{
+  "status": "failed",
+  "scope": "targeted assistant streaming/thinking/case navigation/migrations and search/store boundaries; all frontend Node tests; NOT the full backend suite",
+  "source_file_count": 821,
+  "source_digest": "507336c336b5eef3e55c8997ad41ab1d545cfe8f28ecfcfe77a605d49356221b",
+  "source_changed": [],
+  "module_count": 14,
+  "seconds": 95.04,
+  "tests": 236,
+  "failures": 1,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 235,
+  "javascript_files": 63,
+  "node_test_files": 24,
+  "node_returncode": 0,
+  "partitions": [
+    {
+      "partition": 1,
+      "modules": [
+        "tests\\test_business_assistant.py",
+        "tests\\test_business_assistant_files.py",
+        "tests\\test_business_assistant_thinking_migration.py",
+        "tests/test_store_roles.py"
+      ],
+      "returncode": 0,
+      "tests": 93,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "partition": 2,
+      "modules": [
+        "tests\\test_business_assistant_capabilities.py",
+        "tests\\test_business_assistant_gateway.py",
+        "tests/test_workflow_guide_recommendations.py",
+        "tests/test_employee_simplicity.py"
+      ],
+      "returncode": 1,
+      "tests": 55,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "partition": 3,
+      "modules": [
+        "tests\\test_business_assistant_case_navigation.py",
+        "tests\\test_business_assistant_migration.py",
+        "tests/test_workflow_guides.py"
+      ],
+      "returncode": 0,
+      "tests": 34,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "partition": 4,
+      "modules": [
+        "tests\\test_business_assistant_case_tools.py",
+        "tests\\test_business_assistant_stream.py",
+        "tests/test_multistore.py"
+      ],
+      "returncode": 0,
+      "tests": 54,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

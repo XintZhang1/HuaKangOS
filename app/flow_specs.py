@@ -47,7 +47,7 @@ SPECS_V1={
  fields=CUSTOMER_FIELDS+[f('model','关注车型',required=False),f('source','客户来源','select',options=['展厅到店','电话咨询','网络咨询','转介绍']),NOTE],initial='unassigned',
  actions=[a('assign','分派接待','reception,manager','unassigned',[ASSIGNEE],task='assign'),
  a('intent','转意向客户','sales,reception','contacting,reminder',[f('need','购车需求','textarea'),WHEN],task='contact'),
- a('remind','安排接待回访','sales,reception','contacting,reminder',[WHEN,f('result','本次沟通结果','textarea')],task='contact'),
+ a('remind','安排接待回访','sales,reception','contacting,reminder',[PHONE,WHEN,f('result','本次沟通结果','textarea')],task='contact'),
  a('follow','记录意向跟进','sales','intent',[f('result','本次沟通结果','textarea'),WHEN],task='follow'),
  a('reserve','转车辆预订','sales','intent',[f('model','订购车型'),f('amount','车辆约定金额（元）','money'),f('delivery_due','预计交付日期','future_date'),f('addon','需要精品加装','bool',False),f('insurance','本店办理保险','bool',False),f('agency','需要代办服务','bool',False),NOTE],task='follow'),
  a('close','结束跟进','sales,reception','contacting,reminder,intent',[REASON,f('no_contact','客户不希望后续联系','bool',False)],confirm='结束后不再安排本次业务的跟进任务。'),

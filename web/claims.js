@@ -3,6 +3,13 @@ const claimNames={assess:'核损与核价版本',approve:'独立复核核价',tr
 const claimRoutes={repair_receivable:'原维修第三方应收',customer_direct:'第三方直接报销给客户',customer_via_store:'第三方经门店转付客户',internal:'内部承担核价'};
 const claimOutcomes={approved:'全部核准',partial:'部分核准',rejected:'拒赔',need_documents:'要求补件'};
 const claimCashNames={thirdparty_refund:'退原第三方款',pass_receive:'报销款到店',pass_pay:'转付客户',customer_return:'客户退回门店',party_return:'原路退第三方',unused_refund:'未转付报销款原退'};
+const claimOriginalActions=new Set(['thirdparty_refund','pass_pay','direct_return','customer_return','party_return','unused_refund']);
+function claimOriginalLabel(item){return [item.reference,item.business_date,item.account_name,item.account_active===false?'原账户已停用':'','本次最多 '+money(item.remaining_cents)+' 元'].filter(Boolean).join(' · ');}
+async function claimOptions(r,key,planId){return api(`/api/claims/${r.id}/options/${key}`+(planId?'?plan_id='+planId:''));}
+function claimMissing(r,key,options){
+ const next=options.next_action,allowed=next&&r.actions.includes(next),plan=options.next_plan_id;
+ modal(claimNames[key],`<p>${E(options.message)}</p>${next&&!allowed?`<p>请交给${['resolution_approve','return_approve'].includes(next)?'主管':'财务'}办理“${E(claimNames[next])}”。</p>`:''}<div class="modalfoot">${b('close','返回')}${allowed?b('claim-action',claimNames[next],`data-key="${E(next)}" ${plan?`data-plan="${plan}"`:''}`,'primary'):''}</div>`);
+}
 async function claimsPage(id){
  if(!id){const d=await api('/api/claims?page='+state.page);return heading('理赔索赔与客户报销','经办核对外部文件，财务确认实际款项；批准金额不会自动变成到账。',canWrite()&&['admin','service'].includes(state.user.role)?b('claim-new','建立核赔申请','','primary'):'')+storeNotice()+panel('本店核赔业务',table(['核赔申请','路径','状态',''],d.items.map(r=>[`${E(r.number)}<br>${E(r.title)}`,E(claimRoutes[r.order.payment_route]),E(r.phase_label),b('open','办理',`data-route="claims/${r.id}"`)])))+pager(d.total);}
  const r=await api('/api/claims/'+id);state.claimOrder=r;state.row=await api('/api/flow/cases/'+id);
@@ -13,14 +20,15 @@ async function claimsPage(id){
  if(r.phase==='waiting')buttons.push(button('result'));
  if(r.phase==='ready'){if(['repair_receivable','internal'].includes(r.order.payment_route)){buttons.push(button('bind'));if(r.order.payment_route!=='internal')buttons.push(button('resolution'));}else buttons.push(button('reimbursement_approve'));}
  if(r.phase==='resolution_review')buttons.push(button('resolution_approve'));
- if(r.phase==='resolution_execute')buttons.push(button('thirdparty_refund'),button('resolution_apply'));
+ if(r.phase==='resolution_execute')buttons.push(...(r.resolutions[0]?.refund_cents?[button('thirdparty_refund')]:[]),button('resolution_apply'));
  if(r.phase==='reimbursement')buttons.push(...(r.order.payment_route==='customer_direct'?[button('direct_confirm')]:[button('pass_receive'),button('pass_pay')]));
  const payouts=r.order.payment_route==='customer_direct'?r.customer_payments.filter(x=>x.purpose==='reimbursement'):r.cash.filter(x=>['pass_pay','pass_receive'].includes(x.purpose));
  if(payouts.length&&r.phase!=='cancelled')buttons.push(button('return_plan'));
  if(!['completed','cancelled'].includes(r.phase))buttons.push(button('close'),button('cancel'));
  let h=heading(r.title,r.number,b('open','返回理赔','data-route="claims"'))+storeNotice()+`<div class="notice">${E(r.phase_label)} · ${E(claimRoutes[r.order.payment_route])}<br>上传文件只作原件关联，经办或财务需确认实际结果；系统不认证外部文件真实性。</div>`;
  h+=panel('原维修及本次路径',`<p>${E(r.source_number)} · ${E(r.order.source_snapshot.plate)} · ${E(r.order.party_name)}</p><p>${E(r.order.reason)}</p>`+b('open','核对原维修',`data-route="repair-orders/${r.source_id}"`)+(r.order.payment_route.startsWith('customer_')?`<p>本单报销有效占额／已报销净额 ${money(r.reimbursement_usage_cents)} 元；扣除其他案件后原客户实际现金净付款 ${money(r.customer_available_cents)} 元。</p><p>会员核销不折现报销。直接付客户不产生公司现金，经店转付分别记录实际到账和实际支付。</p>`:''));
- h+=panel('本次办理',`<div class="row">${buttons.filter(Boolean).join('')||(['completed','cancelled'].includes(r.phase)?'本次已办结；后续原路返还按其独立方案与待办办理。':'等待其他岗位或下一项实际结果。')}</div>`);
+ const guidance=r.phase==='resolution_execute'&&r.resolutions[0]?.refund_cents===0?'本方案无需退款。请办理责任调整生效，并上传本次凭据。':r.phase==='reimbursement'&&r.order.payment_route==='customer_via_store'&&!r.cash.some(x=>x.purpose==='pass_receive')?'尚未登记报销款到店。先登记到账，再转付客户。':'';
+ h+=panel('本次办理',`${guidance?`<p>${E(guidance)}</p>`:''}<div class="row">${buttons.filter(Boolean).join('')||(['completed','cancelled'].includes(r.phase)?'本次已办结；后续原路返还按其独立方案与待办办理。':'等待其他岗位或下一项实际结果。')}</div>`);
  for(const a of r.assessments)h+=panel('核价第 '+a.revision+' 版',`<p>${E(a.reason)} · 核价 ${money(a.amount_cents)} 元</p>`+table(['原项目','申请数量','申请金额（元）'],a.lines.map(l=>[E(l.name),number(l.quantity_milli/1000),money(l.amount_cents)])));
  h+=panel('外部提交及结果',r.transmissions.map(t=>{const result=r.results.find(x=>x.transmission_id===t.id);return `<div class="taskitem"><div class="description"><strong>${E(t.external_reference)}</strong><p>${E(t.submitted_on)} · ${t.supplement_result_id?'追加补件':'首次提交'}</p>${result?`<p>${E(claimOutcomes[result.outcome])} · ${money(result.amount_cents)} 元</p><p>${E(result.result)}</p>`:'等待实际外部核赔结果'}</div></div>`;}).join('')||'<p>内部核价不伪造外部核赔记录；外部业务尚未提交。</p>');
  for(const resolution of r.resolutions)h+=panel('第三方调减与内部吸收',`<p>原承担 ${money(resolution.original_cents)} 元，调减 ${money(resolution.reduction_cents)} 元，由 ${E(resolution.internal_bearer)} 等额承担。</p><p>须实际退原第三方款 ${money(resolution.refund_cents)} 元。原维修报价和原承担保留，生效时追加调整。</p><p>${E(resolution.reason)}</p>`);
@@ -47,28 +55,28 @@ async function claimLinesDialog(key){
  });
 }
 async function claimSelectionDialog(key){
- const r=state.claimOrder,request_id=requestKey(),items=key==='resolution'?r.source_payments.filter(p=>r.source_allocations.find(a=>a.id===p.allocation_id)?.payer_type===r.order.party_type):r.order.payment_route==='customer_direct'?r.customer_payments.filter(p=>p.purpose==='reimbursement'):r.cash.filter(p=>['pass_pay','pass_receive'].includes(p.purpose)),files=state.row.files.filter(f=>!f.generated&&f.category==='authorization'&&f.security?.can_use);
- modal(claimNames[key],`<form><p>${key==='resolution'?'选择实际已收超过新核准金额的原第三方款，退款合计必须恰好覆盖超收部分。未到账部分只作责任调减。':'选择原实际报销记录及本次原路径返还金额；不能把同一笔报销重复退回。'}</p>${key==='resolution'?'<label>差额实际内部承担主体<input name="internal_bearer" required maxlength="120"></label>':''}${items.map(p=>`<label data-claim-selection data-id="${p.id}">${p.purpose==='pass_receive'?'未转付第三方到账':'原客户报销'} ${p.id} · ${E(p.reference||p.business_date)} · 原额 ${money(p.amount_cents)} 元<input name="selected_amount" inputmode="decimal" placeholder="本次金额，未选择留空"></label>`).join('')}<label>本次处理原因<textarea name="reason" required minlength="2"></textarea></label><label>方案事实原件<select name="evidence_id" required>${files.map(f=>`<option value="${f.id}">${E(f.name)}</option>`).join('')}</select></label><div class="formerror" role="alert"></div><div class="modalfoot"><button class="primary" type="submit">提交独立复核</button></div></form>`,async form=>{
+ const current=state.claimOrder,choices=await claimOptions(current,key),r={...current,version:choices.version,source_version:choices.source_version},request_id=requestKey(),items=choices.items,files=state.row.files.filter(f=>!f.generated&&f.category==='authorization'&&f.security?.can_use);
+ if(!choices.can_continue)return claimMissing(r,key,choices);
+ modal(claimNames[key],`<form><p>${E(choices.message||(key==='resolution'?'本次需退 '+money(choices.required_amount_cents)+' 元，请选择原收款。':'选择要返还的原款，填写本次金额。'))}</p>${key==='resolution'?'<label>内部承担方<input name="internal_bearer" required maxlength="120"></label>':''}${items.map(p=>`<label data-claim-selection data-id="${p.id}">${E(p.purpose==='pass_receive'?'未转付原款':p.purpose==='thirdparty_payment'?'第三方原收款':'已付客户款')} · ${E(claimOriginalLabel(p))}<input name="selected_amount" inputmode="decimal" placeholder="本次金额，未选择留空"></label>`).join('')}<label>本次处理原因<textarea name="reason" required minlength="2"></textarea></label><label>方案凭据${caseFilePickerHTML('evidence_id',r.id,files)}</label><div class="formerror" role="alert"></div><div class="modalfoot"><button class="primary" type="submit">提交独立复核</button></div></form>`,async form=>{
   const selected=[...form.querySelectorAll('[data-claim-selection]')].filter(e=>e.querySelector('input').value.trim()).map(e=>({original_id:Number(e.dataset.id),amount_cents:repairScaled(e.querySelector('input').value,2)}));
+  for(const selection of selected)if(selection.amount_cents>items.find(item=>item.id===selection.original_id).remaining_cents)throw new Error('本次金额超过该笔原款可办理的金额。');
   await claimSend(r,key,{reason:form.elements.reason.value,evidence_id:Number(form.elements.evidence_id.value),...(key==='resolution'?{internal_bearer:form.elements.internal_bearer.value,refunds:selected}:{selections:selected})},request_id);closeModal();await render();
  });
 }
 async function claimAction(key,planId){
  if(['assess','result'].includes(key))return claimLinesDialog(key);if(['resolution','return_plan'].includes(key))return claimSelectionDialog(key);
- const r=state.claimOrder,request_id=requestKey(),fields=[],initial={},extra={},moneyKeys=['thirdparty_refund','direct_confirm','pass_receive','pass_pay','direct_return','customer_return','party_return','unused_refund'];
+ let r=state.claimOrder;const request_id=requestKey(),fields=[],initial={},extra={},moneyKeys=['thirdparty_refund','direct_confirm','pass_receive','pass_pay','direct_return','customer_return','party_return','unused_refund'];
  if(['approve','resolution_approve','reimbursement_approve','close','cancel','return_cancel'].includes(key))fields.push(F('reason','本人核对及办理原因','textarea'));
  if(['return_approve','return_cancel','direct_return','customer_return','party_return','unused_refund'].includes(key))extra.plan_id=planId;
  if(key==='return_approve')fields.splice(0);
  if(key==='transmit'){fields.push(F('external_reference','实际外部受理单号'),F('submitted_on','实际提交日期','date'));initial.submitted_on=day();if(r.phase==='supplement')extra.supplement_result_id=r.results.at(-1).id;}
  let options=[];
- if(key==='thirdparty_refund')options=r.resolutions[0].refunds.map(x=>({id:x.original_id,label:'原收款 '+x.original_id+' · 计划退 '+money(x.amount_cents)+' 元'}));
- if(key==='pass_pay')options=r.cash.filter(x=>x.purpose==='pass_receive'&&x.remaining_cents>0).map(x=>({id:x.id,label:'原到账 '+x.id+' · 尚可转付 '+money(x.remaining_cents)+' 元'}));
- if(['direct_return','customer_return','unused_refund'].includes(key))options=r.return_plans.find(p=>p.id===planId).selections.map(x=>({id:x.original_id,label:'原报销 '+x.original_id+' · 本方案 '+money(x.amount_cents)+' 元'}));
- if(key==='party_return')options=r.cash.filter(x=>x.purpose==='customer_return'&&x.return_plan_id===planId&&x.remaining_cents>0).map(x=>({id:x.id,label:'客户实际退回 '+x.id+' · 尚待退第三方 '+money(x.remaining_cents)+' 元'}));
- if(['thirdparty_refund','pass_pay','direct_return','customer_return','party_return','unused_refund'].includes(key)){if(!options.length)throw new Error('尚无本步骤可用的原实际款项；请先核对前置事实。');fields.push(F('original','原款记录','select',true,options.map(x=>x.label)));}
+ if(claimOriginalActions.has(key)){const choices=await claimOptions(r,key,planId);r={...r,version:choices.version,source_version:choices.source_version};if(!choices.can_continue)return claimMissing(r,key,choices);options=choices.items;fields.push({...F('original','原款','select',true,options.map(x=>({value:String(x.id),label:claimOriginalLabel(x)}))),searchable:true});if(options.length===1){initial.original=String(options[0].id);initial.account_id=options[0].account_id;}}
  if(moneyKeys.includes(key))fields.push(F('amount','本次实际金额（元）','money'));
  if(moneyKeys.includes(key)&&!['direct_confirm','direct_return'].includes(key))fields.push(F('account_id','本次原路径账户','account'),F('reference','本次独立流水／凭证号'));
  fields.push(F('evidence_id','本理赔单本次实际原件','file'));
- await formDialog(claimNames[key],fields,initial,v=>{const values={...v,...extra};if('original'in values){values.original_id=options.find(x=>x.label===values.original).id;delete values.original;}if('amount'in values){values.amount_cents=repairScaled(values.amount,2);delete values.amount;}return claimSend(r,key,values,request_id);},{caseId:r.id,notice:key==='direct_confirm'||key==='direct_return'?'财务核对第三方与客户间的实际付款原件，本步骤不生成公司现金。':'仅确认本人实际核对的结果。原报价、原收款和已记录外部结果都会保留。'});
+ await formDialog(claimNames[key],fields,initial,v=>{const values={...v,...extra};if('original'in values){const selected=options.find(x=>String(x.id)===values.original);if(!selected)throw new Error('请选择本次原款。');values.original_id=selected.id;delete values.original;if(repairScaled(values.amount,2)>selected.remaining_cents)throw new Error('本次金额超过该笔原款可办理的金额。');}if('amount'in values){values.amount_cents=repairScaled(values.amount,2);delete values.amount;}return claimSend(r,key,values,request_id);},{caseId:r.id,notice:key==='direct_confirm'||key==='direct_return'?'核对第三方与客户间的实际付款凭据。':'请核对原款和本次实际金额。'});
+ const form=document.querySelector('#modal form'),original=form?.elements.original,account=form?.elements.account_id;
+ if(original){const summary=document.createElement('small');summary.setAttribute('role','status');original.closest('label').append(summary);const update=()=>{const selected=options.find(x=>String(x.id)===original.value);summary.textContent=selected?'本次最多 '+money(selected.remaining_cents)+' 元'+(selected.account_active===false?'；原账户已停用，请先恢复账户。':''):'';if(account){account.value=selected?.account_id?String(selected.account_id):'';account.dispatchEvent(new Event('change',{bubbles:true}));}};original.addEventListener('change',update);update();}
 }
 document.addEventListener('click',async event=>{const e=event.target.closest('[data-act]');if(!e?.dataset.act.startsWith('claim-'))return;try{if(e.dataset.act==='claim-new')await claimsNew(Number(e.dataset.source)||null);if(e.dataset.act==='claim-action')await claimAction(e.dataset.key,Number(e.dataset.plan)||null);}catch(error){toast(error.message,true);}});

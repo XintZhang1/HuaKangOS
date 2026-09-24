@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "source_unchanged": true,
+  "source_digest": "3074082830594e21e6b0fdad3ffa60dfc77b496e1118cb6218a984e0b32bdea4",
+  "modes": [
+    false,
+    true
+  ],
+  "results": [
+    true,
+    true
+  ],
+  "synthetic_only": true
+}

@@ -104,8 +104,9 @@ def assign_task(task_id:int,body:AssignInput,db=Depends(get_db),user=Depends(get
 
 @router.get('/cases')
 def list_cases(kind:str='',module:str='',q:str=Query('',max_length=100),state:str='',date_from:date|None=None,date_to:date|None=None,
-               page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),db=Depends(get_db),user=Depends(get_user)):
+               page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),customer_id:int|None=Query(None,gt=0),db=Depends(get_db),user=Depends(get_user)):
     stmt=eng.case_query(user)
+    if customer_id is not None:stmt=stmt.where(Case.customer_id==customer_id)
     if kind:
         if kind not in SPECS:raise HTTPException(422,'业务类别无效')
         stmt=stmt.where(Case.kind==kind)

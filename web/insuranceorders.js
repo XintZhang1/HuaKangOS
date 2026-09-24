@@ -28,26 +28,71 @@ async function insuranceOrdersPage(id){
  h+=panel('原件与岗位交接',b('upload','上传本次实际凭据')+'<p>核价、客户同意、投保与外部结果使用“客户授权”；实际保费、佣金及生效使用“收款凭据”。同一原件不得冒作另一办理事实。</p>'+taskList(openTasks)+`<details><summary>查看本单 ${files.length} 份实际原件</summary>${fileList(files)}</details>`+(doneTasks.length?`<details><summary>查看 ${doneTasks.length} 项已办交接记录</summary>${taskList(doneTasks)}</details>`:''));
  h+=panel('历史报价',`<details><summary>查看 ${r.quote_history.length} 个版本</summary>${r.quote_history.map(x=>`<p>第 ${x.quote.revision} 版 · ${E(x.quote.insurer_snapshot.name)} · 保费 ${money(x.quote.premium_cents)} 元 · ${x.cancelled?'已撤回':x.authorized?'客户已授权':'未授权'}<br>${E(x.quote.terms)}</p>`).join('')}</details>`);return h;
 }
+function insuranceEntryContext(){return String(state.user?.id)+':'+String(state.store)+':'+(typeof storeContextVersion==='undefined'?'':storeContextVersion);}
+function insuranceEntryOptions(rows,label,empty){return '<option value="">'+E(empty)+'</option>'+rows.map(r=>'<option value="'+r.id+'">'+E(label(r))+'</option>').join('');}
+function insuranceEntryValues(form,c,request_id){
+ const e=form.elements,customerId=Number(e.customer.value),find=(rows,value)=>rows.find(r=>r.id===Number(value));
+ if(!c||!c.customers.some(r=>r.id===customerId))throw new Error('请选择客户，等待车辆资料载入。');
+ const vehicle=find(c.vehicles,e.vehicle.value),source=find(c.sources,e.source.value),previous=find(c.policies,e.previous.value),renewal=find(c.renewals,e.renewal.value);
+ if(!vehicle&&!source)throw new Error('请选择客户车辆，或关联已配车的销售单。');
+ for(const [field,row]of [['vehicle',vehicle],['source',source],['previous',previous],['renewal',renewal]])if(e[field].value&&!row)throw new Error('关联资料已变化，请重新选择。');
+ if(e.blocking.checked&&!source)throw new Error('约定交车前办结时，请选择销售单。');
+ return {request_id,customer_id:customerId,customer_vehicle_id:vehicle?.id||null,source_order_id:source?.id||null,source_version:source?.version||null,
+  previous_policy_id:previous?.id||null,renewal_task_id:renewal?.id||null,renewal_version:renewal?.version||null,
+  delivery_blocking:e.blocking.checked,due_date:e.due_date.value,reason:e.reason.value};
+}
 async function insuranceOrderNew(sourceId){
- const source=sourceId?await api('/api/flow/cases/'+sourceId):null;
- async function choose(query=''){
-  const c=await api('/api/insurance-orders/catalog?'+(source?'customer_id='+source.customer_id:'q='+encodeURIComponent(query)));
-  if(!c.customers.length)throw new Error('没有匹配的本店客户，请先建立或确认客户归属。');
-  modal('选择保险客户',`<form>${!source?'<label>按姓名或电话缩小范围<input name="search" value="'+E(query)+'"></label><button type="button" data-insurance-search>查找客户</button>':''}<label>本店客户<select name="customer">${c.customers.map(x=>`<option value="${x.id}">${E(x.name)} · ${E(x.phone)}</option>`).join('')}</select></label><p>当前显示 ${c.customers.length} / ${c.total} 位，客户不在列表时请先查找。</p><div class="formerror" role="alert"></div><div class="modalfoot"><button type="submit" class="primary">下一步选择车辆</button></div></form>`,async form=>{const selected=Number(form.elements.customer.value);closeModal();await create(selected);});
-  document.querySelector('[data-insurance-search]')?.addEventListener('click',async()=>{const query=document.querySelector('#modal [name=search]').value;closeModal();await choose(query);});
+ const context=insuranceEntryContext(),source=sourceId?await api('/api/flow/cases/'+sourceId):null;
+ if(context!==insuranceEntryContext())return;
+ const initial=await api('/api/insurance-orders/catalog'+(source?'?customer_id='+source.customer_id:''));
+ if(context!==insuranceEntryContext())return;
+ const request_id=requestKey();let catalog=null,loading=false,saving=false,sequence=0;
+ const dialog=modal('新建保险单',`<form id="insurance-entry"><label>客户<select name="customer" required data-search-select data-search-placeholder="姓名或手机号"${source?' disabled':''}>${insuranceEntryOptions(initial.customers,r=>r.name+(r.phone?' · '+r.phone:''),'查找客户')}</select></label><label>客户车辆<select name="vehicle" data-search-select data-search-placeholder="车牌或 VIN" disabled><option value="">请先选择客户</option></select></label><div data-insurance-status class="fieldhelp" role="status"></div><details${source?' open':''}><summary>关联销售或续保</summary><label>销售单<select name="source" data-search-select disabled><option value="">不关联</option></select></label><label>原保单<select name="previous" data-search-select disabled><option value="">首次投保</option></select></label><label>续保任务<select name="renewal" data-search-select disabled><option value="">不关联</option></select></label><label class="checklabel"><input name="blocking" type="checkbox">约定交车前办结</label></details><label>办理期限<input name="due_date" type="date" required value="${day()}"></label><label>投保需求<textarea name="reason" required minlength="2" maxlength="1000"></textarea></label><div class="formerror" role="alert"></div><div class="modalfoot">${b('close','取消')}<button type="submit" class="primary" disabled>保存保险单</button></div></form>`,async form=>{
+  if(saving)return;if(context!==insuranceEntryContext())throw new Error('门店已切换，请重新打开保险录入。');
+  if(loading)throw new Error('车辆资料正在载入，请稍候。');
+  const values=insuranceEntryValues(form,catalog,request_id);saving=true;
+  try{const result=await api('/api/insurance-orders',{method:'POST',body:values});if(context!==insuranceEntryContext())return;closeModal();go('insurance-orders/'+result.id);await render();}finally{saving=false;}
+ });
+ const form=dialog.querySelector('form'),e=form.elements,status=form.querySelector('[data-insurance-status]'),submit=form.querySelector('[type=submit]');
+ const current=()=>context===insuranceEntryContext()&&form.isConnected&&dialog.open;
+ async function selectedCustomer(){
+  const run=++sequence,customerId=Number(e.customer.value);catalog=null;submit.disabled=true;loading=!!customerId;
+  for(const name of ['vehicle','source','previous','renewal']){e[name].innerHTML='<option value="">请选择</option>';e[name].disabled=true;}
+  e.blocking.checked=false;status.textContent=customerId?'正在载入车辆…':'';
+  if(!customerId)return;
+  try{const next=await api('/api/insurance-orders/catalog?customer_id='+customerId);
+   if(!current()||run!==sequence)return;
+   if(!next.customers.some(r=>r.id===customerId))throw new Error('未找到客户，请重新选择。');
+   catalog=next;
+   e.vehicle.innerHTML=insuranceEntryOptions(next.vehicles,r=>(r.plate?r.plate+' · ':'')+r.vin,'请选择车辆');
+   e.source.innerHTML=insuranceEntryOptions(next.sources,r=>r.number,'不关联');
+   e.previous.innerHTML=insuranceEntryOptions(next.policies,r=>r.policy_number+' · '+r.vin,'首次投保');
+   e.renewal.innerHTML=insuranceEntryOptions(next.renewals,r=>r.title,'不关联');
+   for(const name of ['vehicle','source','previous','renewal'])e[name].disabled=false;
+   if(next.vehicles.length===1)e.vehicle.value=String(next.vehicles[0].id);
+   if(source&&next.sources.some(r=>r.id===source.id))e.source.value=String(source.id);
+   status.textContent=next.vehicles.length||next.sources.length?'':'该客户尚未登记车辆，请先登记客户车辆。';
+   submit.disabled=false;
+  }catch(error){if(current()&&run===sequence){catalog=null;status.textContent=error.message;}}
+  finally{if(current()&&run===sequence)loading=false;}
  }
- async function create(customerId){
-  const c=await api('/api/insurance-orders/catalog?customer_id='+customerId),vehicles=['不另选客户车辆',...c.vehicles.map(x=>x.id+' · '+x.vin+' · '+x.plate)],sources=['不关联销售',...c.sources.map(x=>x.id+' · '+x.number)],policies=['首次投保或未关联原保单',...c.policies.map(x=>x.id+' · '+x.policy_number+' · '+x.vin)],renewals=['不关联续保任务',...c.renewals.map(x=>x.id+' · '+x.title)],request_id=requestKey();
-  await formDialog('建立保险单',[F('vehicle','客户车辆','select',true,vehicles),F('source','可选销售原单','select',true,sources),F('previous','续保原保单','select',true,policies),F('renewal','明确原续保任务','select',true,renewals),F('blocking','是否约定交车前办结','select',true,['按保险独立进度','明确交车前保费办结']),F('due_date','办理期限','date'),F('reason','客户投保需求','textarea')],{vehicle:vehicles[c.vehicles.length?1:0],source:source?sources[c.sources.findIndex(x=>x.id===source.id)+1]:sources[0],previous:policies[0],renewal:renewals[0],blocking:'按保险独立进度',due_date:day()},v=>{const original=c.sources[sources.indexOf(v.source)-1],renewal=c.renewals[renewals.indexOf(v.renewal)-1];return api('/api/insurance-orders',{method:'POST',body:{request_id,customer_id:customerId,customer_vehicle_id:c.vehicles[vehicles.indexOf(v.vehicle)-1]?.id||null,source_order_id:original?.id||null,source_version:original?.version||null,previous_policy_id:c.policies[policies.indexOf(v.previous)-1]?.id||null,renewal_task_id:renewal?.id||null,renewal_version:renewal?.version||null,delivery_blocking:v.blocking==='明确交车前保费办结',due_date:v.due_date,reason:v.reason}}).then(r=>go('insurance-orders/'+r.id));},{notice:'必须明确客户车辆，或已有实际 VIN 的销售原单。同客户续保不自动更改原任务结果。'});
- }
- return choose();
+ registerLiveChoiceLoader(e.customer,async query=>{if(!current())return {items:[]};const data=await api('/api/insurance-orders/catalog?q='+encodeURIComponent(query));return {items:data.customers.map(r=>({id:r.id,label:r.name+(r.phone?' · '+r.phone:'')})),has_more:data.total>data.customers.length};});
+ e.customer.addEventListener('change',selectedCustomer);
+ if(source){e.customer.value=String(source.customer_id);e.customer.dispatchEvent(new Event('change',{bubbles:true}));}
 }
 function insuranceSend(r,key,values,request_id){return api(`/api/insurance-orders/${r.id}/actions/${key}`,{method:'POST',body:{request_id,version:r.version,values}});}
 async function insuranceQuote(){
- const r=state.insuranceOrder,c=state.insuranceCatalog,q=r.quote,request_id=requestKey();if(!c.insurers.length)throw new Error('请先配置本店启用保险公司。');
+ const context=insuranceEntryContext(),r=state.insuranceOrder,c=state.insuranceCatalog,q=r.quote,request_id=requestKey();if(!c.insurers.length)throw new Error('请先配置本店启用保险公司。');
  const row=(l={})=>`<div data-insurance-line class="formgrid"><label>险种名称<input name="line_name" value="${E(l.name||'')}"></label><label>本险种保费（元）<input name="line_amount" inputmode="decimal" value="${l.premium_cents===undefined?'':(l.premium_cents/100).toFixed(2)}"></label></div>`;
- modal('本版保险核价',`<form><label>保险公司<select name="insurer">${c.insurers.map(x=>`<option value="${x.id}"${q?.insurer_id===x.id?' selected':''}>${E(x.name)} · ${E(x.license_number)}</option>`).join('')}</select></label><label>保费支付方式<select name="mode"><option value="store_collect">本店代收并代缴</option><option value="customer_direct"${q?.collection_mode==='customer_direct'?' selected':''}>客户直接付保险公司</option></select></label><div data-insurance-lines>${(q?.lines||[{},{}]).map(row).join('')}</div><button type="button" data-insurance-add>增加险种</button><label>预计佣金（元；非已确认收入）<input name="expected" inputmode="decimal" value="${q?(q.expected_commission_cents/100).toFixed(2):'0.00'}" required></label><label>保险公司实际收款户名（代缴必填）<input name="payee" value="${E(q?.insurer_snapshot.account_name||'')}"></label><label>保险公司账户或缴费识别号（代缴必填）<input name="payee_reference" value="${E(q?.insurer_snapshot.account_reference||'')}"></label><div class="formgrid"><label>保险开始日<input name="start" type="date" value="${q?.start_date||day()}" required></label><label>保险截止日<input name="end" type="date" value="${q?.end_date||''}" required></label></div><label>本版确认有效期<input name="expiry" type="date" value="${q?.valid_until||day()}" required></label><label>本版约定<textarea name="terms" required minlength="2">${E(q?.terms||'')}</textarea></label><label>本次核价原因<textarea name="reason" required minlength="2"></textarea></label><p>每版核价须另一主管批准并取得客户同版授权。保费与佣金分账，不按比例自动推定公司佣金。</p><div class="formerror" role="alert"></div><div class="modalfoot"><button class="primary" type="submit">提交独立核价</button></div></form>`,async form=>{const insurer=c.insurers.find(x=>x.id===Number(form.elements.insurer.value));const lines=[...form.querySelectorAll('[data-insurance-line]')].filter(e=>e.querySelector('[name=line_name]').value||e.querySelector('[name=line_amount]').value).map(e=>({name:e.querySelector('[name=line_name]').value,premium_cents:repairScaled(e.querySelector('[name=line_amount]').value,2)}));await insuranceSend(r,'quote',{insurer_id:insurer.id,insurer_version:insurer.version,collection_mode:form.elements.mode.value,payee_account_name:form.elements.payee.value,payee_account_reference:form.elements.payee_reference.value,lines,expected_commission_cents:repairScaled(form.elements.expected.value,2),start_date:form.elements.start.value,end_date:form.elements.end.value,valid_until:form.elements.expiry.value,terms:form.elements.terms.value,reason:form.elements.reason.value},request_id);closeModal();await render();});
- document.querySelector('[data-insurance-add]').addEventListener('click',()=>{if(document.querySelectorAll('[data-insurance-line]').length<40)document.querySelector('[data-insurance-lines]').insertAdjacentHTML('beforeend',row());});
+ const dialog=modal('本版保险核价',`<form><label>保险公司<select name="insurer" data-search-select>${c.insurers.map(x=>`<option value="${x.id}"${q?.insurer_id===x.id?' selected':''}>${E(x.name)} · ${E(x.license_number)}</option>`).join('')}</select></label><label>保费支付方式<select name="mode"><option value="store_collect">本店代收并代缴</option><option value="customer_direct"${q?.collection_mode==='customer_direct'?' selected':''}>客户直接付保险公司</option></select></label><div data-insurance-lines>${(q?.lines||[{},{}]).map(row).join('')}</div><button type="button" data-insurance-add>增加险种</button><label>预计佣金（元；非已确认收入）<input name="expected" inputmode="decimal" value="${q?(q.expected_commission_cents/100).toFixed(2):'0.00'}" required></label><label>保险公司实际收款户名（代缴必填）<input name="payee" value="${E(q?.insurer_snapshot.account_name||'')}"></label><label>保险公司账户或缴费识别号（代缴必填）<input name="payee_reference" value="${E(q?.insurer_snapshot.account_reference||'')}"></label><div class="formgrid"><label>保险开始日<input name="start" type="date" value="${q?.start_date||day()}" required></label><label>保险截止日<input name="end" type="date" value="${q?.end_date||''}" required></label></div><label>本版确认有效期<input name="expiry" type="date" value="${q?.valid_until||day()}" required></label><label>本版约定<textarea name="terms" required minlength="2">${E(q?.terms||'')}</textarea></label><label>本次核价原因<textarea name="reason" required minlength="2"></textarea></label><p>每版核价须另一主管批准并取得客户同版授权。保费与佣金分账，不按比例自动推定公司佣金。</p><div class="formerror" role="alert"></div><div class="modalfoot"><button class="primary" type="submit">提交独立核价</button></div></form>`,async form=>{if(context!==insuranceEntryContext())throw new Error('门店已切换，请重新打开保险报价。');const insurer=c.insurers.find(x=>x.id===Number(form.elements.insurer.value));if(!insurer)throw new Error('请选择保险公司。');const lines=[...form.querySelectorAll('[data-insurance-line]')].filter(e=>e.querySelector('[name=line_name]').value||e.querySelector('[name=line_amount]').value).map(e=>({name:e.querySelector('[name=line_name]').value,premium_cents:repairScaled(e.querySelector('[name=line_amount]').value,2)}));await insuranceSend(r,'quote',{insurer_id:insurer.id,insurer_version:insurer.version,collection_mode:form.elements.mode.value,payee_account_name:form.elements.payee.value,payee_account_reference:form.elements.payee_reference.value,lines,expected_commission_cents:repairScaled(form.elements.expected.value,2),start_date:form.elements.start.value,end_date:form.elements.end.value,valid_until:form.elements.expiry.value,terms:form.elements.terms.value,reason:form.elements.reason.value},request_id);closeModal();await render();});
+ const form=dialog.querySelector('form'),payees=new Map();let currentInsurer=Number(form.elements.insurer.value);
+ if(q)payees.set(q.insurer_id,{name:q.insurer_snapshot.account_name||'',reference:q.insurer_snapshot.account_reference||''});
+ form.elements.insurer.addEventListener('change',()=>{
+  if(currentInsurer)payees.set(currentInsurer,{name:form.elements.payee.value,reference:form.elements.payee_reference.value});
+  currentInsurer=Number(form.elements.insurer.value);const stored=payees.get(currentInsurer);
+  form.elements.payee.value=stored?.name||'';form.elements.payee_reference.value=stored?.reference||'';
+ });
+ dialog.querySelector('[data-insurance-add]').addEventListener('click',()=>{if(form.querySelectorAll('[data-insurance-line]').length<40)form.querySelector('[data-insurance-lines]').insertAdjacentHTML('beforeend',row());});
 }
 async function insuranceTermination(){
  const r=state.insuranceOrder,request_id=requestKey(),files=state.row.files.filter(f=>!f.generated&&f.category==='authorization'&&f.security?.can_use);

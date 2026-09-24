@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "requests": 1,
+  "trigger": "no_match",
+  "local_match": false,
+  "query": "有位顾客第一次来展厅，我想先把他的情况记下来，下一步在哪里办",
+  "items": [
+    {
+      "workflow_id": "wf-reception",
+      "title": "登记接待并安排回访",
+      "summary": "同一接待保留客户、负责人、沟通记录及下一次日期。",
+      "route": "cases/lead"
+    },
+    {
+      "workflow_id": "wf-customer-profile",
+      "title": "新增、查找和补全客户",
+      "summary": "能在客户档案找到该客户；姓名、联系方式及联系意愿正确。",
+      "route": "master/customers"
+    }
+  ],
+  "seconds": 12.53,
+  "business_reads_or_writes": 0,
+  "model_tools": false,
+  "scope": "one synthetic help question, actual provider, no browser and no business execution",
+  "source_hashes": {
+    "app/workflow_guides_api.py": "c18bda253d9fce5dee46cbc3b811a3520849c526a79efc29868f3d13b08b26ac",
+    "app/business_assistant_service.py": "d781edddaff0be8e934d6b4ab074437d557701d8a105529b177d17e65d438c47",
+    "web/workflow-guides.json": "6408d7bf7f97b2b0e8ef9625fd199b37ddb6f818a7eb86ee9fbeea8b03ce3604"
+  }
+}

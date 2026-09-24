@@ -1,0 +1,27 @@
+{
+  "mode": "real Windows Chrome 390px; synthetic sales employee; real file parser, assistant SSE gateway and native business APIs; streaming model adapter scripted",
+  "passed": 7,
+  "steps": [
+    "390px 真实销售账号选择 Excel/CSV/Word/TXT，原文件预览保留编号前导零，默认不勾选，不调用模型、不新增业务",
+    "真实下载表格 CSV，完整保留两行，公式文本加引号前缀防止电子表格执行",
+    "原生文件夹选择提交相对名称，四类文件均由真实预览接口解析",
+    "52 行表格分页不漏行，选择本页只勾选当前页，翻页保留选择并可取消",
+    "代码文件拒绝、接口故障、未勾选及未填事项均显示中文错误，修正后可继续；核对弹窗仅含选中行",
+    "仅勾选资料发送至脚本模型，真实服务生成待确认表单；聊天输入确认不写业务，人工按钮确认后原系统售前接待恰好新增一笔；填写内容可导出",
+    "完成后可返回原单据；切换二店清空文件、勾选、待发事项及原店对话"
+  ],
+  "screenshots": [
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-files-stream-20260924-final\\01-files-mobile-preview.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-files-stream-20260924-final\\02-files-mobile-proposal.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-files-stream-20260924-final\\03-files-mobile-completed.png"
+  ],
+  "javascript_errors": [],
+  "paid_api_calls": 0,
+  "scripted_model_calls": 3,
+  "input_files_unchanged": true,
+  "native_leads_created": 1,
+  "limitations": [
+    "模型回复为固定脚本，本记录不证明真实 DeepSeek 理解或填表能力",
+    "仅本地 HTTP；不替代生产 HTTPS、公司资料或业务验收"
+  ]
+}

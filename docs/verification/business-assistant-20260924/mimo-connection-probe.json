@@ -1,0 +1,42 @@
+[
+  {
+    "probe": 1,
+    "status": 200,
+    "seconds": 12.99,
+    "model": "mimo-v2.6-flash",
+    "content": "连接正常。",
+    "tools": [],
+    "usage": {
+      "completion_tokens": 4,
+      "prompt_tokens": 15,
+      "total_tokens": 19,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    }
+  },
+  {
+    "probe": 2,
+    "status": 200,
+    "seconds": 0.53,
+    "model": "mimo-v2.6-flash",
+    "content": "",
+    "tools": [
+      "check_connection"
+    ],
+    "usage": {
+      "completion_tokens": 20,
+      "prompt_tokens": 117,
+      "total_tokens": 137,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      },
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      }
+    }
+  }
+]

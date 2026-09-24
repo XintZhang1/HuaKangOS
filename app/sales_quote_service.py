@@ -104,7 +104,11 @@ def _execute(db,user,key,operation,payload,callback):
 
 def create(db,user,key,values):
     def operation():
-        customer=flow.scoped_get(db,Customer,values['customer_id'])
+        if any(k in values for k in ('customer_name','customer_phone','confirm_new_customer')):
+            from .customer_choice import resolve_customer
+            customer=resolve_customer(db,user,values)
+        else:
+            customer=flow.scoped_get(db,Customer,values['customer_id'])
         if not customer:raise HTTPException(404,'本店客户不存在')
         if user.role=='sales' and customer.owner_id!=user.id:raise HTTPException(403,'仅可为本人负责的客户建立车辆报价')
         lead=None

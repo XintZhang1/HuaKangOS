@@ -1,0 +1,67 @@
+{
+  "status": "passed",
+  "scope": "targeted workflow help, assistant and store boundaries; all frontend Node tests; NOT the full backend suite",
+  "source_file_count": 806,
+  "source_digest": "04859f4b22cf3327990dc0049530856df6e9c6a6c74cebfed8de25fe2f3dbafe",
+  "source_changed": [],
+  "module_count": 8,
+  "seconds": 75.61,
+  "tests": 163,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 163,
+  "javascript_files": 62,
+  "node_test_files": 21,
+  "node_returncode": 0,
+  "partitions": [
+    {
+      "partition": 1,
+      "modules": [
+        "tests/test_workflow_guides.py",
+        "tests/test_business_assistant_capabilities.py"
+      ],
+      "returncode": 0,
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "partition": 2,
+      "modules": [
+        "tests/test_business_assistant.py",
+        "tests/test_business_assistant_files.py"
+      ],
+      "returncode": 0,
+      "tests": 72,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "partition": 3,
+      "modules": [
+        "tests/test_business_assistant_gateway.py",
+        "tests/test_multistore.py"
+      ],
+      "returncode": 0,
+      "tests": 43,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "partition": 4,
+      "modules": [
+        "tests/test_business_assistant_case_tools.py",
+        "tests/test_store_roles.py"
+      ],
+      "returncode": 0,
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ]
+}

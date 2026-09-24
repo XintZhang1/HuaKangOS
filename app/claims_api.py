@@ -72,6 +72,9 @@ def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
 @router.get('/{case_id}')
 def detail(case_id:int,db=Depends(get_db),user=Depends(get_user)):
     return service.describe(db,user,service.get_order(db,user,case_id))
+@router.get('/{case_id}/options/{action}')
+def action_options(case_id:int,action:str,plan_id:int|None=Query(default=None,gt=0),db=Depends(get_db),user=Depends(get_user)):
+    return service.action_options(db,user,service.get_order(db,user,case_id),action,plan_id)
 @router.post('/{case_id}/actions/{action}')
 def command(case_id:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)

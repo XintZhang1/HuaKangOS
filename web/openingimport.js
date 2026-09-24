@@ -7,7 +7,7 @@ const oiTotals={...openingLabels,vehicle_count:'车辆台数',vehicle_value_cent
 function oiTotalHTML(t){return facts(Object.fromEntries(Object.entries(t).map(([k,v])=>[oiTotals[k]||k,k.endsWith('_cents')?money(v):v])));}
 async function openingImportPage(){
  const c=openingImportContext(),catalog=await api('/api/opening-import/catalog');
- if(!catalog.can_read)return heading('正式期初核验')+'<div class="notice">请切换到获权的具体门店。</div>';
+ if(!catalog.can_read)return heading('正式期初核验')+'<div class="notice">请选择门店</div>';
  const data=await api('/api/opening-import/batches');
  const mapping=catalog.can_prepare?await api('/api/opening-import/example'):null;
  const accountGuide=mapping?.policy_enabled?panel('期初账户与批准配置',`<div class="notice">${E(mapping.notice)}</div>`+table(['明确账户编号 account_id','资料名称 name','类型 account_type'],mapping.approved_accounts.map(a=>[E(a.account_id),E(a.name),E(a.account_type)]))+b('open','查看本店主体与账户配置','data-route="business-entities"')):'';

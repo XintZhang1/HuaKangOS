@@ -22,7 +22,7 @@ async function retailBundleSale(id){
   const customer_id=Number(form.elements.customer.value),sets=Number(form.elements.sets.value);
   if(!Number.isSafeInteger(sets)||sets<1)throw new Error('套数须为正整数。');
   const current=await api(`/api/retail-bundles/rules/${id}/preview?sets=${sets}`),request_id=requestKey();
-  modal('确认套餐分摊与退货规则',`<form>${await memberPriceField(null,customer_id)}${retailBundleFacts(current,sets)}<p>本店当前可用商品最多支持 ${number(current.available_sets)} 套；占用在提交成功后生效。</p><label><input name="accepted" type="checkbox" required> 已向客户说明本次组成和冻结退货规则</label><p>后续仍须主管价格批准及客户实际授权凭据，不会由此自动出库、扣费或标记客户已签字。</p><div class="formerror" role="alert"></div><div class="modalfoot"><button type="submit" class="primary">冻结本单并申请审批</button></div></form>`,async confirm=>{
+  modal('确认套餐分摊与退货规则',`<form>${await memberPriceField(null,customer_id)}${retailBundleFacts(current,sets)}<p>本店当前可用商品最多支持 ${number(current.available_sets)} 套；占用在提交成功后生效。</p><label><input name="accepted" type="checkbox" required> 已向客户说明本次组成和冻结退货规则</label><p>提交后由主管核价，再请客户确认。</p><div class="formerror" role="alert"></div><div class="modalfoot"><button type="submit" class="primary">冻结本单并申请审批</button></div></form>`,async confirm=>{
    const row=await api('/api/retail-bundles/sales',{method:'POST',body:{request_id,rule_id:id,rule_version:current.rule_version,sets,customer_id,...memberPricePayload(confirm),terms_accepted:confirm.elements.accepted.checked}});closeModal();go('retail/'+row.id);
   });
  });

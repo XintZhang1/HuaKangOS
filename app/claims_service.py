@@ -459,6 +459,93 @@ def _check_resolution(db,source,r):
 
 def _dump(row):
     return {c.key:(v.isoformat() if isinstance(v,date) else v) for c in row.__table__.columns if c.key!='store_id' for v in [getattr(row,c.key)]}
+
+def action_options(db,user,row,action,plan_id=None):
+    """Read-only action capacities; never reuse ordinary cash balance as return authority."""
+    supported={'resolution','return_plan','thirdparty_refund','pass_pay','direct_return','customer_return','party_return','unused_refund'}
+    if action not in supported:raise HTTPException(404,'此步骤没有原款选择')
+    _role(user,ROLES[action]);single_store(db)
+    order=_one(db,ClaimOrder,row.id);source=_source(db,order)
+    result={'action':action,'case_id':row.id,'version':row.version,'source_version':source.version,'plan_id':plan_id,
+        'items':[],'can_continue':False,'message':'','next_action':None,'next_plan_id':None}
+    def stop(message,next_action=None):
+        result.update(message=message,next_action=next_action,next_plan_id=plan_id if next_action in {'customer_return','party_return','unused_refund','return_approve'} else None)
+        return result
+    def add(original,remaining,payment=None,purpose=None):
+        if remaining<=0:return
+        item={'id':original.id,'purpose':purpose or original.purpose,'amount_cents':payment.amount_cents if payment else original.amount_cents,
+            'remaining_cents':max(0,remaining),'reference':payment.reference if payment else '第三方直接付款记录 '+str(original.id),
+            'business_date':(payment.business_date if payment else original.business_date).isoformat()}
+        # Account names keep the existing account-directory read roles.
+        if payment and user.role in {'admin','manager','finance','auditor'}:
+            account=_one(db,Account,payment.account_id);item.update(account_id=account.id,account_name=account.name,account_active=account.active)
+        result['items'].append(item)
+    if row.state=='cancelled':return stop('本理赔单已取消，不能继续办理。')
+    if action in {'resolution','thirdparty_refund'}:
+        if order.payment_route!='repair_receivable':return stop('本单无需退原维修第三方款。')
+        from .aftercare_service import refund_reservation_amount
+        if action=='resolution':
+            if row.data.get('phase')!='ready':return stop('请先核对本次外部核赔结果。')
+            allocation=_allocation(db,order);approved=_result(db,row)
+            from .repair_service import allocation_amount,_cash_paid
+            if allocation_amount(db,source,allocation)<=approved.amount_cents:return stop('本次没有需要调减的第三方承担。')
+            result['required_amount_cents']=max(0,_cash_paid(db,allocation)-approved.amount_cents)
+            for payment in db.scalars(select(PaymentLink).join(RepairPayment,RepairPayment.payment_link_id==PaymentLink.id).where(RepairPayment.allocation_id==allocation.id,PaymentLink.case_id==source.id,PaymentLink.direction=='in')):
+                add(payment,_remaining(db,payment)-reserved_refund_amount(db,payment.id)-refund_reservation_amount(db,payment.id),payment,'thirdparty_payment')
+            if result['required_amount_cents']==0:result['items']=[];result['message']='无需退款。填写内部承担方和方案凭据，提交复核。'
+            result['can_continue']=True;return result
+        resolution=_first(db,ClaimResolution,case_id=row.id)
+        if not resolution or row.data.get('phase')!='resolution_execute':return stop('请先完成本方案的独立批准。','resolution_approve')
+        if resolution.refund_cents==0:return stop('本方案无需退款。请办理责任调整生效，并上传本次凭据。','resolution_apply')
+        remaining_planned=0
+        for selection in resolution.refunds:
+            payment=_one(db,PaymentLink,selection['original_id'])
+            done=sum(_cash_amount(db,cash) for cash in _rows(db,ClaimCash,resolution_id=resolution.id,purpose='thirdparty_refund') if _one(db,PaymentLink,cash.payment_link_id).original_id==payment.id)
+            remaining_planned+=max(0,selection['amount_cents']-done)
+            available=_remaining(db,payment)-reserved_refund_amount(db,payment.id,resolution.id)-refund_reservation_amount(db,payment.id)
+            add(payment,min(selection['amount_cents']-done,available),payment,'thirdparty_payment')
+        if not result['items']:
+            if remaining_planned:return stop('原收款余额不足或已被其他退款方案占用，请核对原维修收款和待退款方案。')
+            return stop('本方案原款退款已登记。请办理责任调整生效，并上传本次凭据。','resolution_apply')
+    elif action in {'return_plan','pass_pay'}:
+        if order.payment_route not in {'customer_direct','customer_via_store'}:return stop('本单不办理客户报销返还。')
+        if action=='pass_pay' and (order.payment_route!='customer_via_store' or row.data.get('phase')!='reimbursement'):
+            return stop('当前不能继续转付客户，请核对本单办理进度。')
+        originals=_rows(db,ClaimCustomerPayment,case_id=row.id,purpose='reimbursement') if order.payment_route=='customer_direct' else [cash for cash in _rows(db,ClaimCash,case_id=row.id) if cash.purpose in ({'pass_receive'} if action=='pass_pay' else {'pass_receive','pass_pay'})]
+        for original in originals:
+            payment=None if order.payment_route=='customer_direct' else _one(db,PaymentLink,original.payment_link_id)
+            available=_return_remaining(db,order,original.id)
+            if payment and original.purpose=='pass_receive':available=min(available,_remaining(db,payment))
+            add(original,available,payment)
+        if not result['items']:
+            if action=='pass_pay' and not originals:return stop('尚未登记报销款到店。先登记本单到账，再转付客户。','pass_receive')
+            if action=='pass_pay':return stop('原到账已转付、已退回或已被批准的返还方案占用。请核对本单返还方案。')
+            return stop('没有尚可返还的原报销款。请核对本单实际付款和已批准的返还方案。')
+    else:
+        if plan_id is None:raise HTTPException(422,'请先选择本次返还方案')
+        plan=_return_plan(db,row,plan_id)
+        if not _first(db,ClaimReturnApproval,plan_id=plan.id):return stop('本方案尚未批准，请先完成独立复核。','return_approve')
+        expected={'direct_return':'reimbursement','customer_return':'pass_pay','unused_refund':'pass_receive'}
+        if action=='party_return':
+            if order.payment_route!='customer_via_store':return stop('第三方直接付款给客户，本步骤无需登记门店现金。')
+            for original in _rows(db,ClaimCash,case_id=row.id,purpose='customer_return',return_plan_id=plan.id):
+                payment=_one(db,PaymentLink,original.payment_link_id);add(original,_remaining(db,payment),payment)
+            if not result['items']:
+                outstanding=any(_original_payout(db,order,s['original_id'])[0].purpose=='pass_pay' and s['amount_cents']>_returned(db,order,s['original_id'],plan.id) for s in plan.selections)
+                if outstanding:return stop('尚未登记本方案的客户退回款。先登记客户退款，再退给第三方。','customer_return')
+                return stop('本方案目前没有尚待退给第三方的客户退回款。')
+        else:
+            if (action=='direct_return')!=(order.payment_route=='customer_direct'):return stop('本步骤与原报销路径不一致。')
+            for selection in plan.selections:
+                original,_=_original_payout(db,order,selection['original_id'])
+                if original.purpose!=expected[action]:continue
+                remaining=min(selection['amount_cents']-_returned(db,order,original.id,plan.id),_return_remaining(db,order,original.id,plan.id))
+                payment=None if action=='direct_return' else _one(db,PaymentLink,original.payment_link_id)
+                if action=='unused_refund':remaining=min(remaining,_remaining(db,payment))
+                add(original,remaining,payment)
+            if not result['items']:return stop('本方案此步骤已登记完毕，或没有对应的原款。请核对本方案实际返还记录。')
+    result['can_continue']=bool(result['items']);return result
+
 def describe(db,user,row):
     _role(user,READ);order=_one(db,ClaimOrder,row.id);source=_source(db,order)
     result={'id':row.id,'number':row.number,'title':row.title,'state':row.state,'version':row.version,'phase':row.data.get('phase'),

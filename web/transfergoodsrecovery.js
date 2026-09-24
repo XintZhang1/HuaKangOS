@@ -6,7 +6,7 @@ const transferGoodsFacts={found:'本人实际找到',match:'本人核对原损�
 const transferGoodsTerms={pending:'待独立复核',approve:'已独立确认',reject:'已拒绝',cancelled:'未生效已撤回'};
 function transferGoodsProof(files,financial){const allowed=financial?['receipt','procurement_contract']:['evidence','inspection','authorization'];return `<label>本店实际${financial?'财务原件或协议':'实物原件'}<select name="evidence_id" required><option value="">请选择本单通过文件检查的实际原件</option>${files.filter(f=>!f.generated&&allowed.includes(f.category)&&f.security?.can_use).map(f=>`<option value="${f.id}">${E(f.name)}</option>`).join('')}</select></label>`;}
 async function transferGoodsRecoveryPage(id){
- if(state.store==='all')return heading('损失后找到原物资')+storeNotice()+'<div class="notice">请选择本店。找到、复验、实际资金均由各店获授权员工分别办理。</div>';
+ if(state.store==='all')return heading('损失后找到原物资')+storeNotice()+'<div class="notice">请选择门店</div>';
  if(!id){const d=await api('/api/transfer-goods-recoveries');return heading('损失后找到原物资','沿原损失记录实际找到、复验与原赔付处理。',canWrite()&&['admin','inventory'].includes(state.user.role)?b('transfer-goods-new','登记实际找到','','primary'):'')+panel('本店找回记录',table(['原调拨','本次物资','状态',''],d.items.map(r=>[E(r.transfer_number),`${E(r.item_name)}<br>${transferQuantity(r.quantity_milli)} ${E(r.unit)}`,E(r.status_label),b('open','办理',`data-route="transfer-goods-recoveries/${r.id}"`)])));}
  const r=await api('/api/transfer-goods-recoveries/'+id);transferGoodsContext=r;state.row=await api('/api/flow/cases/'+r.case_id);
  return heading('损失后找到原物资',r.transfer_number+' · '+r.item_name,b('open','返回找回记录','data-route="transfer-goods-recoveries"'))+

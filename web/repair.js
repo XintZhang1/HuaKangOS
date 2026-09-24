@@ -1,9 +1,23 @@
 'use strict';
-const repairNames={quote:'报价／授权增项',stop:'协商停工保留费用',quote_cancel:'撤销待授权版本',price_approve:'主管价格授权',authorize:'记录客户当前版本授权',start:'确认实际开工',issue:'按授权配件发料',return_material:'原领料退回',finish:'提交施工结果',quality:'检查维修质量',allocate:'确认多方承担',receive:'登记实际到账',release:'确认客户接车',cancel:'取消未开工维修'};
+const repairNames={quote:'报价／授权增项',stop:'协商停工保留费用',quote_cancel:'撤销待授权版本',price_approve:'主管价格授权',authorize:'记录客户当前版本授权',start:'确认实际开工',issue:'按授权配件发料',return_material:'原领料退回',finish:'提交施工结果',quality:'检查维修质量',allocate:'确认费用承担',receive:'登记实际到账',release:'确认客户接车',cancel:'取消未开工维修'};
 const repairPayers={customer:'客户',insurer:'保险公司',manufacturer:'厂家',internal:'内部承担'};
 function repairScaled(value,digits){const text=String(value).trim();if(!new RegExp('^\\d+(\\.\\d{1,'+digits+'})?$').test(text))throw new Error('金额最多两位、数量最多三位小数，请核对。');const [a,b='']=text.split('.'),n=Number(a)*10**digits+Number(b.padEnd(digits,'0'));if(!Number.isSafeInteger(n))throw new Error('数值超出允许范围。');return n;}
 async function repairAll(path){let items=[];for(let p=1;p<=100;p++){const data=await api(path+(path.includes('?')?'&':'?')+'page='+p);items.push(...data.items);if(items.length>=data.total)return items;}throw new Error('主档数量超过当前选择上限，请联系管理员缩小范围。');}
 function repairCurrent(row){return row.quotes.find(q=>q.id===row.data.quote_id);}
+function repairSourcePrice(select){
+ if(!select?.matches?.('select[data-repair-source]')||select.disabled||!select.value||select.value===select.dataset.priceSource)return;
+ const price=select.closest('[data-repair-line]')?.querySelector('[name=price]'),raw=select.selectedOptions[0]?.dataset.referencePrice,cents=Number(raw);
+ if(!price||price.readOnly||raw===undefined||!Number.isSafeInteger(cents)||cents<0)return;
+ // Only an explicit item change applies the already-loaded reference price.
+ price.value=(cents/100).toFixed(2);select.dataset.priceSource=select.value;
+}
+async function repairReturnOptions(row){
+ const stocks=row.stock.filter(s=>s.returnable_milli>0),lines=stocks.map(s=>row.quotes.find(q=>q.id===s.quote_id)?.lines.find(l=>l.line_key===s.line_key)||repairCurrent(row)?.lines.find(l=>l.line_key===s.line_key));
+ const itemIds=[...new Set(lines.map(l=>l?.item_id).filter(Boolean))],dates=new Map();
+ const reports=await Promise.allSettled(itemIds.map(id=>api('/api/masters/opening/stockflow?item_id='+id)));
+ reports.forEach((result,index)=>{if(result.status!=='fulfilled')return;for(const m of result.value.rows||[]){if(m.source==='业务'&&m.case_id===row.id&&m.item_id===itemIds[index])dates.set(m.id,m.date);}});
+ return stocks.map((s,index)=>{const line=lines[index],date=dates.get(s.stock_move_id),parts=[line?[line.code,line.name].filter(Boolean).join(' · '):'配件',date?'领用 '+date:'','可退 '+number(s.returnable_milli/1000)+(line?.unit?' '+line.unit:''),'领料 '+s.id];return {value:String(s.id),label:parts.filter(Boolean).join(' · ')};});
+}
 async function repairPage(id){
  if(!id){const d=await api('/api/repair-orders?page='+state.page);return heading('维修明细工单','报价、客户授权、施工和各承担方到账分别留档。',canWrite()&&['admin','service'].includes(state.user.role)?b('repair-new','建立维修明细工单','','primary'):'')+storeNotice()+panel('维修业务',table(['工单／客户','状态','当前授权金额（元）','尚欠（元）',''],d.items.map(r=>[`${E(r.number)}<br>${E(r.title)}`,pill(r.state),money(r.amount_cents),money(r.receivable_cents),b('open','办理',`data-route="repair-orders/${r.id}"`)])))+pager(d.total);}
  const row=await api('/api/repair-orders/'+id);state.repairOrder=row;state.row=await api('/api/flow/cases/'+id);
@@ -43,26 +57,88 @@ async function repairQuoteDialog(stop=false){
  const sources=[...work.map(w=>({key:'work:'+w.id,name:'项目 · '+w.code+' '+w.name,price:w.standard_fee_cents})),...parts.filter(p=>p.active).map(p=>({key:'part:'+p.id,name:'配件 · '+p.sku+' '+p.name,price:0}))];
  for(const old of q?.lines||[]){const key=old.kind+':'+(old.work_item_id||old.item_id);if(!sources.some(s=>s.key===key))sources.push({key,name:old.code+' · '+old.name+'（已冻结主档）',price:old.unit_price_cents});}
  if(!sources.length)throw new Error('请先配置启用的作业项目和配件主档。');
- const line=l=>`<div class="panelbody" data-repair-line data-line-key="${row.data.started&&l?E(l.line_key):''}"><label>项目／配件<select name="source" ${row.data.started&&l?'disabled':''}>${sources.map(s=>`<option value="${s.key}" ${l&&s.key===l.kind+':'+(l.work_item_id||l.item_id)?'selected':''}>${E(s.name)}</option>`).join('')}</select></label><div class="formgrid"><label>数量<input name="quantity" inputmode="decimal" required value="${l?(l.quantity_milli/1000).toFixed(3):'1.000'}"></label><label>单价（元）<input name="price" inputmode="decimal" required value="${l?(l.unit_price_cents/100).toFixed(2):(sources[0].price/100).toFixed(2)}" ${row.data.started&&l?'readonly':''}></label></div>${!row.data.started||!l?b('repair-remove-line','删除此行'):''}</div>`;
+ const line=l=>`<div class="panelbody" data-repair-line data-line-key="${row.data.started&&l?E(l.line_key):''}"><label>项目／配件<select name="source" required data-search-select data-repair-source data-price-source="${E(l?l.kind+':'+(l.work_item_id||l.item_id):sources[0].key)}" ${row.data.started&&l?'disabled':''}>${sources.map(s=>`<option value="${s.key}" data-reference-price="${s.price}" ${l&&s.key===l.kind+':'+(l.work_item_id||l.item_id)?'selected':''}>${E(s.name)}</option>`).join('')}</select></label><div class="formgrid"><label>数量<input name="quantity" inputmode="decimal" required value="${l?(l.quantity_milli/1000).toFixed(3):'1.000'}"></label><label>单价（元）<input name="price" inputmode="decimal" required value="${l?(l.unit_price_cents/100).toFixed(2):(sources[0].price/100).toFixed(2)}" ${row.data.started&&l?'readonly':''}></label></div>${!row.data.started||!l?b('repair-remove-line','删除此行'):''}</div>`;
  state.repairLineHtml=line(null);
  modal('维修报价与授权增项',`<form>${await memberPriceField(row.id)}<p>已有施工的授权行保留数量和价格；追加数量或项目必须再次获得价格审批及客户授权。本次优惠仅分摊到新增部分。</p><div id="repair-lines">${q?q.lines.map(line).join(''):line(null)}</div>${b('repair-add-line','增加项目／配件')}<label>本次新增优惠（元）<input name="discount" inputmode="decimal" value="0.00" required></label><label>诊断、方案及增项原因<textarea name="reason" required minlength="2" maxlength="1000"></textarea></label><div class="formerror" role="alert"></div><div class="modalfoot"><button type="submit" class="primary">提交本版本价格审批</button></div></form>`,async form=>{
   const lines=[...form.querySelectorAll('[data-repair-line]')].map(el=>{const [kind,id]=el.querySelector('[name=source]').value.split(':');return {kind,source_id:Number(id),...(el.dataset.lineKey?{line_key:el.dataset.lineKey}:{}),quantity_milli:repairScaled(el.querySelector('[name=quantity]').value,3),unit_price_cents:repairScaled(el.querySelector('[name=price]').value,2)};});
   await send({purpose:'service',...memberPricePayload(form),reason:form.elements.reason.value,discount_cents:repairScaled(form.elements.discount.value,2),lines});closeModal();await render();
  });
 }
+function repairAllocationContext(row){
+ const context=[state.store,state.user?.id,state.user?.role,state.route,typeof storeContextVersion==='undefined'?0:storeContextVersion];
+ return form=>{if(state.repairOrder!==row||context.some((v,i)=>v!==[state.store,state.user?.id,state.user?.role,state.route,typeof storeContextVersion==='undefined'?0:storeContextVersion][i])||(form&&!form.isConnected))throw new Error('页面已变化，请重新打开本单办理。');if(!canWrite()||!row.actions?.includes('allocate'))throw new Error('当前不能确认费用承担，请刷新本单。');};
+}
+function repairAllocationClaims(row,claims){
+ return claims.filter(c=>c.state!=='cancelled'&&['repair_receivable','internal'].includes(c.order.payment_route)).map(c=>{
+  const assessment=c.assessments.find(a=>a.id===c.data.assessment_id),result=c.results.find(r=>r.id===c.data.result_id);
+  // The original API remains authoritative for approval, source version and binding.
+  const current=c.source_id===row.id&&c.source_quote_id===row.data.quote_id&&assessment?.quote_id===row.data.quote_id&&['ready','bound','completed'].includes(c.phase);
+  const amount=current?(c.order.party_type==='internal'?assessment.amount_cents:result?.assessment_id===assessment.id&&['approved','partial','rejected'].includes(result.outcome)?result.amount_cents:null):null;
+  return {id:c.id,number:c.number,name:c.order.party_name,amount,phase:c.phase_label};
+ });
+}
+function repairAllocationAmounts(form){
+ return Object.keys(repairPayers).flatMap(k=>{const input=form.elements['amount_'+k];if(input.disabled||input.closest('[data-repair-payer]')?.disabled||!input.value.trim())return [];const amount_cents=repairScaled(input.value,2);return amount_cents>0?[{payer_type:k,amount_cents}]:[];});
+}
+function repairAllocationValues(form,total){
+ const allocations=repairAllocationAmounts(form),sum=allocations.reduce((s,a)=>s+a.amount_cents,0);
+ if(sum!==total)throw new Error(sum<total?`还需分配 ${money(total-sum)} 元。`:`已超出 ${money(sum-total)} 元，请核对。`);
+ return allocations.map(a=>{
+  const k=a.payer_type,due_date=form.elements['due_'+k].value;if(!due_date)throw new Error('请填写'+repairPayers[k]+'的到期日。');
+  if(['insurer','manufacturer'].includes(k)){const payer_id=Number(form.elements['payer_'+k].value);if(!Number.isSafeInteger(payer_id)||payer_id<=0)throw new Error('请选择'+repairPayers[k]+'。');return {...a,due_date,payer_id};}
+  if(k==='internal'){const payer_name=form.elements.internal_name.value.trim();if(payer_name.length<2)throw new Error('请填写内部承担单位。');return {...a,due_date,payer_name};}
+  return {...a,due_date};
+ });
+}
+function repairAllocationUpdate(form,total){
+ let sum=0,invalid=false;try{sum=repairAllocationAmounts(form).reduce((s,a)=>s+a.amount_cents,0);}catch{invalid=true;}
+ form.querySelector('[data-repair-allocation-total]').textContent=invalid?'请核对金额，最多两位小数。':`已分配 ${money(sum)} 元 · `+(sum===total?'已分配完整':sum<total?`尚需分配 ${money(total-sum)} 元`:`超出 ${money(sum-total)} 元`);
+ for(const k of Object.keys(repairPayers)){const input=form.elements['amount_'+k],positive=!input.disabled&&!input.closest('[data-repair-payer]')?.disabled&&Number(input.value)>0;for(const name of ['due_'+k,'payer_'+k,...(k==='internal'?['internal_name']:[])])if(form.elements[name])form.elements[name].required=positive;}
+}
+async function repairAllocationLoadPayer(form,kind,guard){
+ if(!['insurer','manufacturer'].includes(kind))return;
+ const section=form.querySelector(`[data-repair-payer="${kind}"]`),status=section.querySelector('[data-repair-payer-status]'),select=form.elements['payer_'+kind];
+ if(section.dataset.loading||section.dataset.loaded)return;guard(form);section.dataset.loading='true';status.textContent='正在读取…';
+ try{
+  const records=kind==='insurer'?await repairAll('/api/masters/insurers?active=true'):(await repairAll('/api/flow/master/references?page_size=100')).filter(r=>r.category==='厂家'&&r.active);
+  guard(form);const selected=select.value;select.innerHTML='<option value="">请选择</option>'+records.map(r=>`<option value="${r.id}">${E(r.name)}</option>`).join('');select.value=selected;section.dataset.loaded='true';status.textContent=records.length?'':'暂无可选单位，请联系管理员添加。';
+ }catch(error){try{guard(form);}catch{return;}status.textContent=error.message+' ';const retry=document.createElement('button');retry.type='button';retry.dataset.repairLoadPayer=kind;retry.textContent='重新读取';status.append(retry);}
+ finally{delete section.dataset.loading;}
+}
 async function repairAllocate(){
  if(state.repairOrder.service_intake?.rework_extension)return reworkAllocate(state.repairOrder);
- const row=state.repairOrder,request_id=requestKey(),[insurers,references]=await Promise.all([repairAll('/api/masters/insurers?active=true'),repairAll('/api/flow/master/references?page_size=100')]);
- if(row.service_intake?.internal_only){
-  const name=row.service_intake.internal_name;
-  await formDialog('确认内部返修承担',[F('labor_cost','本次确认人工成本（元）','money_zero'),F('evidence_id','本次内部承担凭据','file')],{},v=>api(`/api/repair-orders/${row.id}/actions/allocate`,{method:'POST',body:{request_id,version:row.version,values:{allocations:row.amount_cents?[{payer_type:'internal',payer_name:name,amount_cents:row.amount_cents,due_date:day()}]:[],labor_cost_cents:repairScaled(v.labor_cost,2),evidence_id:v.evidence_id}}}),{caseId:row.id,notice:`本次 ${money(row.amount_cents)} 元全部由 ${name} 承担，不产生客户应收与现金。`});return;
- }
- const manufacturers=references.filter(r=>r.category==='厂家'&&r.active),files=state.row.files.filter(f=>!f.generated&&f.security?.can_use);
- if(!files.length)throw new Error('请先上传本单各方承担确认凭据并通过文件检查。');
- modal('确认多方承担',`<form><p>当前授权合计 ${money(row.amount_cents)} 元。仅填写实际承担方，金额之和须完全一致；确认后保留原始分配。</p>${Object.entries(repairPayers).map(([k,label])=>`<fieldset><legend>${label}</legend><label>承担金额（元）<input name="amount_${k}" inputmode="decimal" placeholder="不承担留空"></label>${k==='insurer'||k==='manufacturer'?`<label>承担单位<select name="payer_${k}"><option value="">请选择</option>${(k==='insurer'?insurers:manufacturers).map(p=>`<option value="${p.id}">${E(p.name)}</option>`).join('')}</select></label>`:k==='internal'?'<label>内部承担主体<input name="internal_name" placeholder="明确费用承担主体"></label>':''}<label>到期日<input type="date" name="due_${k}" value="${day()}" required></label></fieldset>`).join('')}<label>本次确认人工成本（元）<input name="labor_cost" inputmode="decimal" required></label><label>各方承担凭据<select name="evidence" required>${files.map(f=>`<option value="${f.id}">${E(f.name)}</option>`).join('')}</select></label><div class="formerror" role="alert"></div><div class="modalfoot"><button class="primary" type="submit">确认承担并交财务办理</button></div></form>`,async form=>{
-  const allocations=Object.keys(repairPayers).filter(k=>form.elements['amount_'+k].value.trim()).map(k=>({payer_type:k,amount_cents:repairScaled(form.elements['amount_'+k].value,2),due_date:form.elements['due_'+k].value,...(['insurer','manufacturer'].includes(k)?{payer_id:Number(form.elements['payer_'+k].value)}:k==='internal'?{payer_name:form.elements.internal_name.value}:{})}));
-  await api(`/api/repair-orders/${row.id}/actions/allocate`,{method:'POST',body:{request_id,version:row.version,values:{allocations,labor_cost_cents:repairScaled(form.elements.labor_cost.value,2),evidence_id:Number(form.elements.evidence.value)}}});closeModal();await render();
+ const row=state.repairOrder,request_id=requestKey(),guard=repairAllocationContext(row);guard();
+ if(row.service_intake?.internal_only){const name=row.service_intake.internal_name;await formDialog('确认内部返修承担',[F('labor_cost','本次确认人工成本（元）','money_zero'),F('evidence_id','本次内部承担凭据','file')],{},v=>{guard();return api(`/api/repair-orders/${row.id}/actions/allocate`,{method:'POST',body:{request_id,version:row.version,values:{allocations:row.amount_cents?[{payer_type:'internal',payer_name:name,amount_cents:row.amount_cents,due_date:day()}]:[],labor_cost_cents:repairScaled(v.labor_cost,2),evidence_id:v.evidence_id}}});},{caseId:row.id,notice:`本次 ${money(row.amount_cents)} 元全部由 ${name} 承担，不产生客户应收与现金。`});return;}
+ const detail=await api('/api/flow/cases/'+row.id);guard();if(detail.version!==row.version)throw new Error('本单已更新，请刷新后核对费用。');
+ const claims=await Promise.all((detail.children||[]).filter(c=>c.kind==='claim'&&c.flow_version===2&&c.state!=='cancelled').map(c=>api('/api/claims/'+c.id)));guard();
+ if(claims.some(c=>c.source_id!==row.id||c.source_version!==row.version))throw new Error('核赔资料已更新，请刷新本单后核对。');
+ const checks=repairAllocationClaims(row,claims),allCustomer=checks.every(c=>c.amount===0);
+ const claimNotice=checks.length?`<div class="notice">${checks.map(c=>`<p>${E(c.name)} · ${c.amount===null?E(c.phase||'等待核赔结果'):`核赔金额 ${money(c.amount)} 元`} <a href="#claims/${c.id}">查看理赔</a></p>`).join('')}</div>`:'';
+ const section=(k,label)=>`<fieldset data-repair-payer="${k}" ${k==='customer'?'':'hidden disabled'}><legend>${label}</legend><label>承担金额（元）<input name="amount_${k}" inputmode="decimal" placeholder="不承担留空或填0"></label>${['insurer','manufacturer'].includes(k)?`<label>承担单位<select name="payer_${k}" data-search-select><option value="">请选择</option></select></label><div data-repair-payer-status role="status"></div>`:k==='internal'?'<label>内部承担单位<input name="internal_name" maxlength="120"></label>':''}<label>到期日<input type="date" name="due_${k}" value="${day()}"></label>${k==='customer'?'':`<button type="button" data-repair-remove-payer="${k}">取消此承担方</button>`}</fieldset>`;
+ const dialog=modal('确认费用承担',`<form><p>当前授权合计 ${money(row.amount_cents)} 元</p>${claimNotice}<button type="button" data-repair-customer-all ${allCustomer?'':'disabled'}>客户全额承担</button>${allCustomer?'':'<p class="fieldhelp">请按核赔结果分配费用。</p>'}${Object.entries(repairPayers).map(([k,label])=>section(k,label)).join('')}<div class="row">${Object.entries(repairPayers).filter(([k])=>k!=='customer').map(([k,label])=>`<button type="button" data-repair-add-payer="${k}">添加${label}</button>`).join('')}</div><p data-repair-allocation-total role="status" aria-live="polite"></p><label>本次人工成本（元）<input name="labor_cost" inputmode="decimal" placeholder="无人工成本填0" required></label><div>承担确认凭据${caseFilePickerHTML('evidence',row.id,detail.files||[])}</div><div class="formerror" role="alert"></div><div class="modalfoot">${b('close','取消')}<button class="primary" type="submit">确认承担并交财务</button></div></form>`,async form=>{
+  guard(form);const allocations=repairAllocationValues(form,row.amount_cents),evidence_id=Number(form.elements.evidence.value);if(!Number.isSafeInteger(evidence_id)||evidence_id<=0)throw new Error('请选择或上传承担确认凭据。');
+  await api(`/api/repair-orders/${row.id}/actions/allocate`,{method:'POST',body:{request_id,version:row.version,values:{allocations,labor_cost_cents:repairScaled(form.elements.labor_cost.value,2),evidence_id}}});guard(form);closeModal();await render();
  });
+ const form=dialog.querySelector('form');repairAllocationUpdate(form,row.amount_cents);
+ form.addEventListener('input',()=>repairAllocationUpdate(form,row.amount_cents));
+ form.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-repair-customer-all],[data-repair-add-payer],[data-repair-remove-payer],[data-repair-load-payer]');if(!button||button.disabled)return;
+  try{guard(form);if(button.hasAttribute('data-repair-customer-all')){if(!allCustomer)return;for(const k of Object.keys(repairPayers))form.elements['amount_'+k].value=k==='customer'?(row.amount_cents/100).toFixed(2):'';}
+   const kind=button.dataset.repairAddPayer||button.dataset.repairRemovePayer||button.dataset.repairLoadPayer;
+   if(kind){const section=form.querySelector(`[data-repair-payer="${kind}"]`),remove=!!button.dataset.repairRemovePayer;section.hidden=remove;section.disabled=remove;form.querySelector(`[data-repair-add-payer="${kind}"]`).hidden=!remove;if(remove)form.elements['amount_'+kind].value='';else await repairAllocationLoadPayer(form,kind,guard);}
+   guard(form);repairAllocationUpdate(form,row.amount_cents);
+  }catch(error){if(form.isConnected)form.querySelector('.formerror').textContent=error.message;}
+ });
+}
+function repairWarehousePreparation(row,key,issueLines,issueLabels){
+ if(!['issue','return_material'].includes(key)||!['admin','inventory'].includes(state.user?.role))return undefined;
+ return {caseId:row.id,purpose:key==='issue'?'repair_issue_v3':'repair_return_v3',source:row,getVersion:()=>row.version,setVersion:version=>{row.version=version;},readSource:()=>api('/api/repair-orders/'+row.id),getLines:form=>{
+  let line;if(key==='issue')line=issueLines[issueLabels.indexOf(form.elements.line_label.value)];
+  else{const stock=row.stock.find(s=>s.id===Number(form.elements.original_id.value)&&!s.original_id&&s.returnable_milli>0);line=stock&&row.quotes.find(q=>q.id===stock.quote_id)?.lines.find(l=>l.line_key===stock.line_key);}
+  if(!line||line.kind!=='part'||!line.item_id)throw new Error('请先选择本次领退的配件。');
+  const quantity_milli=repairScaled(form.elements.quantity.value,3);if(quantity_milli<=0)throw new Error('请填写本次实际数量。');
+  return [{item_id:line.item_id,quantity_milli,label:[line.code,line.name].filter(Boolean).join(' · ')}];
+ }};
 }
 async function repairAction(key,id){
  if(key==='quote'||key==='stop')return repairQuoteDialog(key==='stop');if(key==='allocate')return repairAllocate();
@@ -73,10 +149,15 @@ async function repairAction(key,id){
  if(['start','finish','quality'].includes(key))fields.push(F('result','本人实际办理情况','textarea'));
  if(key==='quality')fields.push(F('outcome','检查结果','select',true,['合格','不合格']));
  const issueLines=q?.lines.filter(l=>l.kind==='part'&&l.quantity_milli>l.issued_milli)||[],issueLabels=issueLines.map(l=>`${l.code} · ${l.name} · 尚可领 ${number((l.quantity_milli-l.issued_milli)/1000)}`);
- if(key==='issue'){fields.push(F('line_label','当前授权配件行','select',true,issueLabels),F('quantity','本次实际数量','quantity'));}
- if(key==='return_material')fields.push(F('original_id','原领料编号','select',true,row.stock.filter(s=>s.returnable_milli>0).map(s=>String(s.id))),F('quantity','本次退回数量','quantity'));
+ if(key==='issue'){fields.push({...F('line_label','领取配件','select',true,issueLabels),searchable:true},F('quantity','本次实际数量','quantity'));}
+ if(key==='return_material'){
+  const context=[state.store,state.user?.id,state.user?.role,state.route,typeof storeContextVersion==='undefined'?0:storeContextVersion],options=await repairReturnOptions(row);
+  if(state.repairOrder!==row||context.some((v,i)=>v!==[state.store,state.user?.id,state.user?.role,state.route,typeof storeContextVersion==='undefined'?0:storeContextVersion][i]))return;
+  fields.push({...F('original_id','退回配件','select',true,options),searchable:true},F('quantity','本次退回数量','quantity'));
+ }
  if(key==='receive'){const allocation=row.allocations.find(a=>a.id===id);extra.allocation_id=id;fields.push(F('amount','本次实际到账（元）','money'),F('account_id','实际资金账户','account'),F('reference','流水或凭证号'));initial.amount=(allocation.due_cents/100).toFixed(2);}
  if(['authorize','issue','return_material','quality','receive','release'].includes(key))fields.push(F('evidence_id','本单实际凭据','file'));
- await formDialog(repairNames[key],fields,initial,v=>{const values={...v,...extra};if('line_label'in v){values.line_key=issueLines[issueLabels.indexOf(v.line_label)].line_key;delete values.line_label;}if('minimum'in v){values.minimum_total_cents=repairScaled(v.minimum,2);delete values.minimum;}if('quantity'in v){values.quantity_milli=repairScaled(v.quantity,3);delete values.quantity;}if('amount'in v){values.amount_cents=repairScaled(v.amount,2);delete values.amount;}if('outcome'in v){values.passed=v.outcome==='合格';delete values.outcome;}if(v.original_id)values.original_id=Number(v.original_id);return api(`/api/repair-orders/${row.id}/actions/${key}`,{method:'POST',body:{request_id,version:row.version,values}});},{caseId:row.id,notice:key==='authorize'?`请核对客户授权确实对应第 ${q.revision} 版；旧版本授权文件不能重复用于增项。`:'请只确认本人核对的事实，后台会校验版本、前置条件、金额和原单关联。'});
+ await formDialog(repairNames[key],fields,initial,v=>{const values={...v,...extra};if('line_label'in v){values.line_key=issueLines[issueLabels.indexOf(v.line_label)].line_key;delete values.line_label;}if('minimum'in v){values.minimum_total_cents=repairScaled(v.minimum,2);delete values.minimum;}if('quantity'in v){values.quantity_milli=repairScaled(v.quantity,3);delete values.quantity;}if('amount'in v){values.amount_cents=repairScaled(v.amount,2);delete values.amount;}if('outcome'in v){values.passed=v.outcome==='合格';delete values.outcome;}if(v.original_id)values.original_id=Number(v.original_id);return api(`/api/repair-orders/${row.id}/actions/${key}`,{method:'POST',body:{request_id,version:row.version,values}});},{caseId:row.id,warehouse:repairWarehousePreparation(row,key,issueLines,issueLabels),notice:key==='authorize'?`请核对客户授权确实对应第 ${q.revision} 版；旧版本授权文件不能重复用于增项。`:'请只确认本人核对的事实，后台会校验版本、前置条件、金额和原单关联。'});
 }
 document.addEventListener('click',async event=>{const el=event.target.closest('[data-act]');if(!el?.dataset.act.startsWith('repair-'))return;try{switch(el.dataset.act){case'repair-new':await repairNew();break;case'repair-action':await repairAction(el.dataset.key,Number(el.dataset.id));break;case'repair-add-line':$('#repair-lines').insertAdjacentHTML('beforeend',state.repairLineHtml);break;case'repair-remove-line':if(document.querySelectorAll('[data-repair-line]').length<=1)throw new Error('报价至少保留一行。');el.closest('[data-repair-line]').remove();break;}}catch(error){toast(error.message,true);}});
+document.addEventListener('change',event=>repairSourcePrice(event.target));

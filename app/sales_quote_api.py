@@ -23,7 +23,10 @@ class Quote(Strict):
     terms:str=Field(min_length=2,max_length=1500)
     reason:str=Field(min_length=2,max_length=500)
 class Create(Request):
-    customer_id:Key
+    customer_id:Key|None=None
+    customer_name:str=Field(default='',max_length=100)
+    customer_phone:str=Field(default='',max_length=30)
+    confirm_new_customer:bool=Field(default=False,strict=True)
     lead_id:Key|None=None
     lead_version:Key|None=None
     quote:Quote
@@ -33,7 +36,12 @@ class Revise(Request):
 
 @router.post('/orders',status_code=201)
 def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
-    return service.create(db,user,body.request_id,body.model_dump(mode='json',exclude={'request_id'}))
+    # Keep the existing-customer envelope identical for old request receipts.
+    values=body.model_dump(mode='json',exclude={'request_id','customer_name','customer_phone','confirm_new_customer'})
+    if not body.customer_id or body.customer_name or body.customer_phone or body.confirm_new_customer:
+        values.update(customer_name=body.customer_name,customer_phone=body.customer_phone,
+                      confirm_new_customer=body.confirm_new_customer)
+    return service.create(db,user,body.request_id,values)
 @router.get('/orders/{key}')
 def detail(key:int,db=Depends(get_db),user=Depends(get_user)):return service.detail(db,user,key)
 @router.get('/orders/{key}/vehicles')

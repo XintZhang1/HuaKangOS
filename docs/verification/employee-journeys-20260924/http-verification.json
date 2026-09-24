@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "url": "http://127.0.0.1:8000/",
+  "bootstrap_required": false,
+  "repository_id": "02f0f863c9dc98b54b26",
+  "source_fingerprint": "1911011a3d61035b879be8d7242485361838709064442dda65d57f9e35e76e7e",
+  "http_source_equal": [
+    "app.js",
+    "livechoices.js",
+    "formhelpers.js",
+    "salesquotes.js",
+    "vehiclecatalog.js",
+    "insuranceorders.js",
+    "retail.js",
+    "repair.js",
+    "procurement.js",
+    "serviceintake.js",
+    "inventoryreports.js",
+    "styles.css"
+  ],
+  "unauthenticated_assistant_status": 401,
+  "personal_password_used": false,
+  "company_accepted": false
+}

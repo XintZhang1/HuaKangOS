@@ -1,0 +1,227 @@
+{
+  "syntax_files": 55,
+  "syntax_passed": true,
+  "node_returncode": 0,
+  "checks": [
+    {
+      "path": "web/addonorders.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/aftercare.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/app.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/benefits.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/branding.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/businessassistant.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/businessentities.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/businessfinance.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/claims.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/customeranalysis.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/customerchoice.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/customerservice.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/dictionaries.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/dossiergrants.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/files.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/gatevisits.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/group.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/insuranceorders.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/inventoryreports.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/invoices.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/livechoices.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/localpreview.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/masters.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/materialvalue.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/memberpricing.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/membership.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/observationcorrections.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/openingimport.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/parameters.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/procurement.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/rechargebundles.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/reconciliation.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/repair.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/repairmaterials.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/repairpackages.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/retail.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/retailbundles.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/retailgroup.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/reworkextensions.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/salesquotes.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/serviceintake.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/serviceorders.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/stockreports.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/transferexceptions.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/transfergoodsrecovery.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/transfers.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/vehiclecatalog.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/vehicleimports.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/vehicleincome.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/vehicleoperations.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/vehicleprocurement.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/vehicletransfers.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/vehicletransport.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/visitactivity.js",
+      "returncode": 0
+    },
+    {
+      "path": "web/warehouse.js",
+      "returncode": 0
+    }
+  ]
+}

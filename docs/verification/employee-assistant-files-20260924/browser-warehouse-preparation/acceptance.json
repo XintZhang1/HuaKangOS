@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "mode": "real-Windows-Chrome-HTTP",
+  "synthetic_only": true,
+  "viewport": "390x844",
+  "passed": 4,
+  "steps": [
+    "390px仓管：采购原表按1.251准备，改1.501后旧计划失效；空额外库位不阻断，凭据保留；实际收货及相同请求重放只入库1501千分位一次",
+    "另一账号更新原单库位版本后，仓管旧表收货被拒绝，库存与到货批次均未增加",
+    "390px仓管：原维修授权配件0.751在原领料表准备库位，保存未出库，最终发料仅扣751千分位",
+    "390px仓管：选择原领料批次，0.251未用料退到另一明确库位；保存未入库，最终退回原批次一次，库位数量与价值合计一致"
+  ],
+  "screenshots": [
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\warehouse-preparation-20260924\\01_purchase_saved_quantity_changed.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\warehouse-preparation-20260924\\02_stale_source_no_second_receipt.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\warehouse-preparation-20260924\\03_repair_issue_inline_preparation.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\warehouse-preparation-20260924\\04_repair_original_return_other_bin.png"
+  ],
+  "javascript_errors": [],
+  "limits": [
+    "全部初始主档、启用、采购批准及维修授权施工由真实API合成；收货、领料、退料由独立仓管页面办理",
+    "同请求重放通过该员工真实HTTP验证；没有修改用户数据或预览服务",
+    "未验证生产HTTPS、实体手机和公司业务验收；网络不确定与部分保存失败由Node专项覆盖"
+  ]
+}

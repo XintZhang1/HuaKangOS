@@ -1,6 +1,7 @@
 """Model hierarchy and an employee showroom with current scoped availability."""
 from fastapi import APIRouter,Depends,Query
 from pydantic import Field
+from typing import Literal
 from .db import get_db
 from .security import get_user
 from .master_data import Strict
@@ -26,6 +27,34 @@ class VehicleAssignment(Command):
     vehicle_version:int=Field(gt=0,strict=True)
     vin:str=Field(min_length=17,max_length=17)
     model_id:int=Field(gt=0,strict=True)
+
+
+class CatalogueEntry(Strict):
+    request_id:str=Field(min_length=16,max_length=80,pattern=r'^[A-Za-z0-9_-]+$')
+    brand_id:int|None=Field(default=None,gt=0,strict=True)
+    brand_version:int|None=Field(default=None,gt=0,strict=True)
+    brand_name:str=Field(default='',max_length=80)
+    series_id:int|None=Field(default=None,gt=0,strict=True)
+    series_version:int|None=Field(default=None,gt=0,strict=True)
+    series_name:str=Field(default='',max_length=120)
+    name:str=Field(min_length=1,max_length=120)
+    model_year:int=Field(ge=1990,le=2100,strict=True)
+    fuel_type:Literal['petrol','diesel','electric','hybrid','plugin_hybrid']
+    seats:int=Field(ge=1,le=60,strict=True)
+    displacement_ml:int=Field(default=0,ge=0,le=20000,strict=True)
+    battery_wh:int=Field(default=0,ge=0,le=2000000,strict=True)
+    guide_price_cents:int=Field(default=0,ge=0,le=100000000000,strict=True)
+
+
+@router.get('/entry-options')
+def entry_options(db=Depends(get_db),user=Depends(get_user)):
+    return service.entry_options(db,user)
+
+
+@router.post('/entry')
+def entry(body:CatalogueEntry,db=Depends(get_db),user=Depends(get_user)):
+    values=body.model_dump();key=values.pop('request_id')
+    return service.create_entry(db,user,key,values)
 
 
 @router.get('')

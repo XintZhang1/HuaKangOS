@@ -1,0 +1,256 @@
+{
+  "status": "passed",
+  "synthetic_only": true,
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "employee_role": "sales",
+  "steps": [
+    "全部操作指引显示完整目录；需求编号搜索和业务分类筛选实际生效。",
+    "390px 销售账号从顶栏实时搜索打开接待指引，入口图片实际加载，手动滚动可阅读。",
+    "指引中切换人工／助手步骤，打开原售前接待入口；未创建业务。",
+    "Ctrl K、方向键/Enter、需求编号搜索、空结果、Esc 关闭后再次点击及逐键输入 HK-001 重开正常。",
+    "文章的新建表单按钮及冷打开 workflow-form 链接均打开原接待表单；未填入、提交或新建业务。",
+    "让助手带我办仅预填本流程文字；没有创建会话、发送消息或办理业务的 POST。",
+    "已有未发送草稿不会被流程按钮覆盖；切店后草稿清空。",
+    "非本岗位操作可读步骤，原办理入口禁用，未扩展权限。",
+    "销售直接输入非本岗位的 workflow-form 链接不会打开或提交表单。",
+    "未登录打开原页面或 workflow-form 链接，登录后仍到目标页面／原表单；不退回工作首页。",
+    "在线手册及离线单 HTML 均可按需求编号查找、切换办理方式；全部入口图片加载，无 CSP 错误或横向溢出。",
+    "在线手册表单链接实际打开原表单；离线链接目标核对正确，未连接用户原预览。"
+  ],
+  "screenshots": [
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\search-modes-guides-20260924-final\\01_mobile_search_help.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\search-modes-guides-20260924-final\\02_mobile_native_entry.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\search-modes-guides-20260924-final\\05_mobile_direct_original_form.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\search-modes-guides-20260924-final\\03_mobile_unsent_assistant_draft.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\search-modes-guides-20260924-final\\04_handbook_served.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\search-modes-guides-20260924-final\\04_handbook_offline.png"
+  ],
+  "page_errors": [],
+  "api_mutations_after_setup": [],
+  "external_model_requests": 0,
+  "read_only_recommendation_requests": [],
+  "handbooks": [
+    {
+      "mode": "served",
+      "images_loaded": 70,
+      "csp_violations": [],
+      "form_link": "native form opened"
+    },
+    {
+      "mode": "offline",
+      "images_loaded": 70,
+      "csp_violations": [],
+      "form_link": "offline link verified; existing preview never contacted"
+    }
+  ],
+  "unauthenticated_deep_links": [
+    {
+      "requested_route": "workflow-form/wf-reception",
+      "actual_route": "#cases/lead",
+      "passed": true
+    },
+    {
+      "requested_route": "cases/lead",
+      "actual_route": "#cases/lead",
+      "passed": true
+    }
+  ],
+  "sequential_typing_probe": {
+    "opened": true,
+    "top": {
+      "value": "",
+      "readOnly": false,
+      "disabled": false,
+      "editable": false
+    },
+    "events": [
+      {
+        "type": "input",
+        "key": "",
+        "target": "workflow-search-input",
+        "value": "HK-001",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      },
+      {
+        "type": "keydown",
+        "key": "Escape",
+        "target": "workflow-search-input",
+        "value": "HK-001",
+        "prevented": false,
+        "ctrl": false,
+        "meta": false,
+        "alt": false
+      },
+      {
+        "type": "focusin",
+        "key": "",
+        "target": "workflow-top-search",
+        "value": "",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      },
+      {
+        "type": "focusin",
+        "key": "",
+        "target": "workflow-search-input",
+        "value": "",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      },
+      {
+        "type": "keydown",
+        "key": "Escape",
+        "target": "workflow-search-input",
+        "value": "",
+        "prevented": false,
+        "ctrl": false,
+        "meta": false,
+        "alt": false
+      },
+      {
+        "type": "focusin",
+        "key": "",
+        "target": "workflow-top-search",
+        "value": "",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      },
+      {
+        "type": "keydown",
+        "key": "H",
+        "target": "workflow-top-search",
+        "value": "",
+        "prevented": false,
+        "ctrl": false,
+        "meta": false,
+        "alt": false
+      },
+      {
+        "type": "focusin",
+        "key": "",
+        "target": "workflow-search-input",
+        "value": "H",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      },
+      {
+        "type": "keydown",
+        "key": "K",
+        "target": "workflow-search-input",
+        "value": "H",
+        "prevented": false,
+        "ctrl": false,
+        "meta": false,
+        "alt": false
+      },
+      {
+        "type": "input",
+        "key": "",
+        "target": "workflow-search-input",
+        "value": "HK",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      },
+      {
+        "type": "keydown",
+        "key": "-",
+        "target": "workflow-search-input",
+        "value": "HK",
+        "prevented": false,
+        "ctrl": false,
+        "meta": false,
+        "alt": false
+      },
+      {
+        "type": "input",
+        "key": "",
+        "target": "workflow-search-input",
+        "value": "HK-",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      },
+      {
+        "type": "keydown",
+        "key": "0",
+        "target": "workflow-search-input",
+        "value": "HK-",
+        "prevented": false,
+        "ctrl": false,
+        "meta": false,
+        "alt": false
+      },
+      {
+        "type": "input",
+        "key": "",
+        "target": "workflow-search-input",
+        "value": "HK-0",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      },
+      {
+        "type": "keydown",
+        "key": "0",
+        "target": "workflow-search-input",
+        "value": "HK-0",
+        "prevented": false,
+        "ctrl": false,
+        "meta": false,
+        "alt": false
+      },
+      {
+        "type": "input",
+        "key": "",
+        "target": "workflow-search-input",
+        "value": "HK-00",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      },
+      {
+        "type": "keydown",
+        "key": "1",
+        "target": "workflow-search-input",
+        "value": "HK-00",
+        "prevented": false,
+        "ctrl": false,
+        "meta": false,
+        "alt": false
+      },
+      {
+        "type": "input",
+        "key": "",
+        "target": "workflow-search-input",
+        "value": "HK-001",
+        "prevented": false,
+        "ctrl": null,
+        "meta": null,
+        "alt": null
+      }
+    ]
+  },
+  "limitations": [
+    "入口和指引联动验收；未逐项办理 193 条业务。",
+    "模型未调用；预填不代表模型理解或办理成功。"
+  ]
+}

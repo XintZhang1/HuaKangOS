@@ -503,7 +503,14 @@ def available_actions(db,user,row):
             except HTTPException as exc:
                 if exc.status_code!=409:raise
                 reason=exc.detail
-        result.append(dict(key=action.key,label=action.label,fields=action.fields,enabled=not reason,reason=reason,confirm=action.confirm))
+        fields=action.fields
+        if row.kind=='lead' and action.key=='remind':
+            customer=scoped_get(db,Customer,row.customer_id) if row.customer_id else None
+            if not customer or not customer.phone:
+                # API clients and the employee page receive the same recovery
+                # requirement. Never mutate the preserved process catalogue.
+                fields=[{**field,'required':True} if field['key']=='customer_phone' else field for field in fields]
+        result.append(dict(key=action.key,label=action.label,fields=fields,enabled=not reason,reason=reason,confirm=action.confirm))
     return result
 
 
@@ -633,7 +640,15 @@ def _apply_action_v1(db,user,row,key,v):
             ensure_task(db,row,'contact','记录接待结果','sales',target.id)
         elif key in {'intent','remind','follow','reopen'}:
             if customer and not customer.contact_allowed:raise HTTPException(409,'客户已要求停止联系；请先由主管核对并更新联系意愿')
-            if key=='remind' and customer and not customer.phone:raise HTTPException(409,'没有联系电话，请先补全客户档案，或结束本次接待')
+            if key=='remind':
+                if not customer:raise HTTPException(409,'未找到客户，请刷新后重试')
+                phone=v.get('customer_phone','').strip()
+                if customer.phone and phone and phone!=customer.phone:
+                    raise HTTPException(409,'联系电话已变更，请刷新后重新安排')
+                if not customer.phone:
+                    if not phone:raise HTTPException(409,'请填写联系电话后安排回访')
+                    customer.phone=phone
+
             close_tasks(db,row,user)
             row.state='reminder' if key=='remind' else 'intent';row.due_date=date.fromisoformat(v['due_date'])
             if key=='reopen':row.completed_date=None

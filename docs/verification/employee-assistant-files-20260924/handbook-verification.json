@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "format": "standalone HTML",
+  "desktop_width": 1440,
+  "mobile_width": 390,
+  "catalog_steps": 1,
+  "toc_links_valid": true,
+  "trial_package_copy_identical": true
+}

@@ -7,7 +7,7 @@ function vpFileOptions(financial=false){return (state.row?.files||[]).filter(f=>
 function vpButton(key,extra=''){return b('vp-action',vpNames[key],`data-key="${key}" ${extra}`);}
 function vpStatus(state){return E({approval:'待主管核价',receiving:'采购办理中',completed:'实物与采购款已结清',rejected:'已拒绝'}[state]||state);}
 async function vehicleProcurementPage(id){
- const catalog=await api('/api/vehicle-procurement/catalog');if(!catalog.can_read)return empty('请选一家获权门店','整车采购由本店主管、库管、财务及审计按岗位处理。');
+ const catalog=await api('/api/vehicle-procurement/catalog');if(!catalog.can_read)return empty('请选择门店','整车采购由本店主管、库管、财务及审计按岗位处理。');
  if(!id){const d=await api('/api/vehicle-procurement/orders?page='+state.page);return heading('整车采购与付款','计划、请款、实际到账、发运与验收分别留据。',catalog.can_create?b('vp-new','建立整车采购计划','','primary'):'')+storeNotice()+panel('本店整车采购',table(catalog.can_money?['采购单／供货方','状态','应付（元）','预付（元）','供应商应退（元）','']:['采购单／供货方','状态',''],d.items.map(r=>{const cells=[`${E(r.number)}<br>${E(r.supplier_name)}`,vpStatus(r.state)];if(catalog.can_money)cells.push(money(r.totals.payable_cents),money(r.totals.prepaid_cents),money(r.totals.supplier_refund_due_cents));cells.push(b('open','办理',`data-route="vehicle-procurement/${r.id}"`));return cells;})))+pager(d.total)+(catalog.can_money?panel('采购资金对账',b('vp-export','导出原账对账CSV')+'<p>预付对应尚未验收的有效约定；取消或实物退回导致的超付单列供应商应退。</p>'):'');}
  const row=await api('/api/vehicle-procurement/orders/'+id);state.vehicleProcurement=row;state.vpSession=vpContext();state.row=await api('/api/flow/cases/'+id);
  const can=k=>canWrite()&&row.actions.includes(k),buttons=[];

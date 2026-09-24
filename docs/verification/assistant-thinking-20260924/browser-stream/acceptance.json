@@ -1,0 +1,60 @@
+{
+  "status": "passed",
+  "synthetic_only": true,
+  "steps": [
+    "默认关闭思考；真实HTTP SSE分段到达，完成前已显示用户消息和第一段中文/表情；正文HTML不执行。",
+    "明确开启思考只显示状态，不展示内部推理；正式done后出现确认卡，员工点击前0新增，点击后原API恰新增1笔接待。",
+    "停止等待取消真实上游，保留输入并锁定模式；刷新读取停止记录和空闲状态，不自动重发。",
+    "模型连接失败保留草稿及正式错误结果，要求刷新核对；没有转非流式接口或自动重发。",
+    "模拟丢失最终事件：服务端已完成，界面保留草稿；刷新按同一请求读取既有结果，没有重发或新建第二张单。",
+    "回复期间切换门店取消连接，清空对话、输入和思考开关；旧回复不进入新店。"
+  ],
+  "screenshots": [
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-stream-20260924-frozen\\01_mobile_streaming.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-stream-20260924-frozen\\02_mobile_thinking.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-stream-20260924-frozen\\03_mobile_confirm.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\assistant-stream-20260924-frozen\\04_desktop_compose.png"
+  ],
+  "employee_role": "sales",
+  "javascript_errors": [],
+  "stream_requests": [
+    {
+      "request_id": "1bd0c80d-c15f-419f-9e13-cf6a1f512d04",
+      "content": "普通模式合成问答",
+      "thinking": false
+    },
+    {
+      "request_id": "5bb882d8-0f35-4053-b915-cba22113cbc2",
+      "content": "启用思考登记流式合成客户",
+      "thinking": true
+    },
+    {
+      "request_id": "1e445ee8-ab2d-408a-b413-310fba8f9eee",
+      "content": "停止这次合成回复",
+      "thinking": true
+    },
+    {
+      "request_id": "cabd77e8-c2b6-471c-8faa-c0dc941e1889",
+      "content": "模拟失败连接",
+      "thinking": true
+    },
+    {
+      "request_id": "d95cab64-ed18-4cae-b30e-ff0fc6911e3b",
+      "content": "最终事件丢失后核对",
+      "thinking": false
+    },
+    {
+      "request_id": "2c4b623f-5e55-468a-8446-783d3a681f69",
+      "content": "换店时隔离合成回复",
+      "thinking": false
+    }
+  ],
+  "confirmed_lead_increase": 1,
+  "confirm_requests": 1,
+  "external_model_requests": 0,
+  "scripted_model_calls": 7,
+  "limitations": [
+    "合成模型回复，不证明真实DeepSeek输出质量。",
+    "独立本机HTTP及合成业务，不替代生产HTTPS或公司验收。"
+  ]
+}

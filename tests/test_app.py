@@ -72,7 +72,8 @@ def sale(client,**kwargs):
 
 def test_authenticated_health_and_shell(client):
     assert client.get('/api/health').json()['status']=='ok'
-    r=client.get('/');assert r.status_code==200 and '门店经营台' in r.text
+    r=client.get('/');assert r.status_code==200 and '<title>huakangos · 华慷集团</title>' in r.text
+    assert '门店经营台' not in r.text
     assert "script-src 'self'" in r.headers['content-security-policy']
 
 

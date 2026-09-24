@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "mode": "real-Windows-Chrome-HTTP",
+  "synthetic_only": true,
+  "viewport": "390x844",
+  "passed": 3,
+  "steps": [
+    "主管390px：空白客户金额经明确点击带入150.01元；未请求保险或厂家目录；表内上传保留金额并成功确认",
+    "主管390px：未核赔和已核赔工单均不默认客户全额；手填全额试图绕过时原后端拒绝，未冻结错误分配",
+    "主管390px：按需选择保险公司，客户100.01元+保险50元；其他方填0且空到期日可提交；超分0.01元先拦截；核赔绑定且未登记任何现金"
+  ],
+  "screenshots": [
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\repair-allocation-simple-20260924-r2\\01_customer_full_inline_proof.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\repair-allocation-simple-20260924-r2\\02_pending_claim_blocks_customer_full.png",
+    "C:\\Users\\tiefu\\AppData\\Local\\Packages\\OpenAI.Codex_2p2nqsd0c76g0\\LocalCache\\Local\\huakangos\\verification\\repair-allocation-simple-20260924-r2\\03_insurer_split_zero_other_parties.png"
+  ],
+  "javascript_errors": [],
+  "limits": [
+    "报价、授权、施工、质检及核赔前置资料使用真实API合成；承担分配和上传使用真实主管页面",
+    "没有改动用户数据库、预览进程或调用外部模型",
+    "本脚本不验证实际收款、HTTPS、实体手机、库位领退料或公司业务验收；失效上下文由Node专项覆盖"
+  ]
+}

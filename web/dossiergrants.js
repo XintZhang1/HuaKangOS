@@ -6,7 +6,7 @@ const dossierDecisions={approve:'独立批准',reject:'不予批准',cancel:'取
 function clearDossierGrantsSession(){dossierEpoch++;clearTimeout(dossierExpiryTimer);state.dossierGrant=null;state.dossierCatalog=null;state.dossierSnapshot=null;}
 function leaveDossierGrantsView(){dossierEpoch++;clearTimeout(dossierExpiryTimer);state.dossierGrant=null;state.dossierSnapshot=null;}
 function dossierGuard(epoch,store,user){return epoch===dossierEpoch&&String(state.store)===store&&state.user?.id===user;}
-function dossierCaseLink(row){return state.dossierCatalog?.can_propose&&!['business_entity','opening_import','reconciliation','interstore_clearing','retail_group_rule','business_finance'].includes(row.kind)?b('dossier-new','跨店只读授权',`data-case="${row.id}"`):'';}
+function dossierCaseLink(row){return state.dossierCatalog?.can_propose&&!['business_entity','opening_import','reconciliation','interstore_clearing','retail_group_rule','business_finance'].includes(row.kind)?b('dossier-new','申请跨店协同',`data-case="${row.id}"`):'';}
 function dossierForm(body,submit){return `<form><div class="stack">${body}</div><div class="formerror mt18" role="alert"></div><div class="modalfoot">${b('close','取消')}<button class="primary" type="submit">${E(submit)}</button></div></form>`;}
 function dossierConfirm(){return '<label class="checkrow"><input type="checkbox" name="confirmed" required>我已核对指定员工、原单范围及逐件文件内容，确认本次决定。</label>';}
 function dossierRecord(record){
@@ -39,14 +39,14 @@ async function dossierPage(box='received',id=null){
  state.dossierGrant=g;
  let h=top+panel('授权 '+g.id,facts({来源门店:g.from_store_name,接收门店:g.to_store_name,接收员工:g.recipient_name||'本人',状态:g.status_label,到期时间:time(g.expires_at)})+`<div class="row">${Object.keys(dossierDecisions).filter(k=>k==='approve'||k==='reject'?g.can_review:k==='cancel'?g.can_cancel:g.can_revoke).map(k=>b('dossier-decision',dossierDecisions[k],`data-key="${k}"`,k==='approve'?'primary':'')).join('')}${b('refresh','重新核验')}</div>`);
  if(g.source_side){
-  h+=panel('本次明确范围',facts({用途:g.purpose,原单版本:g.source_case_version,原单快照:g.include_record?'包含':'不包含',联系电话:g.include_contact?'明确包含':'不包含',金额成本:g.include_financials?'明确包含':'不包含'})+'<p class="fieldhelp">快照在提交时冻结。批准前原单变化会拒绝本次批准，需重新核对提交；批准后的变化不会自动加入。文件内容须由原店人员实际核对。</p>')+dossierRecord(g.preview)+dossierFiles(g,g.files,false);
+  h+=panel('本次明确范围',facts({用途:g.purpose,原单版本:g.source_case_version,原单快照:g.include_record?'包含':'不包含',联系电话:g.include_contact?'明确包含':'不包含',金额成本:g.include_financials?'明确包含':'不包含'})+'<p class="fieldhelp">请核对要分享的资料。提交后资料有变化，请重新申请。</p>')+dossierRecord(g.preview)+dossierFiles(g,g.files,false);
   h+=panel('决定记录',table(['时间','决定','员工编号','说明'],g.decisions.map(d=>[time(d.occurred_at),E(dossierDecisions[d.action]),String(d.actor_id),E(d.reason)])));
  }else if(g.can_read){
   try{
    const content=await api(`/api/dossier-grants/${g.id}/${g.include_record?'record':'files'}`);
    if(!dossierGuard(epoch,store,user))return '';
    state.dossierSnapshot=content;
-   h+='<div class="notice">这不是实时原单。每次读取和下载重新检查当前授权；已经合法下载的文件不能由系统远程收回。</div>'+dossierRecord(content.record)+dossierFiles(g,content.files,true);
+   h+='<div class="notice">这里显示申请时的资料。</div>'+dossierRecord(content.record)+dossierFiles(g,content.files,true);
    // Clear live DOM at expiry. Long-lived pages revalidate on focus/visibility.
    const ms=Math.max(0,new Date(g.expires_at).getTime()-Date.now());
    dossierExpiryTimer=setTimeout(()=>{if(dossierGuard(epoch,store,user)&&state.route.startsWith('dossier-grants/')){state.dossierSnapshot=null;render();}},Math.min(ms+10,2147483000));
@@ -69,7 +69,7 @@ async function dossierNew(caseId){
  if(!dossierGuard(epoch,store,user))return;
  const request_id=requestKey();let selected=null,selectionEpoch=0;
  const localDate=new Date(Date.now()+7*86400000);localDate.setMinutes(localDate.getMinutes()-localDate.getTimezoneOffset());
- modal('跨店只读授权',dossierForm(`<p class="notice">${E(options.notice)}</p><p>原单 ${E(options.case.number)} · 版本 ${options.case.version}</p><label>接收门店<select name="to_store_id" required><option value="">请选择</option>${options.stores.map(s=>`<option value="${s.id}">${E(s.label)}</option>`).join('')}</select></label><label>具体接收员工<select name="recipient_id" required disabled><option value="">先选择门店</option></select></label><label>本次用途<textarea name="purpose" required minlength="3" maxlength="500"></textarea></label><label>到期时间<input name="expires_at" type="datetime-local" required value="${localDate.toISOString().slice(0,16)}"></label><label class="checkrow"><input name="include_record" type="checkbox" checked>包含原单基本资料及办理事件摘要</label><label class="checkrow"><input name="include_contact" type="checkbox">另外包含客户联系电话与联系许可</label><label class="checkrow"><input name="include_financials" type="checkbox" disabled>另外包含约定金额、已结金额及原成本</label><div id="dossier-file-choices">先选择接收员工，再逐件选择文件。</div><p class="fieldhelp">文件不默认勾选。正文和截图可能包含敏感信息，请实际核对，不依赖文件类别自动脱敏。</p>${dossierConfirm()}`,'提交原店独立复核'),async form=>{
+ modal('跨店协同',dossierForm(`<p class="notice">${E(options.notice)}</p><p>原单 ${E(options.case.number)} · 版本 ${options.case.version}</p><label>接收门店<select name="to_store_id" required><option value="">请选择</option>${options.stores.map(s=>`<option value="${s.id}">${E(s.label)}</option>`).join('')}</select></label><label>接收人<select name="recipient_id" required disabled><option value="">先选择门店</option></select></label><label>协同事项<textarea name="purpose" required minlength="3" maxlength="500"></textarea></label><label>到期时间<input name="expires_at" type="datetime-local" required value="${localDate.toISOString().slice(0,16)}"></label><label class="checkrow"><input name="include_record" type="checkbox" checked>分享业务信息</label><label class="checkrow"><input name="include_contact" type="checkbox">分享联系电话</label><label class="checkrow"><input name="include_financials" type="checkbox" disabled>分享金额及成本</label><div id="dossier-file-choices">先选择接收员工，再逐件选择文件。</div><p class="fieldhelp">文件不默认勾选。正文和截图可能包含敏感信息，请实际核对，不依赖文件类别自动脱敏。</p>${dossierConfirm()}`,'提交原店独立复核'),async form=>{
   if(!selected||Number(form.elements.recipient_id.value)!==selected.recipient_id)throw new Error('请重新选择接收员工并核对范围。');
   const values={source_case_id:caseId,source_case_version:options.case.version,to_store_id:Number(form.elements.to_store_id.value),recipient_id:Number(form.elements.recipient_id.value),purpose:form.elements.purpose.value,expires_at:new Date(form.elements.expires_at.value).toISOString(),include_record:form.elements.include_record.checked,include_contact:form.elements.include_contact.checked,include_financials:form.elements.include_financials.checked,file_ids:$$('[name=dossier_file]:checked',form).map(x=>Number(x.value)),confirmed:form.elements.confirmed.checked};
   if(!dossierGuard(epoch,store,user))throw new Error('门店或账号已变化，请重新打开申请。');
