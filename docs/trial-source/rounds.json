@@ -42,49 +42,49 @@
           "expect": "进入工作台；右上角显示“本地预览管理员 / 系统管理员”；当前门店是“本地预览门店（虚构试用）”。"
         },
         {
-          "no": "R01-02", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-store-management", "route": "work", "channel": "manual",
+          "no": "R01-02", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-store-management", "route": "work", "channel": "manual",
           "entry": "登录后的工作台；右上角“当前门店”下拉",
           "search": "", "assistant": "",
           "action": "核对右上角姓名与岗位；点开“当前门店”下拉，看有哪几家门店；扫一遍左侧栏，找到“系统管理”，看下面有哪几项。",
           "expect": "只有 1 家门店；侧栏能看到我的工作、数据可视化、业务助手、操作指引，以及系统管理下的参数与个人密码、员工账号、门店设置、操作记录。"
         },
         {
-          "no": "R01-03", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-store-management", "route": "stores", "channel": "search",
+          "no": "R01-03", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-store-management", "route": "stores", "channel": "search",
           "entry": "页顶“搜索功能或操作”（Ctrl+K）",
           "search": "门店设置", "assistant": "",
           "action": "输入“门店设置”，在结果里点“进入页面”或结果自带的“打开门店设置”。",
           "expect": "直接打开门店设置页面（地址 #stores），页面标题“门店设置”，有“新增门店”按钮。"
         },
         {
-          "no": "R01-04", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-store-management", "route": "stores", "channel": "manual",
+          "no": "R01-04", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-store-management", "route": "stores", "channel": "manual",
           "entry": "系统管理 → 门店设置",
           "search": "", "assistant": "",
           "action": "在“本地预览门店（虚构试用）”一行点“编辑”：门店名称改为“星驰汽车城东店”，门店编码填 XC-CD，保持启用，保存。",
           "expect": "列表显示“星驰汽车城东店 / XC-CD”；右上角“当前门店”也跟着变成新名称。"
         },
         {
-          "no": "R01-05", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-store-management", "route": "stores", "channel": "manual",
+          "no": "R01-05", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-store-management", "route": "stores", "channel": "manual",
           "entry": "门店设置 → 新增门店",
           "search": "", "assistant": "",
           "action": "新增门店：门店名称“星驰汽车城西店”，门店编码 XC-CX，启用；保存。",
           "expect": "列表里有两家门店；右上角“当前门店”下拉里也能选到城西店（本轮先切回城东店）。"
         },
         {
-          "no": "R01-06", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-employee-store-roles", "route": "users", "channel": "search",
+          "no": "R01-06", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-employee-store-roles", "route": "users", "channel": "search",
           "entry": "页顶搜索框，或系统管理 → 员工账号",
           "search": "新增员工", "assistant": "",
           "action": "输入“新增员工”，从结果进入员工账号页面。",
           "expect": "打开员工账号（地址 #users），表格列为：员工、登录账号、默认岗位、授权门店与岗位、集团汇总、状态、操作。"
         },
         {
-          "no": "R01-07", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-employee-store-roles", "route": "users", "channel": "manual",
+          "no": "R01-07", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-employee-store-roles", "route": "users", "channel": "manual",
           "entry": "员工账号 → 新增员工 / 批量新增员工",
           "search": "", "assistant": "",
           "action": "先手动建 1 个账号，体验一遍表单（登录账号、初始密码、员工姓名、账号默认岗位，勾选“星驰汽车城东店”并选本店岗位）；其余 8 个点“批量新增员工”，每行粘贴“员工姓名｜登录账号｜岗位”，先看预览表逐行核对，再选本次门店、填共用的初始密码，一次提交。这个按钮只有系统管理员能看到（店长看不到入口，直接调接口也会被拒）。命令行工具 scripts\\create-xc-staff.cmd 保留作备用。",
           "expect": "预览表显示每行“可以建立”才允许提交；提交后提示“已新增 8 个账号”。员工账号列表里 9 个员工齐全，默认岗位与“星驰汽车城东店 · 对应岗位”正确，集团汇总都显示“未授权”。"
         },
         {
-          "no": "R01-08", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-employee-store-roles", "route": "business-assistant", "channel": "assistant",
+          "no": "R01-08", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-employee-store-roles", "route": "business-assistant", "channel": "assistant",
           "entry": "左侧“业务助手”",
           "search": "", "assistant": "帮我整理员工账号配置清单：姓名、登录账号、每家门店的岗位、是否要集团汇总。不要接收密码，也不要替我提交账号或重置密码。",
           "action": "在业务助手发送上面的说法，按它的问题补充，看它是否只整理清单并指向“员工账号”页面。",
@@ -98,21 +98,21 @@
           "expect": "强制改密后再进入；右上角显示“陆销售 / 销售”；侧栏没有“员工账号/门店设置”，看到的是销售能用的业务入口。"
         },
         {
-          "no": "R01-10", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-parameters-password-brand", "route": "parameters", "channel": "search",
+          "no": "R01-10", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-parameters-password-brand", "route": "parameters", "channel": "search",
           "entry": "页顶搜索框 → 参数与个人密码",
           "search": "修改密码", "assistant": "",
           "action": "进入“参数与个人密码”，点“修改本人密码”改一次自己的密码；再看“个人密码”“登录图片”和下面一排配置入口，逐个点“设置”，确认落在各自的原业务页面（提醒、问卷、工位与快捷项目组合、会员等级、会员券与套餐权益、充值组合套餐、精品销售套餐、精品会员混合支付规则、经营主数据与引用、公共与领域字典、单据模板）。",
           "expect": "改密成功（必要时让你重新登录）；每个“设置”都能进对应原页面；页面下方是“部署参数（只读）”，只显示不修改。"
         },
         {
-          "no": "R01-11", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-audit-business-history", "route": "audit", "channel": "search",
+          "no": "R01-11", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-audit-business-history", "route": "audit", "channel": "search",
           "entry": "页顶搜索框 → 操作记录",
           "search": "操作记录", "assistant": "",
           "action": "进入操作记录，找刚才做过的登录、门店改名、新增门店、新增员工、修改密码；挑一条点“详情”看操作前/操作后。",
           "expect": "能查到这些记录，详情能区分操作前后字段；找不到某条时记下你要找的是哪一条。"
         },
         {
-          "no": "R01-12", "actor": "XC 管理员（xc-admin）", "account": "xc-admin", "workflow": "wf-employee-store-roles", "route": "users", "channel": "manual",
+          "no": "R01-12", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-employee-store-roles", "route": "users", "channel": "manual",
           "entry": "员工账号 → 新增员工 / 编辑",
           "search": "", "assistant": "",
           "action": "新增一个临时账号 xc-temp（默认岗位随便选一个、勾城东店），先在一个新浏览器个人资料里用它登录成功；回到 admin 编辑 xc-temp，取消“启用”保存；再用 xc-temp 登录。",
@@ -140,7 +140,7 @@
       ],
       "checks": [
         "门店 2 家：星驰汽车城东店 XC-CD、星驰汽车城西店 XC-CX，都启用。",
-        "账号 10 个可用：xc-admin 加 9 个岗位账号，岗位与门店正确；xc-temp 处于停用。",
+        "账号 10 个可用：admin 加 9 个岗位账号，岗位与门店正确；xc-temp 处于停用。",
         "用 xc-sales 能登录并看到销售菜单，看不到员工账号与门店设置。",
         "操作记录里能找到登录、门店改名/新增、新增员工、修改密码这几类记录。",
         "整个过程中没有出现真实客户、真实公司或真实凭据。"

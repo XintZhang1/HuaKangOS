@@ -16,7 +16,8 @@ class StubClient:
     """Stands in for the running preview; records exactly what would be sent."""
 
     def __init__(self, existing=(), fail_for=()):
-        self.existing = [{'username': name} for name in existing]
+        self.existing = [dict(row) if isinstance(row, dict) else {'username': row, 'role': None}
+                         for row in existing]
         self.fail_for = set(fail_for)
         self.created = []
 
@@ -65,13 +66,53 @@ def test_a_non_preview_server_is_refused_before_any_login():
 
 
 def test_only_missing_accounts_are_created_with_the_store_role():
-    client = StubClient(existing=['xc-sales'])
+    client = StubClient(existing=[{'username': 'xc-sales', 'role': 'sales', 'active': True, 'stores': [{'id': 7}]}])
     store = {'id': 7, 'name': '星驰汽车城东店', 'code': 'XC-CD'}
     results = tool.run(client, store, tool.load_staff(), 'Xc-Trial-Password-01', reporter=lambda *_: None)
     assert [row['result'] for row in results].count('created') == 8
     assert [row['result'] for row in results].count('skipped') == 1
     assert all(item['store_id'] == 7 and item['store_role'] == item['row']['role'] for item in client.created)
     assert all(item['row']['username'] != 'xc-sales' for item in client.created)
+
+
+@pytest.mark.parametrize('existing,expected', [
+    ({'username': 'xc-sales', 'role': 'manager', 'active': True, 'stores': [{'id': 7}]}, '岗位为 manager'),
+    ({'username': 'xc-sales', 'role': 'sales', 'active': False, 'stores': [{'id': 7}]}, '账号已停用'),
+    ({'username': 'xc-sales', 'role': 'sales', 'active': True, 'stores': [{'id': 9}]}, '未分配到本次门店'),
+])
+def test_an_existing_account_with_a_different_configuration_is_reported(existing, expected):
+    """R01 asks for one manual account first; a typo there must not pass silently."""
+    client = StubClient(existing=[existing])
+    store = {'id': 7, 'name': '星驰汽车城东店', 'code': 'XC-CD'}
+    results = tool.run(client, store, tool.load_staff(), 'Xc-Trial-Password-01', reporter=lambda *_: None)
+    conflicts = [row for row in results if row['result'] == 'conflict']
+    assert len(conflicts) == 1 and conflicts[0]['username'] == 'xc-sales'
+    assert expected in conflicts[0]['note']
+    assert all(item['row']['username'] != 'xc-sales' for item in client.created)
+
+
+def test_the_default_base_follows_this_candidates_recorded_port(monkeypatch, tmp_path):
+    import json as jsonlib
+    assert tool.repository_id() == tool.repository_id().lower() and len(tool.repository_id()) == 20
+    monkeypatch.setenv('LOCALAPPDATA', str(tmp_path))
+    assert tool.recorded_preview_base() == tool.DEFAULT_BASE          # nothing recorded yet
+    directory = tmp_path / 'huakangos' / ('preview-' + tool.repository_id())
+    directory.mkdir(parents=True)
+    (directory / 'process.json').write_text(jsonlib.dumps({'port': 8123}), encoding='utf-8')
+    assert tool.recorded_preview_base() == 'http://127.0.0.1:8123'
+
+
+def test_a_preview_belonging_to_another_source_tree_is_refused():
+    class OtherCandidate(tool.PreviewClient):
+        def request(self, method, path, payload=None, headers=None):
+            return {'local_preview': True, 'bootstrap_required': False, 'repository_id': 'deadbeefdeadbeefdead',
+                    'instance_id': 'x'}
+    client = OtherCandidate('http://127.0.0.1:8000')
+    state = client.status('')                                          # no expectation: allowed
+    assert state['repository_id'] == 'deadbeefdeadbeefdead'
+    with pytest.raises(tool.PreviewError) as refused:
+        client.status(tool.repository_id())
+    assert '属于另一份源码' in str(refused.value)
 
 
 def test_one_failure_does_not_stop_the_others_and_is_reported():

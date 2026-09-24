@@ -13,6 +13,7 @@ drift apart. Safe to re-run: existing logins are reported and skipped.
 """
 import argparse
 import getpass
+import hashlib
 import http.cookiejar
 import json
 import os
@@ -27,6 +28,24 @@ WORLD = ROOT / 'docs/trial-source/world.json'
 LOOPBACK_HOSTS = {'127.0.0.1', 'localhost', '::1'}
 DEFAULT_BASE = 'http://127.0.0.1:8000'
 MIN_PASSWORD = 12
+
+
+def repository_id():
+    """Same identifier the launcher uses: sha256 of the lowercased source path, first 20 hex."""
+    return hashlib.sha256(str(ROOT).lower().encode('utf-8')).hexdigest()[:20]
+
+
+def recorded_preview_base():
+    """The launcher may open another port when 8000 is taken; follow what this candidate recorded."""
+    local = os.environ.get('LOCALAPPDATA') or ''
+    if not local:
+        return DEFAULT_BASE
+    record = Path(local) / 'huakangos' / ('preview-' + repository_id()) / 'process.json'
+    try:
+        port = int(json.loads(record.read_text(encoding='utf-8-sig')).get('port') or 0)
+    except (OSError, ValueError, TypeError, AttributeError):
+        return DEFAULT_BASE
+    return 'http://127.0.0.1:%d' % port if port > 0 else DEFAULT_BASE
 
 
 class PreviewError(RuntimeError):
@@ -96,10 +115,14 @@ class PreviewClient:
         except urllib.error.URLError as error:
             raise PreviewError('连不上预览（%s）。请先双击 start-preview.cmd 打开预览。' % error.reason) from None
 
-    def status(self):
+    def status(self, expected_repository_id=''):
         state = self.request('GET', '/api/local-preview/status')
         if not state.get('local_preview'):
             raise PreviewError('这个地址不是本机独立预览库，脚本已停止；不会向其它环境写入账号')
+        if expected_repository_id and state.get('repository_id') != expected_repository_id:
+            raise PreviewError('这个地址上的预览属于另一份源码（%s），不是当前仓库（%s）；'
+                               '请在当前仓库目录用 start-preview.cmd 启动后再运行本脚本，'
+                               '不要向另一份源码的预览写入账号' % (state.get('repository_id'), expected_repository_id))
         if state.get('bootstrap_required'):
             raise PreviewError('预览还没有设置管理员：请先按首次设置页面创建管理员，再运行本脚本')
         return state
@@ -142,14 +165,27 @@ def resolve_store(stores, wanted_code, interactive=True, ask=input):
 
 
 def run(client, store, staff, password, dry_run=False, reporter=print):
-    """Create missing accounts; return rows describing what happened."""
-    existing = {user['username'].lower() for user in client.users()}
+    """Create missing accounts; report conflicts instead of silently skipping a wrong account."""
+    existing = {user['username'].lower(): user for user in client.users()}
     store_id = store['id']
     results = []
     for row in staff:
-        if row['username'].lower() in existing:
-            results.append({**row, 'result': 'skipped', 'note': '已存在，未改动'})
-            reporter('  已存在 %-14s %s' % (row['username'], row['display_name']))
+        found = existing.get(row['username'].lower())
+        if found is not None:
+            conflicts = []
+            if found.get('role') != row['role']:
+                conflicts.append('岗位为 %s（应为 %s）' % (found.get('role'), row['role']))
+            if found.get('active') is False:
+                conflicts.append('账号已停用')
+            stores = [item.get('id') for item in (found.get('stores') or [])]
+            if stores and store_id not in stores:
+                conflicts.append('未分配到本次门店')
+            if conflicts:
+                results.append({**row, 'result': 'conflict', 'note': '已存在但配置不一致：' + '；'.join(conflicts)})
+                reporter('  不一致 %-14s %s' % (row['username'], '；'.join(conflicts)))
+            else:
+                results.append({**row, 'result': 'skipped', 'note': '已存在且配置一致'})
+                reporter('  已存在 %-14s %s' % (row['username'], row['display_name']))
             continue
         if dry_run:
             results.append({**row, 'result': 'planned', 'note': '试运行未写入'})
@@ -181,8 +217,8 @@ def read_secret(env_name, prompt, confirm=False):
 def build_parser():
     """No --password option on purpose: passwords are never passed on the command line."""
     parser = argparse.ArgumentParser(description='为 XC 试用世界批量创建员工账号（只允许本机独立预览）')
-    parser.add_argument('--base', default=os.environ.get('XC_BASE', DEFAULT_BASE),
-                        help='本机预览地址，默认 %s' % DEFAULT_BASE)
+    parser.add_argument('--base', default=os.environ.get('XC_BASE') or None,
+                        help='本机预览地址；默认读本目录预览记录的端口（没有记录时 %s）' % DEFAULT_BASE)
     parser.add_argument('--store-code', default=None, help='分配门店编码，默认取试用世界设定（XC-CD）')
     parser.add_argument('--admin', default=os.environ.get('XC_ADMIN_USER', 'admin'), help='管理员登录账号')
     parser.add_argument('--dry-run', action='store_true', help='只显示将要创建哪些账号，不写入')
@@ -196,14 +232,17 @@ def main(argv=None):
 
     staff = load_staff()
     wanted_code = args.store_code or staff[0]['store']
-    client = PreviewClient(args.base)
-    state = client.status()
-    print('已连接本机预览（%s，实例 %s）' % (client.base, str(state.get('instance_id'))[:8]))
+    base = args.base or recorded_preview_base()
+    client = PreviewClient(base)
+    state = client.status(repository_id())
+    print('已连接本机预览（%s，实例 %s，源码标识 %s）' % (client.base, str(state.get('instance_id'))[:8],
+                                                state.get('repository_id')))
     client.login(args.admin, read_secret('XC_ADMIN_PASSWORD', '管理员密码（%s）：' % args.admin))
     store, why = resolve_store(client.stores(), wanted_code)
     print('本次分配门店：%s（%s）—— %s' % (store['name'], store.get('code', ''), why))
     password = '' if args.dry_run else read_secret('XC_STAFF_PASSWORD',
-                                                   '员工初始密码（%d 位以上，首次登录必须改）：' % MIN_PASSWORD,
+                                                   '员工初始密码（%d 位以上，首次登录必须改；'
+                                                   '本人改密前不要转告他人）：' % MIN_PASSWORD,
                                                    confirm=True)
     if not args.dry_run and len(password) < MIN_PASSWORD:
         raise PreviewError('员工初始密码至少 %d 位' % MIN_PASSWORD)
@@ -212,13 +251,17 @@ def main(argv=None):
     created = [row for row in results if row['result'] == 'created']
     skipped = [row for row in results if row['result'] == 'skipped']
     failed = [row for row in results if row['result'] == 'failed']
+    conflicted = [row for row in results if row['result'] == 'conflict']
     planned = [row for row in results if row['result'] == 'planned']
-    print('结果：新建 %d，已存在 %d，失败 %d%s' % (len(created), len(skipped), len(failed),
-                                              '，试运行 %d' % len(planned) if planned else ''))
+    print('结果：新建 %d，已存在且一致 %d，配置不一致 %d，失败 %d%s'
+          % (len(created), len(skipped), len(conflicted), len(failed),
+             '，试运行 %d' % len(planned) if planned else ''))
     if created:
         print('下一步：用 xc-sales 等账号首次登录，按提示设置个人密码；初始密码不会保存到任何文件。')
-    if failed:
-        print('失败的行请看上面的中文提示；修正后可以重复运行本脚本，已存在的账号会被跳过。')
+    if conflicted:
+        print('配置不一致的账号没有改动：请先在“员工账号”页面把岗位/门店改对，或换一个登录账号。')
+    if failed or conflicted:
+        print('修正后可以重复运行本脚本，已存在的账号会被跳过。')
         return 3
     return 0
 
