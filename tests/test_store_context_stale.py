@@ -93,3 +93,35 @@ def test_the_aggregate_read_only_rule_is_unchanged(client):
     client.headers['X-Store-ID'] = 'all'
     response = client.post('/api/stores', json={'code': 'CD6', 'name': '合成的第六家门店', 'active': True})
     assert response.status_code == 409
+
+
+def test_a_deactivated_store_outside_the_employees_assignments_is_not_disclosed(client):
+    other = add_store('CD7', '合成的第七家门店')
+    add_staff('stale-inventory', 'inventory', [1])
+    open_store(other, False)
+    with TestClient(app) as staff:
+        login(staff, 'stale-inventory', PASSWORD)
+        staff.headers['X-Store-ID'] = str(other)
+        response = staff.get('/api/flow/tasks')
+        assert response.status_code == 403, response.text
+        assert response.json()['detail'] == '没有该门店的访问权限'
+        assert '停用' not in response.json()['detail'] and '不存在' not in response.json()['detail']
+        # An id that was never a store behaves the same way: no existence probing.
+        staff.headers['X-Store-ID'] = '98765'
+        probe = staff.get('/api/flow/tasks')
+        assert probe.status_code == 403 and probe.json()['detail'] == '没有该门店的访问权限'
+
+
+def test_an_employee_keeps_the_actionable_message_for_their_own_closed_store(client):
+    second = add_store('CD8', '合成的第八家门店')
+    add_staff('stale-reception', 'reception', [second])
+    open_store(second, False)
+    with TestClient(app) as staff:
+        login(staff, 'stale-reception', PASSWORD)
+        staff.headers['X-Store-ID'] = str(second)
+        response = staff.get('/api/flow/tasks')
+        assert response.status_code == 409, response.text
+        assert '当前门店已停用' in response.json()['detail']
+        # Without the store header the session has nothing to work in and says so.
+        staff.headers.pop('X-Store-ID')
+        assert '尚未分配可用门店' in staff.get('/api/flow/tasks').json()['detail']
