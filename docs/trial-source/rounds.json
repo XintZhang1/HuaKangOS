@@ -148,18 +148,130 @@
       "report_check": "本轮没有金额业务，不核对报表数字。核对点是：门店与账号列表和上面填的一致；操作记录条数与实际动作对得上（记录里应能区分“建立、修改、登录、修改密码、重置密码”）。报表金额核对从 R20 财务轮开始。"
     },
     {
-      "id": "R02", "status": "outline", "module": "基础数据模块", "group": "公共基础数据", "slug": "公共基础数据",
+      "id": "R02", "status": "detailed", "module": "基础数据模块", "group": "公共基础数据", "slug": "公共基础数据",
       "title": "备齐公共资料：公共字典、供应商与保险公司",
-      "scenario": "门店开张前把公共资料补齐：维护公共字典的一个分类，登记整车供应商星驰汽贸、物资供应商常青配件和保险公司华安联合财险，后面采购和保险单才有资料可选。",
-      "prerequisites": ["R01 完成，管理员或店长可用。"],
-      "fallback": "缺岗位时用管理员先建，正式使用时再由对应岗位维护。"
+      "scenario": "门店开张前把公共资料补齐：在公共字典里加一条分类，登记两家供应商（整车 星驰汽贸、物资 常青配件）和一家保险公司（华安联合财险），后面采购、保险和理赔才有资料可选。",
+      "prerequisites": ["R01 完成：门店与账号可用，管理员或店长能进“基础数据”。"],
+      "fallback": "岗位不同时先用管理员建；已有同名供应商或保险公司时先搜索再决定，不要重复新建。",
+      "data": [
+        {"label": "字典入口", "value": "公共字典", "note": "分类设置里有七个字典，先选“公共字典”再“进入字典”"},
+        {"label": "公共字典条目", "value": "代步车服务", "note": "说明填“客户代步车安排（试用）”，保持启用"},
+        {"label": "整车供应商", "value": "XC-SUP-CAR / 星驰汽贸", "note": "约定付款天数 0；联系人、税号可留空"},
+        {"label": "物资供应商", "value": "XC-SUP-PART / 常青配件", "note": "约定付款天数 30"},
+        {"label": "保险公司", "value": "XC-INS-01 / 华安联合财险（虚构）", "note": "约定结算天数 15；理赔联系电话 400-000-0001"}
+      ],
+      "steps": [
+        {"no": "R02-01", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-dictionary-settings", "route": "dictionaries", "channel": "search",
+         "entry": "页顶搜索框（Ctrl+K）", "search": "公共字典", "assistant": "",
+         "action": "搜索“公共字典”，从结果进入“维护公共、维修、整车等分类”，在分组里点“进入字典”打开公共字典。",
+         "expect": "打开“分类设置”，七个字典分组各有“进入字典”；公共字典页右侧有“新增条目”。"},
+        {"no": "R02-02", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-dictionary-settings", "route": "dictionaries/public", "channel": "manual",
+         "entry": "分类设置 → 公共字典 → 新增条目", "search": "", "assistant": "",
+         "action": "点“新增条目”：名称“代步车服务”，说明“客户代步车安排（试用）”，保持启用，保存。",
+         "expect": "列表新增该条，显示名称与说明；刷新后仍在。"},
+        {"no": "R02-03", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-suppliers-and-insurers", "route": "masters", "channel": "search",
+         "entry": "页顶搜索框", "search": "新增供应商", "assistant": "",
+         "action": "搜索“新增供应商”，进入“维护供应商和保险公司”，打开“供应商”。",
+         "expect": "打开经营主数据；分类里有“供应商”“保险公司”等类型，右上角有“新增”。"},
+        {"no": "R02-04", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-suppliers-and-insurers", "route": "masters/suppliers", "channel": "manual",
+         "entry": "经营主数据 → 供应商 → 新增", "search": "", "assistant": "",
+         "action": "新增供应商：编码 XC-SUP-CAR、名称 星驰汽贸、约定付款天数 0、启用；保存。再新增 XC-SUP-PART / 常青配件、付款天数 30。",
+         "expect": "供应商列表出现两条，编码与名称正确，付款天数与填写一致。"},
+        {"no": "R02-05", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-suppliers-and-insurers", "route": "masters/insurers", "channel": "manual",
+         "entry": "经营主数据 → 保险公司 → 新增", "search": "", "assistant": "",
+         "action": "新增保险公司：编码 XC-INS-01、名称 华安联合财险（虚构）、约定结算天数 15、理赔联系电话 400-000-0001、启用；保存。",
+         "expect": "保险公司列表出现该单位，结算天数与电话正确。"},
+        {"no": "R02-06", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-suppliers-and-insurers", "route": "masters/suppliers", "channel": "search",
+         "entry": "页顶搜索框（先）→ 经营主数据 → 供应商 → 页内筛选框（后）", "search": "供应商设置", "assistant": "",
+         "action": "先用页顶搜索“供应商设置”进入经营主数据；再在供应商页的筛选框输入“星驰”“常青”看列表是否只筛出对应单位，清空后恢复全部。",
+         "expect": "页顶搜索能进入经营主数据；页内筛选按关键词收窄，清空后两条都在。"},
+        {"no": "R02-07", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-suppliers-and-insurers", "route": "business-assistant", "channel": "assistant",
+         "entry": "左侧“业务助手”", "search": "", "assistant": "帮我整理新增供应商和保险公司要准备哪些资料，先别提交。",
+         "action": "让助手整理资料清单，并指向经营主数据页面。",
+         "expect": "助手给出资料清单与入口，说明由你在页面提交；不代替提交、不索要密码。"}
+      ],
+      "branches": [
+        {"kind": "duplicate", "action": "再用编码 XC-SUP-CAR 建一家供应商。", "expect": "被拒绝或提示编码已存在；不产生第二条同编码资料。"},
+        {"kind": "refusal", "action": "用销售账号（xc-sales）直接打开经营主数据。", "expect": "看不到维护入口或不能新增，提示说明该资料由店长/管理员维护。"},
+        {"kind": "stale", "action": "两个标签页都打开同一供应商的“编辑”，A 改联系人保存，再在 B 直接保存。", "expect": "后保存的一方提示资料已变化，要求刷新后再核对。"},
+        {"kind": "edge", "action": "另建一家临时保险公司 XC-INS-TMP / 试用临时财险（虚构），把它停用，再回到保险相关业务看它是否还能被选中；XC-INS-01 始终保持启用（R10 保险单要用它，别拿它做停用试验）。", "expect": "停用的临时单位不再出现在可选列表，XC-INS-01 仍然可以选中；历史单据保留原依据。"}
+      ],
+      "observations": [
+        "“分类设置”里七个字典，你能一眼看出哪个是你要的吗？“进入字典”这个说法清楚吗？",
+        "新建字典条目时名称重复会被拦吗？说明写长了能不能看全？",
+        "经营主数据把供应商、保险公司放在一起，你找“供应商”要几步？类型切换明显吗？",
+        "必填项（付款天数、结算天数）有没有提前标出来？填 0 天能通过吗？",
+        "保存后有没有告诉你“下一步可以做什么”（去采购、去开保险单）？",
+        "搜索框是搜全部资料还是只搜当前类型？提示说得够不够？"
+      ],
+      "checks": [
+        "公共字典里能看到“代步车服务”，说明与填写一致。",
+        "供应商两家：XC-SUP-CAR 星驰汽贸、XC-SUP-PART 常青配件，付款天数分别为 0 与 30。",
+        "保险公司一家启用：XC-INS-01 华安联合财险（虚构），结算天数 15（临时单位 XC-INS-TMP 为停用试验，保持停用）。",
+        "用销售账号看不到（或不能新增）这些维护入口。",
+        "全过程没有出现真实单位名称、税号或许可证号。"
+      ],
+      "report_check": "本轮没有金额业务，不核对报表数字。核对点是：这三类资料能在后续业务的“选择资料”里被选到（采购在 R16、保险单在 R10 验证）。"
     },
     {
-      "id": "R03", "status": "outline", "module": "基础数据模块", "group": "维修基础数据", "slug": "维修基础数据",
+      "id": "R03", "status": "detailed", "module": "基础数据模块", "group": "维修基础数据", "slug": "维修基础数据",
       "title": "维修字典、车间班组与作业项目",
-      "scenario": "维修要开单前，先维护维修字典，建机电组 XC-TEAM-A 和作业项目（换机油、换刹车片），让接待能直接选到项目和班组。",
-      "prerequisites": ["R02 完成。"],
-      "fallback": "班组或作业项目缺失时按页面提示补一套最小资料即可继续。"
+      "scenario": "维修要开单前，先把维修字典补一条、建机电组 XC-TEAM-A、再建两个作业项目（换机油、换刹车片），让接待开单时能直接选到项目和班组。",
+      "prerequisites": ["R02 完成（分类设置与经营主数据的入口已熟悉）。"],
+      "fallback": "班组负责人必须是本店在岗员工；没有维修岗位账号时先用管理员建，正式使用时再由服务顾问维护。",
+      "data": [
+        {"label": "维修字典条目", "value": "机电工时", "note": "说明填“机电类工时分类（试用）”，保持启用"},
+        {"label": "车间班组", "value": "XC-TEAM-A / 机电组", "note": "班组负责人选谭技师（xc-tech）；还没有该账号时可先留空"},
+        {"label": "作业项目 1", "value": "XC-JOB-01 / 换机油", "note": "计费单位选“按次”；参考收费 150 元"},
+        {"label": "作业项目 2", "value": "XC-JOB-02 / 换刹车片", "note": "按页面填写计费单位、参考工时与质保天数"}
+      ],
+      "steps": [
+        {"no": "R03-01", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-dictionary-settings", "route": "dictionaries/repair", "channel": "search",
+         "entry": "页顶搜索框", "search": "维修字典", "assistant": "",
+         "action": "搜索“维修字典”，从结果进入“维护公共、维修、整车等分类”，在分组里点“维修字典”的“进入字典”打开维修字典页；再点“新增条目”：名称“机电工时”、说明“机电类工时分类（试用）”，启用保存。",
+         "expect": "搜索结果先落在“分类设置”，还要再点一次“进入字典”才到维修字典；新增后维修字典出现该条，且没有串到公共字典。"},
+        {"no": "R03-02", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-workshops-and-jobs", "route": "masters/teams", "channel": "search",
+         "entry": "页顶搜索框", "search": "车间班组", "assistant": "",
+         "action": "搜索“车间班组”，从结果进入“维护供应商和保险公司”（经营主数据），再在类型里选“车间班组”。",
+         "expect": "搜索结果先落在经营主数据首页，还要再选一次“车间班组”类型才到班组列表；列表右上角有“新增”。"},
+        {"no": "R03-03", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-workshops-and-jobs", "route": "masters/teams", "channel": "manual",
+         "entry": "经营主数据 → 车间班组 → 新增", "search": "", "assistant": "",
+         "action": "新增班组：编码 XC-TEAM-A、名称 机电组；班组负责人选谭技师（xc-tech，还没有该账号可先留空），启用保存。",
+         "expect": "班组列表出现 XC-TEAM-A；负责人显示所选员工姓名（或按提示留空）。"},
+        {"no": "R03-04", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-workshops-and-jobs", "route": "masters/work_items", "channel": "search",
+         "entry": "页顶搜索框", "search": "作业项目", "assistant": "",
+         "action": "搜索“作业项目”，从结果进入经营主数据，再在类型里选“作业项目”。",
+         "expect": "搜索结果先落在经营主数据首页，还要再选一次“作业项目”类型才到列表；列表为空或只有既有项目，右上角“新增”。"},
+        {"no": "R03-05", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-workshops-and-jobs", "route": "masters/work_items", "channel": "manual",
+         "entry": "经营主数据 → 作业项目 → 新增", "search": "", "assistant": "",
+         "action": "新增项目 XC-JOB-01 / 换机油：计费单位选“按次”，参考收费 150 元，其余按页面填写；保存。再新增 XC-JOB-02 / 换刹车片。",
+         "expect": "列表出现两条，计费单位与收费按填写显示。"},
+        {"no": "R03-06", "actor": "管理员（admin）", "account": "admin", "workflow": "wf-workshops-and-jobs", "route": "masters/work_items", "channel": "manual",
+         "entry": "作业项目 → 编辑", "search": "", "assistant": "",
+         "action": "把 XC-JOB-02 的参考工时改一次并保存；再把 XC-JOB-01 停用，确认它从开单可选列表里消失；确认后立刻把它重新启用（R14 维修开单要用它）。",
+         "expect": "修改立即生效；刚建的项目还没有业务引用，所以停用会成功——因此停用后一定要启用回来；若项目已被在用的报价或工单引用，则应给出中文说明，历史报价保留原版本。"}
+      ],
+      "branches": [
+        {"kind": "duplicate", "action": "再用编码 XC-JOB-01 建一个作业项目。", "expect": "被拒绝或提示编码已存在。"},
+        {"kind": "refusal", "action": "用库管账号（xc-stock）打开作业项目维护页。", "expect": "看不到或不能新增，提示说明由服务顾问/店长维护。"},
+        {"kind": "stale", "action": "两个标签页同时编辑同一作业项目的收费，先后保存。", "expect": "后保存的一方提示资料已变化，要求刷新后核对。"},
+        {"kind": "edge", "action": "班组负责人留空保存。", "expect": "允许保存（非必填）或明确提示必填，提示文字能看懂。"}
+      ],
+      "observations": [
+        "“车间班组”和“作业项目”两个名字，你能分清哪个是排班用的、哪个是报价用的吗？",
+        "作业项目的“计费单位（按次/按小时）”在页面上解释清楚了吗？",
+        "参考工时、收费、质保天数这些字段，哪些必填、哪些可留空？",
+        "编辑后有没有历史版本提示（为什么旧报价还按老价格）？",
+        "停用被业务引用的项目时，提示有没有告诉你去哪里处理？"
+      ],
+      "checks": [
+        "维修字典里能看到“机电工时”，没有串到公共字典。",
+        "班组 XC-TEAM-A 机电组存在；负责人显示为所选员工（或按提示留空）。",
+        "作业项目 XC-JOB-01 换机油（R03-06 停用试验后已重新启用）、XC-JOB-02 换刹车片存在，计费单位与收费与填写一致。",
+        "非维修岗位看不到（或不能新增）这两个维护入口。",
+        "没有出现真实客户、真实车牌或不存在的员工姓名。"
+      ],
+      "report_check": "本轮没有金额业务，不核对报表数字。核对点是：这两个作业项目在 R14 维修开单时能被选到，班组在派工时可选。"
     },
     {
       "id": "R04", "status": "outline", "module": "基础数据模块", "group": "整车基础数据", "slug": "整车基础数据",
