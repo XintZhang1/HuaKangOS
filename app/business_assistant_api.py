@@ -36,10 +36,14 @@ class Message(Strict):
     request_id:str=Field(min_length=16,max_length=80,pattern=r'^[A-Za-z0-9_-]+$')
     content:str=Field(min_length=1,max_length=service.MAX_MESSAGE)
     thinking:bool=Field(default=False,strict=True)
-class Confirmation(Strict):digest:str=Field(pattern=r'^[a-f0-9]{64}$')
+class Confirmation(Strict):
+    digest:str=Field(pattern=r'^[a-f0-9]{64}$')
+    # 员工在卡片必填项里填的值（键只能是这张卡自己声明的 key）；没填完服务端不放行。
+    answers:dict[str,str]|None=Field(default=None)
 class BatchCard(Strict):
     id:str=Field(min_length=1,max_length=64)
     digest:str=Field(pattern=r'^[a-f0-9]{64}$')
+    answers:dict[str,str]|None=Field(default=None)
 class BatchDecision(Strict):
     # 员工在页面上核对一组卡片后的那一次点击：逐张照办，每张仍是它自己的办理。
     items:list[BatchCard]=Field(min_length=1,max_length=service.BATCH_LIMIT)
@@ -89,12 +93,12 @@ async def stream_message(session_id:str,body:Message,request:Request,db=Depends(
 
 @router.post('/sessions/{session_id}/proposals/{proposal_id}/confirm')
 async def confirm(session_id:str,proposal_id:str,body:Confirmation,request:Request,db=Depends(get_db),user=Depends(get_user)):
-    return await service.confirm_proposal(db,request,user,session_id,proposal_id,body.digest)
+    return await service.confirm_proposal(db,request,user,session_id,proposal_id,body.digest,answers=body.answers)
 
 
 @router.post('/sessions/{session_id}/proposals/{proposal_id}/cancel')
 async def cancel(session_id:str,proposal_id:str,body:Confirmation,request:Request,db=Depends(get_db),user=Depends(get_user)):
-    return await service.confirm_proposal(db,request,user,session_id,proposal_id,body.digest,True)
+    return await service.confirm_proposal(db,request,user,session_id,proposal_id,body.digest,True,body.answers)
 
 
 @router.post('/sessions/{session_id}/proposals/batch')

@@ -17,11 +17,16 @@ CARD_COUNT = 6
 
 
 def card(index):
-    return {'id': 'synthetic-card-%d' % index, 'turn': 'turn-1', 'label': '新增车型 %d' % index,
-            'summary': '新增车型：合成车型 %d（2027，纯电）' % index, 'status': 'pending', 'digest': '%064d' % index,
-            'expires_at': '2099-01-01T00:00:00Z',
-            'display_fields': [{'label': '品牌', 'value': '合成品牌'}, {'label': '车系', 'value': '合成车系 %d' % index},
-                               {'label': '名称', 'value': '合成车型 %d' % index}]}
+    card={'id': 'synthetic-card-%d' % index, 'turn': 'turn-1', 'label': '新增车型 %d' % index,
+          'summary': '新增车型：合成车型 %d（2027，纯电）' % index, 'status': 'pending', 'digest': '%064d' % index,
+          'expires_at': '2099-01-01T00:00:00Z',
+          'display_fields': [{'label': '品牌', 'value': '合成品牌'}, {'label': '车系', 'value': '合成车系 %d' % index},
+                             {'label': '名称', 'value': '合成车型 %d' % index}]}
+    if index == 3:
+        # 需要员工决定的事实：选人用下拉（服务端查到的人选），日期用文本框，都是必填。
+        card['questions'] = [{'key': 'values.advisor', 'label': '分派给谁', 'options': ['张顾问', '李顾问'], 'required': True},
+                             {'key': 'values.delivery_due', 'label': '交车日期', 'options': [], 'required': True}]
+    return card
 
 
 def exercise(browser, base, password, output):
@@ -111,6 +116,28 @@ def exercise(browser, base, password, output):
         expect(page.locator('#business-assistant-cards .ba-proposal')).to_have_count(1)
         steps.append('“展开全部/收起”在整组明细和单张视图之间切换')
 
+        # 3b. 必填项：第 3 张卡要员工选人/填日期，没填完不能确认、也不能翻到下一张。
+        page.locator('[data-ba-action=card-next]').click()
+        page.locator('[data-ba-action=card-next]').click()
+        expect(page.locator('.ba-cardnav-pos')).to_have_text('3 / 6')
+        expect(page.locator('.ba-questions')).to_be_visible()
+        expect(page.locator('[data-baq-key="values.advisor"]')).to_have_count(1)
+        expect(page.locator('#business-assistant-cards')).to_contain_text('分派给谁')
+        expect(page.locator('#business-assistant-cards')).to_contain_text('交车日期')
+        expect(page.locator('[data-ba-action=confirm]')).to_be_disabled()
+        expect(page.locator('[data-ba-action=card-next]')).to_be_disabled()
+        expect(page.locator('#business-assistant-cards')).to_contain_text('填完才能确认和翻到下一张')
+        screenshots.append(h.take_screenshot(page, output, 'assistant-cards-required.png'))
+        page.locator('[data-baq-key="values.advisor"]').select_option('张顾问')
+        expect(page.locator('[data-ba-action=card-next]')).to_be_disabled()
+        page.locator('[data-baq-key="values.delivery_due"]').fill('2026-10-15')
+        expect(page.locator('[data-ba-action=confirm]')).to_be_enabled()
+        expect(page.locator('[data-ba-action=card-next]')).to_be_enabled()
+        steps.append('第 3 张卡把“分派给谁/交车日期”列为必填：没填完确认与翻页都禁用，填完自动放开')
+        page.locator('[data-ba-action=card-prev]').click()
+        page.locator('[data-ba-action=card-prev]').click()
+        expect(page.locator('.ba-cardnav-pos')).to_have_text('1 / 6')
+
         # 4. 一次点击办完整组：弹窗确认 → 一条批量请求 → 每张各自的结果。
         page.locator('[data-ba-action=card-confirm-all]').click()
         expect(page.locator('#modal')).to_contain_text('全部确认前请再核对一次')
@@ -121,6 +148,10 @@ def exercise(browser, base, password, output):
         assert len(batches) == 1 and len(batches[0]['items']) == CARD_COUNT, batches
         assert {item['digest'] for item in batches[0]['items']} == {'%064d' % index for index in range(1, CARD_COUNT + 1)}, \
             '每张卡仍然带着它自己冻结的 digest'
+        filled=next(item for item in batches[0]['items'] if item['id']=='synthetic-card-3')
+        assert filled['answers']=={'values.advisor':'张顾问','values.delivery_due':'2026-10-15'}, filled
+        assert all('answers' not in item for item in batches[0]['items'] if item['id']!='synthetic-card-3'), \
+            '没有必填项的卡片不会被塞答案'
         screenshots.append(h.take_screenshot(page, output, 'assistant-cards-confirmed.png'))
         steps.append('“全部确认”一次点击 → 一条批量请求（每张仍带自己的 digest）→ 6 张全部办理')
 

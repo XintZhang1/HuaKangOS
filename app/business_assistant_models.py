@@ -52,6 +52,9 @@ class AssistantProposal(StoreScoped, Base):
     # 逐步确认（业主 2026-09-25："连续批量确认"）。
     step_order: Mapped[int] = mapped_column(Integer, default=0)
     step_label: Mapped[str] = mapped_column(String(120), default='')
+    # 这张卡需要员工先回答的必填项（分派给谁、选哪台车、日期、金额…）。员工在卡片上填，
+    # 没有填完不能确认（业主 2026-09-25）。
+    questions: Mapped[list | None] = mapped_column(JSON, nullable=True)
     payload: Mapped[dict] = mapped_column(JSON)
     digest: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(20), default='pending')

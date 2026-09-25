@@ -2,7 +2,24 @@
 // The assistant proposes existing business commands. This page never executes
 // model-produced JavaScript, HTML, URLs or arbitrary HTTP requests.
 let businessAssistantState;
-function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null,cards:{},folded:{},panelFolded:false,lastAction:null};}
+function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null,cards:{},folded:{},panelFolded:false,answers:{},lastAction:null};}
+// 卡片必填项：员工在这一张卡上填的值。填完才能确认，也不能翻到下一张（业主 2026-09-25）。
+function businessAssistantAnswers(id){const key=String(id);if(!businessAssistantState.answers[key])businessAssistantState.answers[key]={};return businessAssistantState.answers[key];}
+function businessAssistantCardQuestions(proposal){
+ const questions=Array.isArray(proposal?.questions)?proposal.questions:[];
+ if(!questions.length)return {html:'',missing:[],answers:{}};
+ const answers=businessAssistantAnswers(proposal.id),missing=[];
+ const html=questions.map(question=>{
+  const key=String(question.key||''),value=String(answers[key]??'');
+  const required=question.required!==false;
+  if(required&&!value.trim())missing.push(String(question.label||key));
+  const control=Array.isArray(question.options)&&question.options.length
+   ? `<select data-baq-key="${E(key)}" ${required?'required':''}><option value="">请选择</option>${question.options.map(option=>`<option value="${E(option)}"${value===option?' selected':''}>${E(option)}</option>`).join('')}</select>`
+   : `<input type="text" data-baq-key="${E(key)}" maxlength="200" value="${E(value)}" ${required?'required':''} placeholder="请填写${E(question.label||'')}">`;
+  return `<label class="ba-question"><span>${E(question.label||key)}${required?'<em>必填</em>':''}</span>${control}</label>`;
+ }).join('');
+ return {html:`<div class="ba-questions" data-ba-questions="${E(proposal.id)}">${html}</div>`,missing,answers};
+}
 businessAssistantState=freshBusinessAssistantState();
 function businessAssistantContext(){return `${storeContextVersion}:${state.user?.id||''}:${state.store||''}`;}
 function clearBusinessAssistantSession(){
@@ -141,7 +158,9 @@ function businessAssistantProposal(proposal){
  const expired=proposal.expires_at&&new Date(proposal.expires_at.endsWith('Z')||/[+-]\d\d:\d\d$/.test(proposal.expires_at)?proposal.expires_at:proposal.expires_at+'Z').getTime()<=Date.now();
  const fields=Array.isArray(proposal.display_fields)?proposal.display_fields:businessAssistantFallbackFields(proposal.details?.body||{});
  const links=[...(proposal.links||[]),...(proposal.result?.links||[])],manualRoute=businessAssistantManualRoute(proposal);if(manualRoute)links.push({route:manualRoute,label:proposal.result?'查看单据':'打开原页面'});
- return `<section class="ba-proposal" data-proposal="${E(proposal.id)}"><div class="spread"><h3>${E(proposal.label||'待办理事项')}</h3><span class="pill ${pending?'warning':'info'}">${E(expired&&pending?'已过期':statuses[proposal.status]||'待核对')}</span></div>${proposal.summary?`<p class="ba-text">${E(proposal.summary)}</p>`:''}<dl class="ba-facts"><div><dt>门店</dt><dd>${E(businessAssistantStoreName())}</dd></div><div><dt>办理人</dt><dd>${E(state.user?.display_name||'本人')}</dd></div>${fields.map(field=>`<div><dt>${E(field.label)}</dt><dd>${E(field.value)}</dd></div>`).join('')}</dl>${proposal.result?.message?`<p class="ba-text">${E(proposal.result.message)}</p>`:''}${pending?prerequisiteLine(proposal):''}${businessAssistantLinks(links)}<button type="button" data-baf-action="export-proposal" data-id="${E(proposal.id)}">导出填写内容</button>${pending?`<div class="ba-proposal-actions"><button type="button" class="primary" data-ba-action="confirm" data-id="${E(proposal.id)}" ${disabled||expired?'disabled':''}>确认办理</button><button type="button" data-ba-action="cancel-proposal" data-id="${E(proposal.id)}" ${disabled?'disabled':''}>取消</button></div>`:''}</section>`;
+ const questions=businessAssistantCardQuestions(proposal);
+ const blocked=pending&&questions.missing.length>0;
+ return `<section class="ba-proposal" data-proposal="${E(proposal.id)}"><div class="spread"><h3>${E(proposal.label||'待办理事项')}</h3><span class="pill ${pending?'warning':'info'}">${E(expired&&pending?'已过期':statuses[proposal.status]||'待核对')}</span></div>${proposal.summary?`<p class="ba-text">${E(proposal.summary)}</p>`:''}<dl class="ba-facts"><div><dt>门店</dt><dd>${E(businessAssistantStoreName())}</dd></div><div><dt>办理人</dt><dd>${E(state.user?.display_name||'本人')}</dd></div>${fields.map(field=>`<div><dt>${E(field.label)}</dt><dd>${E(field.value)}</dd></div>`).join('')}</dl>${pending?questions.html:''}${proposal.result?.message?`<p class="ba-text">${E(proposal.result.message)}</p>`:''}${pending?prerequisiteLine(proposal):''}${businessAssistantLinks(links)}<button type="button" data-baf-action="export-proposal" data-id="${E(proposal.id)}">导出填写内容</button>${pending?`<div class="ba-proposal-actions"><button type="button" class="primary" data-ba-action="confirm" data-id="${E(proposal.id)}" ${disabled||expired||blocked?'disabled':''}>确认办理</button><button type="button" data-ba-action="cancel-proposal" data-id="${E(proposal.id)}" ${disabled?'disabled':''}>取消</button></div>${blocked?`<p class="ba-question-hint">先填完必填项（${E(questions.missing.join('、'))}）才能确认，也不能翻到下一张。</p>`:''}`:''}</section>`;
 }
 function businessAssistantTurnKey(proposal){return String(proposal?.turn||'')||('card-'+String(proposal?.id||''));}
 // 一轮对话里可能准备整条前序链（业主 2026-09-25 的“连续批量确认”）：先按步骤分组，再在每一步里分页。
@@ -173,9 +192,13 @@ function businessAssistantPager(group,index){
  const total=group.cards.length,pending=group.cards.filter(card=>card.status==='pending').length;
  const current=group.cards[index],state=String(current?.status||'');
  const busy=businessAssistantState.busy||businessAssistantState.session?.busy||businessAssistantState.needsRefresh;
- const batch=pending>1?`<button type="button" class="primary" data-ba-action="card-confirm-all" data-key="${E(group.key)}" ${busy?'disabled':''}>全部确认（${pending} 张）</button><button type="button" data-ba-action="card-cancel-all" data-key="${E(group.key)}" ${busy?'disabled':''}>全部取消</button>`:'';
+ // 这张卡还有必填项没填：不能确认，也不能翻到下一张（业主 2026-09-25）。
+ const here=businessAssistantCardQuestions(current);
+ const blockedHere=current?.status==='pending'&&here.missing.length>0;
+ const batchQuestions=group.cards.filter(card=>card.status==='pending'&&businessAssistantCardQuestions(card).missing.length>0);
+ const batch=pending>1?`<button type="button" class="primary" data-ba-action="card-confirm-all" data-key="${E(group.key)}" ${busy||batchQuestions.length?'disabled':''}>全部确认（${pending} 张）</button><button type="button" data-ba-action="card-cancel-all" data-key="${E(group.key)}" ${busy?'disabled':''}>全部取消</button>`:'';
  const title=group.step?`<span class="ba-stepname">${E((group.order?group.order+' · ':'')+group.step)}</span>`:'';
- return `<div class="ba-cardnav"><div class="ba-cardnav-count">${title}<strong>${total}</strong> 张${group.step?'':(group.turn?'本轮卡片':'待确认卡片')}${pending?` · 还有 ${pending} 张待确认`:' · 已全部办理'}</div><div class="row"><button type="button" class="ba-cardnav-step" data-ba-action="card-prev" data-key="${E(group.key)}" aria-label="上一张卡片" ${index<=0?'disabled':''}>‹</button><span class="ba-cardnav-pos" aria-live="polite">${index+1} / ${total}</span><button type="button" class="ba-cardnav-step" data-ba-action="card-next" data-key="${E(group.key)}" aria-label="下一张卡片" ${index>=total-1?'disabled':''}>›</button><button type="button" class="ba-cardnav-fold" data-ba-action="card-fold" data-key="${E(group.key)}">${businessAssistantGroupFolded(group.key)?'展开全部':'收起全部'}</button>${batch}</div></div><p class="ba-cardnav-hint">${state==='pending'?'核对无误后点“确认办理”（或整组“全部确认”），系统才会真正新增或修改；每张仍会单独按岗位、门店、版本和业务规则校验。':`这张已${E(({succeeded:'办理成功',failed:'未办成',cancelled:'取消',expired:'过期',uncertain:'待核对',executing:'办理中'})[state]||'结束')}。`}</p>`;
+ return `<div class="ba-cardnav"><div class="ba-cardnav-count">${title}<strong>${total}</strong> 张${group.step?'':(group.turn?'本轮卡片':'待确认卡片')}${pending?` · 还有 ${pending} 张待确认`:' · 已全部办理'}</div><div class="row"><button type="button" class="ba-cardnav-step" data-ba-action="card-prev" data-key="${E(group.key)}" aria-label="上一张卡片" ${index<=0?'disabled':''}>‹</button><span class="ba-cardnav-pos" aria-live="polite">${index+1} / ${total}</span><button type="button" class="ba-cardnav-step" data-ba-action="card-next" data-key="${E(group.key)}" aria-label="下一张卡片" ${index>=total-1||blockedHere?'disabled':''}>›</button><button type="button" class="ba-cardnav-fold" data-ba-action="card-fold" data-key="${E(group.key)}">${businessAssistantGroupFolded(group.key)?'展开全部':'收起全部'}</button>${batch}</div></div><p class="ba-cardnav-hint">${blockedHere?`这张卡有必填项（${E(here.missing.join('、'))}），填完才能确认和翻到下一张。`:(state==='pending'?'核对无误后点“确认办理”（或整组“全部确认”），系统才会真正新增或修改；每张仍会单独按岗位、门店、版本和业务规则校验。':`这张已${E(({succeeded:'办理成功',failed:'未办成',cancelled:'取消',expired:'过期',uncertain:'待核对',executing:'办理中'})[state]||'结束')}。`)}</p>`;
 }
 function businessAssistantCardGroup(group){
  // 有步骤名的组一律带组头（"第 N 步 · 步骤名"），哪怕这一步只有一张卡——否则整条链里
@@ -199,7 +222,8 @@ function businessAssistantCardsPanel(){
  const steps=groups.filter(group=>group.step).length;
  const folded=businessAssistantState.panelFolded===true;
  const busy=businessAssistantState.busy||businessAssistantState.session?.busy||businessAssistantState.needsRefresh;
- const all=pending>1?`<button type="button" class="primary" data-ba-action="cards-confirm-stepwise" ${busy?'disabled':''}>按顺序全部确认（${pending} 张）</button>`:'';
+  const allPending=(businessAssistantState.session?.proposals||[]).filter(card=>card.status==='pending');
+  const all=pending>1?`<button type="button" class="primary" data-ba-action="cards-confirm-stepwise" ${busy||allPending.some(card=>businessAssistantCardQuestions(card).missing.length)?'disabled':''}>按顺序全部确认（${pending} 张）</button>`:'';
  const head=`<div class="ba-cards-head"><div><strong>待确认卡片</strong><span>${proposals.length?`${proposals.length} 张${steps?` · ${steps} 个步骤`:''}${pending?` · 待确认 ${pending}`:''}${working?` · 办理中 ${working}`:''}`:'还没有卡片'}</span></div><div class="row">${all}${proposals.length?`<button type="button" class="ba-cards-fold" data-ba-action="panel-fold" aria-expanded="${!folded}">${folded?'展开':'收起'}</button>`:''}</div></div>`;
  const empty=proposals.length?'':'<p class="ba-cards-empty">助手准备好表单后会放在这里，对话内容不会再被卡片顶走。</p>';
  return `<aside class="ba-cards" id="business-assistant-cards" aria-label="待确认卡片">${head}<div class="ba-cards-list" ${folded?'hidden':''}>${businessAssistantCards()}${empty}</div></aside>`;
@@ -324,7 +348,11 @@ async function businessAssistantChooseSession(id){
 async function businessAssistantDecide(id,confirm){
  const proposal=businessAssistantState.session?.proposals?.find(item=>String(item.id)===String(id));
  if(!proposal||proposal.status!=='pending'||businessAssistantState.needsRefresh)return;
- await businessAssistantTask(async(current,generation)=>{const session=await businessAssistantRequest(`/sessions/${encodeURIComponent(current.session.id)}/proposals/${encodeURIComponent(id)}/${confirm?'confirm':'cancel'}`,{method:'POST',body:{digest:proposal.digest}});if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);current.lastAction='confirm';businessAssistantAdvance(String(proposal.turn||'')||('card-'+String(proposal.id)),session);});
+ if(confirm){const missing=businessAssistantCardQuestions(proposal).missing;
+  if(missing.length){toast('先填完必填项：'+missing.join('、'),true);return;}}
+ const answers=confirm?businessAssistantAnswers(proposal.id):undefined;
+ const payload=confirm&&Array.isArray(proposal.questions)&&proposal.questions.length?{digest:proposal.digest,answers}:{digest:proposal.digest};
+ await businessAssistantTask(async(current,generation)=>{const session=await businessAssistantRequest(`/sessions/${encodeURIComponent(current.session.id)}/proposals/${encodeURIComponent(id)}/${confirm?'confirm':'cancel'}`,{method:'POST',body:payload});if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);current.lastAction='confirm';businessAssistantAdvance(String(proposal.turn||'')||('card-'+String(proposal.id)),session);});
 }
 // 一组卡片里找下一张还没办的（同一轮内顺延，到底了就找这一组里第一张待确认）。
 function businessAssistantAdvance(key,session){
@@ -343,12 +371,20 @@ async function businessAssistantDecideAll(key,confirm){
  await businessAssistantConfirmCards(cards,confirm?{verb:'全部确认',key}:{verb:'全部取消',key});
 }
 // 一次点击办完一组（或按顺序办完所有步骤）：仍是逐张校验、逐张原接口，只把"点很多次"合成一次。
+// 组里还有必填项没填的卡就整组不放行——员工得先在那张卡上填完（业主 2026-09-25）。
 async function businessAssistantConfirmCards(cards,{verb,key}={}){
  if(!cards.length||businessAssistantState.needsRefresh)return;
+ const missing=cards.filter(card=>card.status==='pending'&&businessAssistantCardQuestions(card).missing.length>0);
+ if(missing.length){
+  toast('还有 %d 张卡没填必填项：%s' % ([missing.length,missing[0].summary||missing[0].label||'']),true);
+  const group=businessAssistantCardGroups(businessAssistantState.session?.proposals||[]).find(item=>item.key===key);
+  if(group){businessAssistantState.cards[key]=group.cards.findIndex(card=>card.id===missing[0].id);if(paintBusinessAssistantCards()===false)paintBusinessAssistant();}
+  return;
+ }
  if(cards.length>1&&!await businessAssistantConfirmMany(cards.length,verb))return;
  await businessAssistantTask(async(current,generation)=>{
   const session=await businessAssistantRequest(`/sessions/${encodeURIComponent(current.session.id)}/proposals/batch`,
-   {method:'POST',body:{action:verb==='全部取消'?'cancel':'confirm',items:cards.map(card=>({id:card.id,digest:card.digest}))}});
+   {method:'POST',body:{action:verb==='全部取消'?'cancel':'confirm',items:cards.map(card=>({id:card.id,digest:card.digest,...(Array.isArray(card.questions)&&card.questions.length?{answers:businessAssistantAnswers(card.id)}:{})}))}});
   if(!businessAssistantAlive(current,generation))return;
   const batch=session.batch||{};
   businessAssistantRememberSession(session);
@@ -400,6 +436,17 @@ async function businessAssistantReport(){
   if(current!==businessAssistantState||context!==businessAssistantContext())return;closeModal();current.tab='issues';await render();toast('问题已记录');
  });
 }
+// 卡片必填项：输入即记入本地状态并重画卡片栏（确认/翻页按钮的可用状态跟着变）。
+// 用文档级委托，重画之后不需要重新绑定。
+function businessAssistantQuestionInput(target){
+ if(state.route!=='business-assistant')return;
+ const host=target?.closest?.('[data-ba-questions]'),key=target?.dataset?.baqKey;
+ if(!host||!key)return;
+ businessAssistantAnswers(host.dataset.baQuestions)[key]=target.value;
+ if(paintBusinessAssistantCards()===false)paintBusinessAssistant();
+}
+document.addEventListener('input',event=>businessAssistantQuestionInput(event.target));
+document.addEventListener('change',event=>businessAssistantQuestionInput(event.target));
 document.addEventListener('click',async event=>{
  const element=event.target.closest('[data-ba-action]');if(!element||element.disabled||state.route!=='business-assistant')return;
  const action=element.dataset.baAction,current=businessAssistantState;

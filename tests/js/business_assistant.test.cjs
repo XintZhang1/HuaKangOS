@@ -153,6 +153,42 @@ test('cards live in their own column so the conversation is never pushed off scr
  c.run("businessAssistantState.panelFolded=true;businessAssistantState.session.proposals="+cards(3)+";");
  assert(c.run('businessAssistantCardsPanel()').includes('hidden'),'the panel can be folded away by hand');
 });
+test('a card asks the employee for the facts only they can decide, and blocks until filled',async()=>{
+ const c=sandbox();c.run('toast=()=>{};');
+ const card={id:'q1',turn:'t',status:'pending',label:'分派接待回访',digest:'c'.repeat(64),
+  questions:[{key:'assignee_id',label:'分派给谁',required:true,options:['张顾问','李顾问']},
+             {key:'values.delivery_due',label:'交车日期',required:true},
+             {key:'values.note',label:'备注',required:false}]};
+ c.run("businessAssistantState.session={id:11,messages:[{role:'assistant',content:'这张卡要你选人。'}],proposals:"+JSON.stringify([card])+"};");
+ const html=c.run('businessAssistantCards()');
+ assert(html.includes('分派给谁')&&html.includes('交车日期'));assert(html.includes('<select'));assert(html.includes('张顾问'));
+ assert.match(html,/data-ba-action="confirm"[^>]*disabled/,'必填项没填不能确认');
+ const handler=c.handlers.input;
+ assert.equal(typeof handler,'function','输入要有监听（否则填了也不算）');
+ const missing=c.run('businessAssistantCardQuestions(businessAssistantState.session.proposals[0]).missing');
+ assert.deepEqual(JSON.parse(JSON.stringify(missing)),['分派给谁','交车日期']);
+ c.run("businessAssistantAnswers('q1').assignee_id='张顾问';businessAssistantAnswers('q1')['values.delivery_due']='10 月 15 日';");
+ assert.equal(c.run('businessAssistantCardQuestions(businessAssistantState.session.proposals[0]).missing.length'),0);
+ assert(!/data-ba-action="confirm"[^>]*disabled/.test(c.run('businessAssistantCards()')),'填完就能确认');
+ c.respond=async()=>({ok:true,status:200,json:async()=>({id:11,messages:[],proposals:[{id:'q1',status:'succeeded',questions:[]}]}),headers:{get:()=> 'application/json'}});
+ await c.run('businessAssistantDecide("q1",true)');
+ const posted=JSON.parse(c.calls.at(-1).options.body);
+ assert.deepEqual(posted.answers,{assignee_id:'张顾问','values.delivery_due':'10 月 15 日'},'员工填的值随确认一起提交');
+ c.run("businessAssistantState.session.proposals=[Object.assign({}, "+JSON.stringify(card)+",{status:'pending'})];businessAssistantState.answers={};");
+ await c.run('businessAssistantDecide("q1",true)');
+ assert.equal(c.calls.length,1,'没填完必填项不许发确认请求');
+});
+test('the next-card arrow is blocked while this card still needs an answer',()=>{
+ const c=sandbox();
+ const cards=[{id:'a',turn:'t',status:'pending',label:'第一张',digest:'a'.repeat(64),questions:[{key:'k',label:'分派给谁',required:true}]},
+              {id:'b',turn:'t',status:'pending',label:'第二张',digest:'b'.repeat(64)}];
+ c.run("businessAssistantState.session={id:11,messages:[{role:'assistant',content:'两张卡。'}],proposals:"+JSON.stringify(cards)+"};");
+ const html=c.run('businessAssistantCards()');
+ assert.match(html,/data-ba-action="card-next"[^>]*disabled/,'必填项没填不能翻到下一张');
+ assert(html.includes('填完才能确认和翻到下一张'));
+ c.run("businessAssistantAnswers('a').k='张顾问';");
+ assert(!/data-ba-action="card-next"[^>]*disabled/.test(c.run('businessAssistantCards()')),'填完就能翻');
+});
 test('the pager arrows move between this turn\'s cards without touching the server',()=>{
  const c=sandbox(),handler=c.handlers.click;
  c.run("businessAssistantState.session={id:11,messages:[],proposals:"+cards(3)+"};businessAssistantState.folded={};");

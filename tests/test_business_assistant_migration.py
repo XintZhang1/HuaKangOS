@@ -60,7 +60,7 @@ def test_nonempty_e13r_to_f24s_and_independent_restore_preserve_business_and_ass
             assert upgraded.execute('SELECT COUNT(*) FROM '+quoted(table)).fetchone()[0]==0
             current=[row[1:] for row in actual.execute('PRAGMA table_info('+quoted(table)+')')
                      if not (table=='business_assistant_messages' and row[1]=='thinking')
-                     and not (table=='business_assistant_proposals' and row[1] in {'request_id','step_order','step_label'})]
+                     and not (table=='business_assistant_proposals' and row[1] in {'request_id','step_order','step_label','questions'})]
             assert sorted(row[1:] for row in upgraded.execute('PRAGMA table_info('+quoted(table)+')'))==sorted(current)
             assert sorted(row[2:] for row in upgraded.execute('PRAGMA foreign_key_list('+quoted(table)+')'))==sorted(row[2:] for row in actual.execute('PRAGMA foreign_key_list('+quoted(table)+')'))
             assert indexes(upgraded,table)==indexes(actual,table)

@@ -47,6 +47,26 @@ def describe(session):
     return steps
 
 
+def auto_answers(card):
+    """像员工在卡片上填必填项：有选项就选第一个，日期填一个具体日期，其余填合成说明。"""
+    answers = {}
+    for question in card.get('questions') or []:
+        if question.get('required') is False:
+            continue
+        options = [value for value in (question.get('options') or []) if value]
+        key = question.get('key') or ''
+        label = question.get('label') or ''
+        if options:
+            answers[key] = options[0]
+        elif 'date' in key or '日期' in label:
+            answers[key] = '2026-10-15'
+        elif 'cents' in key or '金额' in label:
+            answers[key] = '16800000'
+        else:
+            answers[key] = '合成填写（试用）'
+    return answers
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, required=True)
@@ -104,10 +124,18 @@ def main():
                 if args.confirm:
                     pending = [card for card in (view.get('proposals') or []) if card.get('status') == 'pending']
                     if pending:
+                        items = []
+                        for card in pending:
+                            item = {'id': card['id'], 'digest': card['digest']}
+                            answers = auto_answers(card)
+                            if answers:
+                                item['answers'] = answers
+                                print('   在卡片上填必填项 %s：%s'
+                                      % (card.get('label') or card.get('summary'),
+                                         json.dumps(answers, ensure_ascii=False)[:160]), flush=True)
+                            items.append(item)
                         posted = client.post('/api/business-assistant/sessions/%s/proposals/batch' % session['id'],
-                                             json={'action': 'confirm',
-                                                   'items': [{'id': card['id'], 'digest': card['digest']} for card in pending]},
-                                             timeout=600)
+                                             json={'action': 'confirm', 'items': items}, timeout=600)
                         assert posted.status_code == 200, posted.text
                         batch = posted.json().get('batch') or {}
                         failed = [item for item in batch.get('items', []) if item.get('status') not in {'succeeded', 'cancelled'}]

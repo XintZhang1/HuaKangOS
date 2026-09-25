@@ -53,13 +53,14 @@ def send(client,sid,thinking=False,key=None):
     return client.post(f'{BASE}/sessions/{sid}/messages/stream',json={'request_id':key or str(uuid4()),'content':'请帮我核对资料','thinking':thinking})
 
 
-def test_provider_default_stays_non_thinking_and_thinking_has_bounded_tokens():
+def test_provider_default_stays_non_thinking_and_sends_no_reply_length_cap():
+    """业主 2026-09-25："为什么要设置回复上限啊，赶紧删掉！"——不再下发 max_tokens。"""
     _,off=service.provider_request(CONFIG,[])
     _,on=service.provider_request(CONFIG,[],thinking=True,stream=True)
-    # 2026-09-25 实测试跑：非思考模式的 2500 token 会把"一轮准备十几张卡"的回复截断
-    # （finish_reason=length，却被报成连接异常）。现在两种模式都按官方上限给足。
-    assert off['thinking']=={'type':'disabled'} and off['max_tokens']==8192 and 'stream' not in off
-    assert on['thinking']=={'type':'enabled'} and on['stream'] is True and on['max_tokens']==8192
+    assert off['thinking']=={'type':'disabled'} and 'stream' not in off
+    assert 'max_tokens' not in off and 'max_completion_tokens' not in off
+    assert on['thinking']=={'type':'enabled'} and on['stream'] is True
+    assert 'max_tokens' not in on and 'max_completion_tokens' not in on
     assert on['reasoning_effort']=='low' and 'temperature' not in on
 
 
