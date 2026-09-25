@@ -360,23 +360,38 @@ def provider_request(config,messages,thinking=False,stream=False):
 
 
 async def model_reply(config,messages,thinking=False):
-    try:
-        endpoint,body=provider_request(config,messages,thinking=thinking)
-        async with httpx.AsyncClient(timeout=config.timeout_seconds,follow_redirects=False,trust_env=False) as client:
-            response=await client.post(endpoint,headers={'Authorization':'Bearer '+config.api_key},json=body)
-        if response.status_code in {401,403}:raise HTTPException(503,'业务助手连接凭据无效，请联系管理员检查')
-        if response.status_code==402:raise HTTPException(503,'业务助手额度不足，请联系管理员补充额度')
-        if response.status_code==429:raise HTTPException(503,'业务助手暂时繁忙，请稍后再试')
-        if response.status_code>=400:raise HTTPException(503,'业务助手暂时无法连接，请稍后再试')
-        if len(response.content)>300000:raise ValueError('response too large')
-        choice=response.json()['choices'][0]
-        if choice.get('finish_reason') not in {None,'stop','tool_calls'}:raise ValueError('incomplete reply')
-        reply=choice['message']
-        if not isinstance(reply,dict):raise ValueError('invalid reply')
-        return reply
-    except httpx.TimeoutException:raise HTTPException(503,'业务助手响应超时，请稍后重试；尚未确认的操作不会执行') from None
-    except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError):
-        raise HTTPException(503,'业务助手连接异常，请稍后再试') from None
+    """一次模型调用。**模型调用是只读的**，所以网络抖动可以重试一次；
+    业务写入永远不自动重试（确认卡由员工点击，失败也不重放）。"""
+    attempt=0
+    while True:
+        attempt+=1
+        try:
+            endpoint,body=provider_request(config,messages,thinking=thinking)
+            async with httpx.AsyncClient(timeout=config.timeout_seconds,follow_redirects=False,trust_env=False) as client:
+                response=await client.post(endpoint,headers={'Authorization':'Bearer '+config.api_key},json=body)
+            if response.status_code in {401,403}:raise HTTPException(503,'业务助手连接凭据无效，请联系管理员检查')
+            if response.status_code==402:raise HTTPException(503,'业务助手额度不足，请联系管理员补充额度')
+            if response.status_code==429:raise HTTPException(503,'业务助手暂时繁忙，请稍后再试')
+            if response.status_code>=500 and attempt==1:
+                await asyncio.sleep(1.0);continue
+            if response.status_code>=400:raise HTTPException(503,'业务助手暂时无法连接，请稍后再试')
+            if len(response.content)>300000:raise ValueError('response too large')
+            choice=response.json()['choices'][0]
+            if choice.get('finish_reason') not in {None,'stop','tool_calls'}:raise ValueError('incomplete reply')
+            reply=choice['message']
+            if not isinstance(reply,dict):raise ValueError('invalid reply')
+            return reply
+        except httpx.TimeoutException:
+            if attempt==1:
+                await asyncio.sleep(1.0);continue
+            raise HTTPException(503,'业务助手响应超时，请稍后重试；尚未确认的操作不会执行') from None
+        except httpx.TransportError:                      # 连接被重置、DNS/代理抖动等
+            if attempt==1:
+                await asyncio.sleep(1.0);continue
+            raise HTTPException(503,'业务助手连接异常，请稍后再试') from None
+        except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError):
+            # 回复格式不对是确定性问题，重试也不会变好：直接报错，不重复消耗额度。
+            raise HTTPException(503,'业务助手连接异常，请稍后再试') from None
 
 
 async def run_tools(db,request,user,thread_id,name,args,config):

@@ -129,6 +129,38 @@ def test_mimo_failure_never_falls_back_or_follows_redirects(monkeypatch,status):
     assert hosts==['token-plan-cn.xiaomimimo.com']
 
 
+def test_a_transient_network_error_is_retried_once(monkeypatch):
+    """2026-09-25 预览实测遇到连接重置：模型调用是只读的，可以重试一次。"""
+    calls=[]
+    def handler(request):
+        calls.append(request.url.host)
+        if len(calls)==1:
+            raise httpx.ConnectError('connection reset',request=request)
+        return httpx.Response(200,json={'choices':[{'message':{'role':'assistant','content':'好的。'},'finish_reason':'stop'}]})
+    real_client=httpx.AsyncClient
+    real_sleep=asyncio.sleep
+    monkeypatch.setattr(service.httpx,'AsyncClient',lambda **kwargs:real_client(transport=httpx.MockTransport(handler),**kwargs))
+    monkeypatch.setattr(service.asyncio,'sleep',lambda seconds:real_sleep(0))
+    config=service.AssistantConfig(True,'tp-fake-provider-key-000000000','deepseek-flash',5,True)
+    result=asyncio.run(service.model_reply(config,[{'role':'user','content':'你好'}]))
+    assert result['content']=='好的。' and len(calls)==2
+    assert set(calls)=={'api.deepseek.com'}
+
+
+def test_a_malformed_reply_is_not_retried(monkeypatch):
+    """回复格式不对是确定性问题：重试不会变好，只会重复消耗额度。"""
+    calls=[]
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(200,json={'unexpected':True})
+    real_client=httpx.AsyncClient
+    monkeypatch.setattr(service.httpx,'AsyncClient',lambda **kwargs:real_client(transport=httpx.MockTransport(handler),**kwargs))
+    config=service.AssistantConfig(True,'tp-fake-provider-key-000000000','deepseek-flash',5,True)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(service.model_reply(config,[{'role':'user','content':'你好'}]))
+    assert error.value.status_code==503 and len(calls)==1
+
+
 def test_private_provider_selection_rejects_arbitrary_endpoints(client,monkeypatch,tmp_path):
     config=tmp_path/'mimo-config.json'
     values={'enabled':True,'synthetic':True,'api_key':'tp-fake-config-key-000000000','provider':'mimo','api_kind':'token_plan'}
