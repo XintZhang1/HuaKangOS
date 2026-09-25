@@ -65,24 +65,13 @@ MANAGEMENT_READERS = {
 # export token in their path; tests/test_business_assistant_scope.py re-scans every GET
 # handler and fails when a new file/CSV route is added without being excluded here.
 DENIED = re.compile(r'/(?:files|download|export|opening|example)(?:/|$)|(?:\.csv|\.docx|\.pdf)$')
-# Owner decision 2026-09-24 (P1): the assistant prepares ordinary business steps for the
-# employee's own role, but never a judgement or money/goods-confirmation step. A denylist
-# cannot cover 42 wildcard `/actions/{action}` routes (business-finance `collect`/`execute`
-# post real cash), so preparation is **fail-closed**: only the reviewed (route, action) pairs
-# below may be prepared, and any other action — including one added to the application later —
-# is refused and stays on the native page. `None` means "whatever the case page itself offers"
-# (the flow-spec catalogue), still filtered by DECISION_TOKENS. Widening this table is a
-# deliberate, reviewable edit; tests/test_business_assistant_scope.py proves the default.
-PREPARABLE_ACTIONS = {
-    '/api/flow/cases/{case_id}/actions/{action}': None,
-    '/api/vehicle-imports/batches/{batch_id}/actions/{action}': frozenset({'trial', 'reassign'}),
-}
-# Belt-and-braces for the routes above: an action whose name carries a judgement or a money/goods
-# confirmation never becomes a confirmation card.
-DECISION_TOKENS = ('approve', 'reject', 'void', 'cancel', 'confirm', 'consent', 'reopen', 'seal',
-                   'review', 'settle', 'credit', 'revise', 'commit', 'refund', 'pay', 'receive',
-                   'invoice', 'quality', 'inspect', 'dispose', 'write_off', 'terminate',
-                   'collect', 'execute', 'receipt')
+# Owner ruling 2026-09-25（覆盖 2026-09-24 的风险分级写法）：助手就以**员工本人身份**调用已评审的
+# 业务接口，能办的就办、该连起来做的就连起来做；**权限由接口判定**，不再由助手的白名单/禁用词
+# 预先代替接口做决定。被接口拒绝时提示"这一步需要更高权限，要不要提交评审申请"。仍然不放开的只有
+# 两类**非业务**面（凭据与部署、原始文件与导出）和三个明确的人工动作位（见 CLASSIFIED_BLOCKED_WRITES）：
+# 这些不是"步骤"，而是安全边界本身。原生接口的岗位、门店、状态、版本、证据与幂等始终是权威。
+COMMITMENT_HINT = ('这一步需要更高的岗位权限。可以读 GET /api/escalations/refusals 找到这条被挡记录，'
+                   '再用 prepare_operation 生成评审申请确认卡，问员工要不要提交；业务规则不允许的事项不能提交评审。')
 # Writes that are deliberately outside the assistant even though they are registered routes:
 # accounts/credentials, store and legal-entity configuration, parameter rules, finding review,
 # daily-report generation and the arbitrary legacy record CRUD.
@@ -102,42 +91,12 @@ CLASSIFIED_BLOCKED_WRITES = frozenset({
 })
 
 
-def is_decision_action(action):
-    key = str(action or '').strip().lower()
-    return any(token in key for token in DECISION_TOKENS)
+def permission_hint(status, detail=''):
+    """接口按岗位拒绝时给出的下一步：提示可以向上级申请评审。"""
+    if status != 403:
+        return ''
+    return COMMITMENT_HINT
 
-
-def flow_action_keys():
-    """The case page's own action catalogue (flow specs), the only dynamic allowlist."""
-    from .flow_specs import SPECS
-    return {action.key for spec in SPECS.values() for action in spec['actions']}
-
-
-def action_is_preparable(path, action):
-    """Reviewed (route, action) pairs only; anything else stays a native-page step."""
-    if path not in PREPARABLE_ACTIONS:
-        return False
-    key = str(action or '').strip().lower()
-    if not key or is_decision_action(key):
-        return False
-    allowed = PREPARABLE_ACTIONS[path]
-    return key in flow_action_keys() if allowed is None else key in allowed
-
-
-def assert_not_decision_action(action):
-    if is_decision_action(action):
-        raise HTTPException(403, '“%s”属于批准、驳回、作废或钱货确认这类判断动作，只能由有权限的岗位'
-                                 '在原业务页面本人办理；我可以说明入口、所需资料和当前进度。'
-                                 '权限不够时请在“评审申请”里向上级提交。' % str(action))
-
-
-def assert_preparable_action(path, action):
-    if action_is_preparable(path, action):
-        return
-    assert_not_decision_action(action)
-    raise HTTPException(403, '“%s”这类动作不能由助手代办，请在原业务页面由本人办理；'
-                             '我可以说明入口、所需资料和当前进度。权限不够时请在“评审申请”里向上级提交。'
-                        % str(action))
 SECRET_KEYS = {'password','password_hash','new_password','current_password','api_key',
                'deepseek_key','token','access_token','refresh_token','authorization',
                'cookie','csrf','csrf_hash','session_id','content','blob','object_key','storage_path'}
@@ -352,8 +311,9 @@ def _parameters(op,path_args,query):
     return result_path,result_query
 
 def validate_operation(operation_id,path_args=None,query=None,body=None):
+    # 2026-09-25 业主裁定：不再用白名单/禁用词替接口做判断——动作名只要在已评审的接口上，
+    # 就按员工本人身份准备；能不能办由原接口的岗位、门店、状态与版本决定，被拒时再走评审申请。
     op=_operation(operation_id);path_args,query=_parameters(op,path_args or {},query or {})
-    if 'action' in path_args:assert_preparable_action(op['path'],path_args['action'])
     value=copy.deepcopy(body)
     if op['method']=='GET':
         if value not in (None,{}):raise HTTPException(422,'查询操作不能提交修改内容')
@@ -397,7 +357,34 @@ def validate_operation(operation_id,path_args=None,query=None,body=None):
         if '/masters/' in op['path'] and kind in CATALOG:operation['label']=('新增' if op['method']=='POST' else '修改')+CATALOG[kind][2]
         elif '/flow/master/' in op['path'] and kind in MASTERS:operation['label']=('新增' if op['method']=='POST' else '修改')+MASTERS[kind]['label']
         elif op['path']=='/api/flow/cases' and value.get('kind') in SPECS:operation['label']='新建'+SPECS[value['kind']]['label']
-    return {'operation':operation,'path_args':path_args,'query':query,'body':value}
+    return {'operation':operation,'path_args':path_args,'query':query,'body':value,
+            'prerequisites':prerequisite_notes(op,path_args,value)}
+
+
+# Owner ruling 2026-09-25（第二条限制）：中间单据不能凭空建。流程里的后一步必须先补齐前序事实，
+# 助手要把"这一步依赖什么"讲清楚并逐项问过员工，而不是替员工假设。
+LINK_FIELD_WORDS = ('customer', 'vehicle', 'member', 'source', 'original', 'related', 'quote',
+                    'lead', 'case', 'intake')
+
+
+def prerequisite_notes(op,path_args,body):
+    """列出这一步依赖的前序事实，供助手逐项向员工确认；不做业务判断。"""
+    notes=[];path=op['path']
+    if not op['write']:return notes
+    if path=='/api/flow/cases' and isinstance(body,dict) and body.get('kind'):
+        from .flow_specs import SPECS
+        spec=SPECS.get(body['kind'])
+        if spec:
+            links=[field for field in spec['fields'] if any(word in field['key'] for word in LINK_FIELD_WORDS)]
+            labels='、'.join(field['label'] for field in links[:4]) or '客户或来源单据'
+            notes.append('新建%s是流程里的中间一步：先确认前序事实（%s）是否已经存在或在下方选定，'
+                         '缺哪一项就先补哪一项，不要凭空新建。' % (spec['label'],labels))
+    elif path.endswith('/actions/{action}'):
+        notes.append('办理「%s」前先读原单当前的可办事项与不可办原因；前置步骤没完成就先补，不要跳过。'
+                     % str(path_args.get('action') or ''))
+    elif op['method']=='POST' and ('/orders' in path or path.endswith('/applications')):
+        notes.append('新建这类单据前先确认它依赖的前序单据（原单、来源单、客户或车辆）已经存在并选到对应记录。')
+    return notes
 
 
 def _field_labels(payload,operation_id=''):
@@ -508,4 +495,8 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
     if response.status_code>=400:
         result['error_category']=('input' if response.status_code==422 else 'permission' if response.status_code in {401,403}
                                   else 'not_found' if response.status_code==404 else 'business_rule' if response.status_code==409 else 'system')
+        # Owner ruling 2026-09-25: the interface decides authority. When it refuses for the
+        # employee's role, tell the model how to offer the escalation instead of stopping there.
+        hint=permission_hint(response.status_code,data if isinstance(data,dict) else {})
+        if hint:result['hint']=hint
     return result
