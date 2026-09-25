@@ -56,7 +56,9 @@ def send(client,sid,thinking=False,key=None):
 def test_provider_default_stays_non_thinking_and_thinking_has_bounded_tokens():
     _,off=service.provider_request(CONFIG,[])
     _,on=service.provider_request(CONFIG,[],thinking=True,stream=True)
-    assert off['thinking']=={'type':'disabled'} and off['max_tokens']==2500 and 'stream' not in off
+    # 2026-09-25 实测试跑：非思考模式的 2500 token 会把"一轮准备十几张卡"的回复截断
+    # （finish_reason=length，却被报成连接异常）。现在两种模式都按官方上限给足。
+    assert off['thinking']=={'type':'disabled'} and off['max_tokens']==8192 and 'stream' not in off
     assert on['thinking']=={'type':'enabled'} and on['stream'] is True and on['max_tokens']==8192
     assert on['reasoning_effort']=='low' and 'temperature' not in on
 

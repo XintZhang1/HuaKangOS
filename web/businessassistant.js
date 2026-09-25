@@ -370,7 +370,8 @@ async function businessAssistantAutoContinue(){
  const working=proposals.filter(card=>['executing','uncertain'].includes(card.status)).length;
  if(pending||working)return;                     // 还有卡要员工核对时，不抢着让模型往下走
  const last=[...(session.messages||[])].reverse().find(message=>message.role==='assistant');
- const asked=!!last&&/(继续|接着|下一步|补齐)/.test(last.content||'');
+ // 模型说"还有下一步"的常见说法都要认（"确认后一并准备""接下来""还需要…"），否则自动续办会漏。
+ const asked=!!last&&/(继续|接着|接下来|下一步|再准备|还需要|确认后|等确认|一并准备|补齐)/.test(last.content||'');
  if(!asked)return;
  toast('已自动让助手接着办下一步。');
  await businessAssistantContinue('继续处理下一步');

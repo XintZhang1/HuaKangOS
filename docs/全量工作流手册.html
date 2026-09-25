@@ -140,6 +140,34 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
 
 /* Business assistant streaming controls. */
 .ba-compose-tools{flex-wrap:wrap}.ba-thinking-toggle{white-space:nowrap}.ba-thinking-toggle[aria-checked=true]{color:#ae1530;border-color:#d86179;background:#fff0f3}.ba-working{white-space:pre-wrap}.ba-transcript[aria-busy=true]{scroll-behavior:auto}
+
+/* 一轮的几十张卡片折叠成一组：一行翻页 + 一张卡，避免把对话铺成几十屏。 */
+/* 卡片与对话平行：对话区只放对话，卡片在自己的栏里滚动。 */
+.ba-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,390px);height:100%;min-height:0}
+.ba-workspace.no-cards{grid-template-columns:minmax(0,1fr)}
+.ba-workspace.no-cards>.ba-cards{display:none}
+.ba-cards{display:flex;flex-direction:column;min-height:0;border-left:1px solid #e8edf3;background:#fbfcfe}
+.ba-cards-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px;border-bottom:1px solid #eef1f6;flex-shrink:0}
+.ba-cards-head strong{display:block;font-size:15px;color:#1f2a3a}
+.ba-cards-head span{display:block;font-size:12px;color:#7b8798;margin-top:3px}
+.ba-cards-fold{font-size:12px;padding:6px 10px}
+.ba-cards-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:16px 16px 4px}
+.ba-cards-empty{font-size:13px;color:#8993a4;padding:10px 4px}
+.ba-busy{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:8px;background:#fff0f3;color:#a91832;font-size:10px;font-style:normal;vertical-align:middle}
+.ba-cardgroup{margin:0 0 18px;border:1px solid #e6eaf1;border-radius:16px;background:#fff;padding:12px 12px 4px}
+.ba-cardgroup.folded>.ba-proposal{margin-bottom:8px}
+.ba-cardnav{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:2px 4px 10px;border-bottom:1px solid #eef1f6;margin-bottom:12px}
+.ba-cardnav-count{font-size:13px;color:#5d6a7d}.ba-cardnav-count strong{font-size:17px;color:#1f2a3a}
+.ba-cardnav .row{gap:6px;align-items:center;flex-wrap:wrap}
+.ba-cardnav-step{min-width:40px;font-size:17px;line-height:1;padding:7px 10px}
+.ba-cardnav-pos{font-size:13px;color:#41506a;min-width:56px;text-align:center;font-variant-numeric:tabular-nums}
+.ba-cardnav-fold,.ba-cardnav-hint{font-size:12px}
+.ba-cardnav-hint{color:#7b8798;margin:0 4px 10px}
+.ba-nextstep{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 clamp(18px,3vw,48px) 12px;padding:12px 16px;border:1px solid #f0d9df;border-radius:14px;background:#fff7f9}
+.ba-nextstep div{display:flex;flex-direction:column;gap:3px;font-size:13px;color:#6b7688}.ba-nextstep strong{font-size:14px;color:#a91832}
+@media(max-width:1240px){.ba-workspace{grid-template-columns:minmax(0,1fr) 320px}.ba-cards-list{padding:14px 12px 4px}}
+@media(max-width:1000px){.ba-workspace{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}.ba-cards{order:-1;border-left:0;border-bottom:1px solid #e8edf3;max-height:42vh}.ba-cards-head{padding:12px 14px}.ba-cards-list{padding:12px 14px 2px}}
+@media(max-width:800px){.ba-cardnav{align-items:flex-start}.ba-cardnav .row{width:100%}.ba-cardnav-count{font-size:12px}.ba-nextstep{margin:0 14px 10px;padding:10px 12px}.ba-nextstep button{width:100%}.ba-cards{max-height:38vh}}
 @media(max-width:800px){.ba-layout{height:calc(100svh - 195px);min-height:560px}.ba-body{min-height:0}.ba-compose-bottom{flex-wrap:wrap}.ba-compose-tools{margin-right:auto}.ba-compose-tools button{font-size:12px;padding:8px 9px}}
 
 /* Employee entry and single-field choices. */
