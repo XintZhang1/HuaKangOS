@@ -299,6 +299,7 @@ SYSTEM_PROMPT='''你是华慷集团 huakangos 的业务助手，用最少、易�
 每次仅处理员工当前目标所属的一个领域，不要预先探索其他业务。为了完成员工这一个目标，可以连续调用多个工具：读原单 → 读该业务的目录或可办事项 → 准备这一步 → 再读一次结果继续准备下一步，把员工这个目标需要的几步一次准备好（例如“客户要提车”可以连着准备尾款、保险、加装、交车资料），不要每一步都停下来重新确认目标。每一步仍各自生成确认卡，由员工逐张核对点击；尚未点击前不得声称已办理。已提供的操作字段可直接使用，不要反复查目录。
 员工问“下一步做什么”，或要看某张单的进度时，先get_case读原单的assistant_guidance与actions：用一两句说清“现在能办什么、还差什么前置条件”，再问是否要准备那张确认卡；不要罗列整条流程，也不要替员工决定必须办哪一步。动作以该原单当前列出的可办事项为准，不要自己拼动作名。任何动作都以员工本人身份准备，能不能办由接口判定：接口因岗位拒绝时，说明这一步需要更高权限并问员工要不要提交评审申请；接口因业务规则拒绝时，说明规则不能绕过，不要改权限、不要绕流程。
 先理解业务目标，再查真实操作和数据。能由系统查到的信息先查，不把查找工作交给员工。缺少确实无法查询的必要事实时再问，一次只问当前步骤必要的几个信息，已经提供的不要重复确认。
+说"系统没有这个入口/我这边没有入口"之前，必须先用 list_operations 的 query 按员工的原话搜一次（如"采购"、"开票"、"调拨"、"账号"、"盘点"、"销量"），搜不到就换一个词或列领域再搜；确实没有才可以说，并同时给出最接近的入口或该找谁。绝不能因为一次没搜到就告诉员工系统不支持这项业务。
 员工说“我有一个接待单”“我的工单”但没给编号时，先find_cases(kind=lead,scope=mine)，不要第一句话就索要编号。本人记录确实没有时再查当前门店可见工单；分页未结束继续查或请员工用姓名缩小范围。只有一个明确匹配且没有更多候选时，可告知客户姓名和单号并继续准备；多个候选给简短姓名/单号列表让员工选，不能擅自挑最新一张。已给编号或姓名直接按它查，不能要求内部数字ID。
 员工明确说“把手机号补上”就使用已选工单的prepare_customer_contact，不再问是否要补客户资料；先get_case看关联客户和真实权限。客户资料类型的准确键为customers，不是customer。422或操作名称/资料类型填错是助手参数错误，按返回提示改正，不能解释为员工没权限。只有真实岗位检查的403才说明不能办理。
 员工被真实岗位检查挡住时，先读GET /api/escalations/refusals 找到那条被挡记录，再用prepare_operation对POST /api/escalations 生成“评审申请”确认卡交给员工确认（refusal_id用记录里的id）；类别是“业务规则不允许”的记录不能提交评审，直接说明规则。评审只把请求交给本店店长或集团管理员，你从不代为批准、也不办理评审申请本身。
@@ -381,8 +382,13 @@ async def run_tools(db,request,user,thread_id,name,args,config):
     if name=='list_operations':
         if not args.get('domain') and not args.get('query') and hasattr(gateway,'DOMAINS'):
             return {'domains':[{'id':key,'label':label} for key,label in gateway.DOMAINS.items()],
-                    'next':'传入 domain 查找该领域可用操作，或传 query 搜索'}
+                    'next':'传入 domain 查找该领域可用操作，或传 query 用员工的说法搜索（采购、开票、调拨、账号、报表）'}
         result=gateway.catalog(domain=args.get('domain',''),query=args.get('query',''),role=getattr(user,'role',''))
+        if not result:
+            # 搜不到不等于系统没有这个功能：把可选领域还给模型，让它换词再搜，而不是回答"没有入口"。
+            return {'items':[],'notice':'没有匹配到操作。换一个员工会用的词再搜一次（例如“开票”“调拨”“账号”“报表”“盘点”），'
+                                        '或直接传 domain；在真正换词搜过之前，不要对员工说“系统没有这个入口”。',
+                    'domains':[{'id':key,'label':label} for key,label in gateway.DOMAINS.items()]}
         if len(result)>60:return {'items':result[:60],'has_more':True,'next':'请指定 domain 或更具体的 query 继续查找'}
         return result
     if name=='inspect_operation':
@@ -512,13 +518,20 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
     await send('status',{'phase':'thinking' if thinking else 'responding','round':1})
     answer=''
     turn_timeout=180 if thinking else 110
+    wrap_up=('请现在收尾：用你已经查到的信息直接用一两句话回答员工，或只问一个必要的确认问题；'
+             '如果确实还缺资料，就说清缺哪一项。不要再调用工具。')
     try:
         async with asyncio.timeout(turn_timeout):
-            call_count=0;recovered_oversized=False
+            call_count=0;recovered_oversized=False;wrapped=False
             for round_index in range(10):
                 # A role change can revoke a session while the previous model/tool
                 # call is in flight. Recheck before sending another context batch.
                 owned_session(db,user,session_id);db.commit()
+                # Long goals (read the order, read the catalogue, prepare several steps) can use
+                # most of the budget. Ask for a conclusion in the last rounds instead of letting
+                # the turn die with "请发送继续" — the employee gets an answer either way.
+                if round_index>=8 and not wrapped:
+                    messages.append({'role':'system','content':wrap_up});wrapped=True
                 if emit:
                     from .business_assistant_stream import model_reply_stream
                     async def round_emit(event,data):await send(event,{**data,'round':round_index+1})

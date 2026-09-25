@@ -206,12 +206,47 @@ def _declared_dispatch(op,path):
             return
     raise HTTPException(422,'此操作当前不可用，请刷新业务目录')
 
+# 员工的说法 → 领域。目的只有一个：让助手先用员工的原话找到入口，而不是因为搜不到就回答
+# "系统没有这个入口"（试用 R01 的 XC-ISSUE-003 与 2026-09-25 口语化探针 P15/P18/P19/P24/P25
+# 都栽在这里）。这只是检索别名，不代表任何权限。
+DOMAIN_ALIASES = {
+    'procurement': ('采购', '买', '下单给供应商', '应付', '进货'),
+    'transfers': ('调拨', '借', '调货', '调过去', '店间物资'),
+    'vehicle-transfers': ('整车调拨', '车调过去', '调车'),
+    'invoices': ('开票', '发票', '红冲', '抬头'),
+    'users': ('账号', '员工账号', '停用账号', '离职', '权限'),
+    'stores': ('门店', '门店设置'),
+    'dashboard': ('销量', '卖得最好', '排行', '看板', '经营'),
+    'reports': ('报表', '汇总', '日报', '统计'),
+    'analytics': ('数据可视化', '图表', '统计'),
+    'warehouse': ('仓库', '库位', '入库', '出库'),
+    'stock-reports': ('库存报表', '进销存'),
+    'inventory-reports': ('整车库存', '在库'),
+    'repair-orders': ('维修', '工单', '开单', '修车'),
+    'service-intake': ('预约', '到店', '洗车', '返修'),
+    'sales-quotes': ('报价', '折扣', '定金', '合同', '订单'),
+    'insurance-orders': ('保险', '续保', '保单'),
+    'addon-orders': ('加装', '精品安装'),
+    'retail': ('精品', '配件销售'),
+    'membership': ('会员卡', '充值', '退卡', '会员'),
+    'aftercare': ('退订', '退车', '退款'),
+    'claims': ('理赔', '索赔', '报销'),
+    'business-finance': ('收款', '付款', '记账', '财务'),
+    'reconciliation': ('对账', '月结', '封账'),
+    'dictionaries': ('字典', '分类设置'),
+    'masters': ('主数据', '供应商', '保险公司', '班组', '作业项目'),
+    'escalations': ('评审', '申请', '上级'),
+    'flow': ('盘点', '领料', '退料', '报损', '借出', '归还', '工单动作'),
+}
+
+
 def catalog(domain='',query='',role=None):
     words=str(query).lower().strip().split()
     items=[]
     for op in _operations().values():
         if domain and domain not in {op['domain'],DOMAINS[op['domain']]}:continue
-        hay=(op['id']+' '+op['label']+' '+op['description']).lower()
+        aliases=' '.join(DOMAIN_ALIASES.get(op['domain'],()))
+        hay=(op['id']+' '+op['label']+' '+op['description']+' '+DOMAINS.get(op['domain'],'')+' '+aliases).lower()
         if words and not all(w in hay for w in words):continue
         row={k:op[k] for k in ('id','label','domain','description','write','idempotent','manual_route')}
         if role:
