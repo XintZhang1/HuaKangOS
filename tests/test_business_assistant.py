@@ -1,6 +1,7 @@
 """Conversation safety: no model execution, durable human confirmation, scoped replay."""
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import timedelta
 import json
 import sys
@@ -323,6 +324,86 @@ def test_the_card_count_told_to_the_model_comes_from_the_database(client,assista
     tally=[m['content'] for m in rounds[1] if m.get('role')=='system' and '实际生成' in str(m.get('content'))]
     assert tally and '实际生成 2 张待确认卡' in tally[-1],rounds[1]
     assert len(result.json()['proposals'])==2
+
+
+def test_prerequisite_facts_reach_both_the_model_and_the_card(client,assistant,monkeypatch):
+    """2026-09-25 Codex 复核 P1：第二条限制要真的生效——前序事实必须回到模型手里，也要随卡给员工看。
+
+    原实现只在 validate_operation 里算出来，prepare_proposal 既没返回给模型也没写进卡，
+    于是"逐项确认前序"只写在提示词里。
+    """
+    fake,_=assistant
+    base=fake.validate_operation
+    notes=['相关业务：客户到店接待','客户：李试用','车辆：待确认']
+    def validate(operation_id,path_args,query,body):
+        return {**base(operation_id,path_args,query,body),'prerequisites':list(notes)}
+    monkeypatch.setattr(fake,'validate_operation',validate)
+    sid=session(client);rounds=[]
+    async def model(config,messages):
+        rounds.append(messages)
+        if len(rounds)==1:
+            return {'content':'','tool_calls':[{'id':'p1','type':'function','function':{
+                'name':'prepare_operation','arguments':json.dumps(
+                    {'operation_id':'create_record','summary':'新增合成资料','body':{'name':'合成资料'}})}}]}
+        return {'content':'办理前请先确认这些前序事实。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    result=message(client,sid);assert result.status_code==200
+    tool=[m for m in rounds[1] if m.get('role')=='tool'][-1]
+    returned=json.loads(tool['content'])
+    assert returned['prerequisites']==notes,returned
+    assert '逐项' in returned['prerequisite_rule']
+    card=[p for p in result.json()['proposals'] if p['status']=='pending'][-1]
+    assert card['result']['prerequisites']==notes,card
+
+
+def test_every_pending_card_stays_visible_past_the_old_eighty_card_window(client,assistant):
+    """2026-09-25 Codex 复核 P1：待确认卡上限放到 200，但会话只回最近 80 条时，81 张以后就确认不了。"""
+    sid=session(client)
+    with SessionLocal() as db:
+        thread=db.scalar(select(AssistantSession).where(AssistantSession.id==sid))
+        for index in range(95):
+            db.add(AssistantProposal(id=str(uuid4()),store_id=thread.store_id,session_id=sid,owner_id=thread.owner_id,
+                owner_role=thread.owner_role,access_version=thread.access_version,operation_id='create_record',
+                label='新增资料',summary='第 %d 张' % index,payload={'body':{'name':'资料%d' % index}},
+                digest=uuid4().hex*2,expires_at=utcnow()+timedelta(minutes=30)))
+        db.commit()
+    view=client.get(f'{BASE}/sessions/{sid}').json()
+    pending=[p for p in view['proposals'] if p['status']=='pending']
+    assert len(pending)==95
+    assert pending[0]['summary']=='第 0 张','the oldest pending card must not fall out of the window'
+
+
+def test_a_refused_write_keeps_the_escalation_offer_on_the_card(client,assistant,monkeypatch):
+    """2026-09-25 Codex 复核 P1：写操作被 403 挡下时，评审提示原来在确认结果里被丢掉了。"""
+    fake,_=assistant;sid=session(client)
+    hint='这一步需要更高的岗位权限。可以读 GET /api/escalations/refusals 找到这条被挡记录，再用 prepare_operation 生成评审申请确认卡。'
+    async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
+        return {'status':403,'data':{'detail':'当前岗位不能新增资料'},'route':'masters','hint':hint}
+    monkeypatch.setattr(fake,'invoke',invoke)
+    draft=make_proposal(client,monkeypatch,sid)
+    response=confirm(client,sid,draft);assert response.status_code==200,response.text
+    card=next(p for p in response.json()['proposals'] if p['id']==draft['id'])
+    assert card['status']=='failed'
+    assert card['result']['hint']==hint
+    assert '更高的岗位权限' in card['result']['message'] and '评审申请卡' in card['result']['message']
+
+
+def test_the_session_lease_covers_the_longest_allowed_turn(client,assistant,monkeypatch):
+    """2026-09-25 Codex 复核 P2：单轮上限 600 秒，租约却写死 4 分钟，长任务会被当成已中断。"""
+    config=service.AssistantConfig(True,'test-secret-not-real','deepseek-flash',5,True)
+    monkeypatch.setattr(service,'load_config',lambda:config)
+    assert service.busy_lease_seconds(config)>=config.turn_timeout_seconds+30
+    short=replace(config,turn_timeout_seconds=30)
+    assert service.busy_lease_seconds(short)==90
+    sid=session(client);left=[]
+    async def model(inner,messages):
+        with SessionLocal() as db:
+            thread=db.scalar(select(AssistantSession).where(AssistantSession.id==sid))
+            left.append((thread.busy_until-utcnow()).total_seconds())
+        return {'content':'好'}
+    monkeypatch.setattr(service,'model_reply',model)
+    assert message(client,sid).status_code==200
+    assert left and left[0]>=config.turn_timeout_seconds,left
 
 
 @pytest.mark.parametrize('operation',['create_record','create_unkeyed'])

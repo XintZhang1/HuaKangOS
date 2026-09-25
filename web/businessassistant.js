@@ -129,13 +129,19 @@ function businessAssistantFallbackFields(value,prefix='',depth=0){
   return [{label,value:businessAssistantValue(key,item)}];
  });
 }
+function prerequisiteLine(proposal){
+ // 中间单据不能凭空建：这一步依赖的前序事实随卡显示，员工确认前先看到要补哪一项。
+ const notes=proposal.result?.prerequisites;
+ if(!Array.isArray(notes)||!notes.length)return '';
+ return `<p class="ba-text">办理前请先确认：${E(notes.join('；'))}</p>`;
+}
 function businessAssistantProposal(proposal){
  const statuses={pending:'待确认',confirmed:'已完成',executed:'已完成',completed:'已完成',succeeded:'已完成',executing:'办理中',uncertain:'待核对结果',cancelled:'已取消',expired:'已过期',failed:'未完成',rejected:'未执行'};
  const pending=proposal.status==='pending',disabled=businessAssistantState.busy||businessAssistantState.session?.busy||businessAssistantState.needsRefresh;
  const expired=proposal.expires_at&&new Date(proposal.expires_at.endsWith('Z')||/[+-]\d\d:\d\d$/.test(proposal.expires_at)?proposal.expires_at:proposal.expires_at+'Z').getTime()<=Date.now();
  const fields=Array.isArray(proposal.display_fields)?proposal.display_fields:businessAssistantFallbackFields(proposal.details?.body||{});
  const links=[...(proposal.links||[]),...(proposal.result?.links||[])],manualRoute=businessAssistantManualRoute(proposal);if(manualRoute)links.push({route:manualRoute,label:proposal.result?'查看单据':'打开原页面'});
- return `<section class="ba-proposal" data-proposal="${E(proposal.id)}"><div class="spread"><h3>${E(proposal.label||'待办理事项')}</h3><span class="pill ${pending?'warning':'info'}">${E(expired&&pending?'已过期':statuses[proposal.status]||'待核对')}</span></div>${proposal.summary?`<p class="ba-text">${E(proposal.summary)}</p>`:''}<dl class="ba-facts"><div><dt>门店</dt><dd>${E(businessAssistantStoreName())}</dd></div><div><dt>办理人</dt><dd>${E(state.user?.display_name||'本人')}</dd></div>${fields.map(field=>`<div><dt>${E(field.label)}</dt><dd>${E(field.value)}</dd></div>`).join('')}</dl>${proposal.result?.message?`<p class="ba-text">${E(proposal.result.message)}</p>`:''}${businessAssistantLinks(links)}<button type="button" data-baf-action="export-proposal" data-id="${E(proposal.id)}">导出填写内容</button>${pending?`<div class="ba-proposal-actions"><button type="button" class="primary" data-ba-action="confirm" data-id="${E(proposal.id)}" ${disabled||expired?'disabled':''}>确认办理</button><button type="button" data-ba-action="cancel-proposal" data-id="${E(proposal.id)}" ${disabled?'disabled':''}>取消</button></div>`:''}</section>`;
+ return `<section class="ba-proposal" data-proposal="${E(proposal.id)}"><div class="spread"><h3>${E(proposal.label||'待办理事项')}</h3><span class="pill ${pending?'warning':'info'}">${E(expired&&pending?'已过期':statuses[proposal.status]||'待核对')}</span></div>${proposal.summary?`<p class="ba-text">${E(proposal.summary)}</p>`:''}<dl class="ba-facts"><div><dt>门店</dt><dd>${E(businessAssistantStoreName())}</dd></div><div><dt>办理人</dt><dd>${E(state.user?.display_name||'本人')}</dd></div>${fields.map(field=>`<div><dt>${E(field.label)}</dt><dd>${E(field.value)}</dd></div>`).join('')}</dl>${proposal.result?.message?`<p class="ba-text">${E(proposal.result.message)}</p>`:''}${pending?prerequisiteLine(proposal):''}${businessAssistantLinks(links)}<button type="button" data-baf-action="export-proposal" data-id="${E(proposal.id)}">导出填写内容</button>${pending?`<div class="ba-proposal-actions"><button type="button" class="primary" data-ba-action="confirm" data-id="${E(proposal.id)}" ${disabled||expired?'disabled':''}>确认办理</button><button type="button" data-ba-action="cancel-proposal" data-id="${E(proposal.id)}" ${disabled?'disabled':''}>取消</button></div>`:''}</section>`;
 }
 function businessAssistantMessages(){
  const session=businessAssistantState.session,stream=businessAssistantState.stream;

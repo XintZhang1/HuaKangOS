@@ -31,7 +31,11 @@ MAX_PENDING_PROPOSALS = 200
 # 模型一轮里最多可以"提出"多少个工具调用。超出部分仍按"未执行"回给它，只有明显异常（比如一次 200+）
 # 才当无效回复处理——整表导入一轮提几十个准备调用是正常且期望的行为。
 HARD_TOOLS = 200
+# session_view 里"已办完的卡"保留多少条：待确认卡不受这个数影响（见 session_view）。
+SETTLED_PROPOSAL_WINDOW = 40
 PROPOSAL_MINUTES = 30
+# 员工在确认卡上看到的"被岗位挡下"提示（模型拿到的是 gateway.COMMITMENT_HINT，措辞是给模型看的）。
+WRITE_REFUSAL_HINT = '这一步需要更高的岗位权限；可以让助手按这条被挡记录准备一张评审申请卡，提交给店长评审'
 ISSUE_CATEGORIES = {'input','rule','system','model','unsupported'}
 PRIVATE_KEYS = {'password','password_hash','api_key','secret','token','authorization','cookie','csrf','content_base64','blob','file_content','raw_content'}
 
@@ -208,7 +212,15 @@ def proposal_view(row):
 def session_view(db,user,session_id):
     row=owned_session(db,user,session_id)
     messages=list(db.scalars(select(AssistantMessage).where(AssistantMessage.session_id==row.id).order_by(AssistantMessage.id.desc()).limit(120)))[::-1]
-    proposals=list(db.scalars(select(AssistantProposal).where(AssistantProposal.session_id==row.id,AssistantProposal.owner_id==user.id).order_by(AssistantProposal.created_at.desc()).limit(80)))[::-1]
+    # 2026-09-25 Codex 复核 P1：待确认卡上限已经放到 MAX_PENDING_PROPOSALS，但这里只回最近 80 条，
+    # 81 张以后的卡就再也拿不到 id/digest，员工既确认不了也取消不了。所以窗口改成
+    # "全部待确认（按上限+余量）+ 最近已办若干"，保证每一张能点的卡都在返回里。
+    scope=(AssistantProposal.session_id==row.id,AssistantProposal.owner_id==user.id)
+    open_cards=list(db.scalars(select(AssistantProposal).where(*scope,AssistantProposal.status.in_({'pending','executing','uncertain'}))
+                               .order_by(AssistantProposal.created_at.desc()).limit(MAX_PENDING_PROPOSALS+20)))
+    settled=list(db.scalars(select(AssistantProposal).where(*scope,AssistantProposal.status.notin_({'pending','executing','uncertain'}))
+                            .order_by(AssistantProposal.created_at.desc()).limit(SETTLED_PROPOSAL_WINDOW)))
+    proposals=sorted(open_cards+settled,key=lambda item:(item.created_at,item.id))
     last=next((m for m in reversed(messages) if m.role=='user'),None)
     last_request=None
     if last:
@@ -261,6 +273,16 @@ def prepare_proposal(db,user,session_id,args):
     payload={key:normalized.get(key,{}) for key in ('path_args','query','body')}
     if len(json.dumps(payload,ensure_ascii=False))>24000:raise HTTPException(422,'本次内容过多，请拆成几步办理')
     if scrub(payload)!=payload:raise HTTPException(422,'操作内容含密码、密钥或过长字段，请回到原页面处理')
+    # 业主 2026-09-25 第二条限制：中间单据不能凭空建。前序事实既要真的回到模型手里（否则"逐项确认"
+    # 只是写在提示词里），也要随卡给员工看，所以同时放进工具结果和这张卡的 result 里。
+    notes=[safe_text(note,300) for note in (normalized.get('prerequisites') or []) if note]
+    def prepared(row):
+        view=proposal_view(row)
+        if notes:
+            view['prerequisites']=notes
+            view['prerequisite_rule']=('逐项向员工确认这些前序事实已经完成或已选定对应记录，缺哪一项先补哪一项；'
+                                       '不要替员工新建中间单据，也不要声称已经补过。')
+        return view
     active=list(db.scalars(select(AssistantProposal).where(AssistantProposal.session_id==thread.id,
         AssistantProposal.owner_id==user.id,AssistantProposal.status.in_({'pending','executing','uncertain'}),
         or_(AssistantProposal.status!='pending',AssistantProposal.expires_at>utcnow()))))
@@ -271,10 +293,10 @@ def prepare_proposal(db,user,session_id,args):
         if old.operation_id==operation_id and old.owner_role==user.role and old.access_version==user.access_version and intent(old.payload)==intent(payload):
             if old.status in {'executing','uncertain'}:
                 raise HTTPException(409,'这项操作正在办理或结果待核对，请先到原页面核对记录，不能重复提交')
-            return proposal_view(old)
+            return prepared(old)
     # 2026-09-25 业主裁定"别按行数卡住"：整表导入（67 行）一轮要准备 60+ 张卡，原来的 20 张上限
     # 会被当成"系统拒绝"打断导入。默认放宽到 MAX_PENDING_PROPOSALS，仍保留一个明确上限，
-    # 避免一次对话堆出无上限的待确认写入。
+    # 避免一次对话堆出无上限的待确认写入。session_view 会保证这些待确认卡都看得到（见那里的窗口）。
     if sum(row.status=='pending' for row in active)>=MAX_PENDING_PROPOSALS:
         raise HTTPException(409,'待确认操作较多（已达 %d 张），请先确认或取消现有操作' % MAX_PENDING_PROPOSALS)
     row=AssistantProposal(id=str(uuid4()),store_id=thread.store_id,session_id=thread.id,owner_id=user.id,
@@ -282,8 +304,9 @@ def prepare_proposal(db,user,session_id,args):
         label=safe_text(operation.get('label',operation_id),160),summary=safe_text(args.get('summary') or operation.get('label',operation_id),600),
         payload=payload,digest=proposal_digest(user,thread.store_id,operation_id,payload),
         idempotent=bool(operation.get('idempotent',False)),expires_at=utcnow()+timedelta(minutes=PROPOSAL_MINUTES))
+    if notes:row.result={'prerequisites':notes}
     db.add(row);commit(db)
-    return proposal_view(row)
+    return prepared(row)
 
 
 def tool(name,description,properties,required=()):
@@ -500,6 +523,12 @@ def proposals_since(db, session_id, since):
                             AssistantProposal.created_at >= since)) or 0
 
 
+def busy_lease_seconds(config):
+    """会话租约要盖住整轮上限，否则长任务跑到一半就被当成"已中断"。"""
+    turn=max(30,min(600,int(getattr(config,'turn_timeout_seconds',600) or 600)))
+    return turn+60
+
+
 def progress_message(db,user,session_id):
     thread=owned_session(db,user,session_id)
     pending=db.scalar(select(AssistantProposal.id).where(AssistantProposal.session_id==thread.id,
@@ -547,7 +576,10 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
         if existing.content!=content or existing.thinking is not thinking:raise HTTPException(409,'这次发送编号已被使用，请保持原消息和思考设置，或重新发送')
         return session_view(db,user,session_id)
     if thread.busy_token and thread.busy_until and thread.busy_until>utcnow():raise HTTPException(409,'上一条消息还在处理，请稍候')
-    thread.busy_token=request_id;thread.busy_until=utcnow()+timedelta(minutes=4);thread.updated_at=utcnow()
+    # 2026-09-25 Codex 复核 P2：单轮上限已经放到 600 秒，租约却还写死 4 分钟——整表导入跑过 4 分钟后
+    # 会话会被当成"已中断"并接受第二条消息，两条链会交错写提案。租约按本轮上限来，并在每轮续租。
+    thread.busy_token=request_id
+    thread.busy_until=utcnow()+timedelta(seconds=busy_lease_seconds(config));thread.updated_at=utcnow()
     if thread.title=='新对话':thread.title=content[:36]
     db.add(AssistantMessage(store_id=thread.store_id,session_id=thread.id,request_id=request_id,role='user',content=content,thinking=thinking));commit(db)
     turn_state.update(claimed=True,owner_id=user.id,store_id=thread.store_id)
@@ -592,7 +624,11 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
             for round_index in range(max_rounds):
                 # A role change can revoke a session while the previous model/tool
                 # call is in flight. Recheck before sending another context batch.
-                owned_session(db,user,session_id);db.commit()
+                live=owned_session(db,user,session_id)
+                if live.busy_token==request_id:
+                    # 每轮续租：整表导入一轮能跑几分钟，租约必须跟着走。
+                    live.busy_until=utcnow()+timedelta(seconds=busy_lease_seconds(config))
+                db.commit()
                 # Long goals (read the order, read the catalogue, prepare several steps) can use
                 # most of the budget. Ask for a conclusion in the last rounds instead of letting
                 # the turn die with "请发送继续" — the employee gets an answer either way.
@@ -725,11 +761,17 @@ async def confirm_proposal(db,request,user,session_id,proposal_id,digest,cancel=
         state='succeeded' if 200<=code<300 else 'uncertain' if code>=500 else 'failed'
         clean=scrub(result.get('data'))
         result_route=result.get('route','')
+        # 2026-09-25 Codex 复核 P1：写操作走的是"员工点确认 → 原接口"，那条 403 的评审提示原来只加在
+        # 读路径上，确认结果里被丢掉了。现在把提示一起存进这张卡，并在员工看得到的文字里补一句人话。
+        hint=safe_text(result.get('hint'),600) if isinstance(result,dict) else ''
         message='已办理' if state=='succeeded' else safe_text(clean.get('detail') if isinstance(clean,dict) else clean,1000) or '操作未完成，请查看原业务记录'
+        if hint and code==403:message=message+'（'+WRITE_REFUSAL_HINT+'）'
     except Exception:
-        code=503;state='uncertain';clean=None;result_route='';message='未收到办理结果，请先到原页面核对记录，避免重复办理'
+        code=503;state='uncertain';clean=None;result_route='';hint='';message='未收到办理结果，请先到原页面核对记录，避免重复办理'
     row=db.scalar(select(AssistantProposal).where(AssistantProposal.id==proposal_key,AssistantProposal.owner_id==user.id,AssistantProposal.store_id==single_store(db)))
-    row.status=state;row.finished_at=utcnow();row.result={'status':code,'message':message,'data':clean,'route':result_route}
+    row.status=state;row.finished_at=utcnow()
+    row.result={'status':code,'message':message,'data':clean,'route':result_route}
+    if hint:row.result['hint']=hint
     commit(db)
     if state!='succeeded':
         try:synthetic=load_config().synthetic
