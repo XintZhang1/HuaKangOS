@@ -1,11 +1,12 @@
 """Boot a throwaway instance with the owner's private assistant config and run the prompt library.
 
-python tests/assistant_probe_instance.py --output OUTSIDE_THE_REPOSITORY [--only P01,P07]
+python tests/assistant_probe_instance.py --output OUTSIDE_THE_REPOSITORY [--only P01,P07] [--confirm]
 
 The instance uses its own temporary SQLite database and port; the owner's preview data, accounts
 and passwords are never touched. The assistant configuration is the private file the running
 preview already uses (never read, copied or printed here). Accounts are created with passwords
-this script generates, and nothing is ever confirmed — only chat messages are sent.
+this script generates. Without --confirm only chat messages are sent; with --confirm the prepared
+cards are clicked as well, which is fine here because the whole instance is a throwaway trial.
 """
 import argparse
 import json
@@ -31,11 +32,11 @@ ACCOUNTS = [('probe-sales', '试用销售', 'sales'), ('probe-service', '试用�
             ('probe-stock', '试用库管', 'inventory'), ('probe-finance', '试用财务', 'finance'),
             ('probe-manager', '试用店长', 'manager')]
 ROLE_PROMPTS = {'probe-sales': ('P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09',
-                                'P14', 'P24', 'P26', 'P27'),
-                'probe-service': ('P10', 'P11', 'P12', 'P13', 'P27'),
+                                'P14', 'P24', 'P26', 'P27', 'C01'),
+                'probe-service': ('P10', 'P11', 'P12', 'P13', 'P27', 'C03'),
                 'probe-stock': ('P15', 'P16', 'P17', 'P18'),
                 'probe-finance': ('P19', 'P20', 'P21', 'P22'),
-                'probe-manager': ('P23', 'P24', 'P25', 'P27')}
+                'probe-manager': ('P23', 'P24', 'P25', 'P27', 'C02')}
 
 
 def environment(work):
@@ -149,7 +150,7 @@ def seed(base, report):
         report.append(('seeded repair', repair.status_code, repair.text[:160]))
 
 
-def run_prompts(base, output, only):
+def run_prompts(base, output, only, confirm=False):
     wanted = {item.strip().upper() for item in only.split(',') if item.strip()}
     results = []
     for username, _, _ in ACCOUNTS:
@@ -162,7 +163,7 @@ def run_prompts(base, output, only):
             login(client, username, FINAL_PASSWORD)
             client.headers['X-Store-ID'] = '1'
             for index, group, prompt in mine:
-                record = ask(client, index, prompt)
+                record = ask(client, index, prompt, confirm=confirm)
                 record.update({'group': group, 'account': username})
                 results.append(record)
                 print('%s %s %s -> %s' % (username, index, prompt,
@@ -180,6 +181,9 @@ def run_prompts(base, output, only):
         if record.get('proposals'):
             lines += ['**确认卡**', ''] + ['- %s（%s）' % (card.get('summary'), card.get('operation'))
                                           for card in record['proposals']] + ['']
+        for card in record.get('confirmed') or []:
+            lines += ['**已点确认**：%s → %s（%s）%s' % (card.get('summary'), card.get('proposal_status'),
+                      card.get('status'), (' · ' + card.get('result', '')) if card.get('result') else ''), '']
     (output / 'results.md').write_text('\n'.join(lines), encoding='utf-8')
     return results
 
@@ -188,6 +192,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--only', default='')
+    parser.add_argument('--confirm', action='store_true', help='点确认卡（只用于一次性测试库）')
     parser.add_argument('--keep-server', action='store_true')
     args = parser.parse_args()
     if args.output.resolve() == ROOT or ROOT in args.output.resolve().parents:
@@ -208,7 +213,7 @@ def main():
         seed(base, report)
         for row in report:
             print('seed:', row, flush=True)
-        results = run_prompts(base, args.output, args.only)
+        results = run_prompts(base, args.output, args.only, confirm=args.confirm)
         (args.output / 'seed.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
         print('prompts run:', len(results), '->', args.output, flush=True)
     finally:

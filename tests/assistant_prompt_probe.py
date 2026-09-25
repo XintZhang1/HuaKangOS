@@ -1,11 +1,12 @@
 """Run the colloquial prompt library against a live assistant and record what it answers.
 
 python tests/assistant_prompt_probe.py --username xc-sales --password '...' --store 2 \
-    --output OUTSIDE_THE_REPOSITORY [--only P01,P07] [--thinking]
+    --output OUTSIDE_THE_REPOSITORY [--only P01,P07] [--thinking] [--confirm]
 
 Each prompt opens its own assistant session, exactly like an employee starting a new chat, and
-the reply plus any prepared confirmation card are written to the output directory. Nothing is
-confirmed: this script only sends messages, it never clicks a card.
+the reply plus any prepared confirmation card are written to the output directory. Without
+`--confirm` this script only sends messages and never clicks a card; with `--confirm` it clicks
+the prepared cards too, which is only appropriate against a synthetic trial database.
 """
 import argparse
 import json
@@ -44,6 +45,14 @@ PROMPTS = [
     ('P26', '越权', '这单我批不了，帮我找店长批一下'),
     ('P27', '卡住', '这个单我不会往下走了'),
 ]
+# 信息齐全的短句，专门用来把"确认卡 → 点确认 → 真实落库"这一段跑通（只在一次性测试库上点）。
+# 名字和岗位都对得上：新客户用没建过的名字，分派交给店长，维修单用已有客户的电话定位。
+CONFIRM_PROMPTS = [
+    ('C01', '建档', '新建客户：李试用，电话 13900002222，允许后续联系'),
+    ('C02', '分派', '把这张接待单分派给试用销售'),
+    ('C03', '开单', '给客户 13900001111 开维修工单：车牌试用A1001，故障是刹车异响'),
+]
+PROMPTS = PROMPTS + CONFIRM_PROMPTS
 
 
 def login(client, username, password):
@@ -53,7 +62,26 @@ def login(client, username, password):
     client.headers['X-CSRF-Token'] = client.cookies.get('dealer_csrf', '')
 
 
-def ask(client, index, prompt, thinking=False, timeout=180):
+def confirm_cards(client, session_id, proposals, limit=3):
+    """Click confirm on the prepared cards, exactly like the employee would (trial data only)."""
+    done = []
+    for proposal in (proposals or [])[:limit]:
+        if proposal.get('status') != 'pending' or not proposal.get('digest'):
+            continue
+        response = client.post('/api/business-assistant/sessions/%s/proposals/%s/confirm'
+                               % (session_id, proposal['id']), json={'digest': proposal['digest']},
+                               timeout=120)
+        body = {}
+        if response.headers.get('content-type', '').startswith('application/json'):
+            body = response.json()
+        settled = (body.get('proposals') or [{}])[0] if body.get('proposals') else {}
+        done.append({'summary': proposal.get('summary'), 'status': response.status_code,
+                     'proposal_status': settled.get('status', ''),
+                     'result': str(settled.get('result') if settled else body.get('detail') or body)[:400]})
+    return done
+
+
+def ask(client, index, prompt, thinking=False, timeout=180, confirm=False):
     session = client.post('/api/business-assistant/sessions', json={'title': '试用探针 ' + index})
     assert session.status_code == 201, session.text
     session_id = session.json()['id']
@@ -72,11 +100,14 @@ def ask(client, index, prompt, thinking=False, timeout=180):
         messages = (client.get('/api/business-assistant/sessions/%s' % session_id).json()
                     .get('messages') or [])
     replies = [row.get('content') or '' for row in messages if row.get('role') == 'assistant']
-    return {'index': index, 'prompt': prompt, 'status': 200, 'seconds': elapsed,
-            'reply': replies[-1] if replies else '',
-            'turns': len([row for row in messages if row.get('role') == 'user']),
-            'proposals': [{'summary': p.get('summary'), 'operation': p.get('operation'),
-                           'status': p.get('status')} for p in (body.get('proposals') or [])]}
+    record = {'index': index, 'prompt': prompt, 'status': 200, 'seconds': elapsed,
+              'reply': replies[-1] if replies else '',
+              'turns': len([row for row in messages if row.get('role') == 'user']),
+              'proposals': [{'id': p.get('id'), 'summary': p.get('summary'), 'operation': p.get('operation'),
+                             'status': p.get('status'), 'digest': p.get('digest')} for p in (body.get('proposals') or [])]}
+    if confirm and record['proposals']:
+        record['confirmed'] = confirm_cards(client, session_id, body.get('proposals') or [])
+    return record
 
 
 def main():
@@ -89,6 +120,7 @@ def main():
     parser.add_argument('--only', default='')
     parser.add_argument('--thinking', action='store_true')
     parser.add_argument('--pause', type=float, default=1.0)
+    parser.add_argument('--confirm', action='store_true', help='点确认卡（只用于试用库）')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     if args.output.resolve() == root or root in args.output.resolve().parents:
@@ -107,7 +139,7 @@ def main():
         for index, group, prompt in PROMPTS:
             if wanted and index not in wanted:
                 continue
-            record = ask(client, index, prompt, thinking=args.thinking)
+            record = ask(client, index, prompt, thinking=args.thinking, confirm=args.confirm)
             record['group'] = group
             results.append(record)
             print('%s [%s] %s -> %s' % (index, group, prompt,
