@@ -7,7 +7,7 @@
   "production_deployed": false,
   "source_baseline_archive": "huakangos_r80e-vehicle-checkpoint_20260922.zip",
   "source_baseline_sha256": "c766b72542b32ebc2b709498f8c3f3c45f7d723e1bac267a57b746f2c409fa59",
-  "current_same_tree_run": "PASSED全量: 2462通过、2跳过、0失败/0错误；167模块，1637.59秒，857个源码文件前后未变（digest 5fe713f2…）",
+  "current_same_tree_run": "PASSED全量: 2452通过、0失败/0错误/0跳过；167模块，1645.7秒，862个源码文件前后未变（digest dfbe3042…，对应提交 8afd449；其后仅追加试用文档，文档不在源码清单内）。另：24个前端Node用例、66个JS语法检查通过",
   "scope_correction": "docs/需求范围纠正_20260922.md",
   "scope_audit": "docs/原始需求范围复核.md",
   "environment_gates": {
@@ -16,6 +16,7 @@
   },
   "next_work": [
     "用户按手册试用并整理仓库（R02/R03试用脚本已交，待试用反馈）",
+    "业务助手接入飞书（自建应用+@机器人）：需求与边界已记录在 docs/飞书接入要点_20260925.md，未实现",
     "整理服务器配置并执行部署侧验证，当前未部署",
     "公司实际业务、会员/月结周期及未完成体验项继续验收"
   ],
@@ -31,7 +32,7 @@
   },
   "verification_report": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
   "requirement_mapping_audit": "docs/需求逐项核对-employee-assistant-files-20260924.json",
-  "source_digest": "5fe713f2a856fb672a9a49c84d2e2f88845339d4cb45324e8f84e48017cc5c7e",
+  "source_digest": "dfbe3042d9d6f044dea8944ce134d1a0cc33d779da1cc1f74bd6bcddcf9cc5c1",
   "repair_baseline": {
     "checkpoint": "t02g-dossier-masters",
     "manifest": "docs/verification/t02g-fix1/source-package-before.sha256",
@@ -43,7 +44,7 @@
     "source_digest": "5fe713f2a856fb672a9a49c84d2e2f88845339d4cb45324e8f84e48017cc5c7e",
     "current_same_tree_run": "PASSED全量: 2462通过、2跳过、0失败/0错误；167模块，1637.59秒，857文件前后未变"
   },
-  "active_objective": "业务助手写入范围（通配动作白名单 + 默认拒绝）与评审通道（必须引用系统被挡记录）；试用侧R02/R03脚本待反馈",
+  "active_objective": "业务助手写入范围（按员工本人身份调用 + 仅两条限制）与评审通道（必须引用系统被挡记录）；整表导入不再按行数/批次卡住（PR #9），试用侧R02/R03脚本待反馈",
   "progress_record": "docs/助手权限与评审设计_20260924.md",
   "current_working_evidence": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
   "current_run_directory": "docs/verification/assistant-write-scope-and-escalations-20260924",
@@ -55,11 +56,11 @@
     "url": "http://127.0.0.1:8000/",
     "existing_accounts_preserved": true,
     "bootstrap_required": false,
-    "source_fingerprint": "0a47e977dd4f9abe3adf08399726e37f5a2b310e904532143430c26e70527855",
+    "source_fingerprint": "4a6324e58023b34bfd01f01b84c1bb42b300061e6d8af86a5a613cf882377527",
     "evidence": "docs/verification/assistant-thinking-20260924/user-preservation.json",
-    "restarted_at": "2026-09-25T01:54+08:00",
+    "restarted_at": "2026-09-25T19:40+08:00",
     "migration_applied": "h48f_escalation_refusals",
-    "verified_after_restart": "重启后核对：11账号/3门店；alembic head=h48f_escalation_refusals；三张评审表已建且0行；/api/escalations/refusals 返回401（已注册）"
+    "verified_after_restart": "重启（先手工整库备份到 LOCALAPPDATA\\huakangos\\backup-manual-*）后核对：11账号（admin 与 7 个 xc-* 业务岗、xc-temp）/3门店（XC-CD、XC-CX 启用，PREVIEW 停用）；alembic head=h48f_escalation_refusals；三张评审表存在且 0 行。第二次重启后实登管理员读到 /api/business-assistant/status：limits.max_message_chars=12000（新上限已生效）；车型目录当前为空（本轮实测都在一次性实例上跑）。本次只改了助手自身的上限、汇总口径与渲染，无迁移。"
   },
   "escalation": {
     "tables": [
@@ -84,14 +85,31 @@
     "recipient_decided_server_side": "门店经理；提交人即门店经理时上送集团管理员"
   },
   "assistant_write_scope": {
-    "wildcard_action_policy": "白名单 + 默认拒绝（PREPARABLE_ACTIONS）",
-    "preparable_action_routes": [
-      "/api/flow/cases/{case_id}/actions/{action}（动作取自flow spec目录且非判断类）",
-      "/api/vehicle-imports/batches/{batch_id}/actions/{action}（仅trial/reassign）"
+    "owner_ruling": "2026-09-25：助手以员工本人身份调用已评审接口，接口判定权限；白名单与动作禁用词已删除",
+    "removed": [
+      "PREPARABLE_ACTIONS",
+      "MONEY_OR_APPROVAL_ROUTES",
+      "DECISION_TOKENS"
     ],
-    "decision_tokens_count": 27,
+    "limit_one": "403 时返回提示：这一步需要更高岗位权限，可读 GET /api/escalations/refusals 生成评审申请确认卡；409/422 不给该提示",
+    "limit_two": "prerequisite_notes：新建流程中间单据时随卡返回该业务自己声明的前序字段（相关业务/客户/车辆/原单），要求逐项向员工确认",
+    "multi_step_chaining": "允许一次目标内连续准备多步，每步各自一张确认卡，点击前不得声称已办理",
+    "tool_budget": {
+      "max_rounds": 24,
+      "rounds_tunable": "4-40，私有配置 max_rounds",
+      "tools_per_round": 12,
+      "max_message_chars": 12000,
+      "max_pending_proposals": 200,
+      "hard_tools_per_reply": 200,
+      "call_budget": "max(60, max_rounds × tools_per_round)",
+      "turn_timeout_seconds": 600,
+      "turn_tunable": "30-600，私有配置 turn_timeout_seconds",
+      "wrap_up_before_limit": true,
+      "row_limits_removed": "2026-09-25 业主指令：不许按表格行数/批次卡住员工。删掉“连续两次返回过多工具就停止处理”，整表导入一轮提几十个准备调用是期望行为；超出的调用按“本轮未执行”回给模型。只留两个防跑飞硬闸（单次回复超过 hard_tools_per_reply 按无效拒绝、总调用次数有上限）",
+      "authoritative_card_tally": "每轮把数据库里的待确认卡数作为一条系统消息给模型（原地更新），要求汇总时引用系统数字，不自己口算"
+    },
+    "still_closed": "凭据与登录、部署与品牌设置、原始附件与下载导出、期初导入、任意旧单据CRUD、多部分文件上传、办理评审申请本身",
     "multipart_uploads_blocked": true,
-    "fail_closed_for_unclassified_routes": true,
     "escalation_request_preparable": true,
     "escalation_handling_blocked": true
   },
@@ -154,6 +172,12 @@
       "verification_report": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
       "source_digest": "eea01b023b34729d743b52937af7ad5401e4a7c752d4c70e45f82234e4b7b8fe",
       "current_same_tree_run": "TARGETED PASSED: 230项相关Python测试（含12项升级评审通道）0失败/0错误；真实Chrome升级链路5步0 JS报错；node --check通过；尚未做全量重跑"
+    },
+    {
+      "checkpoint": "assistant-no-row-limits-and-whole-table-import (PR #9)",
+      "verification_report": "docs/试用记录/车型清单导入试用记录.md",
+      "source_digest": "dfbe3042d9d6f044dea8944ce134d1a0cc33d779da1cc1f74bd6bcddcf9cc5c1",
+      "current_same_tree_run": "PASSED全量: 2452通过、0失败/0错误/0跳过；167模块，1645.7秒，862文件前后未变（提交 8afd449）。同轮另有四次整表导入实测（真实模型，一次性实例）、24个前端Node用例、66个JS语法检查通过；Codex 对 PR #9 的 4 条意见全部采纳"
     }
   ]
 }

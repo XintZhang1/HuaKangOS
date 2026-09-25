@@ -23,8 +23,33 @@ def _case_id(args):
 
 
 def _guidance(data):
-    if data.get('kind')!='lead':return []
-    state=data.get('state');notes=[]
+    """下一步推荐：用原单自己的进度、可办事项和待办任务说话，不猜流程、不编造。
+
+    每种业务的可办事项来自它自己的动作目录（页面上的按钮就是这份清单），所以这里不需要
+    为每个模块写死流程；状态机变了，推荐跟着变。
+    """
+    notes=[]
+    actions=[item for item in (data.get('actions') or []) if isinstance(item,dict) and item.get('key')]
+    ready=[item for item in actions if item.get('enabled')]
+    waiting=[item for item in actions if not item.get('enabled')]
+    tasks=[item for item in (data.get('tasks') or []) if isinstance(item,dict) and item.get('status')=='open']
+    if ready:
+        notes.append('现在就能办：'+ '、'.join('「%s」' % (item.get('label') or item['key']) for item in ready[:3])
+                     +'。员工确认前不要声称已经办理。')
+    if waiting:
+        first=waiting[0]
+        reason=str(first.get('reason') or '').strip()
+        notes.append('「%s」当前还不能办%s；先说明这个前置条件，不要绕开或改权限。'
+                     % (first.get('label') or first['key'], ('：'+reason) if reason else ''))
+    if tasks:
+        notes.append('本单待办：'+ '、'.join('%s%s' % (item.get('title') or item.get('key') or '',
+                     ('（%s）' % item['assignee_name']) if item.get('assignee_name') else '') for item in tasks[:2]) + '。')
+    if not actions:
+        state=str(data.get('state_label') or data.get('state') or '').strip()
+        notes.append('这一状态下没有需要你办的事项%s，不要凭空建议下一步。' % (('（当前进度：'+state+'）') if state else ''))
+    if data.get('kind')!='lead':
+        return notes
+    state=data.get('state')
     if state=='unassigned':notes.append('先分派接待员工，分派确认后再安排回访；不要猜接手员工。')
     elif state in {'contacting','reminder'}:
         notes.append('安排接待回访可同时补充尚未填写的联系电话；电话已有值时，更正电话请使用客户资料入口。')

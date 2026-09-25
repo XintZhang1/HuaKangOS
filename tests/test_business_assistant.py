@@ -1,6 +1,7 @@
 """Conversation safety: no model execution, durable human confirmation, scoped replay."""
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import timedelta
 import json
 import sys
@@ -129,6 +130,38 @@ def test_mimo_failure_never_falls_back_or_follows_redirects(monkeypatch,status):
     assert hosts==['token-plan-cn.xiaomimimo.com']
 
 
+def test_a_transient_network_error_is_retried_once(monkeypatch):
+    """2026-09-25 预览实测遇到连接重置：模型调用是只读的，可以重试一次。"""
+    calls=[]
+    def handler(request):
+        calls.append(request.url.host)
+        if len(calls)==1:
+            raise httpx.ConnectError('connection reset',request=request)
+        return httpx.Response(200,json={'choices':[{'message':{'role':'assistant','content':'好的。'},'finish_reason':'stop'}]})
+    real_client=httpx.AsyncClient
+    real_sleep=asyncio.sleep
+    monkeypatch.setattr(service.httpx,'AsyncClient',lambda **kwargs:real_client(transport=httpx.MockTransport(handler),**kwargs))
+    monkeypatch.setattr(service.asyncio,'sleep',lambda seconds:real_sleep(0))
+    config=service.AssistantConfig(True,'tp-fake-provider-key-000000000','deepseek-flash',5,True)
+    result=asyncio.run(service.model_reply(config,[{'role':'user','content':'你好'}]))
+    assert result['content']=='好的。' and len(calls)==2
+    assert set(calls)=={'api.deepseek.com'}
+
+
+def test_a_malformed_reply_is_not_retried(monkeypatch):
+    """回复格式不对是确定性问题：重试不会变好，只会重复消耗额度。"""
+    calls=[]
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(200,json={'unexpected':True})
+    real_client=httpx.AsyncClient
+    monkeypatch.setattr(service.httpx,'AsyncClient',lambda **kwargs:real_client(transport=httpx.MockTransport(handler),**kwargs))
+    config=service.AssistantConfig(True,'tp-fake-provider-key-000000000','deepseek-flash',5,True)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(service.model_reply(config,[{'role':'user','content':'你好'}]))
+    assert error.value.status_code==503 and len(calls)==1
+
+
 def test_private_provider_selection_rejects_arbitrary_endpoints(client,monkeypatch,tmp_path):
     config=tmp_path/'mimo-config.json'
     values={'enabled':True,'synthetic':True,'api_key':'tp-fake-config-key-000000000','provider':'mimo','api_kind':'token_plan'}
@@ -178,46 +211,55 @@ def test_inspected_static_operation_ids_survive_clarification_without_any_propos
     assert 'op-1' in contexts[2] and '当前静态字段' in contexts[2]
 
 
-def test_oversized_tool_batch_runs_only_first_two_and_returns_explicit_skips(client,assistant,monkeypatch):
+def test_oversized_tool_batch_runs_only_the_reviewed_number_and_returns_explicit_skips(client,assistant,monkeypatch):
     sid=session(client);step=0;second_messages=[]
+    executed=service.PER_ROUND_TOOLS
+    offered=executed+3
     async def model(config,messages):
         nonlocal step
         step+=1
         if step==1:
             calls=[]
-            for i in range(9):
-                args={'operation_id':'read_records'} if i<2 else {'operation_id':'create_record','summary':'不得准备','body':{'name':'未执行'}}
-                calls.append({'id':f'tool-{i}','type':'function','function':{'name':'read_data' if i<2 else 'prepare_operation','arguments':json.dumps(args)}})
+            for i in range(offered):
+                args={'operation_id':'read_records'} if i<executed else {'operation_id':'create_record','summary':'不得准备','body':{'name':'未执行'}}
+                calls.append({'id':f'tool-{i}','type':'function','function':{'name':'read_data' if i<executed else 'prepare_operation','arguments':json.dumps(args)}})
             return {'content':'','tool_calls':calls}
         second_messages.extend(messages);return {'content':'已查到当前资料，请补充名称。'}
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200
-    assert len(assistant[1])==2 and all(call['id']=='read_records' for call in assistant[1])
+    assert len(assistant[1])==executed and all(call['id']=='read_records' for call in assistant[1])
     assert result.json()['proposals']==[]
     returned=[m for m in second_messages if m['role']=='tool']
-    assert len(returned)==9
-    assert all(json.loads(m['content']).get('executed') is False for m in returned[2:])
+    assert len(returned)==offered
+    assert all(json.loads(m['content']).get('executed') is False for m in returned[executed:])
 
 
-def test_second_oversized_batch_stops_without_processing_any_more_tools(client,assistant,monkeypatch):
+def test_a_large_tool_batch_keeps_going_instead_of_stopping_the_turn(client,assistant,monkeypatch):
+    """2026-09-25 业主裁定：整表导入时一轮提几十个准备调用是期望行为，不能因此掐断对话。
+
+    每轮只真正执行 PER_ROUND_TOOLS 个，其余的按"未执行"回给模型让它下一轮继续。
+    """
     sid=session(client);step=0
+    offered=service.PER_ROUND_TOOLS*2+1
     async def model(config,messages):
         nonlocal step
         step+=1
-        return {'content':'','tool_calls':[{'id':f'{step}-{i}','type':'function','function':{'name':'read_data','arguments':'{"operation_id":"read_records"}'}} for i in range(9)]}
+        return {'content':'','tool_calls':[{'id':f'{step}-{i}','type':'function','function':{'name':'read_data','arguments':'{"operation_id":"read_records"}'}} for i in range(offered)]}
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200
-    assert len(assistant[1])==2 and step==2 and result.json()['proposals']==[]
+    assert step==service.AssistantConfig().max_rounds,'a big batch must not end the turn on the second round'
+    assert len(assistant[1])==service.AssistantConfig().max_rounds*service.PER_ROUND_TOOLS
     assert '还没准备好' in result.json()['messages'][-1]['content']
     assert client.get(BASE+'/issues').json()['items'][0]['category']=='model'
 
 
 @pytest.mark.parametrize('malformed',[True,False])
-def test_invalid_or_more_than_thirty_tools_fail_closed_without_processing(client,assistant,monkeypatch,malformed):
+def test_invalid_or_absurd_tool_lists_fail_closed_without_processing(client,assistant,monkeypatch,malformed):
     sid=session(client)
+    count=service.HARD_TOOLS+1
     async def model(config,messages):
         return {'content':'','tool_calls':{} if malformed else [{'id':str(i),'type':'function','function':{
-            'name':'prepare_operation','arguments':'{"operation_id":"create_record","summary":"不得生成","body":{"name":"不应创建"}}'}} for i in range(31)]}
+            'name':'prepare_operation','arguments':'{"operation_id":"create_record","summary":"不得生成","body":{"name":"不应创建"}}'}} for i in range(count)]}
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200
     assert result.json()['proposals']==[] and assistant[1]==[]
@@ -234,10 +276,134 @@ def test_round_budget_reports_truthful_progress_and_model_issue(client,assistant
         count+=1
         return {'content':'','tool_calls':[{'id':f'check-{count}','type':'function','function':{'name':'inspect_operation','arguments':'{"operation_id":"read_records"}'}}]}
     monkeypatch.setattr(service,'model_reply',model)
-    result=message(client,sid);assert result.status_code==200 and count==10
+    result=message(client,sid);assert result.status_code==200 and count==service.AssistantConfig().max_rounds
     text=result.json()['messages'][-1]['content']
     assert ('下方待确认操作' in text) if has_pending else ('还没准备好' in text)
     assert client.get(BASE+'/issues').json()['items'][0]['category']=='model'
+
+
+def test_a_claim_without_a_tool_call_is_sent_back_once(client,assistant,monkeypatch):
+    """2026-09-25 试用实测：长会话里模型照抄自己上一轮的话，声称"卡已准备好"却没调用工具。
+
+    数据库里 0 张卡时必须退回一轮要求它真的准备，而不是把这句假话交给员工。
+    """
+    sid=session(client);rounds=[]
+    async def model(config,messages):
+        rounds.append([m.get('content') for m in messages if m.get('role')=='system'])
+        if len(rounds)==1:
+            return {'content':'第 7 批 4 张待确认卡已真实生成，请逐张核对后点击确认。'}
+        return {'content':'这几行缺少电池容量，系统不会建卡；请补齐后再发我。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    result=message(client,sid);assert result.status_code==200
+    assert len(rounds)==2,'claiming a card without preparing one must be sent back once'
+    assert any('没有生成任何待确认卡' in text for text in rounds[1] if text),rounds[1]
+    assert '缺少电池容量' in result.json()['messages'][-1]['content']
+    assert result.json()['proposals']==[]
+
+
+def test_the_card_count_told_to_the_model_comes_from_the_database(client,assistant,monkeypatch):
+    """2026-09-25 整表实测：模型准备的卡是对的（50 张），但收尾汇总自己数成"共 44 张"、"23 行缺字段"。
+
+    卡数只有系统知道，所以每轮把数据库里的权威数字作为一条系统消息给它，禁止它口算——
+    被系统拒绝、没成卡的那一行也不能算进去。
+    """
+    sid=session(client);rounds=[]
+    def prepare(key):
+        return {'id':'p-'+key,'type':'function','function':{'name':'prepare_operation','arguments':json.dumps(
+            {'operation_id':'create_record','summary':'新增'+key,'body':{'name':key}})}}
+    async def model(config,messages):
+        rounds.append(messages)
+        if len(rounds)==1:
+            return {'content':'','tool_calls':[prepare('甲'),prepare('乙'),
+                    {'id':'p-bad','type':'function','function':{'name':'prepare_operation',
+                     'arguments':json.dumps({'operation_id':'no_such_operation','summary':'这一条不成卡'})}}]}
+        return {'content':'已按系统给的数字汇报：待确认卡已准备好，请逐张核对。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    result=message(client,sid);assert result.status_code==200
+    assert len(rounds)==2
+    tally=[m['content'] for m in rounds[1] if m.get('role')=='system' and '实际生成' in str(m.get('content'))]
+    assert tally and '实际生成 2 张待确认卡' in tally[-1],rounds[1]
+    assert len(result.json()['proposals'])==2
+
+
+def test_prerequisite_facts_reach_both_the_model_and_the_card(client,assistant,monkeypatch):
+    """2026-09-25 Codex 复核 P1：第二条限制要真的生效——前序事实必须回到模型手里，也要随卡给员工看。
+
+    原实现只在 validate_operation 里算出来，prepare_proposal 既没返回给模型也没写进卡，
+    于是"逐项确认前序"只写在提示词里。
+    """
+    fake,_=assistant
+    base=fake.validate_operation
+    notes=['相关业务：客户到店接待','客户：李试用','车辆：待确认']
+    def validate(operation_id,path_args,query,body):
+        return {**base(operation_id,path_args,query,body),'prerequisites':list(notes)}
+    monkeypatch.setattr(fake,'validate_operation',validate)
+    sid=session(client);rounds=[]
+    async def model(config,messages):
+        rounds.append(messages)
+        if len(rounds)==1:
+            return {'content':'','tool_calls':[{'id':'p1','type':'function','function':{
+                'name':'prepare_operation','arguments':json.dumps(
+                    {'operation_id':'create_record','summary':'新增合成资料','body':{'name':'合成资料'}})}}]}
+        return {'content':'办理前请先确认这些前序事实。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    result=message(client,sid);assert result.status_code==200
+    tool=[m for m in rounds[1] if m.get('role')=='tool'][-1]
+    returned=json.loads(tool['content'])
+    assert returned['prerequisites']==notes,returned
+    assert '逐项' in returned['prerequisite_rule']
+    card=[p for p in result.json()['proposals'] if p['status']=='pending'][-1]
+    assert card['result']['prerequisites']==notes,card
+
+
+def test_every_pending_card_stays_visible_past_the_old_eighty_card_window(client,assistant):
+    """2026-09-25 Codex 复核 P1：待确认卡上限放到 200，但会话只回最近 80 条时，81 张以后就确认不了。"""
+    sid=session(client)
+    with SessionLocal() as db:
+        thread=db.scalar(select(AssistantSession).where(AssistantSession.id==sid))
+        for index in range(95):
+            db.add(AssistantProposal(id=str(uuid4()),store_id=thread.store_id,session_id=sid,owner_id=thread.owner_id,
+                owner_role=thread.owner_role,access_version=thread.access_version,operation_id='create_record',
+                label='新增资料',summary='第 %d 张' % index,payload={'body':{'name':'资料%d' % index}},
+                digest=uuid4().hex*2,expires_at=utcnow()+timedelta(minutes=30)))
+        db.commit()
+    view=client.get(f'{BASE}/sessions/{sid}').json()
+    pending=[p for p in view['proposals'] if p['status']=='pending']
+    assert len(pending)==95
+    assert pending[0]['summary']=='第 0 张','the oldest pending card must not fall out of the window'
+
+
+def test_a_refused_write_keeps_the_escalation_offer_on_the_card(client,assistant,monkeypatch):
+    """2026-09-25 Codex 复核 P1：写操作被 403 挡下时，评审提示原来在确认结果里被丢掉了。"""
+    fake,_=assistant;sid=session(client)
+    hint='这一步需要更高的岗位权限。可以读 GET /api/escalations/refusals 找到这条被挡记录，再用 prepare_operation 生成评审申请确认卡。'
+    async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
+        return {'status':403,'data':{'detail':'当前岗位不能新增资料'},'route':'masters','hint':hint}
+    monkeypatch.setattr(fake,'invoke',invoke)
+    draft=make_proposal(client,monkeypatch,sid)
+    response=confirm(client,sid,draft);assert response.status_code==200,response.text
+    card=next(p for p in response.json()['proposals'] if p['id']==draft['id'])
+    assert card['status']=='failed'
+    assert card['result']['hint']==hint
+    assert '更高的岗位权限' in card['result']['message'] and '评审申请卡' in card['result']['message']
+
+
+def test_the_session_lease_covers_the_longest_allowed_turn(client,assistant,monkeypatch):
+    """2026-09-25 Codex 复核 P2：单轮上限 600 秒，租约却写死 4 分钟，长任务会被当成已中断。"""
+    config=service.AssistantConfig(True,'test-secret-not-real','deepseek-flash',5,True)
+    monkeypatch.setattr(service,'load_config',lambda:config)
+    assert service.busy_lease_seconds(config)>=config.turn_timeout_seconds+30
+    short=replace(config,turn_timeout_seconds=30)
+    assert service.busy_lease_seconds(short)==90
+    sid=session(client);left=[]
+    async def model(inner,messages):
+        with SessionLocal() as db:
+            thread=db.scalar(select(AssistantSession).where(AssistantSession.id==sid))
+            left.append((thread.busy_until-utcnow()).total_seconds())
+        return {'content':'好'}
+    monkeypatch.setattr(service,'model_reply',model)
+    assert message(client,sid).status_code==200
+    assert left and left[0]>=config.turn_timeout_seconds,left
 
 
 @pytest.mark.parametrize('operation',['create_record','create_unkeyed'])

@@ -80,3 +80,12 @@ test('manual links resolve real pages and do not navigate to domains that requir
  for(const [proposal,expected] of cases){c.p=proposal;assert.equal(c.run('businessAssistantManualRoute(p)'),expected);}
  const links=c.run("businessAssistantLinks([{route:'case/42',label:'单据'},{route:'case/42',label:'重复'}])");assert.equal((links.match(/href=/g)||[]).length,1);
 });
+test('a pending card shows the prerequisite facts the system returned, escaped',()=>{
+ const c=sandbox();
+ const html=c.run("businessAssistantProposal({id:9,status:'pending',label:'新建维修工单',result:{prerequisites:['相关业务：客户到店接待','客户：<img src=x onerror=alert(1)>']},digest:'hash'})");
+ assert(html.includes('办理前请先确认'));assert(html.includes('相关业务：客户到店接待'));assert(!html.includes('<img'));
+ const settled=c.run("businessAssistantProposal({id:9,status:'succeeded',label:'新建维修工单',result:{prerequisites:['相关业务：客户到店接待']},digest:'hash'})");
+ assert(!settled.includes('办理前请先确认'),'a finished card no longer asks for prerequisites');
+ const absent=c.run("businessAssistantProposal({id:9,status:'pending',label:'新建资料',result:{},digest:'hash'})");
+ assert(!absent.includes('办理前请先确认'));
+});

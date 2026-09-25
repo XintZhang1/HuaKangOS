@@ -122,40 +122,39 @@ def test_the_known_sample_download_route_is_not_advertised():
     assert gateway.DENIED.search('/api/vehicle-imports/orders/1/example/vehicles')
 
 
-@pytest.mark.parametrize('action', ['approve', 'reject', 'cancel_request', 'cancel_approve', 'confirm',
-                                   'consent', 'reopen', 'seal', 'review', 'settle', 'internal_settle',
-                                   'credit', 'revise', 'commit', 'refund', 'pay', 'receive',
-                                   'invoice_issue', 'quality', 'inspect', 'reinspect', 'dispose',
-                                   'write_off', 'terminate'])
-def test_judgement_actions_are_never_prepared(action):
-    """Owner decision (P1): approvals, refusals, voiding and money/goods confirmation stay manual."""
-    with pytest.raises(HTTPException) as refused:
-        gateway.validate_operation('POST /api/flow/cases/{case_id}/actions/{action}',
-                                   {'case_id': 1, 'action': action}, {}, {'version': 1, 'values': {}})
-    assert refused.value.status_code == 403
-    assert '原业务页面' in refused.value.detail and '评审申请' in refused.value.detail
+def test_the_prompt_states_the_two_remaining_limits():
+    """Owner ruling 2026-09-25: only two limits — ask on refusal, and confirm prerequisites.
+
+    The conversation contract has to say so; otherwise the model keeps the old habit of
+    refusing ordinary steps on its own.
+    """
+    from app.business_assistant_service import SYSTEM_PROMPT
+    assert '员工本人身份' in SYSTEM_PROMPT and '由接口判定' in SYSTEM_PROMPT
+    assert '评审申请' in SYSTEM_PROMPT and '更高权限' in SYSTEM_PROMPT
+    assert '不要自己拼动作名' in SYSTEM_PROMPT
+    assert '不要改权限、不要绕流程' in SYSTEM_PROMPT
+    assert '一次准备好' in SYSTEM_PROMPT          # multi-step chaining is allowed
+    assert '最多两个工具' not in SYSTEM_PROMPT
 
 
 @pytest.mark.parametrize('action', ['follow', 'start', 'finish', 'deliver', 'material', 'quote',
-                                    'remind', 'rework', 'rectify'])
-def test_ordinary_business_steps_are_still_preparable(action):
+                                    'remind', 'rework', 'rectify', 'approve', 'collect'])
+def test_actions_are_no_longer_pre_filtered_by_name(action):
     gateway.validate_operation('POST /api/flow/cases/{case_id}/actions/{action}',
                                {'case_id': 1, 'action': action}, {}, {'version': 1, 'values': {}})
 
 
-def test_the_import_batch_actions_route_is_the_one_widened_write():
+def test_the_import_batch_upload_itself_stays_on_the_original_page():
     offered = gateway._operations()
     batch_actions = 'POST /api/vehicle-imports/batches/{batch_id}/actions/{action}'
     assert batch_actions in offered
     body = {'request_id': 'synthetic-key-00000001', 'version': 1, 'source_case_version': 1,
             'values': {'reason': '试用'}}
-    for action in ('trial', 'reassign'):
-        gateway.validate_operation(batch_actions, {'batch_id': 1, 'action': action}, {}, dict(body))
-    for action in ('review', 'confirm', 'cancel'):
-        with pytest.raises(HTTPException):
-            gateway.validate_operation(batch_actions, {'batch_id': 1, 'action': action}, {}, dict(body))
-    # The multipart upload of the document itself stays on the original page.
+    gateway.validate_operation(batch_actions, {'batch_id': 1, 'action': 'trial'}, {}, dict(body))
+    gateway.validate_operation(batch_actions, {'batch_id': 1, 'action': 'reassign'}, {}, dict(body))
+    # The multipart upload of the document itself is a file transfer, not a process step.
     assert 'POST /api/vehicle-imports/orders/{case_id}/batches' not in offered
+    assert 'POST /api/vehicle-imports/orders/{case_id}/batches' in gateway.CLASSIFIED_BLOCKED_WRITES
 
 
 def test_every_registered_write_is_classified_prepare_or_blocked():
@@ -180,48 +179,66 @@ def test_every_registered_write_is_classified_prepare_or_blocked():
     assert not unclassified, unclassified
 
 
-def test_every_wildcard_action_route_is_fail_closed():
-    """Only reviewed (route, action) pairs are preparable; everything else stays on the page.
+def test_the_interface_decides_authority_not_the_assistant():
+    """Owner ruling 2026-09-25: no whitelist and no action denylist decides what may be prepared.
 
-    A denylist cannot cover these routes: `POST /api/business-finance/orders/{key}/actions/{action}`
-    posts real cash through `collect`/`execute`, so the default must be refusal.
+    The assistant acts as the employee; the native API owns the role check, and a refusal turns
+    into an escalation offer. Preparing is therefore never refused with 403 by the gateway.
     """
     reviewed = gateway._operations()
     wildcards = sorted(op for op in reviewed if '{action}' in op and op.startswith('POST'))
     assert len(wildcards) > 10, 'the wildcard inventory changed unexpectedly'
     for operation in wildcards:
         path = operation.split(' ', 1)[1]
-        if path in gateway.PREPARABLE_ACTIONS:
-            continue
-        assert not gateway.action_is_preparable(path, 'follow'), operation
-        assert not gateway.action_is_preparable(path, 'trial'), operation
-        assert not gateway.action_is_preparable(path, 'arrive'), operation
-        assert not gateway.action_is_preparable(path, 'acquire'), operation
         args = {name: 1 for name in re.findall(r'\{([a-z_]+)\}', path) if name != 'action'}
-        args['action'] = 'follow'
-        # Either the reviewable action policy refuses (403) or the route's own parameter pattern
-        # refuses (422); neither may ever produce a confirmation card.
-        with pytest.raises(HTTPException) as refused:
-            gateway.validate_operation(operation, args, {},
-                                       {'request_id': 'synthetic-key-00000002', 'version': 1, 'values': {}})
-        assert refused.value.status_code in (403, 422), operation
-        if refused.value.status_code == 403:
-            assert '原业务页面' in refused.value.detail
-    for money_action in ('collect', 'execute'):
-        operation = 'POST /api/business-finance/orders/{key}/actions/{action}'
-        assert operation in reviewed
-        with pytest.raises(HTTPException):
-            gateway.validate_operation(operation, {'key': 1, 'action': money_action}, {},
-                                       {'request_id': 'synthetic-key-00000003', 'version': 1, 'values': {}})
+        for action in ('collect', 'execute', 'approve', 'confirm', 'receive', 'follow', 'arrive'):
+            args['action'] = action
+            try:
+                gateway.validate_operation(operation, args, {},
+                                           {'request_id': 'synthetic-key-00000004', 'version': 1,
+                                            'case_version': 1, 'values': {'reason': '试用'}})
+            except HTTPException as refused:
+                # A parameter/format error (422) is fine; the gateway must not refuse on policy.
+                assert refused.status_code != 403, (operation, action, refused.detail)
 
 
-def test_the_preparable_allowlist_names_reviewed_post_routes():
-    reviewed = set(gateway._operations())
-    for path in gateway.PREPARABLE_ACTIONS:
-        assert 'POST ' + path in reviewed, path
-        for action in gateway.PREPARABLE_ACTIONS[path] or ():
-            assert gateway.action_is_preparable(path, action), (path, action)
-            assert not gateway.is_decision_action(action), (path, action)
+def test_a_permission_refusal_tells_the_model_to_offer_an_escalation():
+    hint = gateway.permission_hint(403, {'detail': '没有此模块的操作权限'})
+    assert '评审申请' in hint and 'refusals' in hint
+    assert gateway.permission_hint(422, {'detail': '请补充或核对：客户姓名'}) == ''
+    assert gateway.permission_hint(409, {'detail': '版本冲突'}) == ''
+
+
+def test_intermediate_records_carry_their_prerequisite_facts():
+    """Second limit: a mid-process record must have its earlier steps confirmed, never assumed."""
+    from app.flow_specs import SPECS
+
+    def sample_values(kind, **extra):
+        values = {}
+        for field in SPECS[kind]['fields']:
+            if not field.get('required'):
+                continue
+            values[field['key']] = {'money': '100.00', 'quantity': '1', 'int': 1,
+                                    'future_date': '2026-12-31', 'date': '2026-12-31'}.get(field.get('type'), '试用')
+        values.update(extra)
+        return values
+
+    invoice = gateway.validate_operation('POST /api/flow/cases', {}, {},
+                                         {'kind': 'invoice', 'values': sample_values('invoice', related_case_id=1)})
+    notes = ' '.join(invoice['prerequisites'])
+    assert '中间一步' in notes and '前序' in notes
+    # The note names this business's own link field, so the assistant knows what to confirm.
+    link_labels = [field['label'] for field in SPECS['invoice']['fields']
+                   if any(word in field['key'] for word in gateway.LINK_FIELD_WORDS)]
+    assert link_labels and all(label in notes for label in link_labels), (link_labels, notes)
+    action = gateway.validate_operation('POST /api/flow/cases/{case_id}/actions/{action}',
+                                        {'case_id': 1, 'action': 'follow'}, {},
+                                        {'version': 1, 'values': {}})
+    assert '前置步骤' in ' '.join(action['prerequisites'])
+    order = gateway.validate_operation('POST /api/flow/cases', {}, {},
+                                       {'kind': 'order', 'values': sample_values('order', customer_name='试用客户')})
+    assert '客户' in ' '.join(order['prerequisites'])
+    assert gateway.validate_operation('GET /api/flow/catalog', {}, {}, None)['prerequisites'] == []
 
 
 def test_the_escalation_request_is_prepared_but_never_handled_for_the_reviewer():
