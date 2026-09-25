@@ -56,11 +56,11 @@
     "url": "http://127.0.0.1:8000/",
     "existing_accounts_preserved": true,
     "bootstrap_required": false,
-    "source_fingerprint": "0a47e977dd4f9abe3adf08399726e37f5a2b310e904532143430c26e70527855",
+    "source_fingerprint": "05e92f1515df74a444e04a0b2bd76dd1cadeef3c5bacc3d0d8631cab844fbc5a",
     "evidence": "docs/verification/assistant-thinking-20260924/user-preservation.json",
-    "restarted_at": "2026-09-25T01:54+08:00",
+    "restarted_at": "2026-09-25T19:10+08:00",
     "migration_applied": "h48f_escalation_refusals",
-    "verified_after_restart": "重启后核对：11账号/3门店；alembic head=h48f_escalation_refusals；三张评审表已建且0行；/api/escalations/refusals 返回401（已注册）"
+    "verified_after_restart": "重启（先手工整库备份到 LOCALAPPDATA\\huakangos\\backup-manual-*）后核对：11账号（admin 与 7 个 xc-* 业务岗、xc-temp）/3门店（XC-CD、XC-CX 启用，PREVIEW 停用）；alembic head=h48f_escalation_refusals；三张评审表存在且 0 行。本次只改了助手自身的上限与汇总口径，无迁移。"
   },
   "escalation": {
     "tables": [
