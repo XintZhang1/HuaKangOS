@@ -74,7 +74,15 @@ def confirm_cards(client, session_id, proposals, limit=3):
         body = {}
         if response.headers.get('content-type', '').startswith('application/json'):
             body = response.json()
-        settled = (body.get('proposals') or [{}])[0] if body.get('proposals') else {}
+        # 试用实测：一次确认几十张卡时，确认响应里的 proposals 是一批（最多 12 条）而不是只回这一张，
+        # 直接取 [0] 会把第一张卡的明细抄到每一张上（整表导入的报告因此不可信）。按 id 找回自己那一张。
+        settled = next((row for row in (body.get('proposals') or [])
+                        if row.get('id') == proposal.get('id')), None)
+        if settled is None:
+            view = client.get('/api/business-assistant/sessions/%s' % session_id, timeout=120)
+            settled = next((row for row in ((view.json() if view.status_code == 200 else {}).get('proposals') or [])
+                            if row.get('id') == proposal.get('id')), None)
+        settled = settled or {}
         done.append({'summary': proposal.get('summary'), 'status': response.status_code,
                      'proposal_status': settled.get('status', ''),
                      'display_fields': settled.get('display_fields'),

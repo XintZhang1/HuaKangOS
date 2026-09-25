@@ -7,7 +7,7 @@
   "production_deployed": false,
   "source_baseline_archive": "huakangos_r80e-vehicle-checkpoint_20260922.zip",
   "source_baseline_sha256": "c766b72542b32ebc2b709498f8c3f3c45f7d723e1bac267a57b746f2c409fa59",
-  "current_same_tree_run": "PASSED全量: 2444通过、0失败/0错误/0跳过；167模块，1606.25秒，857个源码文件前后未变（digest a427da26…，对应提交 cab6aef；其后仅追加一条系统提示句，另有专项测试）",
+  "current_same_tree_run": "PASSED全量: 2444通过、0失败/0错误/0跳过；167模块，1606.25秒，857个源码文件前后未变（digest a427da26…，对应提交 cab6aef）。其后改动只有助手自身的行数上限（服务端）、汇总卡数由系统提供、相关用例与试用文档：助手专项 43 项通过，全量重跑同时进行中，结果落地后回填本字段",
   "scope_correction": "docs/需求范围纠正_20260922.md",
   "scope_audit": "docs/原始需求范围复核.md",
   "environment_gates": {
@@ -44,7 +44,7 @@
     "source_digest": "5fe713f2a856fb672a9a49c84d2e2f88845339d4cb45324e8f84e48017cc5c7e",
     "current_same_tree_run": "PASSED全量: 2462通过、2跳过、0失败/0错误；167模块，1637.59秒，857文件前后未变"
   },
-  "active_objective": "业务助手写入范围（通配动作白名单 + 默认拒绝）与评审通道（必须引用系统被挡记录）；试用侧R02/R03脚本待反馈",
+  "active_objective": "业务助手写入范围（按员工本人身份调用 + 仅两条限制）与评审通道（必须引用系统被挡记录）；整表导入不再按行数/批次卡住，试用侧R02/R03脚本待反馈",
   "progress_record": "docs/助手权限与评审设计_20260924.md",
   "current_working_evidence": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
   "current_run_directory": "docs/verification/assistant-write-scope-and-escalations-20260924",
@@ -97,10 +97,16 @@
     "tool_budget": {
       "max_rounds": 24,
       "rounds_tunable": "4-40，私有配置 max_rounds",
-      "tools_per_round": 6,
-      "turn_timeout_seconds": 300,
+      "tools_per_round": 12,
+      "max_message_chars": 12000,
+      "max_pending_proposals": 200,
+      "hard_tools_per_reply": 200,
+      "call_budget": "max(60, max_rounds × tools_per_round)",
+      "turn_timeout_seconds": 600,
       "turn_tunable": "30-600，私有配置 turn_timeout_seconds",
-      "wrap_up_before_limit": true
+      "wrap_up_before_limit": true,
+      "row_limits_removed": "2026-09-25 业主指令：不许按表格行数/批次卡住员工。删掉“连续两次返回过多工具就停止处理”，整表导入一轮提几十个准备调用是期望行为；超出的调用按“本轮未执行”回给模型。只留两个防跑飞硬闸（单次回复超过 hard_tools_per_reply 按无效拒绝、总调用次数有上限）",
+      "authoritative_card_tally": "每轮把数据库里的待确认卡数作为一条系统消息给模型（原地更新），要求汇总时引用系统数字，不自己口算"
     },
     "still_closed": "凭据与登录、部署与品牌设置、原始附件与下载导出、期初导入、任意旧单据CRUD、多部分文件上传、办理评审申请本身",
     "multipart_uploads_blocked": true,

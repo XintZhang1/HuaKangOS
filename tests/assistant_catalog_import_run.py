@@ -62,6 +62,8 @@ def main():
     parser.add_argument('--xlsx', default='docs/试用记录/比亚迪车型清单_导入用_20260925.xlsx')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--batch', type=int, default=6)
+    parser.add_argument('--whole', action='store_true',
+                        help='整表一次性发（不分批、不换会话），用来看助手能不能一把做完')
     parser.add_argument('--limit', type=int, default=0, help='只处理前 N 行（0=全部）')
     parser.add_argument('--keep-server', action='store_true')
     args = parser.parse_args()
@@ -87,25 +89,30 @@ def main():
             total = (len(rows) + args.batch - 1) // args.batch
             report['rows'] = len(rows)
             print('表格列:', len(columns), '｜待导入行:', len(rows), '｜分批:', total, flush=True)
+            if args.whole:
+                total = 1
 
             def catalog_total():
                 body = client.get('/api/vehicle-catalog', timeout=120).json()
                 return body.get('total') or 0
 
             for index in range(1, total + 1):
-                chunk = rows[(index - 1) * args.batch:index * args.batch]
+                chunk = rows if args.whole else rows[(index - 1) * args.batch:index * args.batch]
                 content = instruction(columns, chunk, index, total)
                 batch = {'index': index, 'rows': [row['values'][0] for row in chunk],
                          'status': None, 'cards': [], 'confirmed': [], 'retries': 0}
                 report['batches'].append(batch)
                 before = catalog_total()
-                for attempt in (1, 2, 3):
+                # 只重试一种情况：模型**一张卡都没准备**却声称准备好了（试用实测过的"只说不做"）。
+                # 卡准备好了但被系统按业务规则拒绝（例如纯电缺电池容量 422）不算失败，不去逼模型重来，
+                # 报告里原样列出即可——那正是我们要它如实汇报的行为。
+                for attempt in (1, 2):
                     # 每一批开一个新会话：长会话里模型会把前面批次的行再准备一遍（试用实测），
                     # 新会话没有这段历史，只按本批内容办。
                     session = client.post('/api/business-assistant/sessions',
                                           json={'title': '车型清单第 %d 批' % index}).json()
                     text = content if attempt == 1 else (
-                        content + '\n\n注意：上一批你说准备好了，但车型目录条数没有增加。'
+                        content + '\n\n注意：上一轮你说准备好了，但系统里没有任何待确认卡、车型目录条数也没有增加。'
                                   '请**逐行真的调用准备操作**；被系统拒绝的行，把原因原样告诉我。')
                     reply = client.post('/api/business-assistant/sessions/%s/messages' % session['id'],
                                         json={'request_id': 'catalog-run-20260925-%03d-%d' % (index, attempt),
@@ -122,24 +129,27 @@ def main():
                                       timeout=120).json()
                     pending = [card for card in (view.get('proposals') or [])
                                if card.get('status') == 'pending']
-                    batch['cards'] = [{'summary': p.get('summary'), 'operation': p.get('operation')}
-                                      for p in pending]
+                    if len(pending) > len(batch['cards']):
+                        batch['cards'] = [{'summary': p.get('summary'), 'operation': p.get('operation')}
+                                          for p in pending]
                     confirmed = confirm_cards(client, session['id'], pending, limit=len(pending) or 1)
                     batch['confirmed'].extend(confirmed)
                     created = catalog_total() - before
                     batch['created'] = created
-                    if created >= len(chunk) or attempt == 3:
+                    if pending or attempt == 2:
                         break
-                    if pending:
-                        pass                     # cards existed but did not create: report honestly below
                     batch['retries'] = attempt
-                    print('    批 %d 第 %d 次只新增 %d/%d 条，换新会话重试'
-                          % (index, attempt, created, len(chunk)), flush=True)
-                ok = sum(1 for item in batch['confirmed'] if item.get('proposal_status') == 'succeeded')
-                print('批 %d：卡 %d 张，确认成功 %d 张，目录新增 %s 条%s'
-                      % (index, len(batch['cards']), ok, batch.get('created'),
-                         '（重试 %d 次）' % batch['retries'] if batch['retries'] else ''), flush=True)
+                    print('    批 %d 第 %d 次一张卡都没准备，换新会话重试一次' % (index, attempt), flush=True)
+                # 同一张卡可能被确认两次（重试那一轮重发了同样的行），统计按车型名称去重，
+                # 避免"确认成功 165 张"这种看着比表格行数还多的假数字。
+                unique = {}
                 for item in batch['confirmed']:
+                    unique.setdefault(item.get('summary'), item)
+                ok = sum(1 for item in unique.values() if item.get('proposal_status') == 'succeeded')
+                print('批 %d：卡 %d 张，确认成功 %d 张，未成功 %d 张，目录新增 %s 条%s'
+                      % (index, len(batch['cards']), ok, len(unique) - ok, batch.get('created'),
+                         '（重试 %d 次）' % batch['retries'] if batch['retries'] else ''), flush=True)
+                for item in unique.values():
                     if item.get('proposal_status') != 'succeeded':
                         print('   未成功:', item.get('summary'), str(item.get('result'))[:140], flush=True)
             catalog = client.get('/api/vehicle-catalog', timeout=120)

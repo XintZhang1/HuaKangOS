@@ -20,10 +20,17 @@ from .tenancy import single_store
 from .models import User
 from .business_assistant_models import AssistantSession, AssistantMessage, AssistantProposal, AssistantIssue
 
-MAX_MESSAGE = 6000
-# 一轮里允许真正执行的工具数。多步业务（读原单→读目录→准备→再读→再准备）需要连续调用，
-# 所以给到 6 个；超过的部分按"未执行"回给模型，让它下一轮继续，而不是静默丢掉。
-PER_ROUND_TOOLS = 6
+MAX_MESSAGE = 12000
+# 一轮里允许真正执行的工具数。多步业务（读原单→读目录→准备→再读→再准备）需要连续调用；
+# 2026-09-25 业主裁定"别按行数卡住"：一条消息放到 12000 字（整张 67 行车型表约 6700 字），
+# 一轮给 12 个工具、总量给到 轮次×6，够把一张表整批准备完。
+PER_ROUND_TOOLS = 12
+# 一次对话里最多允许同时挂着的待确认卡。整表导入需要几十张，所以给到 200；
+# 它只是防"无限堆积"，不是按业务行数限制员工。
+MAX_PENDING_PROPOSALS = 200
+# 模型一轮里最多可以"提出"多少个工具调用。超出部分仍按"未执行"回给它，只有明显异常（比如一次 200+）
+# 才当无效回复处理——整表导入一轮提几十个准备调用是正常且期望的行为。
+HARD_TOOLS = 200
 PROPOSAL_MINUTES = 30
 ISSUE_CATEGORIES = {'input','rule','system','model','unsupported'}
 PRIVATE_KEYS = {'password','password_hash','api_key','secret','token','authorization','cookie','csrf','content_base64','blob','file_content','raw_content'}
@@ -39,9 +46,9 @@ class AssistantConfig:
     provider: str = 'deepseek'
     api_kind: str = 'pay_as_you_go'
     # 2026-09-25 业主裁定：多步业务（读原单→读目录→准备→再准备）不该被轮次掐断。默认给到 24 轮、
-    # 单轮总时长 300 秒，仍保留硬上限（40 轮 / 600 秒）防止一次对话拖死进程。私有配置可覆盖。
+    # 单轮总时长 600 秒（整表导入一轮能准备几十张卡），仍保留硬上限（40 轮 / 600 秒）防止一次对话拖死进程。
     max_rounds: int = 24
-    turn_timeout_seconds: int = 300
+    turn_timeout_seconds: int = 600
 
 
 def load_config():
@@ -73,7 +80,7 @@ def load_config():
         if type(timeout) is not int or not 5<=timeout<=90 or type(data.get('synthetic',False)) is not bool:
             raise ValueError('limits')
         rounds = data.get('max_rounds',24)
-        turn_limit = data.get('turn_timeout_seconds',300)
+        turn_limit = data.get('turn_timeout_seconds',600)
         if type(rounds) is not int or not 4<=rounds<=40:
             raise ValueError('limits')
         if type(turn_limit) is not int or not 30<=turn_limit<=600:
@@ -265,7 +272,11 @@ def prepare_proposal(db,user,session_id,args):
             if old.status in {'executing','uncertain'}:
                 raise HTTPException(409,'这项操作正在办理或结果待核对，请先到原页面核对记录，不能重复提交')
             return proposal_view(old)
-    if sum(row.status=='pending' for row in active)>=20:raise HTTPException(409,'待确认操作较多，请先确认或取消现有操作')
+    # 2026-09-25 业主裁定"别按行数卡住"：整表导入（67 行）一轮要准备 60+ 张卡，原来的 20 张上限
+    # 会被当成"系统拒绝"打断导入。默认放宽到 MAX_PENDING_PROPOSALS，仍保留一个明确上限，
+    # 避免一次对话堆出无上限的待确认写入。
+    if sum(row.status=='pending' for row in active)>=MAX_PENDING_PROPOSALS:
+        raise HTTPException(409,'待确认操作较多（已达 %d 张），请先确认或取消现有操作' % MAX_PENDING_PROPOSALS)
     row=AssistantProposal(id=str(uuid4()),store_id=thread.store_id,session_id=thread.id,owner_id=user.id,
         owner_role=user.role,access_version=user.access_version,operation_id=operation_id,
         label=safe_text(operation.get('label',operation_id),160),summary=safe_text(args.get('summary') or operation.get('label',operation_id),600),
@@ -571,12 +582,12 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
     # and the hard ceilings below keep one conversation from occupying the worker forever.
     max_rounds=max(4,min(40,getattr(config,'max_rounds',24)))
     turn_timeout=max(30,min(600,getattr(config,'turn_timeout_seconds',300)))
-    call_budget=max(40,max_rounds*3)
+    call_budget=max(60,max_rounds*PER_ROUND_TOOLS)
     wrap_up=('请现在收尾：用你已经查到的信息直接用一两句话回答员工，或只问一个必要的确认问题；'
              '如果确实还缺资料，就说清缺哪一项。不要再调用工具。')
     try:
         async with asyncio.timeout(turn_timeout):
-            call_count=0;recovered_oversized=False;wrapped=False;corrected=False
+            call_count=0;wrapped=False;corrected=False;tally=None
             turn_started=utcnow()
             for round_index in range(max_rounds):
                 # A role change can revoke a session while the previous model/tool
@@ -611,12 +622,12 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                         corrected=True
                         continue
                     answer=text or '请补充要办理的业务内容。';break
-                if len(calls)>30:raise ModelBudget('模型一次返回过多或无效工具，已停止处理')
+                if len(calls)>HARD_TOOLS:raise ModelBudget('模型一次返回过多或无效工具，已停止处理')
                 if any(not isinstance(call,dict) or not isinstance(call.get('id'),str) or not call['id'] for call in calls):
                     raise ModelBudget('模型工具编号无效，已停止处理')
-                if len(calls)>8:
-                    if recovered_oversized:raise ModelBudget('模型连续两次返回过多工具，已停止处理')
-                    recovered_oversized=True
+                # 2026-09-25 业主裁定：整表导入时模型会一轮返回十几到几十个准备调用，这是**我们要的**行为。
+                # 超出的部分按"本轮未执行"回给模型让它下一轮继续，绝不能因此把整轮对话掐断
+                # （原实现"连续两次超过 8 个就停止"正是整表导入跑不完的原因）。
                 assistant_reply={'role':'assistant','content':text or None,'tool_calls':calls}
                 if thinking:
                     reason=reply.get('reasoning_content','')
@@ -648,6 +659,18 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                         encoded=json.dumps({'truncated':True,'message':'结果较多，请指定领域、资料类型或业务编号进一步查询'},ensure_ascii=False)
                     messages.append({'role':'tool','tool_call_id':call.get('id',''),'content':encoded})
                     db.commit()
+                # 2026-09-25 整表实测：模型准备的卡是对的（50 张），但结尾汇总自己数成"共 44 张"、
+                # "23 行缺字段"（实际 17 行）——员工看到的文字和待确认卡数量对不上。卡数只有系统知道，
+                # 所以每轮把权威数字作为一条系统消息塞进上下文（原地更新，不堆消息），
+                # 让模型汇总时直接引用这个数，而不是自己口算。
+                made=proposals_since(db,session_id,turn_started)
+                if made:
+                    line=('系统统计：本轮到目前为止实际生成 %d 张待确认卡（被系统拒绝的行不会成卡，原因在工具结果里）。'
+                          '向员工汇总时请直接使用系统这个数字，不要自己数，也不要把没成卡的行算进去。' % made)
+                    if tally is None:
+                        tally={'role':'system','content':line};messages.append(tally)
+                    else:
+                        tally['content']=line
             else:
                 raise ModelBudget('本次模型调用达到10轮上限')
     except ModelBudget as exc:

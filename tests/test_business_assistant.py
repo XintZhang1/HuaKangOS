@@ -213,12 +213,13 @@ def test_inspected_static_operation_ids_survive_clarification_without_any_propos
 def test_oversized_tool_batch_runs_only_the_reviewed_number_and_returns_explicit_skips(client,assistant,monkeypatch):
     sid=session(client);step=0;second_messages=[]
     executed=service.PER_ROUND_TOOLS
+    offered=executed+3
     async def model(config,messages):
         nonlocal step
         step+=1
         if step==1:
             calls=[]
-            for i in range(9):
+            for i in range(offered):
                 args={'operation_id':'read_records'} if i<executed else {'operation_id':'create_record','summary':'不得准备','body':{'name':'未执行'}}
                 calls.append({'id':f'tool-{i}','type':'function','function':{'name':'read_data' if i<executed else 'prepare_operation','arguments':json.dumps(args)}})
             return {'content':'','tool_calls':calls}
@@ -228,29 +229,36 @@ def test_oversized_tool_batch_runs_only_the_reviewed_number_and_returns_explicit
     assert len(assistant[1])==executed and all(call['id']=='read_records' for call in assistant[1])
     assert result.json()['proposals']==[]
     returned=[m for m in second_messages if m['role']=='tool']
-    assert len(returned)==9
+    assert len(returned)==offered
     assert all(json.loads(m['content']).get('executed') is False for m in returned[executed:])
 
 
-def test_second_oversized_batch_stops_without_processing_any_more_tools(client,assistant,monkeypatch):
+def test_a_large_tool_batch_keeps_going_instead_of_stopping_the_turn(client,assistant,monkeypatch):
+    """2026-09-25 业主裁定：整表导入时一轮提几十个准备调用是期望行为，不能因此掐断对话。
+
+    每轮只真正执行 PER_ROUND_TOOLS 个，其余的按"未执行"回给模型让它下一轮继续。
+    """
     sid=session(client);step=0
+    offered=service.PER_ROUND_TOOLS*2+1
     async def model(config,messages):
         nonlocal step
         step+=1
-        return {'content':'','tool_calls':[{'id':f'{step}-{i}','type':'function','function':{'name':'read_data','arguments':'{"operation_id":"read_records"}'}} for i in range(9)]}
+        return {'content':'','tool_calls':[{'id':f'{step}-{i}','type':'function','function':{'name':'read_data','arguments':'{"operation_id":"read_records"}'}} for i in range(offered)]}
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200
-    assert len(assistant[1])==service.PER_ROUND_TOOLS and step==2 and result.json()['proposals']==[]
+    assert step==service.AssistantConfig().max_rounds,'a big batch must not end the turn on the second round'
+    assert len(assistant[1])==service.AssistantConfig().max_rounds*service.PER_ROUND_TOOLS
     assert '还没准备好' in result.json()['messages'][-1]['content']
     assert client.get(BASE+'/issues').json()['items'][0]['category']=='model'
 
 
 @pytest.mark.parametrize('malformed',[True,False])
-def test_invalid_or_more_than_thirty_tools_fail_closed_without_processing(client,assistant,monkeypatch,malformed):
+def test_invalid_or_absurd_tool_lists_fail_closed_without_processing(client,assistant,monkeypatch,malformed):
     sid=session(client)
+    count=service.HARD_TOOLS+1
     async def model(config,messages):
         return {'content':'','tool_calls':{} if malformed else [{'id':str(i),'type':'function','function':{
-            'name':'prepare_operation','arguments':'{"operation_id":"create_record","summary":"不得生成","body":{"name":"不应创建"}}'}} for i in range(31)]}
+            'name':'prepare_operation','arguments':'{"operation_id":"create_record","summary":"不得生成","body":{"name":"不应创建"}}'}} for i in range(count)]}
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200
     assert result.json()['proposals']==[] and assistant[1]==[]
@@ -290,6 +298,31 @@ def test_a_claim_without_a_tool_call_is_sent_back_once(client,assistant,monkeypa
     assert any('没有生成任何待确认卡' in text for text in rounds[1] if text),rounds[1]
     assert '缺少电池容量' in result.json()['messages'][-1]['content']
     assert result.json()['proposals']==[]
+
+
+def test_the_card_count_told_to_the_model_comes_from_the_database(client,assistant,monkeypatch):
+    """2026-09-25 整表实测：模型准备的卡是对的（50 张），但收尾汇总自己数成"共 44 张"、"23 行缺字段"。
+
+    卡数只有系统知道，所以每轮把数据库里的权威数字作为一条系统消息给它，禁止它口算——
+    被系统拒绝、没成卡的那一行也不能算进去。
+    """
+    sid=session(client);rounds=[]
+    def prepare(key):
+        return {'id':'p-'+key,'type':'function','function':{'name':'prepare_operation','arguments':json.dumps(
+            {'operation_id':'create_record','summary':'新增'+key,'body':{'name':key}})}}
+    async def model(config,messages):
+        rounds.append(messages)
+        if len(rounds)==1:
+            return {'content':'','tool_calls':[prepare('甲'),prepare('乙'),
+                    {'id':'p-bad','type':'function','function':{'name':'prepare_operation',
+                     'arguments':json.dumps({'operation_id':'no_such_operation','summary':'这一条不成卡'})}}]}
+        return {'content':'已按系统给的数字汇报：待确认卡已准备好，请逐张核对。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    result=message(client,sid);assert result.status_code==200
+    assert len(rounds)==2
+    tally=[m['content'] for m in rounds[1] if m.get('role')=='system' and '实际生成' in str(m.get('content'))]
+    assert tally and '实际生成 2 张待确认卡' in tally[-1],rounds[1]
+    assert len(result.json()['proposals'])==2
 
 
 @pytest.mark.parametrize('operation',['create_record','create_unkeyed'])
