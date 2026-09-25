@@ -7,7 +7,7 @@
   "production_deployed": false,
   "source_baseline_archive": "huakangos_r80e-vehicle-checkpoint_20260922.zip",
   "source_baseline_sha256": "c766b72542b32ebc2b709498f8c3f3c45f7d723e1bac267a57b746f2c409fa59",
-  "current_same_tree_run": "PASSED全量: 2462通过、2跳过、0失败/0错误；167模块，1637.59秒，857个源码文件前后未变（digest 5fe713f2…）",
+  "current_same_tree_run": "PASSED全量: 2444通过、0失败/0错误/0跳过；167模块，1606.25秒，857个源码文件前后未变（digest a427da26…，对应提交 cab6aef；其后仅追加一条系统提示句，另有专项测试）",
   "scope_correction": "docs/需求范围纠正_20260922.md",
   "scope_audit": "docs/原始需求范围复核.md",
   "environment_gates": {
