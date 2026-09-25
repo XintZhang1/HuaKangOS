@@ -178,25 +178,26 @@ def test_inspected_static_operation_ids_survive_clarification_without_any_propos
     assert 'op-1' in contexts[2] and '当前静态字段' in contexts[2]
 
 
-def test_oversized_tool_batch_runs_only_first_two_and_returns_explicit_skips(client,assistant,monkeypatch):
+def test_oversized_tool_batch_runs_only_the_reviewed_number_and_returns_explicit_skips(client,assistant,monkeypatch):
     sid=session(client);step=0;second_messages=[]
+    executed=service.PER_ROUND_TOOLS
     async def model(config,messages):
         nonlocal step
         step+=1
         if step==1:
             calls=[]
             for i in range(9):
-                args={'operation_id':'read_records'} if i<2 else {'operation_id':'create_record','summary':'不得准备','body':{'name':'未执行'}}
-                calls.append({'id':f'tool-{i}','type':'function','function':{'name':'read_data' if i<2 else 'prepare_operation','arguments':json.dumps(args)}})
+                args={'operation_id':'read_records'} if i<executed else {'operation_id':'create_record','summary':'不得准备','body':{'name':'未执行'}}
+                calls.append({'id':f'tool-{i}','type':'function','function':{'name':'read_data' if i<executed else 'prepare_operation','arguments':json.dumps(args)}})
             return {'content':'','tool_calls':calls}
         second_messages.extend(messages);return {'content':'已查到当前资料，请补充名称。'}
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200
-    assert len(assistant[1])==2 and all(call['id']=='read_records' for call in assistant[1])
+    assert len(assistant[1])==executed and all(call['id']=='read_records' for call in assistant[1])
     assert result.json()['proposals']==[]
     returned=[m for m in second_messages if m['role']=='tool']
     assert len(returned)==9
-    assert all(json.loads(m['content']).get('executed') is False for m in returned[2:])
+    assert all(json.loads(m['content']).get('executed') is False for m in returned[executed:])
 
 
 def test_second_oversized_batch_stops_without_processing_any_more_tools(client,assistant,monkeypatch):
@@ -207,7 +208,7 @@ def test_second_oversized_batch_stops_without_processing_any_more_tools(client,a
         return {'content':'','tool_calls':[{'id':f'{step}-{i}','type':'function','function':{'name':'read_data','arguments':'{"operation_id":"read_records"}'}} for i in range(9)]}
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200
-    assert len(assistant[1])==2 and step==2 and result.json()['proposals']==[]
+    assert len(assistant[1])==service.PER_ROUND_TOOLS and step==2 and result.json()['proposals']==[]
     assert '还没准备好' in result.json()['messages'][-1]['content']
     assert client.get(BASE+'/issues').json()['items'][0]['category']=='model'
 
@@ -234,7 +235,7 @@ def test_round_budget_reports_truthful_progress_and_model_issue(client,assistant
         count+=1
         return {'content':'','tool_calls':[{'id':f'check-{count}','type':'function','function':{'name':'inspect_operation','arguments':'{"operation_id":"read_records"}'}}]}
     monkeypatch.setattr(service,'model_reply',model)
-    result=message(client,sid);assert result.status_code==200 and count==10
+    result=message(client,sid);assert result.status_code==200 and count==service.AssistantConfig().max_rounds
     text=result.json()['messages'][-1]['content']
     assert ('下方待确认操作' in text) if has_pending else ('还没准备好' in text)
     assert client.get(BASE+'/issues').json()['items'][0]['category']=='model'

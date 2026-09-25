@@ -93,6 +93,14 @@
     "limit_one": "403 时返回提示：这一步需要更高岗位权限，可读 GET /api/escalations/refusals 生成评审申请确认卡；409/422 不给该提示",
     "limit_two": "prerequisite_notes：新建流程中间单据时随卡返回该业务自己声明的前序字段（相关业务/客户/车辆/原单），要求逐项向员工确认",
     "multi_step_chaining": "允许一次目标内连续准备多步，每步各自一张确认卡，点击前不得声称已办理",
+    "tool_budget": {
+      "max_rounds": 24,
+      "rounds_tunable": "4-40，私有配置 max_rounds",
+      "tools_per_round": 6,
+      "turn_timeout_seconds": 300,
+      "turn_tunable": "30-600，私有配置 turn_timeout_seconds",
+      "wrap_up_before_limit": true
+    },
     "still_closed": "凭据与登录、部署与品牌设置、原始附件与下载导出、期初导入、任意旧单据CRUD、多部分文件上传、办理评审申请本身",
     "multipart_uploads_blocked": true,
     "escalation_request_preparable": true,

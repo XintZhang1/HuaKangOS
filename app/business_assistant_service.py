@@ -21,6 +21,9 @@ from .models import User
 from .business_assistant_models import AssistantSession, AssistantMessage, AssistantProposal, AssistantIssue
 
 MAX_MESSAGE = 6000
+# 一轮里允许真正执行的工具数。多步业务（读原单→读目录→准备→再读→再准备）需要连续调用，
+# 所以给到 6 个；超过的部分按"未执行"回给模型，让它下一轮继续，而不是静默丢掉。
+PER_ROUND_TOOLS = 6
 PROPOSAL_MINUTES = 30
 ISSUE_CATEGORIES = {'input','rule','system','model','unsupported'}
 PRIVATE_KEYS = {'password','password_hash','api_key','secret','token','authorization','cookie','csrf','content_base64','blob','file_content','raw_content'}
@@ -35,6 +38,10 @@ class AssistantConfig:
     synthetic: bool = False
     provider: str = 'deepseek'
     api_kind: str = 'pay_as_you_go'
+    # 2026-09-25 业主裁定：多步业务（读原单→读目录→准备→再准备）不该被轮次掐断。默认给到 24 轮、
+    # 单轮总时长 300 秒，仍保留硬上限（40 轮 / 600 秒）防止一次对话拖死进程。私有配置可覆盖。
+    max_rounds: int = 24
+    turn_timeout_seconds: int = 300
 
 
 def load_config():
@@ -65,9 +72,16 @@ def load_config():
             raise ValueError('credentials')
         if type(timeout) is not int or not 5<=timeout<=90 or type(data.get('synthetic',False)) is not bool:
             raise ValueError('limits')
+        rounds = data.get('max_rounds',24)
+        turn_limit = data.get('turn_timeout_seconds',300)
+        if type(rounds) is not int or not 4<=rounds<=40:
+            raise ValueError('limits')
+        if type(turn_limit) is not int or not 30<=turn_limit<=600:
+            raise ValueError('limits')
         if os.environ.get('APP_ENV') == 'test' and (not explicit or data.get('synthetic') is not True):
             return AssistantConfig()
-        return AssistantConfig(data.get('enabled',False),key.strip(),model,timeout,data.get('synthetic',False),provider,api_kind)
+        return AssistantConfig(data.get('enabled',False),key.strip(),model,timeout,data.get('synthetic',False),
+                               provider,api_kind,rounds,turn_limit)
     except (OSError,ValueError,TypeError):
         raise HTTPException(503,'业务助手配置有误，请联系管理员检查配置') from None
 
@@ -517,20 +531,24 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
             await emit(event,data)
     await send('status',{'phase':'thinking' if thinking else 'responding','round':1})
     answer=''
-    turn_timeout=180 if thinking else 110
+    # A long goal may legitimately need many rounds; the private config can widen or narrow this,
+    # and the hard ceilings below keep one conversation from occupying the worker forever.
+    max_rounds=max(4,min(40,getattr(config,'max_rounds',24)))
+    turn_timeout=max(30,min(600,getattr(config,'turn_timeout_seconds',300)))
+    call_budget=max(40,max_rounds*3)
     wrap_up=('请现在收尾：用你已经查到的信息直接用一两句话回答员工，或只问一个必要的确认问题；'
              '如果确实还缺资料，就说清缺哪一项。不要再调用工具。')
     try:
         async with asyncio.timeout(turn_timeout):
             call_count=0;recovered_oversized=False;wrapped=False
-            for round_index in range(10):
+            for round_index in range(max_rounds):
                 # A role change can revoke a session while the previous model/tool
                 # call is in flight. Recheck before sending another context batch.
                 owned_session(db,user,session_id);db.commit()
                 # Long goals (read the order, read the catalogue, prepare several steps) can use
                 # most of the budget. Ask for a conclusion in the last rounds instead of letting
                 # the turn die with "请发送继续" — the employee gets an answer either way.
-                if round_index>=8 and not wrapped:
+                if round_index>=max_rounds-2 and not wrapped:
                     messages.append({'role':'system','content':wrap_up});wrapped=True
                 if emit:
                     from .business_assistant_stream import model_reply_stream
@@ -557,12 +575,13 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                     assistant_reply['reasoning_content']=reason
                 messages.append(assistant_reply)
                 for index,call in enumerate(calls):
-                    if index>=2:
+                    if index>=PER_ROUND_TOOLS:
                         messages.append({'role':'tool','tool_call_id':call['id'],'content':json.dumps({
-                            'executed':False,'error':'未执行，请先处理当前目标，每轮最多2工具'},ensure_ascii=False)})
+                            'executed':False,'error':'未执行，请先处理当前目标，每轮最多%d个工具' % PER_ROUND_TOOLS},
+                            ensure_ascii=False)})
                         continue
                     call_count+=1
-                    if call_count>20:raise ModelBudget('本次实际工具调用达到20次上限')
+                    if call_count>call_budget:raise ModelBudget('本次实际工具调用达到%d次上限' % call_budget)
                     await send('status',{'phase':'tool','round':round_index+1,'message':'正在核对业务资料'})
                     try:
                         fn=call['function'];args=json.loads(fn.get('arguments') or '{}')
