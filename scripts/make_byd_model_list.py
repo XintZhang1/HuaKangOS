@@ -17,18 +17,43 @@ from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / 'docs/试用记录/比亚迪车型清单_导入用_20260925.xlsx'
-HEADERS = ['品牌', '品牌编码', '车系', '车系编码', '车型', '车型编码', '年款', '动力类型', '动力代码',
-           '座位数', '排量(ml)', '电池容量(Wh)', '指导价(元)', '备注']
+HEADERS = ['行号', '品牌', '车系', '车型', '年款', '动力类型', '动力代码', '座位数', '排量(ml)',
+           '电池容量(Wh)', '指导价(元)', '备注']
 PURE, PLUG = '纯电', '插电混动'
-BRAND_CODE = 'BYD'
-# 车系编码：助手试用时如果系统要求编码，直接按这张表填，不用临时发明。
-SERIES_CODE = {
-    '元UP': 'YUANUP', '元PLUS': 'YUANPLUS', '秦L': 'QINL', '秦MAX': 'QINMAX', '宋Pro': 'SONGPRO',
-    '宋L': 'SONGL', '宋Ultra': 'SONGULTRA', '汉': 'HAN', '夏': 'XIA', '唐': 'TANG',
-    '大唐': 'DATANG', '大汉': 'DAHAN', '海狮07': 'HAISHI07', '海狮06': 'HAISHI06',
-    '海狮05': 'HAISHI05', '护卫舰07': 'HUWEIJIAN07', '海豹': 'HAOBAO', '海豹06': 'HAOBAO06',
-    '海豹07': 'HAOBAO07', '海豚': 'HAITUN', '海鸥': 'HAIQIU', '驱逐舰05': 'QUZHUJIAN05',
+# 电池容量（Wh）：只填能从公开参数页读到的值，读不到留空。纯电车型留空会被系统拒绝
+# （VehicleModelInput 要求 electric 必须 battery_wh>0），所以纯电行必须有值。
+# 键＝车系 + 车型名里出现的续航/配置片段（取最长匹配）；值为该配置的电池能量。
+# 来源（2026-09-25 由三个核对子任务从参数页原文读取，逐条标注）：
+#   58汽车 product.58che.com（元UP 飞驰版、秦MAX、元PLUS 630km、汉EV 705km、宋Pro、宋L、宋Ultra）
+#   车300 che300.com（秦L 128km）、太平洋汽车 pcauto（秦L 210km、夏、海狮/护卫舰/海豹/海豚/海鸥/驱逐舰05）
+BATTERY_BY_SERIES_TOKEN = {
+    '元UP': {'301km': 32000, '401km': 45120, '501km': 51130},
+    '秦L': {'128km': 15870, '210km': 25280},
+    '秦MAX': {'EV 530km': 52868, 'EV 630km': 64315, '230km': 25287, '320km': 34275},
+    '宋Pro': {'133km': 18300, '220km': 26600, '301km': 34270},
+    '宋L': {'130km': 18300, '200km': 26600},
+    '宋Ultra': {'205km': 26600, '310km': 38000, '605km': 69070, '710km': 82700},
+    '元PLUS': {'630km': 68547},                      # 540km 各参数页均未见到，留空
+    '汉': {'705km': 69070},
+    '夏': {'100km': 20390},
+    '海狮07': {'DM-i': 26600, 'EV': 71800},
+    '海狮06': {'车系': 65280},                        # 2025款 EV 520领航版 65.28 kWh
+    '海狮05': {'EV': 50050, 'DM-i': 26628},
+    '护卫舰07': {'车系': 18300},                      # 2024款荣耀版 DM-i 100KM 精英型
+    '海豹06': {'车系': 15870},
+    '海豹07': {'车系': 17600},
+    '海豚': {'车系': 45120},
+    '海鸥': {'车系': 38880},
+    '驱逐舰05': {'车系': 8300},
 }
+
+
+def battery_for(series, model):
+    options = BATTERY_BY_SERIES_TOKEN.get(series) or {}
+    for token in sorted(options, key=len, reverse=True):
+        if token in model:
+            return options[token]
+    return None
 # (车系, 车型, 年款, 动力, 座位数, 排量ml, 指导价元或None, 备注)
 DYNASTY = [
     ('元UP', '元UP 飞驰版 301km 领航型', 2027, PURE, 5, 0, 74800, ''),
@@ -111,10 +136,12 @@ NOTES = [
     ['口径', '价格取自公开页面上的厂商指导价；未公布指导价的"可预订"车型留空；不含补贴、优惠与地区差异'],
     ['为什么有空白', '电池容量与部分车系价格没有可靠来源，宁可留空也不编造；导入后可在车型页补齐'],
     ['列说明·动力代码', '必须是系统选项之一：electric（纯电）/ plugin_hybrid（插电混动）'],
-    ['列说明·编码', '品牌编码固定 BYD；车系编码用拼音缩写（YUANUP/QINL/SONGULTRA…）；车型编码=车系编码-年款-序号，例如 YUANUP-2027-01'],
-    ['列说明·排量', '1.5L=1498，1.5T=1497，纯电=0；座位数：轿车/SUV=5，夏 MPV=7，海鸥=4'],
-    ['电池容量留空的原因', '没有可靠来源的每款电池容量；系统按 0 存并在车型页补齐，避免编造数值'],
-    ['导入建议', '先让助手读表并列出"将新建哪些品牌/车系/车型"，确认分批后再逐张点确认卡；同名先查再建'],
+    ['列说明·单位', '排量单位毫升（1.5L=1498、1.5T=1497、纯电=0）；电池容量单位 Wh（1 kWh=1000 Wh）；指导价单位元（提交接口时按分，×100）'],
+    ['列说明·为什么没有编码', '车型目录的新增接口 POST /api/vehicle-catalog/entry 不接受编码字段（严格模式会拒绝多余字段），品牌/车系/车型编码由系统自动生成'],
+    ['车型挂车系由同一次提交完成', 'entry 接口一次提交就带品牌名称+车系名称+车型参数：系统会按名称查找或新建品牌与车系，并写入车型与车系的归属关系，不需要先建车系再挂'],
+    ['纯电车型的硬要求', '系统校验：纯电车型排量必须为 0 且电池容量 > 0；燃油车型相反。插混不限'],
+    ['为什么还有空白', '2026/2027 款部分配置（尤其"可预订"车型）官方参数未公布，电池容量留空并在备注标注，不编造'],
+    ['导入建议', '一次一张确认卡（每行一张）；先让助手读表列出计划，再按行号分批；每张卡确认前核对车型名、年款、动力、电池容量与指导价'],
     ['范围', '本表只含比亚迪品牌（王朝网+海洋网）；腾势、方程豹、仰望属集团其他品牌，未列入'],
 ]
 
@@ -141,13 +168,13 @@ def sheet_xml(rows):
 
 def build(path):
     data = [HEADERS]
-    counters = {}
-    for series, model, year, power, seats, displacement, price, note in DYNASTY + OCEAN:
-        code = SERIES_CODE[series]
-        counters[code] = counters.get(code, 0) + 1
-        data.append(['比亚迪', BRAND_CODE, series, code, model, '%s-%d-%02d' % (code, year, counters[code]),
-                     year, power, 'electric' if power == PURE else 'plugin_hybrid',
-                     seats, displacement, None, price, note])
+    for number, (series, model, year, power, seats, displacement, price, note) in enumerate(DYNASTY + OCEAN, start=1):
+        battery = battery_for(series, model)
+        if power == PURE and battery is None:
+            note = (note + '；电池容量未查到（纯电必填，导入前需补）').strip('；')
+        data.append([number, '比亚迪', series, model, year, power,
+                     'electric' if power == PURE else 'plugin_hybrid',
+                     seats, displacement, battery, price, note])
     sheets = [('车型清单', sheet_xml(data)), ('说明与来源', sheet_xml(NOTES))]
     content_types = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'

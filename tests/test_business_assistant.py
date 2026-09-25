@@ -273,6 +273,25 @@ def test_round_budget_reports_truthful_progress_and_model_issue(client,assistant
     assert client.get(BASE+'/issues').json()['items'][0]['category']=='model'
 
 
+def test_a_claim_without_a_tool_call_is_sent_back_once(client,assistant,monkeypatch):
+    """2026-09-25 试用实测：长会话里模型照抄自己上一轮的话，声称"卡已准备好"却没调用工具。
+
+    数据库里 0 张卡时必须退回一轮要求它真的准备，而不是把这句假话交给员工。
+    """
+    sid=session(client);rounds=[]
+    async def model(config,messages):
+        rounds.append([m.get('content') for m in messages if m.get('role')=='system'])
+        if len(rounds)==1:
+            return {'content':'第 7 批 4 张待确认卡已真实生成，请逐张核对后点击确认。'}
+        return {'content':'这几行缺少电池容量，系统不会建卡；请补齐后再发我。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    result=message(client,sid);assert result.status_code==200
+    assert len(rounds)==2,'claiming a card without preparing one must be sent back once'
+    assert any('没有生成任何待确认卡' in text for text in rounds[1] if text),rounds[1]
+    assert '缺少电池容量' in result.json()['messages'][-1]['content']
+    assert result.json()['proposals']==[]
+
+
 @pytest.mark.parametrize('operation',['create_record','create_unkeyed'])
 def test_prepare_never_executes_and_duplicate_confirmation_posts_once(client,assistant,monkeypatch,operation):
     fake,calls=assistant;sid=session(client)

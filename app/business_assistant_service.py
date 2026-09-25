@@ -11,7 +11,7 @@ import re
 from uuid import uuid4
 import httpx
 from fastapi import HTTPException
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm.exc import StaleDataError
 from .config import ROOT
@@ -468,6 +468,27 @@ def known_operations(operation_ids,proposals):
     return result
 
 
+# "只说不做"检测：模型声称已准备/已办理时，本轮必须真的有确认卡落地（2026-09-25 试用实测）。
+# 判定＝"提到确认卡" + "完成语气" + "动作词"；只提议、只是提示点击都不算。
+CLAIM_SUBJECTS = ('确认卡', '待确认', '确认表单')
+DONE_MARKERS = ('已', '已经', '好了', '成功', '完成')
+CLAIM_ACTIONS = ('准备', '生成', '新增', '办理', '提交', '创建', '更新')
+
+
+def claimed_actions(text):
+    value = str(text or '')
+    if not any(subject in value for subject in CLAIM_SUBJECTS):
+        return False
+    return (any(marker in value for marker in DONE_MARKERS)
+            and any(action in value for action in CLAIM_ACTIONS))
+
+
+def proposals_since(db, session_id, since):
+    return db.scalar(select(func.count()).select_from(AssistantProposal)
+                     .where(AssistantProposal.session_id == session_id,
+                            AssistantProposal.created_at >= since)) or 0
+
+
 def progress_message(db,user,session_id):
     thread=owned_session(db,user,session_id)
     pending=db.scalar(select(AssistantProposal.id).where(AssistantProposal.session_id==thread.id,
@@ -555,7 +576,8 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
              '如果确实还缺资料，就说清缺哪一项。不要再调用工具。')
     try:
         async with asyncio.timeout(turn_timeout):
-            call_count=0;recovered_oversized=False;wrapped=False
+            call_count=0;recovered_oversized=False;wrapped=False;corrected=False
+            turn_started=utcnow()
             for round_index in range(max_rounds):
                 # A role change can revoke a session while the previous model/tool
                 # call is in flight. Recheck before sending another context batch.
@@ -576,6 +598,18 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                 text=safe_text(reply.get('content'),9000)
                 if not isinstance(calls,list):raise ModelBudget('模型返回无效工具列表，已停止处理')
                 if not calls:
+                    # 2026-09-25 试用实测：长会话里模型会"照抄自己上一轮的话"，声称"6 张卡已准备好"
+                    # 却根本没有调用准备工具（数据库里 0 张卡）。这里做一次有据可查的纠正：
+                    # 没有工具调用、却声称已经准备/办理、而本轮确实没有产生任何确认卡时，退回一轮。
+                    if (not corrected and claimed_actions(text)
+                            and not proposals_since(db,session_id,turn_started)):
+                        messages.append({'role':'assistant','content':text or None})
+                        messages.append({'role':'system','content':
+                                         '你刚才说已经准备好确认卡，但系统里没有生成任何待确认卡。'
+                                         '请真的逐条调用 prepare_operation 去准备；如果某一条被系统拒绝，'
+                                         '就把系统返回的原因原样告诉员工，不要声称已经准备或已经办理。'})
+                        corrected=True
+                        continue
                     answer=text or '请补充要办理的业务内容。';break
                 if len(calls)>30:raise ModelBudget('模型一次返回过多或无效工具，已停止处理')
                 if any(not isinstance(call,dict) or not isinstance(call.get('id'),str) or not call['id'] for call in calls):

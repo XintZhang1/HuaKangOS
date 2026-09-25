@@ -77,6 +77,8 @@ def confirm_cards(client, session_id, proposals, limit=3):
         settled = (body.get('proposals') or [{}])[0] if body.get('proposals') else {}
         done.append({'summary': proposal.get('summary'), 'status': response.status_code,
                      'proposal_status': settled.get('status', ''),
+                     'display_fields': settled.get('display_fields'),
+                     'details': settled.get('details'),
                      'result': str(settled.get('result') if settled else body.get('detail') or body)[:400]})
     return done
 
