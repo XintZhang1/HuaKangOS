@@ -1,13 +1,13 @@
 {
   "checkpoint": "assistant-write-scope-and-escalations-20260924",
   "application_version": "0.4.0-dev",
-  "database_head": "h50h_proposal_step",
+  "database_head": "h51i_proposal_questions",
   "release_accepted": false,
   "company_accepted": false,
   "production_deployed": false,
   "source_baseline_archive": "huakangos_r80e-vehicle-checkpoint_20260922.zip",
   "source_baseline_sha256": "c766b72542b32ebc2b709498f8c3f3c45f7d723e1bac267a57b746f2c409fa59",
-  "current_same_tree_run": "PASSED全量: 2456通过、0失败/0错误/2跳过；167模块，1698.4秒，866个源码文件前后未变（digest f69470e2…，对应提交 ce2cca0）。同轮：24个前端Node用例、66个JS语法检查、9项指引用例通过",
+  "current_same_tree_run": "PASSED全量: 2459通过、0失败/0错误/2跳过；167模块，1586.5秒，867个源码文件前后未变（digest fd9ca10c…，对应提交 6e353cf）。同轮：24个前端Node用例、66个JS语法检查、9项指引用例通过",
   "scope_correction": "docs/需求范围纠正_20260922.md",
   "scope_audit": "docs/原始需求范围复核.md",
   "environment_gates": {
@@ -32,7 +32,7 @@
   },
   "verification_report": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
   "requirement_mapping_audit": "docs/需求逐项核对-employee-assistant-files-20260924.json",
-  "source_digest": "f69470e2092192c7867c1235159e277e6bde8fbaba130b72d1aa112ba793983a",
+  "source_digest": "fd9ca10cce2451fbb3f4bd739d300e0963376ebe22a1eb6850496298d3bfc4db",
   "repair_baseline": {
     "checkpoint": "t02g-dossier-masters",
     "manifest": "docs/verification/t02g-fix1/source-package-before.sha256",
@@ -48,7 +48,7 @@
   "progress_record": "docs/助手权限与评审设计_20260924.md",
   "current_working_evidence": "docs/verification/assistant-chain-and-cards-20260925/测试报告.md",
   "current_run_directory": "docs/verification/assistant-chain-and-cards-20260925",
-  "current_frozen_source_files": 866,
+  "current_frozen_source_files": 867,
   "statement_definition": 21,
   "cash_definition": 7,
   "development_and_simulation_delivered": true,
@@ -107,7 +107,14 @@
       "wrap_up_before_limit": true,
       "row_limits_removed": "2026-09-25 业主指令：不许按表格行数/批次卡住员工。删掉“连续两次返回过多工具就停止处理”，整表导入一轮提几十个准备调用是期望行为；超出的调用按“本轮未执行”回给模型。只留两个防跑飞硬闸（单次回复超过 hard_tools_per_reply 按无效拒绝、总调用次数有上限）",
       "authoritative_card_tally": "每轮把数据库里的待确认卡数作为一条系统消息给模型（原地更新），要求汇总时引用系统数字，不自己口算",
-      "model_tokens": "8192（思考与非思考同）；一轮准备十几张卡时 2500 会截断（finish_reason=length），截断现在单独提示“内容太多被截断，请发送继续”，不再冒充连接故障"
+      "model_tokens": "不再下发任何输出长度上限（业主 2026-09-25：“为什么要设置回复上限啊，赶紧删掉！”）；长度由服务方自己的上限决定",
+      "no_per_round_tool_cap": "PER_ROUND_TOOLS 已删除：一次回复里提多少个准备调用就执行多少个；HARD_TOOLS=200 只是畸形回复兜底"
+    },
+    "card_questions": {
+      "owner": "2026-09-25：“需要员工回答的部分，你能不能在分组卡片的单张里把这些选项列为必填项，只有确认过后才能继续点下一张”",
+      "storage": "business_assistant_proposals.questions（迁移 h51i_proposal_questions）",
+      "ui": "卡内渲染：有真实候选用下拉，否则文本框；没填完不能确认、不能翻到下一张；组级“全部确认/按顺序全部确认”在组内有未填完的卡时禁用",
+      "server": "确认/批量确认带 answers；没填完 409；只接受卡片自己声明的 key；落到原接口真实字段（精确命中优先，带前缀用最后一段，values.x 落 body.values）并再走一次原网关校验；只有必填项缺着的卡也能生成（准备时用类型正确的占位值探一次，占位不进卡片）"
     },
     "card_presentation": {
       "owner_feedback": "2026-09-25 R04 预览手动试用四条：卡片堆在对话底部、缺少 < n/m > 翻页、确认后没有后续、跳转页面中止对话",
@@ -193,6 +200,12 @@
       "verification_report": "docs/verification/assistant-chain-and-cards-20260925/测试报告.md",
       "source_digest": "f69470e2092192c7867c1235159e277e6bde8fbaba130b72d1aa112ba793983a",
       "current_same_tree_run": "PASSED全量: 2456通过、0失败/0错误/2跳过；167模块，1698.4秒，866文件前后未变（提交 ce2cca0）。同轮：真实 Chrome 卡片面板/翻页/批量确认/后台继续（tests/browser_assistant_batch_cards.py，0 JS 报错）、真实模型链式试跑（tests/assistant_chain_probe.py）、24个前端Node用例、66个JS语法检查、9项指引用例通过"
+    },
+    {
+      "checkpoint": "assistant-no-reply-caps-and-card-questions-20260925 (PR #10)",
+      "verification_report": "docs/verification/assistant-chain-and-cards-20260925/测试报告.md",
+      "source_digest": "fd9ca10cce2451fbb3f4bd739d300e0963376ebe22a1eb6850496298d3bfc4db",
+      "current_same_tree_run": "PASSED全量: 2459通过、0失败/0错误/2跳过；167模块，1586.5秒，867文件前后未变（提交 6e353cf）。同轮：真实 Chrome 必填项（确认/翻页禁用→填完放开→批量带答案）、真实模型试跑（卡片必填项填完确认 1/1 办成、接待单带员工填的车型）、24个前端Node用例、66个JS语法检查通过"
     }
   ]
 }
