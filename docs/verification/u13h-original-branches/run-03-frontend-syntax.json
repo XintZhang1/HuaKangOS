@@ -1,8 +1,0 @@
-{
-  "status": "passed",
-  "files": 53,
-  "errors": [],
-  "frozen_source_digest": "050badb35b1959c6a3a606c403c8a7dade82dd2f1944c5b9ef54d48eee67f207",
-  "app_js_sha256": "1f0ad421e7849d1c9b5ed06070ad876b8a858a8e2f8fa7a15e8e11ea9ba74cdc",
-  "membership_js_sha256": "3d51773b16365fcd238be8f60ee5a1914fa7cd0e8e524c79fd9a3c3dac328ac4"
-}

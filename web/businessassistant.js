@@ -152,10 +152,15 @@ function prerequisiteLine(proposal){
  if(!Array.isArray(notes)||!notes.length)return '';
  return `<p class="ba-text">办理前请先确认：${E(notes.join('；'))}</p>`;
 }
+function businessAssistantExpired(proposal){
+ const stamp=proposal?.expires_at;
+ if(!stamp)return false;
+ return new Date(stamp.endsWith('Z')||/[+-]\d\d:\d\d$/.test(stamp)?stamp:stamp+'Z').getTime()<=Date.now();
+}
 function businessAssistantProposal(proposal){
  const statuses={pending:'待确认',confirmed:'已完成',executed:'已完成',completed:'已完成',succeeded:'已完成',executing:'办理中',uncertain:'待核对结果',cancelled:'已取消',expired:'已过期',failed:'未完成',rejected:'未执行'};
  const pending=proposal.status==='pending',disabled=businessAssistantState.busy||businessAssistantState.session?.busy||businessAssistantState.needsRefresh;
- const expired=proposal.expires_at&&new Date(proposal.expires_at.endsWith('Z')||/[+-]\d\d:\d\d$/.test(proposal.expires_at)?proposal.expires_at:proposal.expires_at+'Z').getTime()<=Date.now();
+ const expired=businessAssistantExpired(proposal);
  const fields=Array.isArray(proposal.display_fields)?proposal.display_fields:businessAssistantFallbackFields(proposal.details?.body||{});
  const links=[...(proposal.links||[]),...(proposal.result?.links||[])],manualRoute=businessAssistantManualRoute(proposal);if(manualRoute)links.push({route:manualRoute,label:proposal.result?'查看单据':'打开原页面'});
  const questions=businessAssistantCardQuestions(proposal);
@@ -436,17 +441,44 @@ async function businessAssistantReport(){
   if(current!==businessAssistantState||context!==businessAssistantContext())return;closeModal();current.tab='issues';await render();toast('问题已记录');
  });
 }
-// 卡片必填项：输入即记入本地状态并重画卡片栏（确认/翻页按钮的可用状态跟着变）。
-// 用文档级委托，重画之后不需要重新绑定。
-function businessAssistantQuestionInput(target){
+// 卡片必填项：输入即记入本地状态。**打字过程中绝不重画卡片栏**——重画会把输入框换掉，
+// 光标就飞了（业主 2026-09-25 实测："输了一个 1 就跳出来了"）。所以：
+//   打字(input) → 只更新"能不能点"的按钮状态（不动输入框）
+//   选完/离开(change) → 才整栏重画，把提示文字也对齐
+function businessAssistantQuestionInput(target,commit){
  if(state.route!=='business-assistant')return;
  const host=target?.closest?.('[data-ba-questions]'),key=target?.dataset?.baqKey;
  if(!host||!key)return;
- businessAssistantAnswers(host.dataset.baQuestions)[key]=target.value;
- if(paintBusinessAssistantCards()===false)paintBusinessAssistant();
+ const cardId=host.dataset.baQuestions;
+ businessAssistantAnswers(cardId)[key]=target.value;
+ if(commit){if(paintBusinessAssistantCards()===false)paintBusinessAssistant();return;}
+ businessAssistantRefreshGates(cardId);
 }
-document.addEventListener('input',event=>businessAssistantQuestionInput(event.target));
-document.addEventListener('change',event=>businessAssistantQuestionInput(event.target));
+function businessAssistantRefreshGates(cardId){
+ const panel=$('#business-assistant-cards');
+ if(!panel||!panel.querySelector)return;
+ const proposals=businessAssistantState.session?.proposals||[];
+ const proposal=proposals.find(card=>String(card.id)===String(cardId));
+ if(!proposal)return;
+ const busy=businessAssistantState.busy||businessAssistantState.session?.busy||businessAssistantState.needsRefresh;
+ const incomplete=card=>card.status==='pending'&&businessAssistantCardQuestions(card).missing.length>0;
+ const selector=(action,attribute,value)=>`[data-ba-action="${action}"][data-${attribute}="${String(value).replace(/"/g,'')}"]`;
+ const confirm=panel.querySelector(selector('confirm','id',cardId));
+ if(confirm)confirm.disabled=Boolean(busy||incomplete(proposal)||businessAssistantExpired(proposal));
+ const group=businessAssistantCardGroups(proposals).find(item=>item.cards.some(card=>String(card.id)===String(cardId)));
+ if(!group)return;
+ const index=businessAssistantCardIndex(group),current=group.cards[index];
+ const next=panel.querySelector(selector('card-next','key',group.key));
+ if(next)next.disabled=index>=group.cards.length-1||incomplete(current);
+ const previous=panel.querySelector(selector('card-prev','key',group.key));
+ if(previous)previous.disabled=index<=0;
+ const whole=panel.querySelector(selector('card-confirm-all','key',group.key));
+ if(whole)whole.disabled=Boolean(busy||group.cards.some(incomplete));
+ const stepwise=panel.querySelector('[data-ba-action="cards-confirm-stepwise"]');
+ if(stepwise)stepwise.disabled=Boolean(busy||proposals.some(incomplete));
+}
+document.addEventListener('input',event=>businessAssistantQuestionInput(event.target,false));
+document.addEventListener('change',event=>businessAssistantQuestionInput(event.target,true));
 document.addEventListener('click',async event=>{
  const element=event.target.closest('[data-ba-action]');if(!element||element.disabled||state.route!=='business-assistant')return;
  const action=element.dataset.baAction,current=businessAssistantState;

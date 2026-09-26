@@ -1,1 +1,0 @@
-{"command": ["/opt/pyvenv/bin/python", "-m", "pytest", "-q", "--tb=short", "tests/test_vehicle_transport.py", "tests/test_vehicle_transfers.py", "--junitxml=/mnt/data/huakangos_runs/vehicle-transport01/junit.xml"], "cwd": "/mnt/data/huakangos_runs/vehicle-transport01/source", "synthetic_only": true}

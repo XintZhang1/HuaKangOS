@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="11.436" timestamp="2026-09-22T11:35:47.472414+00:00" hostname="localhost"><testcase classname="tests.test_vehicle_transport_upgrade" name="test_nonempty_q79d_to_current_preserves_originals_replays_then_real_loss_found" time="10.051"><failure message="AssertionError: {&quot;detail&quot;:&quot;步骤待办未开放或已交给其他员工&quot;}&#10;assert 409 == 200&#10; +  where 409 = &lt;Response [409 Conflict]&gt;.status_code">tests/test_vehicle_transport_upgrade.py:66: in test_nonempty_q79d_to_current_preserves_originals_replays_then_real_loss_found
-    v.as_user(client,'service',1);g.cmd(client,gate,'leave',g.actual(client,gate,g.at(0)))
-                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_gate_visits.py:50: in cmd
-    assert response.status_code==status,response.text
-E   AssertionError: {"detail":"步骤待办未开放或已交给其他员工"}
-E   assert 409 == 200
-E    +  where 409 = &lt;Response [409 Conflict]&gt;.status_code</failure></testcase></testsuite></testsuites>

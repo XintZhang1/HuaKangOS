@@ -1,8 +1,0 @@
-{
-  "status": "prepared_only",
-  "synthetic_only": true,
-  "actual_postgresql": false,
-  "temporary_directory": "/tmp/huakangos-vehicle-pg-89xmsgg0",
-  "sqlite_source_prepared": true,
-  "note": "SQLite source only; NOT PostgreSQL acceptance"
-}

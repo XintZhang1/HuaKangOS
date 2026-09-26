@@ -1,7 +1,0 @@
-﻿{
-    "provider":  "deepseek",
-    "api_kind":  "pay_as_you_go",
-    "model":  "deepseek-flash",
-    "key_configured":  true,
-    "enabled":  true
-}

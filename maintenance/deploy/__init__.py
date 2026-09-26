@@ -1,1 +1,0 @@
-"""Application runtime adapters: local process (development) or docker container."""

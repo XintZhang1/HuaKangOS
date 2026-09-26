@@ -1,8 +1,0 @@
-{"thinking": true, "seconds": 1.201, "tools": ["find_cases"], "reasoning_present": true}
-{"thinking": true, "seconds": 0.992, "tools": ["get_case"], "reasoning_present": true}
-{"thinking": true, "seconds": 2.141, "tools": ["prepare_customer_contact"], "reasoning_present": true}
-{"thinking": true, "seconds": 1.198, "tools": [], "reasoning_present": true}
-{"thinking": true, "seconds": 1.656, "tools": ["find_cases"], "reasoning_present": true}
-{"thinking": true, "seconds": 0.883, "tools": ["get_case"], "reasoning_present": true}
-{"thinking": true, "seconds": 1.312, "tools": ["prepare_case_action"], "reasoning_present": true}
-{"thinking": true, "seconds": 1.228, "tools": [], "reasoning_present": false}
