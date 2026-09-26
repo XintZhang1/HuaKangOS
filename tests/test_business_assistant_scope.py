@@ -133,7 +133,9 @@ def test_the_prompt_states_the_two_remaining_limits():
     assert '评审申请' in SYSTEM_PROMPT and '更高权限' in SYSTEM_PROMPT
     assert '不要自己拼动作名' in SYSTEM_PROMPT
     assert '不要改权限、不要绕流程' in SYSTEM_PROMPT
-    assert '一次准备好' in SYSTEM_PROMPT          # multi-step chaining is allowed
+    # 2026-09-25 业主澄清"连续批量确认"：员工说的是中间/最后一步时，整条前序链要在同一轮里按步骤准备好。
+    assert '把所有步骤的确认卡都准备好' in SYSTEM_PROMPT
+    assert '不要一步一步问、也不要一步一轮' in SYSTEM_PROMPT
     assert '最多两个工具' not in SYSTEM_PROMPT
 
 

@@ -1,6 +1,7 @@
 """Populated e13r upgrade and independent restore preserve all business facts."""
 from datetime import timedelta
 from pathlib import Path
+import json
 import sqlite3
 from types import SimpleNamespace
 from uuid import uuid4
@@ -57,7 +58,9 @@ def test_nonempty_e13r_to_f24s_and_independent_restore_preserve_business_and_ass
         assert upgraded.execute('SELECT id,content FROM flow_files ORDER BY id').fetchall()==blobs
         for table in TABLES:
             assert upgraded.execute('SELECT COUNT(*) FROM '+quoted(table)).fetchone()[0]==0
-            current=[row[1:] for row in actual.execute('PRAGMA table_info('+quoted(table)+')') if not (table=='business_assistant_messages' and row[1]=='thinking')]
+            current=[row[1:] for row in actual.execute('PRAGMA table_info('+quoted(table)+')')
+                     if not (table=='business_assistant_messages' and row[1]=='thinking')
+                     and not (table=='business_assistant_proposals' and row[1] in {'request_id','step_order','step_label','questions'})]
             assert sorted(row[1:] for row in upgraded.execute('PRAGMA table_info('+quoted(table)+')'))==sorted(current)
             assert sorted(row[2:] for row in upgraded.execute('PRAGMA foreign_key_list('+quoted(table)+')'))==sorted(row[2:] for row in actual.execute('PRAGMA foreign_key_list('+quoted(table)+')'))
             assert indexes(upgraded,table)==indexes(actual,table)
@@ -71,12 +74,17 @@ def test_nonempty_e13r_to_f24s_and_independent_restore_preserve_business_and_ass
     with Session(engine) as db:
         db.add(AssistantSession(id=thread_id,store_id=1,owner_id=admin_id,owner_role='admin',access_version=1,title='合成恢复验证'));db.flush()
         # This fixture intentionally remains at the frozen f24s schema; g35t adds
-        # thinking later. Do not use today's ORM defaults to write old columns.
+        # thinking and h49g adds request_id later. Do not use today's ORM defaults
+        # to write old columns.
         db.execute(text('INSERT INTO business_assistant_messages (store_id,session_id,request_id,role,content,created_at) VALUES (:store,:sid,:rid,:role,:content,:created)'),
             {'store':1,'sid':thread_id,'rid':str(uuid4()),'role':'user','content':'合成资料，请先准备','created':utcnow()})
-        db.add(AssistantProposal(id=proposal_id,store_id=1,session_id=thread_id,owner_id=admin_id,owner_role='admin',access_version=1,
-            operation_id='POST /api/flow/master/{kind}',label='新增客户',summary='恢复验证，仅准备未办理',payload=payload,digest=digest,
-            expires_at=utcnow()+timedelta(minutes=30),idempotent=False))
+        db.execute(text('INSERT INTO business_assistant_proposals (id,store_id,session_id,owner_id,owner_role,access_version,'
+                        'operation_id,label,summary,payload,digest,status,idempotent,created_at,expires_at,version) '
+                        'VALUES (:id,:store,:sid,:owner,:role,:access,:op,:label,:summary,:payload,:digest,:status,:idempotent,:created,:expires,1)'),
+            {'id':proposal_id,'store':1,'sid':thread_id,'owner':admin_id,'role':'admin','access':1,
+             'op':'POST /api/flow/master/{kind}','label':'新增客户','summary':'恢复验证，仅准备未办理',
+             'payload':json.dumps(payload),'digest':digest,'status':'pending','idempotent':0,
+             'created':utcnow(),'expires':utcnow()+timedelta(minutes=30)})
         db.add(AssistantIssue(store_id=1,session_id=thread_id,owner_id=admin_id,category='input',summary='合成资料缺少客户来源',synthetic=True))
         db.commit()
     engine.dispose()

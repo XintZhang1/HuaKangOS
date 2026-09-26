@@ -2,7 +2,24 @@
 // The assistant proposes existing business commands. This page never executes
 // model-produced JavaScript, HTML, URLs or arbitrary HTTP requests.
 let businessAssistantState;
-function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null};}
+function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null,cards:{},folded:{},panelFolded:false,answers:{},lastAction:null};}
+// 卡片必填项：员工在这一张卡上填的值。填完才能确认，也不能翻到下一张（业主 2026-09-25）。
+function businessAssistantAnswers(id){const key=String(id);if(!businessAssistantState.answers[key])businessAssistantState.answers[key]={};return businessAssistantState.answers[key];}
+function businessAssistantCardQuestions(proposal){
+ const questions=Array.isArray(proposal?.questions)?proposal.questions:[];
+ if(!questions.length)return {html:'',missing:[],answers:{}};
+ const answers=businessAssistantAnswers(proposal.id),missing=[];
+ const html=questions.map(question=>{
+  const key=String(question.key||''),value=String(answers[key]??'');
+  const required=question.required!==false;
+  if(required&&!value.trim())missing.push(String(question.label||key));
+  const control=Array.isArray(question.options)&&question.options.length
+   ? `<select data-baq-key="${E(key)}" ${required?'required':''}><option value="">请选择</option>${question.options.map(option=>`<option value="${E(option)}"${value===option?' selected':''}>${E(option)}</option>`).join('')}</select>`
+   : `<input type="text" data-baq-key="${E(key)}" maxlength="200" value="${E(value)}" ${required?'required':''} placeholder="请填写${E(question.label||'')}">`;
+  return `<label class="ba-question"><span>${E(question.label||key)}${required?'<em>必填</em>':''}</span>${control}</label>`;
+ }).join('');
+ return {html:`<div class="ba-questions" data-ba-questions="${E(proposal.id)}">${html}</div>`,missing,answers};
+}
 businessAssistantState=freshBusinessAssistantState();
 function businessAssistantContext(){return `${storeContextVersion}:${state.user?.id||''}:${state.store||''}`;}
 function clearBusinessAssistantSession(){
@@ -12,14 +29,14 @@ function clearBusinessAssistantSession(){
  businessAssistantState=freshBusinessAssistantState();businessAssistantState.generation=previous.generation+1;
 }
 function leaveBusinessAssistantView(){
- if(!businessAssistantState.controllers.size)return;
- businessAssistantState.generation++;
- for(const controller of businessAssistantState.controllers)controller.abort();
- businessAssistantState.controllers.clear();businessAssistantState.busy=false;
- if(businessAssistantState.stream){businessAssistantState.stream=null;businessAssistantState.needsRefresh=true;}
- if(businessAssistantState.files)businessAssistantState.files.busy=false;
+ // 业主 2026-09-25：员工会一边让助手办着，一边去别的页面看资料/接单，离开这一页不该把这一轮掐断。
+ // 真正要停的场景是换门店或退出登录，它们走 clearBusinessAssistantSession()（会 abort 全部请求）。
+ if(businessAssistantState.controllers.size)businessAssistantState.background=true;
 }
-function businessAssistantCurrent(current,generation){return current===businessAssistantState&&current.context===businessAssistantContext()&&current.generation===generation&&state.route==='business-assistant'&&!state.storeSwitch;}
+// "还活着"= 还是同一个会话对象、同一个门店账号、没有在切门店：离开助手页面不影响这一轮。
+// 只有"要不要画到屏幕上"才看 state.route（见 businessAssistantCurrent / paintBusinessAssistant）。
+function businessAssistantAlive(current,generation){return current===businessAssistantState&&current.context===businessAssistantContext()&&current.generation===generation&&!state.storeSwitch;}
+function businessAssistantCurrent(current,generation){return businessAssistantAlive(current,generation)&&state.route==='business-assistant';}
 async function businessAssistantRequest(path,{method='GET',body}={}){
  const current=businessAssistantState,version=storeContextVersion,context=businessAssistantContext(),controller=new AbortController();
  if(state.storeSwitch)throw new Error('正在切换门店，请稍后再试。');
@@ -53,7 +70,7 @@ async function businessAssistantReadEvents(reader,onEvent,check=()=>{}){
 async function businessAssistantStreamRequest(path,body,onEvent){
  const current=businessAssistantState,version=storeContextVersion,context=businessAssistantContext(),generation=current.generation,controller=new AbortController();
  if(state.storeSwitch||!state.user||state.store==='all')throw new Error('请先选择门店。');
- const check=()=>{requireStoreContext(version,'POST');if(!businessAssistantCurrent(current,generation)||context!==businessAssistantContext())throw Object.assign(new Error('门店或账号已切换。'),{staleContext:true});if(controller.signal.aborted)throw new DOMException('Stopped','AbortError');};
+ const check=()=>{requireStoreContext(version,'POST');if(!businessAssistantAlive(current,generation)||context!==businessAssistantContext())throw Object.assign(new Error('门店或账号已切换。'),{staleContext:true});if(controller.signal.aborted)throw new DOMException('Stopped','AbortError');};
  current.controllers.add(controller);let result=null,problem='';
  try{
   const response=await fetch('/api/business-assistant'+path,{method:'POST',credentials:'same-origin',headers:{'X-App-Request':'1','X-Store-ID':String(state.store),'X-CSRF-Token':csrf(),'Content-Type':'application/json','Accept':'text/event-stream'},signal:controller.signal,body:JSON.stringify(body)});check();
@@ -141,7 +158,96 @@ function businessAssistantProposal(proposal){
  const expired=proposal.expires_at&&new Date(proposal.expires_at.endsWith('Z')||/[+-]\d\d:\d\d$/.test(proposal.expires_at)?proposal.expires_at:proposal.expires_at+'Z').getTime()<=Date.now();
  const fields=Array.isArray(proposal.display_fields)?proposal.display_fields:businessAssistantFallbackFields(proposal.details?.body||{});
  const links=[...(proposal.links||[]),...(proposal.result?.links||[])],manualRoute=businessAssistantManualRoute(proposal);if(manualRoute)links.push({route:manualRoute,label:proposal.result?'查看单据':'打开原页面'});
- return `<section class="ba-proposal" data-proposal="${E(proposal.id)}"><div class="spread"><h3>${E(proposal.label||'待办理事项')}</h3><span class="pill ${pending?'warning':'info'}">${E(expired&&pending?'已过期':statuses[proposal.status]||'待核对')}</span></div>${proposal.summary?`<p class="ba-text">${E(proposal.summary)}</p>`:''}<dl class="ba-facts"><div><dt>门店</dt><dd>${E(businessAssistantStoreName())}</dd></div><div><dt>办理人</dt><dd>${E(state.user?.display_name||'本人')}</dd></div>${fields.map(field=>`<div><dt>${E(field.label)}</dt><dd>${E(field.value)}</dd></div>`).join('')}</dl>${proposal.result?.message?`<p class="ba-text">${E(proposal.result.message)}</p>`:''}${pending?prerequisiteLine(proposal):''}${businessAssistantLinks(links)}<button type="button" data-baf-action="export-proposal" data-id="${E(proposal.id)}">导出填写内容</button>${pending?`<div class="ba-proposal-actions"><button type="button" class="primary" data-ba-action="confirm" data-id="${E(proposal.id)}" ${disabled||expired?'disabled':''}>确认办理</button><button type="button" data-ba-action="cancel-proposal" data-id="${E(proposal.id)}" ${disabled?'disabled':''}>取消</button></div>`:''}</section>`;
+ const questions=businessAssistantCardQuestions(proposal);
+ const blocked=pending&&questions.missing.length>0;
+ return `<section class="ba-proposal" data-proposal="${E(proposal.id)}"><div class="spread"><h3>${E(proposal.label||'待办理事项')}</h3><span class="pill ${pending?'warning':'info'}">${E(expired&&pending?'已过期':statuses[proposal.status]||'待核对')}</span></div>${proposal.summary?`<p class="ba-text">${E(proposal.summary)}</p>`:''}<dl class="ba-facts"><div><dt>门店</dt><dd>${E(businessAssistantStoreName())}</dd></div><div><dt>办理人</dt><dd>${E(state.user?.display_name||'本人')}</dd></div>${fields.map(field=>`<div><dt>${E(field.label)}</dt><dd>${E(field.value)}</dd></div>`).join('')}</dl>${pending?questions.html:''}${proposal.result?.message?`<p class="ba-text">${E(proposal.result.message)}</p>`:''}${pending?prerequisiteLine(proposal):''}${businessAssistantLinks(links)}<button type="button" data-baf-action="export-proposal" data-id="${E(proposal.id)}">导出填写内容</button>${pending?`<div class="ba-proposal-actions"><button type="button" class="primary" data-ba-action="confirm" data-id="${E(proposal.id)}" ${disabled||expired||blocked?'disabled':''}>确认办理</button><button type="button" data-ba-action="cancel-proposal" data-id="${E(proposal.id)}" ${disabled?'disabled':''}>取消</button></div>${blocked?`<p class="ba-question-hint">先填完必填项（${E(questions.missing.join('、'))}）才能确认，也不能翻到下一张。</p>`:''}`:''}</section>`;
+}
+function businessAssistantTurnKey(proposal){return String(proposal?.turn||'')||('card-'+String(proposal?.id||''));}
+// 一轮对话里可能准备整条前序链（业主 2026-09-25 的“连续批量确认”）：先按步骤分组，再在每一步里分页。
+// 分组事实来自服务端（step_order/step），没有步骤信息的旧卡片按"本轮未分步"归一组。
+function businessAssistantStepKey(proposal){return String(proposal?.step||'').trim()||'';}
+function businessAssistantCardGroups(proposals){
+ const groups=[],seen=new Map();
+ for(const proposal of proposals||[]){
+  const turn=businessAssistantTurnKey(proposal),step=businessAssistantStepKey(proposal);
+  const key=turn+'|'+step;
+  if(!seen.has(key)){
+   seen.set(key,groups.length);
+   groups.push({key,turn,step,order:Number(proposal?.step_order)||0,cards:[]});
+  }
+  groups[seen.get(key)].cards.push(proposal);
+ }
+ return groups.sort((left,right)=>{
+  const leftPending=left.cards.some(card=>card.status==='pending')?0:1;
+  const rightPending=right.cards.some(card=>card.status==='pending')?0:1;
+  if(leftPending!==rightPending)return leftPending-rightPending;
+  if((left.order||0)!==(right.order||0))return (left.order||0)-(right.order||0);
+  return String(left.cards[0]?.created_at||'').localeCompare(String(right.cards[0]?.created_at||''));
+ });
+}
+function businessAssistantCardIndex(group){return Math.min(Math.max(Number(businessAssistantState.cards[group.key])||0,0),group.cards.length-1);}
+// 默认折叠：一轮几十张卡先只显示当前这一张，需要通读时再"展开全部"。
+function businessAssistantGroupFolded(key){return businessAssistantState.folded[key]!==false;}
+function businessAssistantPager(group,index){
+ const total=group.cards.length,pending=group.cards.filter(card=>card.status==='pending').length;
+ const current=group.cards[index],state=String(current?.status||'');
+ const busy=businessAssistantState.busy||businessAssistantState.session?.busy||businessAssistantState.needsRefresh;
+ // 这张卡还有必填项没填：不能确认，也不能翻到下一张（业主 2026-09-25）。
+ const here=businessAssistantCardQuestions(current);
+ const blockedHere=current?.status==='pending'&&here.missing.length>0;
+ const batchQuestions=group.cards.filter(card=>card.status==='pending'&&businessAssistantCardQuestions(card).missing.length>0);
+ const batch=pending>1?`<button type="button" class="primary" data-ba-action="card-confirm-all" data-key="${E(group.key)}" ${busy||batchQuestions.length?'disabled':''}>全部确认（${pending} 张）</button><button type="button" data-ba-action="card-cancel-all" data-key="${E(group.key)}" ${busy?'disabled':''}>全部取消</button>`:'';
+ const title=group.step?`<span class="ba-stepname">${E((group.order?group.order+' · ':'')+group.step)}</span>`:'';
+ return `<div class="ba-cardnav"><div class="ba-cardnav-count">${title}<strong>${total}</strong> 张${group.step?'':(group.turn?'本轮卡片':'待确认卡片')}${pending?` · 还有 ${pending} 张待确认`:' · 已全部办理'}</div><div class="row"><button type="button" class="ba-cardnav-step" data-ba-action="card-prev" data-key="${E(group.key)}" aria-label="上一张卡片" ${index<=0?'disabled':''}>‹</button><span class="ba-cardnav-pos" aria-live="polite">${index+1} / ${total}</span><button type="button" class="ba-cardnav-step" data-ba-action="card-next" data-key="${E(group.key)}" aria-label="下一张卡片" ${index>=total-1||blockedHere?'disabled':''}>›</button><button type="button" class="ba-cardnav-fold" data-ba-action="card-fold" data-key="${E(group.key)}">${businessAssistantGroupFolded(group.key)?'展开全部':'收起全部'}</button>${batch}</div></div><p class="ba-cardnav-hint">${blockedHere?`这张卡有必填项（${E(here.missing.join('、'))}），填完才能确认和翻到下一张。`:(state==='pending'?'核对无误后点“确认办理”（或整组“全部确认”），系统才会真正新增或修改；每张仍会单独按岗位、门店、版本和业务规则校验。':`这张已${E(({succeeded:'办理成功',failed:'未办成',cancelled:'取消',expired:'过期',uncertain:'待核对',executing:'办理中'})[state]||'结束')}。`)}</p>`;
+}
+function businessAssistantCardGroup(group){
+ // 有步骤名的组一律带组头（"第 N 步 · 步骤名"），哪怕这一步只有一张卡——否则整条链里
+ // 单张卡的步骤会看不出顺序（业主 2026-09-25 要的就是按步骤分组）。
+ if(group.cards.length===1&&!group.step)return businessAssistantProposal(group.cards[0]);
+ const index=businessAssistantCardIndex(group);
+ if(group.cards.length===1||businessAssistantGroupFolded(group.key))return `<div class="ba-cardgroup folded">${businessAssistantPager(group,index)}${businessAssistantProposal(group.cards[index])}</div>`;
+ return `<div class="ba-cardgroup">${businessAssistantPager(group,index)}${group.cards.map(businessAssistantProposal).join('')}</div>`;
+}
+function businessAssistantCards(){
+ const session=businessAssistantState.session;
+ return businessAssistantCardGroups(session?.proposals||[]).map(businessAssistantCardGroup).join('');
+}
+// 业主 2026-09-25：卡片原来堆在对话最底部，把对话内容顶没了。现在卡片是**与对话平行的一栏**，
+// 自己滚动，对话区只放对话。
+function businessAssistantCardsPanel(){
+ const proposals=businessAssistantState.session?.proposals||[];
+ const pending=proposals.filter(card=>card.status==='pending').length;
+ const working=proposals.filter(card=>['executing','uncertain'].includes(card.status)).length;
+ const groups=businessAssistantCardGroups(proposals);
+ const steps=groups.filter(group=>group.step).length;
+ const folded=businessAssistantState.panelFolded===true;
+ const busy=businessAssistantState.busy||businessAssistantState.session?.busy||businessAssistantState.needsRefresh;
+  const allPending=(businessAssistantState.session?.proposals||[]).filter(card=>card.status==='pending');
+  const all=pending>1?`<button type="button" class="primary" data-ba-action="cards-confirm-stepwise" ${busy||allPending.some(card=>businessAssistantCardQuestions(card).missing.length)?'disabled':''}>按顺序全部确认（${pending} 张）</button>`:'';
+ const head=`<div class="ba-cards-head"><div><strong>待确认卡片</strong><span>${proposals.length?`${proposals.length} 张${steps?` · ${steps} 个步骤`:''}${pending?` · 待确认 ${pending}`:''}${working?` · 办理中 ${working}`:''}`:'还没有卡片'}</span></div><div class="row">${all}${proposals.length?`<button type="button" class="ba-cards-fold" data-ba-action="panel-fold" aria-expanded="${!folded}">${folded?'展开':'收起'}</button>`:''}</div></div>`;
+ const empty=proposals.length?'':'<p class="ba-cards-empty">助手准备好表单后会放在这里，对话内容不会再被卡片顶走。</p>';
+ return `<aside class="ba-cards" id="business-assistant-cards" aria-label="待确认卡片">${head}<div class="ba-cards-list" ${folded?'hidden':''}>${businessAssistantCards()}${empty}</div></aside>`;
+}
+function paintBusinessAssistantCards(){
+ const host=$('#business-assistant-cards');
+ if(!host||state.route!=='business-assistant'||businessAssistantState.context!==businessAssistantContext())return false;
+ const panel=businessAssistantCardsPanel(),slice=panel.slice(panel.indexOf('>')+1,panel.lastIndexOf('</aside>'));
+ host.innerHTML=slice;
+ return true;
+}
+function businessAssistantNextStep(){
+ const current=businessAssistantState,session=current.session;if(!session)return '';
+ const proposals=session.proposals||[];
+ const pending=proposals.filter(card=>card.status==='pending').length;
+ const working=proposals.filter(card=>['executing','uncertain'].includes(card.status)).length;
+ const last=[...(session.messages||[])].reverse().find(message=>message.role==='assistant');
+ const asked=!!last&&/(继续|接着|下一步)/.test(last.content||'')&&/(发送|回复|告诉我|点击|点一)/.test(last.content||'');
+ const confirmed=current.lastAction==='confirm';
+ if(!pending&&!working&&!asked&&!confirmed)return '';
+ const disabled=current.busy||session.busy||current.needsRefresh;
+ const note=pending?`还有 ${pending} 张待确认`:(working?'有操作在办理或待核对':'刚才这一步还没办完');
+ const action=businessAssistantState.lastAction==='confirm'?'已办理。接着办下一批，点这里让助手继续。':'让助手接着办下一步。';
+ return `<div class="ba-nextstep"><div><strong>${E(note)}</strong><span>${E(action)}</span></div><button type="button" class="primary" data-ba-action="continue" ${disabled?'disabled':''}>继续处理</button></div>`;
 }
 function businessAssistantMessages(){
  const session=businessAssistantState.session,stream=businessAssistantState.stream;
@@ -150,9 +256,14 @@ function businessAssistantMessages(){
  ].map(([label,prompt])=>`<button type="button" data-ba-action="suggestion" data-prompt="${E(prompt)}" ${businessAssistantState.busy?'disabled':''}>${E(label)}</button>`).join('')}</div></div>`;
  const messages=[...(session?.messages||[])];
  if(stream){if(!messages.some(message=>message.role==='user'&&message.request_id===stream.request_id))messages.push({role:'user',content:stream.content});if(stream.text)messages.push({role:'assistant',content:stream.text});}
- return messages.filter(message=>['user','assistant'].includes(message.role)).map(message=>`<article class="ba-message ba-${message.role}"><div class="ba-message-name">${message.role==='user'?'我':'业务助手'}</div><div class="ba-text">${message.role==='user'&&typeof businessAssistantFileMessage==='function'?businessAssistantFileMessage(message.content)||E(message.content):E(message.content)}</div>${businessAssistantLinks(message.links)}</article>`).join('')+(session?.proposals||[]).map(businessAssistantProposal).join('');
+ return messages.filter(message=>['user','assistant'].includes(message.role)).map(message=>`<article class="ba-message ba-${message.role}"><div class="ba-message-name">${message.role==='user'?'我':'业务助手'}</div><div class="ba-text">${message.role==='user'&&typeof businessAssistantFileMessage==='function'?businessAssistantFileMessage(message.content)||E(message.content):E(message.content)}</div>${businessAssistantLinks(message.links)}</article>`).join('');
 }
-function businessAssistantWorking(){const current=businessAssistantState;if(current.busy){const text=({thinking:'正在思考…',responding:'正在回复…',tool:'正在准备表单…'})[current.stream?.phase]||'正在处理…';return `<p class="ba-working" role="status">${text}</p>`;}return current.session?.busy?'<p class="ba-working">这段对话正在处理，请稍后刷新。</p>':'';}
+function businessAssistantWorking(){
+ const current=businessAssistantState;
+ if(current.busy){const round=Number(current.stream?.round)||0;const text=({thinking:'正在思考…',responding:'正在回复…',tool:'正在准备表单…'})[current.stream?.phase]||'正在处理…';
+  return `<p class="ba-working" role="status">${text}${round>1?`（第 ${round} 轮，一轮准备好的卡片会在本轮结束时一起列出）`:''}</p>`;}
+ return current.session?.busy?'<p class="ba-working">这段对话正在处理，请稍后刷新。</p>':'';
+}
 function paintBusinessAssistantStream(){
  if(state.route!=='business-assistant'||businessAssistantState.context!==businessAssistantContext())return;
  const transcript=$('#business-assistant-messages');if(!transcript)return;const follow=transcript.scrollHeight-transcript.scrollTop-transcript.clientHeight<100;
@@ -165,7 +276,10 @@ function businessAssistantCompose(){
 function businessAssistantChat(){
  const current=businessAssistantState;
  const notice=!current.status?.ready?`<div class="notice">${E(current.status?.message||'助手尚未启用，请联系管理员。')}</div>`:'';
- return `<div class="ba-chat">${notice}<div class="ba-transcript" id="business-assistant-messages" role="log" aria-label="业务助手对话" aria-live="polite" aria-busy="${current.busy}">${businessAssistantMessages()}${businessAssistantWorking()}</div><div id="business-assistant-error" class="ba-error" role="alert">${E(current.error)}</div>${businessAssistantCompose()}</div>`;
+ return `<div class="ba-chat">${notice}<div class="ba-transcript" id="business-assistant-messages" role="log" aria-label="业务助手对话" aria-live="polite" aria-busy="${current.busy}">${businessAssistantMessages()}${businessAssistantWorking()}</div>${businessAssistantNextStep()}<div id="business-assistant-error" class="ba-error" role="alert">${E(current.error)}</div>${businessAssistantCompose()}</div>`;
+}
+function businessAssistantWorkspace(){
+ return `<div class="ba-workspace${(businessAssistantState.session?.proposals||[]).length?'':' no-cards'}">${businessAssistantChat()}${businessAssistantCardsPanel()}</div>`;
 }
 function businessAssistantIssues(){
  const categories={input:'资料填写',rule:'业务限制',system:'操作问题',model:'助手理解',unsupported:'尚不支持'};
@@ -173,7 +287,7 @@ function businessAssistantIssues(){
 }
 function businessAssistantHTML(){
  const current=businessAssistantState;
- return heading('业务助手','',`<button type="button" data-ba-action="refresh" ${current.busy?'disabled':''}>刷新对话</button>`)+`<section class="ba-layout" id="business-assistant"><aside class="ba-history"><button type="button" class="primary ba-new" data-ba-action="new" ${current.busy?'disabled':''}>新对话</button><div class="ba-tabs"><button type="button" data-ba-action="chat" class="${current.tab==='chat'?'selected':''}">对话</button><button type="button" data-ba-action="issues" class="${current.tab==='issues'?'selected':''}" ${current.busy?'disabled':''}>问题清单</button></div><button type="button" class="ba-files-tab" data-baf-action="open" ${current.busy||current.retry?"disabled":""}>资料整理</button><nav class="ba-sessions" aria-label="对话记录">${current.sessions.map(session=>`<button type="button" data-ba-action="session" data-id="${E(session.id)}" class="${current.session?.id===session.id?'selected':''}" ${current.busy?'disabled':''}><span>${E(session.title||'新对话')}</span><time>${E(time(session.updated_at||session.created_at))}</time></button>`).join('')||'<p class="ba-no-history">暂无对话</p>'}</nav></aside><div class="ba-body">${current.tab==='files'&&typeof businessAssistantFilesHTML==='function'?businessAssistantFilesHTML():current.tab==='issues'?businessAssistantIssues():businessAssistantChat()}</div></section>`;
+ return heading('业务助手','',`<button type="button" data-ba-action="refresh" ${current.busy?'disabled':''}>刷新对话</button>`)+`<section class="ba-layout" id="business-assistant"><aside class="ba-history"><button type="button" class="primary ba-new" data-ba-action="new" ${current.busy?'disabled':''}>新对话</button><div class="ba-tabs"><button type="button" data-ba-action="chat" class="${current.tab==='chat'?'selected':''}">对话</button><button type="button" data-ba-action="issues" class="${current.tab==='issues'?'selected':''}" ${current.busy?'disabled':''}>问题清单</button></div><button type="button" class="ba-files-tab" data-baf-action="open" ${current.busy||current.retry?"disabled":""}>资料整理</button><nav class="ba-sessions" aria-label="对话记录">${current.sessions.map(session=>`<button type="button" data-ba-action="session" data-id="${E(session.id)}" class="${current.session?.id===session.id?'selected':''}" ${current.busy?'disabled':''}><span>${E(session.title||'新对话')}${session.busy?'<em class="ba-busy">处理中</em>':''}</span><time>${E(time(session.updated_at||session.created_at))}</time></button>`).join('')||'<p class="ba-no-history">暂无对话</p>'}</nav></aside><div class="ba-body">${current.tab==='files'&&typeof businessAssistantFilesHTML==='function'?businessAssistantFilesHTML():current.tab==='issues'?businessAssistantIssues():businessAssistantWorkspace()}</div></section>`;
 }
 async function businessAssistantPage(){
  if(state.store==='all')return heading('业务助手')+storeNotice();
@@ -208,23 +322,24 @@ function businessAssistantRememberSession(session){
 async function businessAssistantTask(work){
  const current=businessAssistantState;if(current.busy)return;
  const generation=current.generation;current.busy=true;current.error='';paintBusinessAssistant();
- try{await work(current,generation);}catch(error){if(businessAssistantCurrent(current,generation)){if(error.assistantSession){businessAssistantRememberSession(error.assistantSession);current.stream=null;}current.needsRefresh=true;current.error=error.name==='AbortError'?'已停止等待。请刷新对话核对结果，再继续办理。':error.message;}}
- finally{if(businessAssistantCurrent(current,generation)){current.busy=false;paintBusinessAssistant();}}
+ try{await work(current,generation);}catch(error){if(businessAssistantAlive(current,generation)){if(error.assistantSession){businessAssistantRememberSession(error.assistantSession);current.stream=null;}current.needsRefresh=true;current.error=error.name==='AbortError'?'已停止等待。请刷新对话核对结果，再继续办理。':error.message;}}
+ finally{if(businessAssistantAlive(current,generation)){const finished=current.busy;current.busy=false;paintBusinessAssistant();if(finished&&state.route!=='business-assistant'&&!current.error)toast('业务助手已处理完这一轮，回到助手页可以看结果。');}}
 }
 async function businessAssistantSend(){
  const text=businessAssistantState.draft.trim();if(!text||!businessAssistantState.status?.ready||businessAssistantState.session?.busy||businessAssistantState.needsRefresh)return;
+ businessAssistantState.lastAction=null;
  await businessAssistantTask(async(current,generation)=>{
   if(!current.session){const session=await businessAssistantRequest('/sessions',{method:'POST',body:{}});if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);}
   if(!current.retry||current.retry.session_id!==current.session.id)current.retry={session_id:current.session.id,request_id:requestKey(),content:text,thinking:current.thinking};
   const request=current.retry;current.thinking=request.thinking;current.draft=request.content;
   current.stream={request_id:request.request_id,content:request.content,text:'',phase:request.thinking?'thinking':'responding',round:0};paintBusinessAssistant();
   const session=await businessAssistantStreamRequest('/sessions/'+encodeURIComponent(current.session.id)+'/messages/stream',{request_id:request.request_id,content:request.content,thinking:request.thinking},(kind,value)=>{
-   if(!businessAssistantCurrent(current,generation))return;
+   if(!businessAssistantAlive(current,generation))return;
    if(kind==='status'){if(value.phase==='responding'&&value.round&&value.round!==current.stream.round){current.stream.text='';current.stream.round=value.round;}current.stream.phase=value.phase;}
    else if(kind==='delta'){if(current.stream.text.length+value.text.length>200000)throw new Error('回复过长，请刷新对话核对结果。');current.stream.text+=value.text;current.stream.phase='responding';}
    paintBusinessAssistantStream();
   });
-  if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);current.draft='';current.retry=null;current.stream=null;
+  if(!businessAssistantAlive(current,generation))return;businessAssistantRememberSession(session);current.draft='';current.retry=null;current.stream=null;
  });
 }
 async function businessAssistantChooseSession(id){
@@ -233,7 +348,85 @@ async function businessAssistantChooseSession(id){
 async function businessAssistantDecide(id,confirm){
  const proposal=businessAssistantState.session?.proposals?.find(item=>String(item.id)===String(id));
  if(!proposal||proposal.status!=='pending'||businessAssistantState.needsRefresh)return;
- await businessAssistantTask(async(current,generation)=>{const session=await businessAssistantRequest(`/sessions/${encodeURIComponent(current.session.id)}/proposals/${encodeURIComponent(id)}/${confirm?'confirm':'cancel'}`,{method:'POST',body:{digest:proposal.digest}});if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);});
+ if(confirm){const missing=businessAssistantCardQuestions(proposal).missing;
+  if(missing.length){toast('先填完必填项：'+missing.join('、'),true);return;}}
+ const answers=confirm?businessAssistantAnswers(proposal.id):undefined;
+ const payload=confirm&&Array.isArray(proposal.questions)&&proposal.questions.length?{digest:proposal.digest,answers}:{digest:proposal.digest};
+ await businessAssistantTask(async(current,generation)=>{const session=await businessAssistantRequest(`/sessions/${encodeURIComponent(current.session.id)}/proposals/${encodeURIComponent(id)}/${confirm?'confirm':'cancel'}`,{method:'POST',body:payload});if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);current.lastAction='confirm';businessAssistantAdvance(String(proposal.turn||'')||('card-'+String(proposal.id)),session);});
+}
+// 一组卡片里找下一张还没办的（同一轮内顺延，到底了就找这一组里第一张待确认）。
+function businessAssistantAdvance(key,session){
+ const group=businessAssistantCardGroups(session?.proposals||[]).find(item=>item.key===key);if(!group)return;
+ const current=Math.min(Math.max(Number(businessAssistantState.cards[key])||0,0),group.cards.length-1);
+ const after=group.cards.findIndex((card,index)=>index>current&&card.status==='pending');
+ const first=group.cards.findIndex(card=>card.status==='pending');
+ const target=after>=0?after:first;
+ businessAssistantState.cards[key]=target>=0?target:current;
+ businessAssistantState.lastAction='confirm';
+}
+async function businessAssistantDecideAll(key,confirm){
+ const group=businessAssistantCardGroups(businessAssistantState.session?.proposals||[]).find(item=>item.key===key);
+ const cards=(group?.cards||[]).filter(card=>card.status==='pending');
+ if(!cards.length||businessAssistantState.needsRefresh)return;
+ await businessAssistantConfirmCards(cards,confirm?{verb:'全部确认',key}:{verb:'全部取消',key});
+}
+// 一次点击办完一组（或按顺序办完所有步骤）：仍是逐张校验、逐张原接口，只把"点很多次"合成一次。
+// 组里还有必填项没填的卡就整组不放行——员工得先在那张卡上填完（业主 2026-09-25）。
+async function businessAssistantConfirmCards(cards,{verb,key}={}){
+ if(!cards.length||businessAssistantState.needsRefresh)return;
+ const missing=cards.filter(card=>card.status==='pending'&&businessAssistantCardQuestions(card).missing.length>0);
+ if(missing.length){
+  toast('还有 %d 张卡没填必填项：%s' % ([missing.length,missing[0].summary||missing[0].label||'']),true);
+  const group=businessAssistantCardGroups(businessAssistantState.session?.proposals||[]).find(item=>item.key===key);
+  if(group){businessAssistantState.cards[key]=group.cards.findIndex(card=>card.id===missing[0].id);if(paintBusinessAssistantCards()===false)paintBusinessAssistant();}
+  return;
+ }
+ if(cards.length>1&&!await businessAssistantConfirmMany(cards.length,verb))return;
+ await businessAssistantTask(async(current,generation)=>{
+  const session=await businessAssistantRequest(`/sessions/${encodeURIComponent(current.session.id)}/proposals/batch`,
+   {method:'POST',body:{action:verb==='全部取消'?'cancel':'confirm',items:cards.map(card=>({id:card.id,digest:card.digest,...(Array.isArray(card.questions)&&card.questions.length?{answers:businessAssistantAnswers(card.id)}:{})}))}});
+  if(!businessAssistantAlive(current,generation))return;
+  const batch=session.batch||{};
+  businessAssistantRememberSession(session);
+  if(key)businessAssistantAdvance(key,session);
+  const failed=(batch.items||[]).filter(item=>!['succeeded','cancelled'].includes(String(item.status)));
+  current.lastAction='confirm';
+  current.error=failed.length?`${verb} ${batch.done||0}/${batch.total||cards.length} 张；未办成的：`+failed.slice(0,5).map(item=>`${item.summary||''}（${item.message||''}）`).join('；')+(failed.length>5?` 等 ${failed.length} 张`:''):'';
+  if(!failed.length&&verb!=='全部取消')toast(`${verb} ${batch.done||cards.length} 张已完成`);
+ });
+ if(!businessAssistantState.error)await businessAssistantAutoContinue();
+}
+// 业主 2026-09-25：确认完就该顺着上下文往下走，不该让员工再点一次。
+// 只在"刚确认完、这一轮结束、还有未办完的事"时自动触发一次，绝不自动办理任何业务（仍然只准备卡片）。
+async function businessAssistantAutoContinue(){
+ const current=businessAssistantState,session=current.session;
+ if(!session||current.busy||current.error||current.needsRefresh||!current.status?.ready)return;
+ const proposals=session.proposals||[];
+ const pending=proposals.filter(card=>card.status==='pending').length;
+ const working=proposals.filter(card=>['executing','uncertain'].includes(card.status)).length;
+ if(pending||working)return;                     // 还有卡要员工核对时，不抢着让模型往下走
+ const last=[...(session.messages||[])].reverse().find(message=>message.role==='assistant');
+ // 模型说"还有下一步"的常见说法都要认（"确认后一并准备""接下来""还需要…"），否则自动续办会漏。
+ const asked=!!last&&/(继续|接着|接下来|下一步|再准备|还需要|确认后|等确认|一并准备|补齐)/.test(last.content||'');
+ if(!asked)return;
+ toast('已自动让助手接着办下一步。');
+ await businessAssistantContinue('继续处理下一步');
+}
+function businessAssistantConfirmMany(count,verb){
+ return new Promise(resolve=>{
+  let settled=false;const finish=value=>{if(!settled){settled=true;resolve(value);}};
+  const close=()=>{if(typeof closeModal==='function')closeModal();};
+  const dialog=modal(`${verb}前请再核对一次`,
+   `<form class="stack"><p class="ba-text">这 ${count} 张卡会逐张按原接口办理：每张仍单独校验岗位、门店、版本、过期时间和业务规则；办不成的会单独列出来，不影响其它张。</p><div class="formerror" role="alert"></div><div class="modalfoot">${b('close','再核对一下')}<button type="submit" class="primary">确认${E(verb)}</button></div></form>`,
+   async()=>{finish(true);close();});
+  dialog.addEventListener('close',()=>finish(false),{once:true});
+ });
+}
+async function businessAssistantContinue(text='继续处理下一步'){
+ const current=businessAssistantState;
+ if(current.busy||!current.status?.ready||current.session?.busy||current.needsRefresh)return;
+ current.draft=text;
+ await businessAssistantSend();
 }
 async function businessAssistantReport(){
  const current=businessAssistantState,session=current.session,context=businessAssistantContext();if(!session||current.busy)return;
@@ -243,11 +436,27 @@ async function businessAssistantReport(){
   if(current!==businessAssistantState||context!==businessAssistantContext())return;closeModal();current.tab='issues';await render();toast('问题已记录');
  });
 }
+// 卡片必填项：输入即记入本地状态并重画卡片栏（确认/翻页按钮的可用状态跟着变）。
+// 用文档级委托，重画之后不需要重新绑定。
+function businessAssistantQuestionInput(target){
+ if(state.route!=='business-assistant')return;
+ const host=target?.closest?.('[data-ba-questions]'),key=target?.dataset?.baqKey;
+ if(!host||!key)return;
+ businessAssistantAnswers(host.dataset.baQuestions)[key]=target.value;
+ if(paintBusinessAssistantCards()===false)paintBusinessAssistant();
+}
+document.addEventListener('input',event=>businessAssistantQuestionInput(event.target));
+document.addEventListener('change',event=>businessAssistantQuestionInput(event.target));
 document.addEventListener('click',async event=>{
  const element=event.target.closest('[data-ba-action]');if(!element||element.disabled||state.route!=='business-assistant')return;
  const action=element.dataset.baAction,current=businessAssistantState;
  try{
   if(action==='stop'){for(const controller of current.controllers)controller.abort();return;}
+  // 翻页/折叠只是看的方式，处理中的时候也允许（不触发任何业务写入）。
+  if(action==='card-prev'||action==='card-next'){const key=element.dataset.key,step=action==='card-next'?1:-1;current.cards[key]=Math.max(0,(Number(current.cards[key])||0)+step);if(!paintBusinessAssistantCards())paintBusinessAssistant();return;}
+  if(action==='card-fold'){const key=element.dataset.key;current.folded[key]=!businessAssistantGroupFolded(key);if(!paintBusinessAssistantCards())paintBusinessAssistant();return;}
+  if(action==='card-jump'){const key=element.dataset.key;current.cards[key]=Math.max(0,Number(element.dataset.index)||0);if(!paintBusinessAssistantCards())paintBusinessAssistant();return;}
+  if(action==='panel-fold'){current.panelFolded=current.panelFolded!==true;if(!paintBusinessAssistantCards())paintBusinessAssistant();return;}
   if(current.busy)return;
   if(action==='new'){current.session=null;current.draft='';current.error='';current.needsRefresh=false;current.retry=null;current.stream=null;current.thinking=false;current.tab='chat';paintBusinessAssistant({focus:true});}
   else if(action==='thinking'){if(!current.retry){current.thinking=!current.thinking;paintBusinessAssistant();}}
@@ -255,6 +464,15 @@ document.addEventListener('click',async event=>{
   else if(action==='chat'){current.tab='chat';paintBusinessAssistant();}
   else if(action==='session'||action==='issue-session')await businessAssistantChooseSession(element.dataset.id);
   else if(action==='confirm'||action==='cancel-proposal')await businessAssistantDecide(element.dataset.id,action==='confirm');
+  else if(action==='card-confirm-all'||action==='card-cancel-all')await businessAssistantDecideAll(element.dataset.key,action==='card-confirm-all');
+  else if(action==='cards-confirm-stepwise'){
+   // “按顺序全部确认”：按步骤顺序把还没办的卡一次提交（服务端逐张、按顺序办理）。
+   const pending=[...(current.session?.proposals||[])].filter(card=>card.status==='pending');
+   const order=businessAssistantCardGroups(pending);
+   const ordered=order.flatMap(group=>group.cards);
+   await businessAssistantConfirmCards(ordered,{verb:'按顺序全部确认'});
+  }
+  else if(action==='continue')await businessAssistantContinue();
   else if(action==='refresh'){current.error='';await render();}
   else if(action==='issues')await businessAssistantTask(async(previous,generation)=>{const data=await businessAssistantRequest('/issues');if(!businessAssistantCurrent(previous,generation))return;previous.issues=data.items||[];previous.tab='issues';});
   else if(action==='report')await businessAssistantReport();

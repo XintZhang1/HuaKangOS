@@ -45,6 +45,16 @@ class AssistantProposal(StoreScoped, Base):
     operation_id: Mapped[str] = mapped_column(String(180))
     label: Mapped[str] = mapped_column(String(160))
     summary: Mapped[str] = mapped_column(String(600))
+    # 这一轮对话的消息编号：同一轮准备出来的几十张卡据此在页面上折叠成一组可翻页
+    # （业主 2026-09-25 试用反馈：卡片一张一张铺开、看不出属于同一轮、也没法翻页）。
+    request_id: Mapped[str] = mapped_column(String(100), default='')
+    # 这一张卡属于员工目标里的第几步：整条前序链在同一轮里准备好，页面按步骤分组展示、
+    # 逐步确认（业主 2026-09-25："连续批量确认"）。
+    step_order: Mapped[int] = mapped_column(Integer, default=0)
+    step_label: Mapped[str] = mapped_column(String(120), default='')
+    # 这张卡需要员工先回答的必填项（分派给谁、选哪台车、日期、金额…）。员工在卡片上填，
+    # 没有填完不能确认（业主 2026-09-25）。
+    questions: Mapped[list | None] = mapped_column(JSON, nullable=True)
     payload: Mapped[dict] = mapped_column(JSON)
     digest: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(20), default='pending')

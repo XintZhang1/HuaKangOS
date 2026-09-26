@@ -39,16 +39,25 @@ test('aborted or failed send retains draft and reuses request ID for the same re
  await c.run('businessAssistantSend()');assert.equal(c.calls.length,1);c.run('businessAssistantState.needsRefresh=false');
  c.respond=async()=>response({id:11,messages:[],proposals:[]});await c.run('businessAssistantSend()');assert.equal(JSON.parse(c.calls[1].options.body).request_id,original);assert.equal(c.a.retry,null);
 });
-test('switching stores aborts requests and discards chat, drafts and a late response',async()=>{
+test('leaving the assistant keeps the turn running and records the result for when the employee returns',async()=>{
+ const c=sandbox(),gate=deferred();c.run("toast=()=>{};businessAssistantState.session={id:11,messages:[],proposals:[]};businessAssistantState.draft='登记张先生的接待';");c.respond=()=>gate.promise;
+ const pending=c.run('businessAssistantSend()');await tick();
+ c.run("state.route='work';leaveBusinessAssistantView();");
+ assert.equal(c.calls[0].options.signal.aborted,false,'离开页面不再中止这一轮：员工会一边用助手一边办别的事');
+ assert.equal(c.a.background,true);
+ gate.resolve(response({id:11,messages:[{role:'assistant',content:'接待已登记，待你核对。'}],proposals:[{id:4,status:'pending',digest:'h'}]}));await pending;
+ assert.equal(c.a.busy,false);assert.equal(c.a.error,'');
+ assert.equal(c.a.session.messages[0].content,'接待已登记，待你核对。','结果在后台收下，回来就能看到');
+ assert.equal(c.a.session.proposals.length,1);
+ c.run("state.route='business-assistant';");
+ assert(c.run('businessAssistantMessages()').includes('接待已登记'),'回到助手页时这一轮的结果还在');
+});
+test('switching stores still stops the turn and drops the conversation',async()=>{
  const c=sandbox(),gate=deferred();c.run("businessAssistantState.session={id:11,messages:[{role:'assistant',content:'一店客户'}],proposals:[]};businessAssistantState.draft='一店电话';");c.respond=()=>gate.promise;
  const pending=c.run('businessAssistantSend()');c.run("storeContextVersion++;clearBusinessAssistantSession();state.store='2';globalThis.next=businessAssistantState;");
- assert.equal(c.calls[0].options.signal.aborted,true);gate.resolve(response({id:11,messages:[{role:'assistant',content:'旧店晚到信息'}],proposals:[]}));await pending;
+ assert.equal(c.calls[0].options.signal.aborted,true,'换门店必须停下并丢弃（助手按门店隔离）');
+ gate.resolve(response({id:11,messages:[{role:'assistant',content:'旧店晚到信息'}],proposals:[]}));await pending;
  assert.equal(c.next.session,null);assert.equal(c.next.draft,'');assert.equal(c.next.error,'');assert.equal(c.next.busy,false);
-});
-test('leaving the assistant discards in-flight updates without changing the next page',async()=>{
- const c=sandbox(),gate=deferred();c.run("businessAssistantState.session={id:11,messages:[],proposals:[]};businessAssistantState.draft='接待';");c.respond=()=>gate.promise;
- const pending=c.run('businessAssistantSend()');c.run("state.route='work';leaveBusinessAssistantView();");gate.resolve(response({id:11,messages:[{role:'assistant',content:'晚到回复'}],proposals:[]}));await pending;
- assert.equal(c.a.session.messages.length,0);assert.equal(c.a.busy,false);assert.equal(c.s.route,'work');
 });
 test('confirm posts only the server proposal digest and cannot double submit',async()=>{
  const c=sandbox(),gate=deferred();c.run("businessAssistantState.session={id:11,messages:[],proposals:[{id:4,status:'pending',digest:'server-frozen',details:{body:{amount:'100'}}}]};");c.respond=()=>gate.promise;
@@ -88,4 +97,146 @@ test('a pending card shows the prerequisite facts the system returned, escaped',
  assert(!settled.includes('办理前请先确认'),'a finished card no longer asks for prerequisites');
  const absent=c.run("businessAssistantProposal({id:9,status:'pending',label:'新建资料',result:{},digest:'hash'})");
  assert(!absent.includes('办理前请先确认'));
+});
+function cards(count,patch={}){
+ return JSON.stringify(Array.from({length:count},(_item,index)=>Object.assign({
+  id:'card-'+(index+1),turn:'turn-1',status:'pending',label:'新增车型 '+(index+1),summary:'新增车型：第 '+(index+1)+' 行',
+  digest:String(index+1).padStart(64,'a'),details:{body:{name:'车型'+(index+1)}}},patch)));
+}
+test('one turn of many cards is folded into a pager instead of a wall of cards',()=>{
+ const c=sandbox();
+ c.run("businessAssistantState.session={id:11,messages:[{role:'assistant',content:'本轮共准备 60 张。'}],proposals:"+cards(60)+"};");
+ const folded=c.run('businessAssistantCards()');
+ assert(folded.includes('60</strong> 张本轮卡片'));assert(folded.includes('>1 / 60<'));
+ assert(folded.includes('全部确认（60 张）'));
+ assert(folded.includes('ba-cardgroup folded'));
+ assert.equal((folded.match(/class="ba-proposal"/g)||[]).length,1,'only the current card is rendered while folded');
+ assert(folded.includes('新增车型：第 1 行'));
+ c.run('businessAssistantState.cards[businessAssistantCardGroups(businessAssistantState.session.proposals)[0].key]=4;businessAssistantState.folded[businessAssistantCardGroups(businessAssistantState.session.proposals)[0].key]=false;');
+ const open=c.run('businessAssistantCards()');
+ assert.equal((open.match(/class="ba-proposal"/g)||[]).length,60,'展开全部 shows every card of the turn');
+ const other=c.run("businessAssistantState.session.proposals.push({id:'card-x',status:'pending',label:'单人卡',digest:'b'.repeat(64)});businessAssistantCards()");
+ assert(other.includes('单人卡'),'a card without a turn still renders on its own');
+});
+test('one turn of a whole prerequisite chain is grouped by step, in order',()=>{
+ const c=sandbox();
+ const chain=[{turn:'turn-1',step:'售前接待',step_order:1,id:'a',status:'pending',label:'新建售前接待',digest:'a'.repeat(64)},
+              {turn:'turn-1',step:'分派接待回访',step_order:2,id:'b',status:'pending',label:'分派接待回访',digest:'b'.repeat(64)},
+              {turn:'turn-1',step:'新建订单',step_order:3,id:'c',status:'pending',label:'新建订单',digest:'c'.repeat(64)},
+              {turn:'turn-1',step:'新建订单',step_order:3,id:'d',status:'pending',label:'订单明细',digest:'d'.repeat(64)},
+              {turn:'turn-1',step:'生成订单合同',step_order:4,id:'e',status:'pending',label:'生成订单合同',digest:'e'.repeat(64)}];
+ c.run("businessAssistantState.session={id:11,messages:[{role:'assistant',content:'一共 4 步，请分组核对。'}],proposals:"+JSON.stringify(chain)+"};");
+ const html=c.run('businessAssistantCards()');
+ assert(html.includes('1 · 售前接待'));assert(html.includes('2 · 分派接待回访'));assert(html.includes('3 · 新建订单'));assert(html.includes('4 · 生成订单合同'));
+ assert(html.indexOf('1 · 售前接待')<html.indexOf('2 · 分派接待回访'),'步骤按顺序排列');
+ assert(html.indexOf('2 · 分派接待回访')<html.indexOf('3 · 新建订单'));
+ assert.equal((html.match(/class="ba-proposal"/g)||[]).length,4,'每一步只展开当前一张卡：4 步 → 4 张');
+ const groups=c.run('businessAssistantCardGroups(businessAssistantState.session.proposals).map(group=>({step:group.step,order:group.order,cards:group.cards.length}))');
+ assert.deepEqual(JSON.parse(JSON.stringify(groups)),[{'step':'售前接待','order':1,'cards':1},{'step':'分派接待回访','order':2,'cards':1},{'step':'新建订单','order':3,'cards':2},{'step':'生成订单合同','order':4,'cards':1}],groups);
+ const bar=c.run('businessAssistantCardsPanel()');
+ assert(bar.includes('按顺序全部确认（5 张）'),'一条链可以一次按顺序办完');
+});
+test('cards live in their own column so the conversation is never pushed off screen',()=>{
+ const c=sandbox();
+ c.run("businessAssistantState.session={id:11,messages:[{role:'user',content:'把这张表导进车型目录'},{role:'assistant',content:'本轮共准备 3 张待确认卡。'}],proposals:"+cards(3)+"};");
+ const transcript=c.run('businessAssistantMessages()');
+ assert(transcript.includes('把这张表导进车型目录'));assert(transcript.includes('本轮共准备 3 张待确认卡'));
+ assert(!transcript.includes('class="ba-proposal"'),'the transcript must not carry cards any more');
+ assert(!transcript.includes('ba-cardnav'));
+ const panel=c.run('businessAssistantCardsPanel()');
+ assert(panel.includes('id="business-assistant-cards"'));assert(panel.includes('待确认卡片'));
+ assert(panel.includes('>1 / 3<'));assert((panel.match(/class="ba-proposal"/g)||[]).length===1);
+ const page=c.run('businessAssistantWorkspace()');
+ assert(page.includes('ba-workspace'));assert(page.indexOf('id="business-assistant-cards"')>page.indexOf('id="business-assistant-messages"'),'cards render beside, after the transcript');
+ c.run("businessAssistantState.session.proposals=[];businessAssistantCardsPanel()");
+ assert(c.run('businessAssistantWorkspace()').includes('ba-workspace no-cards'),'no cards: the conversation takes the full width');
+ c.run("businessAssistantState.panelFolded=true;businessAssistantState.session.proposals="+cards(3)+";");
+ assert(c.run('businessAssistantCardsPanel()').includes('hidden'),'the panel can be folded away by hand');
+});
+test('a card asks the employee for the facts only they can decide, and blocks until filled',async()=>{
+ const c=sandbox();c.run('toast=()=>{};');
+ const card={id:'q1',turn:'t',status:'pending',label:'分派接待回访',digest:'c'.repeat(64),
+  questions:[{key:'assignee_id',label:'分派给谁',required:true,options:['张顾问','李顾问']},
+             {key:'values.delivery_due',label:'交车日期',required:true},
+             {key:'values.note',label:'备注',required:false}]};
+ c.run("businessAssistantState.session={id:11,messages:[{role:'assistant',content:'这张卡要你选人。'}],proposals:"+JSON.stringify([card])+"};");
+ const html=c.run('businessAssistantCards()');
+ assert(html.includes('分派给谁')&&html.includes('交车日期'));assert(html.includes('<select'));assert(html.includes('张顾问'));
+ assert.match(html,/data-ba-action="confirm"[^>]*disabled/,'必填项没填不能确认');
+ const handler=c.handlers.input;
+ assert.equal(typeof handler,'function','输入要有监听（否则填了也不算）');
+ const missing=c.run('businessAssistantCardQuestions(businessAssistantState.session.proposals[0]).missing');
+ assert.deepEqual(JSON.parse(JSON.stringify(missing)),['分派给谁','交车日期']);
+ c.run("businessAssistantAnswers('q1').assignee_id='张顾问';businessAssistantAnswers('q1')['values.delivery_due']='10 月 15 日';");
+ assert.equal(c.run('businessAssistantCardQuestions(businessAssistantState.session.proposals[0]).missing.length'),0);
+ assert(!/data-ba-action="confirm"[^>]*disabled/.test(c.run('businessAssistantCards()')),'填完就能确认');
+ c.respond=async()=>({ok:true,status:200,json:async()=>({id:11,messages:[],proposals:[{id:'q1',status:'succeeded',questions:[]}]}),headers:{get:()=> 'application/json'}});
+ await c.run('businessAssistantDecide("q1",true)');
+ const posted=JSON.parse(c.calls.at(-1).options.body);
+ assert.deepEqual(posted.answers,{assignee_id:'张顾问','values.delivery_due':'10 月 15 日'},'员工填的值随确认一起提交');
+ c.run("businessAssistantState.session.proposals=[Object.assign({}, "+JSON.stringify(card)+",{status:'pending'})];businessAssistantState.answers={};");
+ await c.run('businessAssistantDecide("q1",true)');
+ assert.equal(c.calls.length,1,'没填完必填项不许发确认请求');
+});
+test('the next-card arrow is blocked while this card still needs an answer',()=>{
+ const c=sandbox();
+ const cards=[{id:'a',turn:'t',status:'pending',label:'第一张',digest:'a'.repeat(64),questions:[{key:'k',label:'分派给谁',required:true}]},
+              {id:'b',turn:'t',status:'pending',label:'第二张',digest:'b'.repeat(64)}];
+ c.run("businessAssistantState.session={id:11,messages:[{role:'assistant',content:'两张卡。'}],proposals:"+JSON.stringify(cards)+"};");
+ const html=c.run('businessAssistantCards()');
+ assert.match(html,/data-ba-action="card-next"[^>]*disabled/,'必填项没填不能翻到下一张');
+ assert(html.includes('填完才能确认和翻到下一张'));
+ c.run("businessAssistantAnswers('a').k='张顾问';");
+ assert(!/data-ba-action="card-next"[^>]*disabled/.test(c.run('businessAssistantCards()')),'填完就能翻');
+});
+test('the pager arrows move between this turn\'s cards without touching the server',()=>{
+ const c=sandbox(),handler=c.handlers.click;
+ c.run("businessAssistantState.session={id:11,messages:[],proposals:"+cards(3)+"};businessAssistantState.folded={};");
+ const click=dataset=>({target:{closest:()=>({dataset,disabled:false})}});
+ handler(click({baAction:'card-next',key:'turn-1'}));
+ assert.equal(c.run('businessAssistantState.cards["turn-1"]'),1);
+ assert.equal(c.calls.length,0,'paging is local, it must not call the API');
+ handler(click({baAction:'card-prev',key:'turn-1'}));
+ assert.equal(c.run('businessAssistantState.cards["turn-1"]'),0);
+ handler(click({baAction:'card-fold',key:'turn-1'}));
+ assert.equal(c.run('businessAssistantGroupFolded("turn-1")'),false,'折叠是默认，点一下展开全部');
+ handler(click({baAction:'card-fold',key:'turn-1'}));
+ assert.equal(c.run('businessAssistantGroupFolded("turn-1")'),true,'再点一下收起');
+});
+test('全部确认 posts one reviewed batch and reports per-card outcomes',async()=>{
+ const c=sandbox();
+ c.run("toast=()=>{};globalThis.submitBatch=null;modal=(title,body,onSubmit)=>{globalThis.modalTitle=title;globalThis.submitBatch=onSubmit;return{addEventListener(){}};};");
+ c.run("businessAssistantState.session={id:11,messages:[],proposals:"+cards(3)+"};");
+ c.respond=async()=>({ok:true,status:200,json:async()=>({id:11,messages:[],proposals:JSON.parse(c.run('JSON.stringify(businessAssistantState.session.proposals)')).map(card=>Object.assign({},card,{status:'succeeded'})),batch:{total:3,done:3,items:[{id:'card-1',status:'succeeded'},{id:'card-2',status:'failed',summary:'新增车型 2',message:'已有同名年款，但参数不同，请在车型目录核对'},{id:'card-3',status:'succeeded'}]}}),headers:{get:()=> 'application/json'}});
+ const pending=c.run('businessAssistantDecideAll(businessAssistantCardGroups(businessAssistantState.session.proposals)[0].key,true)');
+ await tick();
+ assert(c.run('globalThis.modalTitle').includes('全部确认'),'the employee confirms the batch explicitly');
+ await c.run('globalThis.submitBatch()');
+ await pending;
+ const call=c.calls.find(item=>item.url.includes('/proposals/batch'));
+ assert(call,'one click posts one batch request');
+ const body=JSON.parse(call.options.body);
+ assert.equal(body.action,'confirm');assert.equal(body.items.length,3);
+ assert.deepEqual(body.items.map(item=>item.id),['card-1','card-2','card-3']);
+ assert(body.items.every(item=>/^a{64}$|^[a-f0-9]{64}$/.test(item.digest)),'every card keeps its own frozen digest');
+ assert(c.run('businessAssistantState.error').includes('未办成的'),'failed cards are reported, not hidden');
+ assert(c.run('businessAssistantState.error').includes('参数不同'));
+});
+test('after a confirmation the page offers 继续处理 for the next round',async()=>{
+ const c=sandbox();
+ c.run("businessAssistantState.session={id:11,messages:[{role:'assistant',content:'本轮共生成 3 张待确认卡。'}],proposals:"+cards(3,{status:'succeeded'})+"};");
+ const settleAll=c.run('businessAssistantNextStep()');
+ assert(settleAll==='','nothing pending and nothing asked: no continue bar');
+ c.run("businessAssistantState.session.proposals[2].status='pending';");
+ const bar=c.run('businessAssistantNextStep()');
+ assert(bar.includes('还有 1 张待确认'));assert(bar.includes('data-ba-action="continue"'));
+ c.run("businessAssistantState.session.proposals[2].status='succeeded';businessAssistantState.session.messages.push({role:'assistant',content:'还有几行缺少电池容量，补齐后请发送继续。'});");
+ assert(c.run('businessAssistantNextStep()').includes('data-ba-action="continue"'),'a turn that stopped mid-way still offers the next round');
+ c.run("businessAssistantState.lastAction='confirm';businessAssistantState.session.proposals[0].status='pending';");
+ assert(c.run('businessAssistantNextStep()').includes('已办理'),'after a confirmation the bar says what happened and what to do next');
+ c.respond=async()=>({ok:true,status:200,json:async()=>({id:11,messages:[],proposals:[]}),headers:{get:()=> 'text/event-stream'},body:{getReader:()=>({read:async()=>({done:true}),cancel:async()=>{}})}});
+ const before=c.calls.length;
+ await c.run('businessAssistantContinue()');
+ const sent=c.calls.slice(before).find(item=>item.url.includes('/messages/stream'));
+ assert(sent,'继续处理 sends the next-round message');assert.equal(JSON.parse(sent.options.body).content,'继续处理下一步');
 });

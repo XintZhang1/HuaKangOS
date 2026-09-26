@@ -36,7 +36,18 @@ class Message(Strict):
     request_id:str=Field(min_length=16,max_length=80,pattern=r'^[A-Za-z0-9_-]+$')
     content:str=Field(min_length=1,max_length=service.MAX_MESSAGE)
     thinking:bool=Field(default=False,strict=True)
-class Confirmation(Strict):digest:str=Field(pattern=r'^[a-f0-9]{64}$')
+class Confirmation(Strict):
+    digest:str=Field(pattern=r'^[a-f0-9]{64}$')
+    # 员工在卡片必填项里填的值（键只能是这张卡自己声明的 key）；没填完服务端不放行。
+    answers:dict[str,str]|None=Field(default=None)
+class BatchCard(Strict):
+    id:str=Field(min_length=1,max_length=64)
+    digest:str=Field(pattern=r'^[a-f0-9]{64}$')
+    answers:dict[str,str]|None=Field(default=None)
+class BatchDecision(Strict):
+    # 员工在页面上核对一组卡片后的那一次点击：逐张照办，每张仍是它自己的办理。
+    items:list[BatchCard]=Field(min_length=1,max_length=service.BATCH_LIMIT)
+    action:Literal['confirm','cancel']='confirm'
 class Issue(Strict):
     category:Literal['input','rule','system','model','unsupported']
     summary:str=Field(min_length=1,max_length=1200)
@@ -82,12 +93,18 @@ async def stream_message(session_id:str,body:Message,request:Request,db=Depends(
 
 @router.post('/sessions/{session_id}/proposals/{proposal_id}/confirm')
 async def confirm(session_id:str,proposal_id:str,body:Confirmation,request:Request,db=Depends(get_db),user=Depends(get_user)):
-    return await service.confirm_proposal(db,request,user,session_id,proposal_id,body.digest)
+    return await service.confirm_proposal(db,request,user,session_id,proposal_id,body.digest,answers=body.answers)
 
 
 @router.post('/sessions/{session_id}/proposals/{proposal_id}/cancel')
 async def cancel(session_id:str,proposal_id:str,body:Confirmation,request:Request,db=Depends(get_db),user=Depends(get_user)):
-    return await service.confirm_proposal(db,request,user,session_id,proposal_id,body.digest,True)
+    return await service.confirm_proposal(db,request,user,session_id,proposal_id,body.digest,True,body.answers)
+
+
+@router.post('/sessions/{session_id}/proposals/batch')
+async def batch(session_id:str,body:BatchDecision,request:Request,db=Depends(get_db),user=Depends(get_user)):
+    return await service.batch_decide(db,request,user,session_id,[item.model_dump() for item in body.items],
+                                      cancel=body.action=='cancel')
 
 
 @router.post('/sessions/{session_id}/issues',status_code=201)

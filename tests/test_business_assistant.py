@@ -76,8 +76,10 @@ def make_proposal(client,monkeypatch,sid,operation='create_record',body=None):
     return result.json()['proposals'][-1]
 
 
-def confirm(client,sid,proposal,action='confirm'):
-    return client.post(f'{BASE}/sessions/{sid}/proposals/{proposal["id"]}/{action}',json={'digest':proposal['digest']})
+def confirm(client,sid,proposal,action='confirm',answers=None):
+    body={'digest':proposal['digest']}
+    if answers is not None:body['answers']=answers
+    return client.post(f'{BASE}/sessions/{sid}/proposals/{proposal["id"]}/{action}',json=body)
 
 
 def test_status_is_independent_and_test_config_isolated(client,monkeypatch,tmp_path):
@@ -104,10 +106,12 @@ def test_provider_adapter_uses_only_fixed_official_endpoint_and_compatible_tool_
         body=json.loads(request.content);calls.append((request,body))
         assert request.url.host==host
         assert request.headers['Authorization']=='Bearer tp-fake-provider-key-000000000'
-        assert body[token_field]==2500 and body['thinking']=={'type':'disabled'}
+        # 业主 2026-09-25："为什么要设置回复上限啊，赶紧删掉！"——不再下发任何输出长度上限，
+        # 长度交给服务方自己的上限。
+        assert token_field not in body and 'max_tokens' not in body and 'max_completion_tokens' not in body
+        assert body['thinking']=={'type':'disabled'}
         assert body['temperature']==(0.3 if provider=='mimo' else 0.1)
         assert body['tool_choice']=='auto' and body['tools']
-        assert ('max_tokens' in body) != ('max_completion_tokens' in body)
         return httpx.Response(200,json={'choices':[{'message':{'role':'assistant','content':'请告诉我要办理什么。'}}]})
     real_client=httpx.AsyncClient
     monkeypatch.setattr(service.httpx,'AsyncClient',lambda **kwargs:real_client(transport=httpx.MockTransport(handler),**kwargs))
@@ -211,36 +215,38 @@ def test_inspected_static_operation_ids_survive_clarification_without_any_propos
     assert 'op-1' in contexts[2] and '当前静态字段' in contexts[2]
 
 
-def test_oversized_tool_batch_runs_only_the_reviewed_number_and_returns_explicit_skips(client,assistant,monkeypatch):
+def test_a_large_tool_batch_all_runs_in_the_same_round(client,assistant,monkeypatch):
+    """业主 2026-09-25："为什么要设置回复上限啊，赶紧删掉！"——一次回复里提多少个就执行多少个。"""
     sid=session(client);step=0;second_messages=[]
-    executed=service.PER_ROUND_TOOLS
-    offered=executed+3
+    offered=30
     async def model(config,messages):
         nonlocal step
         step+=1
         if step==1:
             calls=[]
             for i in range(offered):
-                args={'operation_id':'read_records'} if i<executed else {'operation_id':'create_record','summary':'不得准备','body':{'name':'未执行'}}
-                calls.append({'id':f'tool-{i}','type':'function','function':{'name':'read_data' if i<executed else 'prepare_operation','arguments':json.dumps(args)}})
+                args={'operation_id':'read_records'} if i<offered-3 else {'operation_id':'create_record','summary':f'第 {i} 张','body':{'name':f'资料{i}'}}
+                calls.append({'id':f'tool-{i}','type':'function','function':{'name':'read_data' if i<offered-3 else 'prepare_operation','arguments':json.dumps(args)}})
             return {'content':'','tool_calls':calls}
-        second_messages.extend(messages);return {'content':'已查到当前资料，请补充名称。'}
+        second_messages.extend(messages);return {'content':'已按要求全部准备完。'}
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200
-    assert len(assistant[1])==executed and all(call['id']=='read_records' for call in assistant[1])
-    assert result.json()['proposals']==[]
+    assert step==2,'一轮里提几十个工具调用不该把这一轮掐断'
+    assert len(assistant[1])==offered-3,'全部查询工具都要执行，不再只执行前几个'
+    assert len(result.json()['proposals'])==3,'同一轮里准备的三张卡都要落地'
     returned=[m for m in second_messages if m['role']=='tool']
     assert len(returned)==offered
-    assert all(json.loads(m['content']).get('executed') is False for m in returned[executed:])
+    assert not any(json.loads(m['content']).get('executed') is False for m in returned),'不再有"未执行"的丢弃'
 
 
 def test_a_large_tool_batch_keeps_going_instead_of_stopping_the_turn(client,assistant,monkeypatch):
     """2026-09-25 业主裁定：整表导入时一轮提几十个准备调用是期望行为，不能因此掐断对话。
 
-    每轮只真正执行 PER_ROUND_TOOLS 个，其余的按"未执行"回给模型让它下一轮继续。
+    每轮提出多少个就执行多少个（没有"每轮最多几个工具"的限制），一轮结束不了就继续下一轮，
+    直到把轮次或总量用完——用完时如实收尾，不静默丢弃。
     """
     sid=session(client);step=0
-    offered=service.PER_ROUND_TOOLS*2+1
+    offered=31
     async def model(config,messages):
         nonlocal step
         step+=1
@@ -248,7 +254,7 @@ def test_a_large_tool_batch_keeps_going_instead_of_stopping_the_turn(client,assi
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200
     assert step==service.AssistantConfig().max_rounds,'a big batch must not end the turn on the second round'
-    assert len(assistant[1])==service.AssistantConfig().max_rounds*service.PER_ROUND_TOOLS
+    assert len(assistant[1])==service.AssistantConfig().max_rounds*offered,'全部工具都要执行'
     assert '还没准备好' in result.json()['messages'][-1]['content']
     assert client.get(BASE+'/issues').json()['items'][0]['category']=='model'
 
@@ -278,7 +284,7 @@ def test_round_budget_reports_truthful_progress_and_model_issue(client,assistant
     monkeypatch.setattr(service,'model_reply',model)
     result=message(client,sid);assert result.status_code==200 and count==service.AssistantConfig().max_rounds
     text=result.json()['messages'][-1]['content']
-    assert ('下方待确认操作' in text) if has_pending else ('还没准备好' in text)
+    assert ('待确认卡片' in text and '全部确认' in text) if has_pending else ('还没准备好' in text)
     assert client.get(BASE+'/issues').json()['items'][0]['category']=='model'
 
 
@@ -629,3 +635,187 @@ def test_real_native_customer_creation_through_confirm_preserves_permission_and_
         assert db.scalar(select(func.count()).select_from(Customer))==1
         row=db.scalar(select(Customer));assert row.name=='助手合成客户' and row.store_id==1
         assert row.owner_id==db.scalar(select(User.id).where(User.username=='sales'))
+
+
+def prepare_call(key):
+    return {'id':'p-'+key,'type':'function','function':{'name':'prepare_operation','arguments':json.dumps(
+        {'operation_id':'create_record','summary':'新增'+key,'body':{'name':key}})}}
+
+
+def prepare_turn(monkeypatch,keys):
+    """每轮准备一组卡：keys 既可以是这一轮的键列表，也可以是"每一轮一个列表"。"""
+    turns=[keys] if keys and isinstance(keys[0],str) else [list(turn) for turn in keys]
+    rounds=[]
+    async def model(config,messages):
+        rounds.append(messages)
+        index=(len(rounds)-1)//2
+        if (len(rounds)-1)%2==0:
+            return {'content':'','tool_calls':[prepare_call(key) for key in turns[min(index,len(turns)-1)]]}
+        return {'content':'已准备好，请核对后点击确认。'}
+    monkeypatch.setattr(service,'model_reply',model)
+
+
+def test_cards_prepared_in_one_turn_carry_that_turn_so_the_page_can_fold_them(client,assistant,monkeypatch):
+    """业主 2026-09-25：一轮生成的卡片要能折叠成一组翻页，分组靠服务端给出的事实，不靠前端猜时间。"""
+    prepare_turn(monkeypatch,[['甲','乙'],['丙','丁']])
+    sid=session(client)
+    first=message(client,sid,key='turn-one-0000000001');assert first.status_code==200,first.text
+    cards=[card for card in first.json()['proposals'] if card['status']=='pending']
+    assert len(cards)==2 and {card['turn'] for card in cards}=={'turn-one-0000000001'},cards
+    second=message(client,sid,key='turn-two-0000000002');assert second.status_code==200,second.text
+    turns={card['turn'] for card in second.json()['proposals']}
+    assert turns=={'turn-one-0000000001','turn-two-0000000002'},turns
+    assert [card['summary'] for card in second.json()['proposals'] if card['turn']=='turn-two-0000000002']==['新增丙','新增丁']
+
+
+def test_batch_confirm_still_runs_every_card_through_its_own_native_call(client,assistant,monkeypatch):
+    """业主 2026-09-25：一次点击办一整组——但每张仍是它自己的校验、自己的原接口调用。"""
+    fake,calls=assistant;prepare_turn(monkeypatch,['甲','乙','丙'])
+    sid=session(client)
+    prepared=message(client,sid);assert prepared.status_code==200
+    pending=[card for card in prepared.json()['proposals'] if card['status']=='pending']
+    assert len(pending)==3
+    posted=client.post(f'{BASE}/sessions/{sid}/proposals/batch',
+                       json={'action':'confirm','items':[{'id':card['id'],'digest':card['digest']} for card in pending]})
+    assert posted.status_code==200,posted.text
+    body=posted.json()
+    assert body['batch']['total']==3 and body['batch']['done']==3,body['batch']
+    assert len(calls)==3,'one click must still be three separate native calls'
+    assert {row['status'] for row in body['proposals']}=={'succeeded'}
+
+
+def test_batch_confirm_reports_one_bad_card_without_blocking_the_rest(client,assistant,monkeypatch):
+    fake,calls=assistant;prepare_turn(monkeypatch,['甲','乙','丙'])
+    sid=session(client)
+    pending=[card for card in message(client,sid).json()['proposals'] if card['status']=='pending']
+    items=[{'id':card['id'],'digest':card['digest']} for card in pending]
+    items[1]={'id':pending[1]['id'],'digest':'0'*64}
+    posted=client.post(f'{BASE}/sessions/{sid}/proposals/batch',json={'action':'confirm','items':items})
+    assert posted.status_code==200,posted.text
+    outcomes={row['id']:row['status'] for row in posted.json()['batch']['items']}
+    assert outcomes[pending[1]['id']]=='refused' and '变化' in posted.json()['batch']['items'][1]['message']
+    assert [outcomes[card['id']] for card in (pending[0],pending[2])]==['succeeded','succeeded']
+    assert len(calls)==2,'the refused card must not reach the native API'
+
+
+def test_batch_confirm_refuses_absurd_or_repeated_selections(client,assistant,monkeypatch):
+    prepare_turn(monkeypatch,['甲'])
+    sid=session(client)
+    card=[row for row in message(client,sid).json()['proposals'] if row['status']=='pending'][0]
+    one={'id':card['id'],'digest':card['digest']}
+    assert client.post(f'{BASE}/sessions/{sid}/proposals/batch',json={'action':'confirm','items':[]}).status_code==422
+    assert client.post(f'{BASE}/sessions/{sid}/proposals/batch',
+                       json={'action':'confirm','items':[one]*2}).status_code==422
+    assert client.post(f'{BASE}/sessions/{sid}/proposals/batch',
+                       json={'action':'confirm','items':[one]*(service.BATCH_LIMIT+1)}).status_code==422
+    assert client.post(f'{BASE}/sessions/{sid}/proposals/batch',
+                       json={'action':'confirm','items':[{'id':card['id'],'digest':'not-a-digest'}]}).status_code==422
+    assert client.post(f'{BASE}/sessions/{sid}/proposals/batch',
+                       json={'action':'confirm','items':[one],'extra':1}).status_code==422
+    with SessionLocal() as db:assert db.scalar(select(AssistantProposal).where(AssistantProposal.id==card['id'])).status=='pending'
+
+
+def test_batch_cancel_needs_no_native_call_and_leaves_other_cards_pending(client,assistant,monkeypatch):
+    fake,calls=assistant;prepare_turn(monkeypatch,['甲','乙'])
+    sid=session(client)
+    pending=[card for card in message(client,sid).json()['proposals'] if card['status']=='pending']
+    posted=client.post(f'{BASE}/sessions/{sid}/proposals/batch',
+                       json={'action':'cancel','items':[{'id':pending[0]['id'],'digest':pending[0]['digest']}]})
+    assert posted.status_code==200,posted.text
+    statuses={row['id']:row['status'] for row in posted.json()['proposals']}
+    assert statuses[pending[0]['id']]=='cancelled' and statuses[pending[1]['id']]=='pending'
+    assert calls==[],'cancelling a card never calls the business API'
+
+
+def test_a_card_can_require_the_employee_to_fill_facts_before_it_can_be_confirmed(client,assistant,monkeypatch):
+    """业主 2026-09-25：需要员工决定的事实列成卡片必填项，填完才能确认（服务端也要拦住）。"""
+    fake,calls=assistant;sid=session(client);rounds=[]
+    def prepare():
+        return {'id':'p-1','type':'function','function':{'name':'prepare_operation','arguments':json.dumps({
+            'operation_id':'create_record','summary':'新增待分派资料','body':{'name':'待分派资料'},
+            'step':'1 分派接待回访','step_order':1,
+            'questions':[{'key':'name','label':'分派给谁','options':['张顾问','李顾问']},
+                         {'key':'values.note','label':'交车日期','required':True},
+                         {'key':'values.extra','label':'备注','required':False}]})}}
+    async def model(config,messages):
+        rounds.append(messages)
+        if len(rounds)==1:return {'content':'','tool_calls':[prepare()]}
+        return {'content':'这张卡有两项要你填。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    card=[row for row in message(client,sid).json()['proposals'] if row['status']=='pending'][0]
+    assert [question['label'] for question in card['questions']]==['分派给谁','交车日期','备注'],card['questions']
+    assert card['step']=='分派接待回访' and card['step_order']==1
+    blocked=confirm(client,sid,card)
+    assert blocked.status_code==409 and '必填项' in blocked.text,blocked.text
+    assert calls==[],'必填项没填时绝不能碰原接口'
+    still=confirm(client,sid,card,answers={'name':'张顾问'})
+    assert still.status_code==409 and '交车日期' in still.text,still.text
+    filled=confirm(client,sid,card,answers={'name':'张顾问','values.note':'10 月 15 日','values.extra':''})
+    assert filled.status_code==200,filled.text
+    assert calls and calls[0]['body']['name']=='张顾问',calls
+    assert calls[0]['body']['values']=={'note':'10 月 15 日'},calls
+
+
+def test_answers_only_use_the_keys_the_card_declared(client,assistant,monkeypatch):
+    """员工填的值只能落到这张卡自己声明的 key 上，不能借它改别的字段。"""
+    fake,calls=assistant;sid=session(client);rounds=[]
+    async def model(config,messages):
+        rounds.append(messages)
+        if len(rounds)==1:
+            return {'content':'','tool_calls':[{'id':'p-1','type':'function','function':{'name':'prepare_operation',
+                'arguments':json.dumps({'operation_id':'create_record','summary':'新增资料','body':{'name':'原值'},
+                    'questions':[{'key':'name','label':'名称'}]})}}]}
+        return {'content':'请填写名称。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    card=[row for row in message(client,sid).json()['proposals'] if row['status']=='pending'][0]
+    posted=confirm(client,sid,card,answers={'name':'员工改的','values.injected':'不该出现','id':'999'})
+    assert posted.status_code==200,posted.text
+    assert calls[0]['body']['name']=='员工改的' and 'injected' not in json.dumps(calls[0]['body']),calls
+
+
+def test_answers_land_on_the_real_field_even_when_the_model_prefixes_the_key(client,assistant,monkeypatch):
+    """模型有时把 key 写成"quote.model_id"这种带前缀的名字：仍要落到原接口的真实字段上。"""
+    fake,calls=assistant;sid=session(client);rounds=[]
+    base=fake.validate_operation
+    def validate(operation_id,path_args,query,body):
+        result=base(operation_id,path_args,query,body)
+        result['operation']={**result['operation'],'body_schema':{'type':'object','properties':{'name':{'type':'string'}}}}
+        return result
+    monkeypatch.setattr(fake,'validate_operation',validate)
+    async def model(config,messages):
+        rounds.append(messages)
+        if len(rounds)==1:
+            return {'content':'','tool_calls':[{'id':'p-1','type':'function','function':{'name':'prepare_operation',
+                'arguments':json.dumps({'operation_id':'create_record','summary':'新增资料','body':{},
+                    'questions':[{'key':'quote.name','label':'名称'}]})}}]}
+        return {'content':'请填名称。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    card=[row for row in message(client,sid).json()['proposals'] if row['status']=='pending'][0]
+    posted=confirm(client,sid,card,answers={'quote.name':'合成名称'})
+    assert posted.status_code==200,posted.text
+    assert calls and calls[0]['body'].get('name')=='合成名称',calls
+
+
+def test_a_prerequisite_chain_prepared_in_one_turn_carries_its_step_order(client,assistant,monkeypatch):
+    """业主 2026-09-25：员工说一个中间/最后一步时，整条前序链要在同一轮里按步骤准备好。
+
+    步骤顺序必须由服务端存下来，页面才能按"第 1 步 / 第 2 步…"分组展示。
+    """
+    sid=session(client);rounds=[]
+    def prepare(key,step,order=None):
+        args={'operation_id':'create_record','summary':'新增'+key,'body':{'name':key},'step':step}
+        if order is not None:args['step_order']=order
+        return {'id':'p-'+key,'type':'function','function':{'name':'prepare_operation','arguments':json.dumps(args)}}
+    async def model(config,messages):
+        rounds.append(messages)
+        if len(rounds)==1:
+            return {'content':'','tool_calls':[prepare('接待','1 售前接待'),prepare('回访','2、分派接待回访'),
+                                               prepare('订单','新建订单',3),prepare('明细','新建订单')]}
+        return {'content':'一共 3 步，请分组核对。'}
+    monkeypatch.setattr(service,'model_reply',model)
+    result=message(client,sid);assert result.status_code==200,result.text
+    cards=result.json()['proposals']
+    assert [(card['step_order'],card['step']) for card in cards]==[
+        (1,'售前接待'),(2,'分派接待回访'),(3,'新建订单'),(0,'新建订单')],cards
+    schema=[tool for tool in service.TOOLS if tool['function']['name']=='prepare_operation'][0]['function']['parameters']['properties']
+    assert 'step' in schema and 'step_order' in schema,'提示词/工具必须告诉模型怎么标步骤'

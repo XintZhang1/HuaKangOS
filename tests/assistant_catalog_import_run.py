@@ -65,6 +65,8 @@ def main():
     parser.add_argument('--whole', action='store_true',
                         help='整表一次性发（不分批、不换会话），用来看助手能不能一把做完')
     parser.add_argument('--limit', type=int, default=0, help='只处理前 N 行（0=全部）')
+    parser.add_argument('--confirm-all', action='store_true',
+                        help='用一次“全部确认”（批量接口）办完整组卡，模拟员工在页面上点一次按钮')
     parser.add_argument('--keep-server', action='store_true')
     args = parser.parse_args()
     if args.output.resolve() == ROOT or ROOT in args.output.resolve().parents:
@@ -132,7 +134,26 @@ def main():
                     if len(pending) > len(batch['cards']):
                         batch['cards'] = [{'summary': p.get('summary'), 'operation': p.get('operation')}
                                           for p in pending]
-                    confirmed = confirm_cards(client, session['id'], pending, limit=len(pending) or 1)
+                    # --confirm-all：像员工在页面上点一次“全部确认”那样，一条请求办完整组卡
+                    # （服务端仍逐张校验、逐张调原接口）。默认仍逐张点，保留两种证据。
+                    if args.confirm_all and pending:
+                        payload = {'action': 'confirm',
+                                   'items': [{'id': card['id'], 'digest': card['digest']} for card in pending]}
+                        posted = client.post('/api/business-assistant/sessions/%s/proposals/batch' % session['id'],
+                                             json=payload, timeout=600)
+                        batch['batch_status'] = posted.status_code
+                        if posted.status_code == 200:
+                            answer = posted.json()
+                            batch['batch'] = answer.get('batch')
+                            confirmed = [{'summary': item.get('summary'), 'status': 200,
+                                          'proposal_status': item.get('status'),
+                                          'result': str(item.get('message'))[:200]}
+                                         for item in (answer.get('batch') or {}).get('items', [])]
+                        else:
+                            batch['batch_error'] = posted.text[:300]
+                            confirmed = []
+                    else:
+                        confirmed = confirm_cards(client, session['id'], pending, limit=len(pending) or 1)
                     batch['confirmed'].extend(confirmed)
                     created = catalog_total() - before
                     batch['created'] = created
@@ -149,6 +170,10 @@ def main():
                 print('批 %d：卡 %d 张，确认成功 %d 张，未成功 %d 张，目录新增 %s 条%s'
                       % (index, len(batch['cards']), ok, len(unique) - ok, batch.get('created'),
                          '（重试 %d 次）' % batch['retries'] if batch['retries'] else ''), flush=True)
+                if batch.get('batch'):
+                    summary = batch['batch']
+                    print('   一次“全部确认”：%s/%s 张办成（一条请求）'
+                          % (summary.get('done'), summary.get('total')), flush=True)
                 for item in unique.values():
                     if item.get('proposal_status') != 'succeeded':
                         print('   未成功:', item.get('summary'), str(item.get('result'))[:140], flush=True)
