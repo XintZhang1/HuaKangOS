@@ -1,211 +1,65 @@
 {
-  "checkpoint": "assistant-write-scope-and-escalations-20260924",
+  "checkpoint": "source-delivery-cleanup-20260926",
   "application_version": "0.4.0-dev",
   "database_head": "h51i_proposal_questions",
+  "statement_definition": 21,
+  "cash_definition": 7,
+  "baseline_commit": "1f884fb",
+  "scope": "Owner-authorized cleanup of E:/HuaKangOS; no business implementation changes.",
+  "handoff": "docs/业务助手交接.md",
+  "delivery_notes": "docs/交付说明.md",
+  "cleanup": {
+    "tracked_files_removed": 1123,
+    "removed_bytes_approx_mib": 49.47,
+    "runtime_files_hash_verified_unchanged": 540,
+    "existing_businessassistant_js_edit_preserved": true,
+    "original_preview_data_preserved": true,
+    "historical_tests_and_evidence": "Recover from Git commit 1f884fb; not shipped in ZIP.",
+    "disposable_test_caches_removed": true
+  },
+  "verification": {
+    "targeted_python_before_cleanup": {
+      "passed": 187,
+      "modules": 8,
+      "seconds": 176.09,
+      "exit_code": 0,
+      "notes": "One dependency deprecation warning; pytest atexit cleanup hit Windows permission error on an old temporary directory."
+    },
+    "frontend_node_before_cleanup": {
+      "passed": 215,
+      "failed": 0
+    },
+    "after_cleanup": {
+      "python_syntax_files": 397,
+      "javascript_syntax_files": 66,
+      "fresh_sqlite_migration": "passed",
+      "foreign_key_check": "passed",
+      "startup_login": "passed",
+      "index_static_assets_served": 66,
+      "assistant_status_session": "passed",
+      "assistant_operations_discovered": 306,
+      "escalation_reads": "passed",
+      "workflow_guides_check": "passed: 193 requirements / 111 workflows / 70 synthetic entry screenshots"
+    },
+    "archive_extracted_smoke": "passed: fresh SQLite migration, foreign keys, startup, synthetic login, assistant session, escalation reads, static resources, syntax and workflow guides check",
+    "external_model_calls": 0,
+    "full_backend_current_run": false,
+    "real_browser_current_run": false,
+    "real_postgresql_current_run": false,
+    "archive_integrity": "passed on probe ZIP; final delivery ZIP is validated during packaging",
+    "archive_scope": "Source only: no Git history, virtualenv, test/maintenance/deploy directories, database or private configuration."
+  },
   "release_accepted": false,
   "company_accepted": false,
   "production_deployed": false,
-  "source_baseline_archive": "huakangos_r80e-vehicle-checkpoint_20260922.zip",
-  "source_baseline_sha256": "c766b72542b32ebc2b709498f8c3f3c45f7d723e1bac267a57b746f2c409fa59",
-  "current_same_tree_run": "PASSED全量: 2459通过、0失败/0错误/2跳过；167模块，1586.5秒，867个源码文件前后未变（digest fd9ca10c…，对应提交 6e353cf）。同轮：24个前端Node用例、66个JS语法检查、9项指引用例通过",
-  "scope_correction": "docs/需求范围纠正_20260922.md",
-  "scope_audit": "docs/原始需求范围复核.md",
-  "environment_gates": {
-    "real_browser": "PASSED: 合成Chrome流式6组、文件填表7组、搜索13组；0JS异常；脚本模型与真实模型验证分开记录。",
-    "real_postgresql": "PENDING: 未执行g35t真实PostgreSQL；布尔默认值离线DDL检查不等于真实库通过。"
-  },
   "next_work": [
-    "用户按手册试用并整理仓库（R02/R03试用脚本已交，待试用反馈）",
-    "业务助手接入飞书（自建应用+@机器人）：需求与边界已记录在 docs/飞书接入要点_20260925.md，未实现",
-    "整理服务器配置并执行部署侧验证，当前未部署",
-    "公司实际业务、会员/月结周期及未完成体验项继续验收"
+    "Review and resolve code/prompt/limit inconsistencies listed in assistant handoff.",
+    "Restore regression tests in a separate development checkout before implementation.",
+    "Feishu enterprise app integration remains planned and unbuilt."
   ],
   "excluded": [
-    "group center actual funds clearing or bank/payment/arrival approval interfaces",
-    "peer directly operated store counterparty relationship/cooperation approval module"
+    "Group-center actual funds clearing and bank/payment/arrival approval interfaces.",
+    "Peer directly operated store relationship/cooperation admission approval."
   ],
-  "previous_checkpoint": {
-    "checkpoint": "assistant-thinking-20260924",
-    "verification_report": "docs/verification/assistant-thinking-20260924/测试报告.md",
-    "source_digest": "3074082830594e21e6b0fdad3ffa60dfc77b496e1118cb6218a984e0b32bdea4",
-    "current_same_tree_run": "TARGETED PASSED: 236项相关Python测试、206项Node测试、63个JS语法检查；821文件前后相同，不是全量后端重跑"
-  },
-  "verification_report": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
-  "requirement_mapping_audit": "docs/需求逐项核对-employee-assistant-files-20260924.json",
-  "source_digest": "fd9ca10cce2451fbb3f4bd739d300e0963376ebe22a1eb6850496298d3bfc4db",
-  "repair_baseline": {
-    "checkpoint": "t02g-dossier-masters",
-    "manifest": "docs/verification/t02g-fix1/source-package-before.sha256",
-    "prior_source_changes": "docs/verification/t02g-fix1/source-changes-before.json"
-  },
-  "last_verified_checkpoint": {
-    "checkpoint": "assistant-write-scope-and-escalations-20260924",
-    "verification_report": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
-    "source_digest": "5fe713f2a856fb672a9a49c84d2e2f88845339d4cb45324e8f84e48017cc5c7e",
-    "current_same_tree_run": "PASSED全量: 2462通过、2跳过、0失败/0错误；167模块，1637.59秒，857文件前后未变"
-  },
-  "active_objective": "业务助手：按员工本人身份调用（仅两条限制）+ 评审通道；整表不再按行数卡住；一轮把整条前序链按步骤准备成可批量确认的分组卡片（业主 2026-09-25 R04 反馈），PR #9 待评审",
-  "progress_record": "docs/助手权限与评审设计_20260924.md",
-  "current_working_evidence": "docs/verification/assistant-chain-and-cards-20260925/测试报告.md",
-  "current_run_directory": "docs/verification/assistant-chain-and-cards-20260925",
-  "current_frozen_source_files": 867,
-  "statement_definition": 21,
-  "cash_definition": 7,
-  "development_and_simulation_delivered": true,
-  "local_preview": {
-    "url": "http://127.0.0.1:8000/",
-    "existing_accounts_preserved": true,
-    "bootstrap_required": false,
-    "source_fingerprint": "4a6324e58023b34bfd01f01b84c1bb42b300061e6d8af86a5a613cf882377527",
-    "evidence": "docs/verification/assistant-thinking-20260924/user-preservation.json",
-    "restarted_at": "2026-09-25T19:40+08:00",
-    "migration_applied": "h48f_escalation_refusals",
-    "verified_after_restart": "重启（先手工整库备份到 LOCALAPPDATA\\huakangos\\backup-manual-*）后核对：11账号（admin 与 7 个 xc-* 业务岗、xc-temp）/3门店（XC-CD、XC-CX 启用，PREVIEW 停用）；alembic head=h48f_escalation_refusals；三张评审表存在且 0 行。第二次重启后实登管理员读到 /api/business-assistant/status：limits.max_message_chars=12000（新上限已生效）；车型目录当前为空（本轮实测都在一次性实例上跑）。本次只改了助手自身的上限、汇总口径与渲染，无迁移。"
-  },
-  "escalation": {
-    "tables": [
-      "escalations",
-      "escalation_events",
-      "escalation_refusals"
-    ],
-    "migration": "h48f_escalation_refusals",
-    "down_revision": "h47e_escalations",
-    "endpoints": [
-      "GET /api/escalations?scope=mine|to_review",
-      "GET /api/escalations/refusals",
-      "POST /api/escalations",
-      "POST /api/escalations/{id}/actions/{claim|done|reject|cancel}"
-    ],
-    "refusal_receipt_required": true,
-    "refusal_categories": "服务端按系统原话判定：authority / amount / rule；rule 提交即422",
-    "receipt_lifetime_hours": 24,
-    "reviewer_role_source": "当前门店岗位（store_role），不是账号级岗位",
-    "admin_queue_scope": "集团管理员只看到 target_role=admin 的申请",
-    "self_approval_blocked": true,
-    "recipient_decided_server_side": "门店经理；提交人即门店经理时上送集团管理员"
-  },
-  "assistant_write_scope": {
-    "owner_ruling": "2026-09-25：助手以员工本人身份调用已评审接口，接口判定权限；白名单与动作禁用词已删除",
-    "removed": [
-      "PREPARABLE_ACTIONS",
-      "MONEY_OR_APPROVAL_ROUTES",
-      "DECISION_TOKENS"
-    ],
-    "limit_one": "403 时返回提示：这一步需要更高岗位权限，可读 GET /api/escalations/refusals 生成评审申请确认卡；409/422 不给该提示",
-    "limit_two": "prerequisite_notes：新建流程中间单据时随卡返回该业务自己声明的前序字段（相关业务/客户/车辆/原单），要求逐项向员工确认",
-    "multi_step_chaining": "允许一次目标内连续准备多步，每步各自一张确认卡，点击前不得声称已办理",
-    "tool_budget": {
-      "max_rounds": 24,
-      "rounds_tunable": "4-40，私有配置 max_rounds",
-      "tools_per_round": 12,
-      "max_message_chars": 12000,
-      "max_pending_proposals": 200,
-      "hard_tools_per_reply": 200,
-      "call_budget": "max(60, max_rounds × tools_per_round)",
-      "turn_timeout_seconds": 600,
-      "turn_tunable": "30-600，私有配置 turn_timeout_seconds",
-      "wrap_up_before_limit": true,
-      "row_limits_removed": "2026-09-25 业主指令：不许按表格行数/批次卡住员工。删掉“连续两次返回过多工具就停止处理”，整表导入一轮提几十个准备调用是期望行为；超出的调用按“本轮未执行”回给模型。只留两个防跑飞硬闸（单次回复超过 hard_tools_per_reply 按无效拒绝、总调用次数有上限）",
-      "authoritative_card_tally": "每轮把数据库里的待确认卡数作为一条系统消息给模型（原地更新），要求汇总时引用系统数字，不自己口算",
-      "model_tokens": "不再下发任何输出长度上限（业主 2026-09-25：“为什么要设置回复上限啊，赶紧删掉！”）；长度由服务方自己的上限决定",
-      "no_per_round_tool_cap": "PER_ROUND_TOOLS 已删除：一次回复里提多少个准备调用就执行多少个；HARD_TOOLS=200 只是畸形回复兜底"
-    },
-    "card_questions": {
-      "owner": "2026-09-25：“需要员工回答的部分，你能不能在分组卡片的单张里把这些选项列为必填项，只有确认过后才能继续点下一张”",
-      "storage": "business_assistant_proposals.questions（迁移 h51i_proposal_questions）",
-      "ui": "卡内渲染：有真实候选用下拉，否则文本框；没填完不能确认、不能翻到下一张；组级“全部确认/按顺序全部确认”在组内有未填完的卡时禁用",
-      "server": "确认/批量确认带 answers；没填完 409；只接受卡片自己声明的 key；落到原接口真实字段（精确命中优先，带前缀用最后一段，values.x 落 body.values）并再走一次原网关校验；只有必填项缺着的卡也能生成（准备时用类型正确的占位值探一次，占位不进卡片）"
-    },
-    "card_presentation": {
-      "owner_feedback": "2026-09-25 R04 预览手动试用四条：卡片堆在对话底部、缺少 < n/m > 翻页、确认后没有后续、跳转页面中止对话",
-      "parallel_panel": "卡片与对话平行（宽屏在右、≤1000px 在对话上方并可整栏收起、各自滚动），对话区只放对话",
-      "step_grouping": "同一轮的卡按 step_order/step_label 分组（迁移 h49g_proposal_turn、h50h_proposal_step），组内折叠为“一行翻页 + 一张卡”",
-      "batch_confirm": "POST /sessions/{id}/proposals/batch：一次点击、逐张办理（各自 digest/岗位/门店/版本/过期/业务规则），失败单张报回；模型不能调用",
-      "auto_continue": "确认完成后自动触发下一轮（每次点击最多一次，仍有待确认卡时不抢跑），同时保留“继续处理”按钮",
-      "background_turn": "离开助手页不再中止这一轮（后台收完并记入会话）；换门店/退出登录仍然立即停止并丢弃"
-    },
-    "still_closed": "凭据与登录、部署与品牌设置、原始附件与下载导出、期初导入、任意旧单据CRUD、多部分文件上传、办理评审申请本身",
-    "multipart_uploads_blocked": true,
-    "escalation_request_preparable": true,
-    "escalation_handling_blocked": true
-  },
-  "assistant": {
-    "provider": "deepseek",
-    "model": "deepseek-flash",
-    "private_configuration": true,
-    "automatic_provider_fallback": false,
-    "status": "ready_for_local_trial",
-    "thinking_enabled": false,
-    "thinking_toggle": true,
-    "thinking_default": false,
-    "streaming": true,
-    "real_provider_probe": {
-      "modes": [
-        "off",
-        "on"
-      ],
-      "passed": true,
-      "synthetic_only": true,
-      "model_requests": 15,
-      "confirmed_forms": 4
-    }
-  },
-  "guide_coverage": {
-    "requirements": 193,
-    "workflows": 111,
-    "entry_screenshots": 70,
-    "mapping": "docs/workflow-source/coverage.json",
-    "business_accepted": false,
-    "quick_forms": 40
-  },
-  "verification_history": [
-    {
-      "source_digest": "6f08632d009ea977362efbc01e169b38ce811ffeb013c98be3bf2a8af63fc5b8",
-      "checkpoint": "employee-assistant-files-20260924",
-      "verification_report": "docs/verification/employee-assistant-files-20260924/测试报告.md",
-      "current_same_tree_run": "PASSED: 1907通过、1项跳过、0失败/0错误；150模块/1908用例，1384.94秒"
-    },
-    {
-      "checkpoint": "workflow-handbook-20260924",
-      "verification_report": "docs/verification/workflow-handbook-20260924/测试报告.md",
-      "source_digest": "63fb5936855dcb4f3cd766c440e05b91c19de481a007be7e2d63036b7685400e",
-      "current_same_tree_run": "TARGETED PASSED: 188项相关Python测试通过（9模块，93.21秒，0失败/0错误/0跳过），178项前端Node测试及62个JavaScript语法检查通过"
-    },
-    {
-      "checkpoint": "search-modes-20260924",
-      "verification_report": "docs/verification/search-modes-20260924/测试报告.md",
-      "source_digest": "5a2fbbee080f84ff4b8a048f3dafe88f97ec73cef0c2ada17c733a1cb57ef141",
-      "current_same_tree_run": "TARGETED PASSED: 34项相关Python测试、197项Node测试、63个JS语法检查通过"
-    },
-    {
-      "checkpoint": "historical-quarantine-20260924",
-      "verification_report": "docs/verification/historical-test-quarantine-20260924/测试报告.md",
-      "source_digest": "bbd88bb414e48ddf559652fb259286f8b16857d2ded8262f3b377292ef63b041",
-      "current_same_tree_run": "PASSED全量: 2412通过、2跳过、0失败/0错误；166模块，1531.56秒，源码前后未变；4个历史遗留模块移入tests/historical"
-    },
-    {
-      "checkpoint": "assistant-write-scope-and-escalations-20260924",
-      "verification_report": "docs/verification/assistant-write-scope-and-escalations-20260924/测试报告.md",
-      "source_digest": "eea01b023b34729d743b52937af7ad5401e4a7c752d4c70e45f82234e4b7b8fe",
-      "current_same_tree_run": "TARGETED PASSED: 230项相关Python测试（含12项升级评审通道）0失败/0错误；真实Chrome升级链路5步0 JS报错；node --check通过；尚未做全量重跑"
-    },
-    {
-      "checkpoint": "assistant-no-row-limits-and-whole-table-import (PR #9)",
-      "verification_report": "docs/试用记录/车型清单导入试用记录.md",
-      "source_digest": "dfbe3042d9d6f044dea8944ce134d1a0cc33d779da1cc1f74bd6bcddcf9cc5c1",
-      "current_same_tree_run": "PASSED全量: 2452通过、0失败/0错误/0跳过；167模块，1645.7秒，862文件前后未变（提交 8afd449）。同轮另有四次整表导入实测（真实模型，一次性实例）、24个前端Node用例、66个JS语法检查通过；Codex 对 PR #9 的 4 条意见全部采纳"
-    },
-    {
-      "checkpoint": "assistant-chain-and-cards-20260925 (PR #9)",
-      "verification_report": "docs/verification/assistant-chain-and-cards-20260925/测试报告.md",
-      "source_digest": "f69470e2092192c7867c1235159e277e6bde8fbaba130b72d1aa112ba793983a",
-      "current_same_tree_run": "PASSED全量: 2456通过、0失败/0错误/2跳过；167模块，1698.4秒，866文件前后未变（提交 ce2cca0）。同轮：真实 Chrome 卡片面板/翻页/批量确认/后台继续（tests/browser_assistant_batch_cards.py，0 JS 报错）、真实模型链式试跑（tests/assistant_chain_probe.py）、24个前端Node用例、66个JS语法检查、9项指引用例通过"
-    },
-    {
-      "checkpoint": "assistant-no-reply-caps-and-card-questions-20260925 (PR #10)",
-      "verification_report": "docs/verification/assistant-chain-and-cards-20260925/测试报告.md",
-      "source_digest": "fd9ca10cce2451fbb3f4bd739d300e0963376ebe22a1eb6850496298d3bfc4db",
-      "current_same_tree_run": "PASSED全量: 2459通过、0失败/0错误/2跳过；167模块，1586.5秒，867文件前后未变（提交 6e353cf）。同轮：真实 Chrome 必填项（确认/翻页禁用→填完放开→批量带答案）、真实模型试跑（卡片必填项填完确认 1/1 办成、接待单带员工填的车型）、24个前端Node用例、66个JS语法检查通过"
-    }
-  ]
+  "delivery_files": 573
 }

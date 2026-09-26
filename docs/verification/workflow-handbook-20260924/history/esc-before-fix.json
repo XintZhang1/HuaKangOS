@@ -1,9 +1,0 @@
-{
-  "error": "Locator expected to have count '0'\nActual value: 1 \nCall log:\n  - Expect \"to_have_count\" with timeout 5000ms\n  - waiting for locator(\"#workflow-search-dialog\")\n    9 × locator resolved to 1 element\n      - unexpected value \"1\"\n",
-  "page_errors": [],
-  "mutations": [],
-  "completed_steps": [
-    "390px 销售账号从顶栏实时搜索打开接待指引，入口图片实际加载，手动滚动可阅读。",
-    "指引中切换人工／助手步骤，打开原售前接待入口；未创建业务。"
-  ]
-}

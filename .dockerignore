@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 .venv
 .git
 __pycache__
@@ -9,3 +11,9 @@ backups
 tests
 docs/*.png
 *.zip
+**/*.pyc
+**/*.log
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+**/.pytest_cache

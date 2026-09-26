@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 *.pyc
@@ -7,3 +9,8 @@ data/*
 !data/.gitkeep
 backups/
 playwright-report/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.zip

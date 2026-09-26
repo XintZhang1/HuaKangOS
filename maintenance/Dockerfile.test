@@ -1,9 +1,0 @@
-# Build ONCE from a trusted checkout, never from an AI candidate.
-FROM python:3.12-slim
-RUN apt-get update && apt-get install -y --no-install-recommends nodejs git && rm -rf /var/lib/apt/lists/*
-WORKDIR /opt/trusted
-COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir -r requirements-dev.txt
-COPY maintenance/sandbox_entry.py /opt/trusted/sandbox_entry.py
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-ENTRYPOINT ["python", "/opt/trusted/sandbox_entry.py"]
