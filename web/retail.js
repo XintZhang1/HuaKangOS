@@ -18,6 +18,7 @@ async function retailPage(id){
  if(r.state==='authorization'&&allowed('authorize'))buttons.push(button('authorize'));
  if(!r.data.dispatched&&!r.data.cancelled&&allowed('cancel'))buttons.push(button('cancel'));
  if(r.state==='pending'&&allowed('dispatch'))buttons.push(button('dispatch'));
+ if(canWrite()&&!r.data.cancelled&&['admin','inventory'].includes(state.user.role))buttons.push(b('open','准备物资库位',`data-route="warehouse-allocation/${r.id}"`));
  const active=r.returns.some(x=>!['accepted','cancelled','rejected'].includes(x.status));
  if(r.data.dispatched&&!r.data.installed&&!r.data.accepted_date&&!active&&r.lines.some(l=>l.work_item_id)&&allowed('install'))buttons.push(button('install'));
  if(r.data.dispatched&&!r.data.accepted_date&&!active&&allowed('accept'))buttons.push(button('accept'));

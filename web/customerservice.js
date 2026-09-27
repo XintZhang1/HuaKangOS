@@ -59,7 +59,7 @@ async function careActionDialog(action){
   fields=careSelect('result','实际结果',careOptions(results),'resolved')+await careField('note','结果依据及后续约定','textarea');
   if(row.subtype==='questionnaire'){if(!row.questionnaire)throw new Error('原发放题目缺失，请刷新核对，不能套用新问卷。');fields+=`<div class="notice">按原发放版本 v${E(row.questionnaire.number)} 填写。选择已解决时须回答全部必答题；其余结果可保留部分回答。留空不表示否或0。</div>`+row.questionnaire.questions.map(careQuestionAnswerField).join('');}
  }
- let request_id=requestKey();modal(careActionNames[action],careForm(fields),async form=>{
+ const request_id=requestKey();modal(careActionNames[action],careForm(fields),async form=>{
   const fd=new FormData(form),values={};for(const [key,value]of fd.entries())values[key]=value;
   if(action==='followup')values.next_due_date=values.next_due_date||null;
   if(action==='handoff')values.assignee_id=careInteger(fd,'assignee_id');
@@ -72,13 +72,7 @@ async function careActionDialog(action){
     }
    }
   }
-  try{
-   await api(careAPI+`/cases/${row.id}/actions/${action}`,{method:'POST',body:{request_id,version:row.version,values}});
-  }catch(error){
-   // 弹窗保持打开供修改；这次没有成功入账，换一个新请求编号，否则改对内容也会被当成重复提交回放。
-   request_id=requestKey();
-   throw error;
-  }
+  await api(careAPI+`/cases/${row.id}/actions/${action}`,{method:'POST',body:{request_id,version:row.version,values}});
   closeModal();await render();toast('办理记录已保存');
  });
 }

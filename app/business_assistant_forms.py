@@ -108,10 +108,14 @@ def _flow_schema(fields):
 
 
 def body_schema(gateway, operation_id, path_args, body, question_fields=None):
-    root = deepcopy(gateway.inspect_operation(operation_id).get('body_schema') or {})
+    operation = gateway.inspect_operation(operation_id)
+    root = deepcopy(operation.get('body_schema') or {})
     kind = (path_args or {}).get('kind') or (body or {}).get('kind')
     values = None
-    if operation_id.startswith(('POST /api/masters/', 'PUT /api/masters/')):
+    native = operation.get('action_schemas', {}).get((path_args or {}).get('action'))
+    if native is not None:
+        values = deepcopy(native)
+    elif operation_id.startswith(('POST /api/masters/', 'PUT /api/masters/')):
         from .master_data import CATALOG
         if kind in CATALOG:
             values = CATALOG[kind][1].model_json_schema()

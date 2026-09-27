@@ -111,6 +111,12 @@ FIELD_LABELS = {
  'unit_price_cents':'销售单价（分）','reason':'原因','note':'备注','result':'办理结果','terms':'约定',
  'assignee_id':'接手员工编号','account_id':'账户编号','evidence_id':'凭据编号',
  'reference':'流水或凭证号','version':'记录版本','request_id':'提交标识','active':'启用',
+ 'refund_policy':'退款政策','allowed_store_ids':'适用门店编号','discount_bearer':'优惠承担方',
+ 'validity_days':'有效天数','components':'套餐组件','specification':'规格或作业内容',
+ 'credit_cents':'面值（分）','paid_cents':'实付原价分摊（分）','settlement_cents':'结算金额（分）',
+ 'sale_starts_on':'发行开始日期','sale_ends_on':'发行结束日期','refund_terms':'退款条款',
+ 'mandatory_terms':'必须确认的条款','rule_id':'规则编号','rule_version':'规则版本',
+ 'dispatch_id':'原出库批次','payer_id':'核赔单位编号',
 }
 ROUTES = {
  'flow':'work','masters':'masters','vehicle-catalog':'vehicle-catalog','sales-quotes':'sales-quotes',
@@ -272,6 +278,17 @@ def _operation(operation_id):
         raise HTTPException(422,'没有找到此操作名称，请重新查找当前业务的操作目录；不要据此判断业务不支持。本次未执行')
     return op
 
+def _native_action_schemas(op):
+    """Reuse reviewed command validators; this does not grant action authority."""
+    if op['path']=='/api/retail/orders/{key}/actions/{action}':
+        from .retail_api import SCHEMAS
+        return SCHEMAS
+    if op['path']=='/api/claims/{case_id}/actions/{action}':
+        from .claims_api import SCHEMAS
+        return SCHEMAS
+    return {}
+
+
 def inspect_operation(operation_id):
     op=_operation(operation_id);route=op['route']
     result={k:copy.deepcopy(v) for k,v in op.items() if k!='route'}
@@ -290,6 +307,12 @@ def inspect_operation(operation_id):
         result['hint']='传assistant_kind=vehicle_models/vehicle_brands/vehicle_series等，查询该类资料字段。金额输入以字段单位为准。'
     elif op['path'].endswith('/actions/{action}'):
         result['hint']='先读取同一原单和当前可用actions字段；不猜version、动作名、凭据或实际完成情况。'
+    elif op['path']=='/api/claims' and op['write']:
+        result['hint']='厂家payer_id来自GET /api/flow/master/{kind}（kind=references）中category=厂家且active的真实候选；保险公司用GET /api/masters/{kind}（kind=insurers）。外部核赔必须选择真实payer_id；内部核价必须填写payer_name。查不到候选先核对，不能用名字或猜测编号代替。'
+    schemas=_native_action_schemas(op)
+    if schemas:
+        result['action_schemas']={key:schema.model_json_schema() for key,schema in schemas.items()}
+        result['hint']=result.get('hint','')+' 按action_schemas中本次action的定义填写values；顶层原因与明细行不可混用。'
     if op['body_schema'] and 'values' in op['body_schema'].get('properties',{}):
         result['hint']=result.get('hint','')+' values字段定义由对应catalog或原单当前actions给出。'
     if op['path'].startswith('/api/flow/master/{kind}'):
@@ -358,18 +381,26 @@ def validate_operation(operation_id,path_args=None,query=None,body=None):
         if op['idempotent']:value['request_id']=str(uuid.uuid4())
         try:value=op['route'].body_field.type_.model_validate(value).model_dump(mode='json',exclude_unset=True)
         except ValidationError as exc:
-            fields=['.'.join(str(x) for x in error['loc']) for error in exc.errors()]
+            # The rejected envelope may contain a malformed kind/object. Only
+            # use fixed labels until its structure has passed native validation.
+            labels=FIELD_LABELS
+            fields=['.'.join(str(x) for x in error['loc'])+'（'+labels.get(str(error['loc'][-1]),str(error['loc'][-1]))+'）' if error['loc'] else '办理内容' for error in exc.errors()]
             raise HTTPException(422,'请补充或核对：'+'、'.join(fields[:8])) from None
     elif value not in (None,{}):raise HTTPException(422,'该操作不接受额外字段')
     # These generic envelopes have dynamic fields. Validate them now so missing
     # facts trigger a question before confirmation; the native API validates again.
-    if op['write'] and isinstance(value,dict) and isinstance(value.get('values'),dict):
+    schemas=_native_action_schemas(op) if op['write'] else {}
+    if op['write'] and isinstance(value,dict) and (schemas or isinstance(value.get('values'),dict)):
         from .master_data import CATALOG
         from .flow_api import MASTERS
         from .flow_specs import SPECS,parse_fields
         kind=path_args.get('kind')
         try:
-            if op['path'].startswith('/api/masters/') and kind in CATALOG:
+            if schemas:
+                schema=schemas.get(path_args.get('action'))
+                if schema is None:raise HTTPException(422,'本次办理动作不存在，请先核对原单当前可用动作')
+                schema.model_validate(value.get('values',{}))
+            elif op['path'].startswith('/api/masters/') and kind in CATALOG:
                 CATALOG[kind][1].model_validate(value['values'])
             elif op['path'].startswith('/api/flow/master/') and kind in MASTERS:
                 parse_fields(MASTERS[kind]['fields'],value['values'])
@@ -380,7 +411,7 @@ def validate_operation(operation_id,path_args=None,query=None,body=None):
                 parse_fields(SPECS[value['kind']]['fields'],value['values'])
         except ValidationError as exc:
             labels=_field_labels({'path_args':path_args,'body':value},operation_id)
-            missing=[labels.get(str(e['loc'][-1]),str(e['loc'][-1])) for e in exc.errors()]
+            missing=[('values.'+'.'.join(str(x) for x in e['loc'])+'（'+labels.get(str(e['loc'][-1]),str(e['loc'][-1]))+'）'+('不在本次表单中' if e['type']=='extra_forbidden' else '') if e['loc'] else '办理内容') for e in exc.errors()]
             raise HTTPException(422,'请补充或核对：'+'、'.join(missing[:8])) from None
     if len(json.dumps(value,ensure_ascii=False).encode())>60000:raise HTTPException(422,'办理内容太多，请分次处理')
     operation={k:v for k,v in op.items() if k not in {'route','body_schema'}}
@@ -458,6 +489,13 @@ def display_fields(payload,operation_id='',*,field_labels=None):
     labels=dict(field_labels) if field_labels is not None else _field_labels(payload,operation_id);rows=[]
     enums={'petrol':'汽油','diesel':'柴油','electric':'纯电','hybrid':'混动','plugin_hybrid':'插混',
            'vehicles':'整车','materials':'物资','mixed':'混合','bank':'银行','cash':'现金','job':'次','hour':'小时'}
+    term_enums={
+        'refund_policy':{'none':'不可退款','unused_before_expiry':'仅有效期内未使用部分可退',
+                         'unused_anytime':'未使用部分可退（含到期后）',
+                         'whole_unused_before_expiry':'仅有效期内未使用的完整份额可退',
+                         'whole_unused_anytime':'未使用的完整份额可退（含到期后）'},
+        'discount_bearer':{'group':'集团承担优惠','service_store':'履约门店承担优惠'},
+    }
     def walk(value,prefix=''):
         if not isinstance(value,dict):return
         for key,item in value.items():
@@ -477,7 +515,9 @@ def display_fields(payload,operation_id='',*,field_labels=None):
                     label=label.replace('（千分之一）','');amount=abs(item)
                     shown=('-' if item<0 else '')+f'{amount//1000}.{amount%1000:03d}'.rstrip('0').rstrip('.')
                 elif isinstance(item,bool):shown='是' if item else '否'
-                elif key in {'fuel_type','warehouse_type','account_type','billing_unit'}:shown=enums.get(str(item),str(item))
+                elif key in term_enums:shown=term_enums[key].get(str(item),str(item))
+                elif key in {'fuel_type','warehouse_type','account_type','billing_unit','unit'}:shown=enums.get(str(item),str(item))
+                elif key=='kind' and '/repair-packages/' in operation_id and item in {'work','part'}:shown={'work':'实际作业','part':'实际配件'}[item]
                 elif key=='kind' and item in SPECS:shown=SPECS[item]['label']
                 elif key=='kind' and item in CATALOG:shown=CATALOG[item][2]
                 elif key=='kind' and item in MASTERS:shown=MASTERS[item]['label']

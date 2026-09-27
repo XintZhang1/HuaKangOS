@@ -2,7 +2,7 @@
 from datetime import date
 from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
-from pydantic import BaseModel,ConfigDict,Field,ValidationError
+from pydantic import BaseModel,ConfigDict,Field,ValidationError,field_validator
 from .db import get_db
 from .security import get_user
 from . import claims_service as service
@@ -17,8 +17,20 @@ class Create(Request,Reason):
     source_version:int=Field(gt=0,strict=True)
     party_type:Literal['insurer','manufacturer','internal']
     payment_route:Literal['repair_receivable','customer_direct','customer_via_store','internal']
-    payer_id:int|None=Field(default=None,gt=0,strict=True)
-    payer_name:str=Field(default='',max_length=120)
+    payer_id:int|None=Field(default=None,gt=0,strict=True,validate_default=True,description='保险或厂家核赔必填，须选真实保险公司或厂家档案')
+    payer_name:str=Field(default='',max_length=120,validate_default=True,description='内部核价必填实际承担主体；外部核赔名称来自所选档案')
+    @field_validator('payer_id')
+    @classmethod
+    def external_payer(cls,value,info):
+        if info.data.get('party_type') in {'insurer','manufacturer'} and value is None:
+            raise ValueError('保险或厂家核赔须选择真实核赔单位')
+        return value
+    @field_validator('payer_name')
+    @classmethod
+    def internal_payer(cls,value,info):
+        if info.data.get('party_type')=='internal' and not value:
+            raise ValueError('内部核价须明确实际承担主体')
+        return value
 class Command(Request):
     version:int=Field(gt=0,strict=True)
     source_version:int=Field(gt=0,strict=True)

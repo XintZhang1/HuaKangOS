@@ -16,7 +16,7 @@ from . import business_entity_service as entities
 from .reconciliation_models import (ReconciliationBatch,ReconciliationIssue,ClearingBucket,ClearingOrder,
     ClearingCash,ClearingOffset,ReconciliationEvent,ReconciliationReceipt)
 
-CURRENT_DEFINITION_VERSION=21
+CURRENT_DEFINITION_VERSION=22
 
 READ={'admin','manager','finance','auditor'};FINANCE={'admin','finance'};MANAGERS={'admin','manager'}
 LABELS={'draft':'财务对账中','review':'待独立店长封存','sealed':'已封存','superseded':'已有重算版本',
@@ -107,7 +107,7 @@ def snapshot(db,user,start,end,definition_version=CURRENT_DEFINITION_VERSION):
         'vehicle_purchase_payments','vehicle_purchase_receipts','vehicle_purchase_movements','retail_payments','retail_dispatches','retail_return_postings'}
     current_names={'group_settlement_entries','benefit_settlements','material_transfer_settlements','vehicle_transfer_settlements',
         'group_reservations','group_refund_requests','benefit_reservations','benefit_refunds'}
-    if definition_version not in {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21}:raise HTTPException(409,'对账来源定义版本不受支持，不能按现行规则猜测旧批次')
+    if definition_version not in {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22}:raise HTTPException(409,'对账来源定义版本不受支持，不能按现行规则猜测旧批次')
     if definition_version>=2:
         summary['definition_version']=definition_version
         period_names|={'invoice_results','warehouse_entries','membership_fees','membership_points_changes','membership_points_debt_payments'}
@@ -202,6 +202,14 @@ def snapshot(db,user,start,end,definition_version=CURRENT_DEFINITION_VERSION):
             if model is None:continue
             key_name=source_keys.get(name,'id')
             query=select(model).where(model.store_id==sid).order_by(getattr(model,key_name)).limit(10001)
+            if definition_version>=22 and name=='private_file_objects':
+                # Reconciliation proof documents attest to the frozen business
+                # sources; uploading that proof must not invalidate the batch
+                # being attested. Preserve all other original business files,
+                # and preserve definitions 1--21 exactly for existing batches.
+                reconciliation_files=select(FileAsset.id).join(Case,Case.id==FileAsset.case_id).where(
+                    Case.kind=='reconciliation',Case.store_id==sid,FileAsset.store_id==sid)
+                query=query.where(model.file_id.notin_(reconciliation_files))
             if name in {'business_finance_stored_correction_requests','business_finance_stored_corrections'} and old_excluded_corrections:
                 query=query.where(model.case_id.notin_(old_excluded_corrections))
             if name in {'business_finance_corrections','business_finance_cash_batches'} and old_partial_cases:

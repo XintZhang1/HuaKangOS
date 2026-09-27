@@ -107,7 +107,7 @@ def validate_reconciliation_sqlite(connection):
         casecheck(b['case_id'],b['store_id'],'reconciliation')
         manifest=json.loads(b['manifest']);summary=json.loads(b['summary'])
         definition=summary.get('definition_version',1)
-        if definition not in {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21}:raise ValueError('冻结对账来源定义版本无效')
+        if definition not in {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22}:raise ValueError('冻结对账来源定义版本无效')
         hashed=hashlib.sha256(json.dumps({'manifest':manifest,'summary':summary},sort_keys=True,ensure_ascii=False,separators=(',',':'),default=str).encode()).hexdigest()
         if hashed!=b['digest']:raise ValueError('冻结对账来源摘要不一致')
         if b['previous_id']:
@@ -117,6 +117,10 @@ def validate_reconciliation_sqlite(connection):
         if len({x['key'] for x in manifest})!=len(manifest):raise ValueError('冻结对账来源重复')
         for entry in manifest:
             data=entry['data'];name=entry['source']
+            if definition>=22 and name=='private_file_objects':
+                source_file=files.get(data.get('file_id'),{})
+                if cases.get(source_file.get('case_id'),{}).get('kind')=='reconciliation':
+                    raise ValueError('对账自身凭据不能计入第22版业务来源')
             if definition<20 and ((name in {'business_finance_corrections','business_finance_cash_batches'} and data.get('case_id') in partial_cases)
                                   or (name=='business_finance_cash_allocations' and data.get('batch_id') in partial_batches)):
                 raise ValueError('旧对账不能将已退款原款切片更正解释为全额分配更正')
@@ -140,7 +144,7 @@ def validate_reconciliation_sqlite(connection):
             if entry['key']!=name+':'+str(entry['source_id']):raise ValueError('冻结对账来源编号不一致')
             if name in {'invoice_corrections','membership_points_debts'}:
                 case=cases.get(entry['case_id']);values=data.get('values',[])
-                if (definition not in {2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21} or type(entry['source_id']) is not int or entry['source_id']<0 or entry['basis']!='current'
+                if (definition not in {2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22} or type(entry['source_id']) is not int or entry['source_id']<0 or entry['basis']!='current'
                     or not case or data.get('route')!={'type':'case','id':entry['case_id']} or not values or values[0]!=case['number']):
                     raise ValueError('冻结派生核对来源或原单不一致')
                 if name=='invoice_corrections':
