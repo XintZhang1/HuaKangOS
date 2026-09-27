@@ -46,7 +46,7 @@ async function groupAction(key,id){
  const source=await api(`/api/flow/cases/${caseId}`),request_id=requestKey(),fields=[];
  if(['topup','reserve','refund_request','reverse'].includes(key))fields.push(F('amount','金额（元）','money'));
  if(['topup','refund'].includes(key))fields.push(F('account_id','实际收退款账户','account'),F('reference','银行流水号或凭证号'));
- if(!['release','refund_approve','refund_reject','refund_cancel'].includes(key))fields.push(F('evidence_id','本单实际凭据','file'));
+ if(!['release','refund_approve','refund_reject','refund_cancel'].includes(key))fields.push({...F('evidence_id','本单实际凭据','file'),file_category:'evidence'});
  if(['refund_request','reverse','release','refund_approve','refund_reject','refund_cancel'].includes(key))fields.push(F('reason','办理原因','textarea'));
  const original=entry||(refund?context.detail.entries.find(e=>e.id===refund.original_id):null);
  const effective=(context.detail.effective_topups||[]).find(t=>t.original_id===(entry?.id||refund?.original_id));

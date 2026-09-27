@@ -39,7 +39,7 @@ async function reconciliationCreate(){
 }
 async function reconciliationAction(key,id,lineKey){
  const r=state.reconciliation;if(key==='export')return download('/api/reconciliation/batches/'+r.id+'/export','huakangos-业务对账.csv');const fields=[];if(key==='issue')fields.push(F('difference','待核对差额（元，正负或0）','text'));
- if(['issue','resolve','seal'].includes(key))fields.push(F('evidence_id','本批核对／处理凭据','file'));
+ if(['issue','resolve','seal'].includes(key))fields.push({...F('evidence_id','本批核对／处理凭据','file'),file_category:'evidence'});
  fields.push(F('reason',key==='resolve'?'实际核对及处理结果':'办理依据与原因','textarea'));
  const request_id=requestKey();await formDialog(reconcileLabels[key],fields,{},async v=>{
   const values={reason:v.reason};if(v.evidence_id)values.evidence_id=v.evidence_id;
@@ -63,6 +63,7 @@ async function clearingCreate(kind,id){
 }
 async function clearingAction(key){
  const r=state.clearing,fields=[];if(['pay','receive'].includes(key))fields.push(F('account_id','本店实际账户','account'),F('reference','本店真实银行流水／凭证号'));
- if(['pay','receive','difference'].includes(key))fields.push(F('evidence_id','本店原清算单凭据','file'));fields.push(F('reason','实际办理事实与原因','textarea'));
+ if(['pay','receive','difference'].includes(key))fields.push({...F('evidence_id','本店原清算单凭据','file'),
+   file_category:['pay','receive'].includes(key)?'receipt':'evidence'});fields.push(F('reason','实际办理事实与原因','textarea'));
  const request_id=requestKey();await formDialog(reconcileLabels[key],fields,{},v=>api(`/api/reconciliation/clearing/${r.id}/actions/${key}`,{method:'POST',body:{request_id,version:r.version,case_version:r.case_version,values:v}}),{caseId:r.case_id,notice:`本次固定金额 ${money(r.amount_cents)} 元。仅在真实银行或现金事实发生后登记；系统不会自动转账。`});
 }

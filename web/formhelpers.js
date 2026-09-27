@@ -11,8 +11,13 @@ function beginInlineFileUpload(root){
 function inlineFileControls(caseId,kind='file',requirement=''){
  return `<div class="inline-file-tools" data-file-case="${E(caseId)}" data-file-kind="${E(kind)}" data-file-requirement="${E(requirement)}">${b('inline-file-open','上传文件')}<div data-inline-file-panel class="inline-upload" hidden></div><div data-inline-file-status role="status"></div></div>`;
 }
-function caseFilePickerHTML(name,caseId,files=[]){
- return `<div data-file-picker><select name="${E(name)}" required data-search-select><option value="">选择或上传文件</option>${files.filter(f=>!f.generated&&f.security?.can_use).map(f=>`<option value="${f.id}">${E(f.name)} · ${E(f.label)}</option>`).join('')}</select>${inlineFileControls(caseId)}</div>`;
+function caseFilePickerHTML(name,caseId,files=[],requirement=''){
+ // requirement 为动作真正接受的类别（逗号分隔）。已上传的不符类别不再作为候选，
+ // 但仍保留“上传文件”入口，员工可在本弹窗内补传正确类别，不必关表单重来。
+ const keys=(requirement||'').split(',').map(x=>x.trim()).filter(Boolean);
+ const usable=keys.length?files.filter(f=>keys.includes(f.category)):files;
+ const hint=keys.length?`<p class="fieldhelp">本步需要“${keys.map(key=>state.catalog?.upload_categories?.[key]||labels[key]||key).join('、')}”类别的凭据；不符类别的原件不会出现在这里，可在本窗口直接上传。</p>`:'';
+ return `<div data-file-picker><select name="${E(name)}" required data-search-select><option value="">选择或上传文件</option>${usable.filter(f=>!f.generated&&f.security?.can_use).map(f=>`<option value="${f.id}">${E(f.name)} · ${E(f.label)}</option>`).join('')}</select>${inlineFileControls(caseId,'file',requirement)}${hint}</div>`;
 }
 function inlineUploadCategories(kind){
  const role=state.user.role;

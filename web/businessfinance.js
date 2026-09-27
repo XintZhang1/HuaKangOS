@@ -96,7 +96,8 @@ async function businessFinanceOther(){
 }
 async function businessFinanceAction(key){
  const d=state.businessFinanceOrder,o=d.order,fields=[],initial={},cash=['execute','collect'].includes(key)&&['advance','advance_refund','statement','other_return','other_return_refund'].includes(o.purpose),sources=new Set();
- if(['approve','execute','collect'].includes(key))fields.push(F('evidence_id','本次批准／实际收退款凭据','file'));
+ if(['approve','execute','collect'].includes(key))fields.push({...F('evidence_id','本次批准／实际收退款凭据','file'),
+   file_category:['approve'].includes(key)?'evidence':'receipt'});
  if(cash)fields.push(F('account_id','本店实际收退款账户','account'),F('reference','真实银行流水或收款凭证号'));
  if(cash&&o.purpose==='other_return_refund')initial.account_id=o.values.original_account_id;
  if(key==='collect'&&o.purpose==='statement')for(const l of d.lines){fields.push(F('allocation_'+l.source_case_id,l.snapshot.number+' 本次分配（元）','money_zero'));initial['allocation_'+l.source_case_id]=money(l.due_cents-d.allocations.filter(a=>a.statement_line_id===l.id).reduce((n,a)=>n+a.amount_cents,0)).replaceAll(',','');sources.add(l.source_case_id);}
