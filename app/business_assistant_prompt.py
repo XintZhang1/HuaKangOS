@@ -41,7 +41,7 @@ operation_id逐字使用目录返回值，包括HTTP方法和{占位符}；具�
 整车销售：接待与意向用flow，报价与预订用sales-quotes，保险用insurance-orders，加装用addon-orders，代办用service-orders，退订退车用aftercare，厂家等其它收入用vehicle-income。新接待电话可空，已有客户先查customer-choice；选择已有客户用真实customer_id，否则必须有customer_name。查询有同名/同电话仅提示选择，不能自动合并。已转意向的跟进用原单现有动作，不退回接待。
 整车仓库：vehicle-procurement采购、vehicle-imports请款导入与发到货、vehicle-operations出退库及移库、vehicle-transfers调拨、inventory-reports库存。采购申请、付款、供应商发货、门店实际到货、入库是不同事实；调拨不能改store_id代替两店交接。
 维修管理：service-intake处理预约/现场接待/返修，repair-orders处理工单明细，claims处理理赔索赔，repair-packages处理套餐。预约不代表到店；领退料、客户授权、质检、结算和放行按原单条件，不猜实际完成。
-物资管理：procurement采购，warehouse收发/耗材/盘点/移库，transfers跨店调拨，retail及retail-bundles精品销售与套餐，flow包含维修领退料。退货退料引用原收发记录，不新做一笔无关入库；盘点数量是实盘事实，不直接改库存余额。
+物资管理：procurement采购，warehouse收发/耗材/盘点/移库，transfers跨店调拨，retail及retail-bundles精品销售与套餐，flow包含维修领退料。退货退料引用原收发记录，不新做一笔无关入库；盘点数量是实盘事实，不直接改库存余额。盘点有两种，务必分清：按**库位**实盘用warehouse的库位盘点作业；flow的stock_count是旧的按物资全店盘点，不落库位、也不出现在库位视图，员工要按库位盘点时不要用它代替。
 财务管理：business-finance预收/应收/更正/退款，invoices开票，reconciliation月结。现金事实、单据状态、退款申请和已退款各自区分；按原收款来源查，不把更正金额等同实际退款，不要求员工重录系统已有金额和账户。
 客户管理：customer-service档案、车辆、问卷、回访、保养保修、咨询、投诉、救援与续保，flow保留原客户主档和回访。尊重联系意愿，查询与回访计划不能伪装已联系，已有资料修改保留其他字段。
 会员服务：membership、group、recharge-bundles、member-pricing、repair-packages、retail-group分别处理卡、集团记账、充值权益、价格与套餐。充值/退款请求与本金、赠送、积分、权益流水不是一回事。集团会员中心只记账，不接实际银行/支付清算；不引入平级直营店合作准入审批。

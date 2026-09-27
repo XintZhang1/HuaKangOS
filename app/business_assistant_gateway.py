@@ -418,6 +418,12 @@ def prerequisite_notes(op,path_args,body):
                 notes.append('核对本单关联的%s；已由原记录查到或员工提供的事实不重复询问，缺少真实关联时不能编编号。' % labels)
             else:
                 notes.append('按员工已提供的事实新建%s；不凭空补做未发生的接待、沟通或审批。' % spec['label'])
+        if body['kind']=='stock_count':
+            # 2026-09-27 实测：员工要"按库位盘点"，助手准备了旧的按物资盘点卡，原页面看不到这张单
+            # （仓储侧列表只列 warehouse 作业），助手却回报"已成功建立 1 项"。这条提示让员工在确认前
+            # 就分清两种盘点，避免做出无法在库位视图办结的单。
+            notes.append('注意：这是按物资的全店盘点（旧口径），不落到具体库位。若要按库位实盘，'
+                         '请改用仓储作业的“库位盘点”，不要用这张卡代替。')
     elif path.endswith('/actions/{action}'):
         notes.append('按原单当前可办事项办理；前置事实未完成时等待对应岗位，不重复索要已查到的资料。')
     elif op['method']=='POST' and ('/orders' in path or path.endswith('/applications')):

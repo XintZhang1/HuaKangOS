@@ -2,6 +2,7 @@
 import asyncio
 from dataclasses import dataclass, field
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 import hashlib
 import hmac
 import json
@@ -113,6 +114,61 @@ def status():
     return {'enabled':c.enabled,'ready':ready,'model':c.model,'provider':c.provider,'synthetic':c.synthetic,
             'message':'可以开始办理业务' if ready else '业务助手尚未连接，请联系管理员配置',
             'limits':{'max_message_chars':MAX_MESSAGE,'proposal_minutes':PROPOSAL_MINUTES}}
+
+
+MONEY_TEXT=re.compile(r'^-?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?$|^-?\d+(?:\.\d{1,2})?$')
+TABLE_CAP=40
+
+
+def _money_number(text):
+    if not isinstance(text,str):return None
+    value=text.strip().replace(',','')
+    if not MONEY_TEXT.match(text.strip()):return None
+    try:return Decimal(value)
+    except (InvalidOperation,ValueError):return None
+
+
+def read_result_tally(result):
+    """把只读工具结果里的权威数字整理成一条系统提示，避免模型自己口算汇总。
+
+    只处理“带表头 + 行”的报表结构：给出真实行数与各金额列合计。
+    模型逐行列对却算错合计、或把行数说反，都会因此被纠正。
+    """
+    if not isinstance(result,dict):return ''
+    lines=[]
+    for table in _iter_report_tables(result):
+        headers=table.get('headers');rows=table.get('rows')
+        title=safe_text(table.get('title') or '明细',60)
+        entry=['表「%s」真实行数 %d' % (title,len(rows))]
+        for index,header in enumerate(headers[:TABLE_CAP]):
+            total=None;counted=0
+            for row in rows:
+                values=row.get('values') if isinstance(row,dict) else None
+                if not isinstance(values,list) or index>=len(values):break
+                number=_money_number(values[index])
+                if number is None:break
+                total=(total or Decimal(0))+number;counted+=1
+            else:
+                if total is not None and counted==len(rows) and '（元）' in str(header):
+                    entry.append('%s 合计 %s' % (safe_text(header,30),format(total,'.2f')))
+        lines.append('；'.join(entry))
+        if len(lines)>=6:break
+    if not lines:return ''
+    return ('系统统计（以下数字由系统按本次工具返回的完整结果计算，不是抽样）：'
+            + '；'.join(lines)
+            + '。向员工汇总时请直接引用这些数字，不要自己相加、估算或改写；'
+              '若需要别的口径，请再调用工具查询，不要用手头明细凑数。')
+
+
+def _iter_report_tables(node,depth=0):
+    """在只读结果里找报表结构：带 headers + rows 的字典（允许 tables/data 等一层包装）。"""
+    if depth>4 or not isinstance(node,dict):return
+    headers=node.get('headers');rows=node.get('rows')
+    if isinstance(headers,list) and headers and isinstance(rows,list) and rows:
+        yield node
+        return
+    for value in list(node.values())[:TABLE_CAP]:
+        yield from _iter_report_tables(value,depth+1)
 
 
 def safe_text(value, maximum=6000):
@@ -837,7 +893,7 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
              '并指出哪些独立事项已经可办、哪些依赖前一步确认或同事处理。不要编结果，也不要再调用工具。')
     try:
         async with asyncio.timeout(turn_timeout):
-            call_count=0;wrapped=False;corrected=False;truncation_replanned=False;tally=None
+            call_count=0;wrapped=False;corrected=False;truncation_replanned=False;tally=None;result_tally=None
             turn_started=utcnow()
             for round_index in range(max_rounds):
                 # A role change can revoke a session while the previous model/tool
@@ -930,6 +986,16 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                     if len(encoded)>36000:
                         encoded=json.dumps({'truncated':True,'message':'结果较多，请指定领域、资料类型或业务编号进一步查询'},ensure_ascii=False)
                     messages.append({'role':'tool','tool_call_id':call.get('id',''),'content':encoded})
+                    # 2026-09-27 报表实测：模型逐行列对了 5 张订单，却把合计写成 733,800 / 直接成本 702,000
+                    # （正确 735,200 / 662,500），而它自己列的明细相加正好等于正确值；同一会话里对"交付 0 条"
+                    # 也报了与页面相反的结论。金额合计只有系统算得准，所以像卡数一样把权威数字作为一条系统
+                    # 消息放进上下文（原地更新），要求模型引用而不是自己口算。
+                    summary_line=read_result_tally(result)
+                    if summary_line:
+                        if result_tally is None:
+                            result_tally={'role':'system','content':summary_line};messages.append(result_tally)
+                        else:
+                            result_tally['content']=summary_line
                     db.commit()
                 # 2026-09-25 整表实测：模型准备的卡是对的（50 张），但结尾汇总自己数成"共 44 张"、
                 # "23 行缺字段"（实际 17 行）——员工看到的文字和待确认卡数量对不上。卡数只有系统知道，
