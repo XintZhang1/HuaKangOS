@@ -1,65 +1,45 @@
 {
-  "checkpoint": "source-delivery-cleanup-20260926",
-  "application_version": "0.4.0-dev",
-  "database_head": "h51i_proposal_questions",
-  "statement_definition": 21,
-  "cash_definition": 7,
-  "baseline_commit": "1f884fb",
-  "scope": "Owner-authorized cleanup of E:/HuaKangOS; no business implementation changes.",
-  "handoff": "docs/业务助手交接.md",
-  "delivery_notes": "docs/交付说明.md",
+  "version": "R4-B1-20260927",
+  "basis": "uploaded HuaKangOS-DeepSeek-OneClick-R3T3.zip",
+  "independent_release": true,
+  "status": "offline_verified_waiting_for_real_model_report",
+  "live_model_calls_this_iteration": 0,
+  "production_accepted": false,
+  "paired_unique_cases": 101,
+  "paired_evaluations": 202,
+  "original_full_cases_preserved": 283,
+  "new_business_tools": 7,
+  "new_migration": "h52j_assistant_work_plans",
+  "previous_head": "h51i_proposal_questions",
+  "migrations_added": 1,
+  "mcp_profile": "2025-11-25 tools-only stdio",
+  "mcp_confirmation_tool": false,
+  "builtin_uses_shared_layer_directly": true,
+  "auto_prepare_dependent_successor": false,
+  "auto_confirm": false,
+  "original_sources_preserved": true,
+  "next": "Restore archived test suite if needed before isolated R4 evaluation; review actual reports before claiming improvement.",
+  "read_first": [
+    "README.md",
+    "docs/R4-B1-实现与验收说明.md",
+    "docs/业务助手交接.md"
+  ],
+  "regression_tests": 362,
+  "browser_checks": 18,
   "cleanup": {
-    "tracked_files_removed": 1123,
-    "removed_bytes_approx_mib": 49.47,
-    "runtime_files_hash_verified_unchanged": 540,
-    "existing_businessassistant_js_edit_preserved": true,
-    "original_preview_data_preserved": true,
-    "historical_tests_and_evidence": "Recover from Git commit 1f884fb; not shipped in ZIP.",
-    "disposable_test_caches_removed": true
-  },
-  "verification": {
-    "targeted_python_before_cleanup": {
-      "passed": 187,
-      "modules": 8,
-      "seconds": 176.09,
-      "exit_code": 0,
-      "notes": "One dependency deprecation warning; pytest atexit cleanup hit Windows permission error on an old temporary directory."
-    },
-    "frontend_node_before_cleanup": {
-      "passed": 215,
-      "failed": 0
-    },
-    "after_cleanup": {
-      "python_syntax_files": 397,
-      "javascript_syntax_files": 66,
-      "fresh_sqlite_migration": "passed",
-      "foreign_key_check": "passed",
-      "startup_login": "passed",
-      "index_static_assets_served": 66,
-      "assistant_status_session": "passed",
-      "assistant_operations_discovered": 306,
-      "escalation_reads": "passed",
-      "workflow_guides_check": "passed: 193 requirements / 111 workflows / 70 synthetic entry screenshots"
-    },
-    "archive_extracted_smoke": "passed: fresh SQLite migration, foreign keys, startup, synthetic login, assistant session, escalation reads, static resources, syntax and workflow guides check",
-    "external_model_calls": 0,
-    "full_backend_current_run": false,
-    "real_browser_current_run": false,
-    "real_postgresql_current_run": false,
-    "archive_integrity": "passed on probe ZIP; final delivery ZIP is validated during packaging",
-    "archive_scope": "Source only: no Git history, virtualenv, test/maintenance/deploy directories, database or private configuration."
-  },
-  "release_accepted": false,
-  "company_accepted": false,
-  "production_deployed": false,
-  "next_work": [
-    "Review and resolve code/prompt/limit inconsistencies listed in assistant handoff.",
-    "Restore regression tests in a separate development checkout before implementation.",
-    "Feishu enterprise app integration remains planned and unbuilt."
-  ],
-  "excluded": [
-    "Group-center actual funds clearing and bank/payment/arrival approval interfaces.",
-    "Peer directly operated store relationship/cooperation admission approval."
-  ],
-  "delivery_files": 573
+    "date": "2026-09-27",
+    "archive": "E:/HuaKangOS-cleanup-20260927-082922",
+    "removed_files": 108,
+    "removed_bytes": 4409184,
+    "tests_in_repository": false,
+    "historical_verification_only": true,
+    "business_code_changed": false,
+    "cache_directories_moved": 227,
+    "checks": {
+      "python_syntax_files": 409,
+      "package_inventory_files": 594,
+      "workflow_generation_check": "passed",
+      "business_tests_run": false
+    }
+  }
 }

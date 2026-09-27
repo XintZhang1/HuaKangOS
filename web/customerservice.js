@@ -16,7 +16,7 @@ function careInteger(fd,name,nullable=false){const value=fd.get(name);if(nullabl
 async function customerServicePage(caseId){
  const c=careContext(),catalog=await careCatalog();
  if(caseId){
-  const row=await api(careAPI+'/cases/'+caseId);c.case=row;
+  const [row,source]=await Promise.all([api(careAPI+'/cases/'+caseId),api('/api/flow/cases/'+caseId)]);c.case=row;state.row=source;
   const actions=row.actions.map(a=>b('care-action',careActionNames[a],`data-action="${a}"`,a==='start'?'primary':'')).join('');
   return heading(row.subtype_label+' · '+row.number,row.topic,actions)+(row.reminder_basis?.status==='pending_review'?'<div class="notice warn">本车提醒基准正在独立复核。本任务可接手、内部核对、转交或取消，暂不能外联或按旧基准结案。</div>':row.reminder_basis?.status==='invalidated'?'<div class="notice warn">原提醒基准已失效，原办理记录保留。请查看本车有效来源和明确关联的替代任务。</div>':'')+(row.reminder_basis?.replacement_case_ids?.length?`<div class="row">${row.reminder_basis.replacement_case_ids.map(id=>b('open','查看替代提醒',`data-route="customer-service/${id}"`)).join('')}</div>`:'')+(row.generation_mode==='rule_worker'?'<div class="notice">系统按已批准规则自动生成内部任务。创建者表示规则批准责任归属，不表示本人已点击、联系客户或确认服务完成。</div>':'')+(row.overdue?'<div class="notice warn">此任务已逾期，请记录进展或明确交接；交接保留原到期日。</div>':'')
   +panel('客户诉求与责任',facts({'客户':row.customer_name,'联系电话':row.customer_phone||'未留电话','后续联系':row.contact_allowed?'已允许':'未允许主动后续联系','状态':row.state_label,'经办人':row.assignee_name,'办理期限':row.due_date,'优先程度':careLocalLabels[row.priority],'诉求':row.description,'救援位置':row.location||'—','结案结果':row.result_label||'尚未结案'})+`<div class="row mt15">${row.vehicle_id?b('open','客户车辆与来源',`data-route="customer-vehicles/${row.vehicle_id}"`):''}${b('open','本单附件与凭据',`data-route="case/${row.id}"`)}</div>`)

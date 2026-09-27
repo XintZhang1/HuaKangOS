@@ -410,13 +410,16 @@ def prerequisite_notes(op,path_args,body):
         from .flow_specs import SPECS
         spec=SPECS.get(body['kind'])
         if spec:
-            links=[field for field in spec['fields'] if any(word in field['key'] for word in LINK_FIELD_WORDS)]
-            labels='、'.join(field['label'] for field in links[:4]) or '客户或来源单据'
-            notes.append('新建%s是流程里的中间一步：先确认前序事实（%s）是否已经存在或在下方选定，'
-                         '缺哪一项就先补哪一项，不要凭空新建。' % (spec['label'],labels))
+            values=body.get('values') or {}
+            links=[field for field in spec['fields'] if field['key'].endswith('_id')
+                   and (field.get('required') or values.get(field['key']))]
+            if links:
+                labels='、'.join(field['label'] for field in links[:4])
+                notes.append('核对本单关联的%s；已由原记录查到或员工提供的事实不重复询问，缺少真实关联时不能编编号。' % labels)
+            else:
+                notes.append('按员工已提供的事实新建%s；不凭空补做未发生的接待、沟通或审批。' % spec['label'])
     elif path.endswith('/actions/{action}'):
-        notes.append('办理「%s」前先读原单当前的可办事项与不可办原因；前置步骤没完成就先补，不要跳过。'
-                     % str(path_args.get('action') or ''))
+        notes.append('按原单当前可办事项办理；前置事实未完成时等待对应岗位，不重复索要已查到的资料。')
     elif op['method']=='POST' and ('/orders' in path or path.endswith('/applications')):
         notes.append('新建这类单据前先确认它依赖的前序单据（原单、来源单、客户或车辆）已经存在并选到对应记录。')
     return notes
@@ -441,12 +444,12 @@ def _field_labels(payload,operation_id=''):
     return labels
 
 
-def display_fields(payload,operation_id=''):
+def display_fields(payload,operation_id='',*,field_labels=None):
     """Show the exact immutable submission, including every line and unit."""
     from .master_data import CATALOG
     from .flow_api import MASTERS
     from .flow_specs import SPECS
-    labels=_field_labels(payload,operation_id);rows=[]
+    labels=dict(field_labels) if field_labels is not None else _field_labels(payload,operation_id);rows=[]
     enums={'petrol':'汽油','diesel':'柴油','electric':'纯电','hybrid':'混动','plugin_hybrid':'插混',
            'vehicles':'整车','materials':'物资','mixed':'混合','bank':'银行','cash':'现金','job':'次','hour':'小时'}
     def walk(value,prefix=''):

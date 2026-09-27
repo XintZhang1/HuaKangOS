@@ -48,8 +48,8 @@ class AssistantProposal(StoreScoped, Base):
     # 这一轮对话的消息编号：同一轮准备出来的几十张卡据此在页面上折叠成一组可翻页
     # （业主 2026-09-25 试用反馈：卡片一张一张铺开、看不出属于同一轮、也没法翻页）。
     request_id: Mapped[str] = mapped_column(String(100), default='')
-    # 这一张卡属于员工目标里的第几步：整条前序链在同一轮里准备好，页面按步骤分组展示、
-    # 逐步确认（业主 2026-09-25："连续批量确认"）。
+    # 这一张卡属于员工目标里的第几步：本轮事实已齐备的步骤可一起准备，页面按步骤分组展示、
+    # 逐步确认；依赖尚未产生编号/版本的后续卡必须等真实前序完成。
     step_order: Mapped[int] = mapped_column(Integer, default=0)
     step_label: Mapped[str] = mapped_column(String(120), default='')
     # 这张卡需要员工先回答的必填项（分派给谁、选哪台车、日期、金额…）。员工在卡片上填，
@@ -81,3 +81,19 @@ class AssistantIssue(StoreScoped, Base):
     synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     __table_args__ = (CheckConstraint("category IN ('input','rule','system','model','unsupported')", name='ck_assistant_issue_category'),)
+
+
+class AssistantWorkPlan(StoreScoped, Base):
+    """An employee goal and its references, never a replacement business state machine."""
+    __tablename__ = 'business_assistant_work_plans'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey('business_assistant_sessions.id'), index=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    request_id: Mapped[str] = mapped_column(String(100))
+    goal: Mapped[str] = mapped_column(String(300))
+    steps: Mapped[list] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    __mapper_args__ = {'version_id_col': version}
+    __table_args__ = (UniqueConstraint('session_id','request_id',name='uq_assistant_work_plan_turn'),)

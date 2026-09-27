@@ -15,6 +15,8 @@ from .services import plain,audit
 from .flow_models import Case,Task,Customer,FlowEvent,PaymentLink,Account,Item,StockMove,Member,MemberEntry,Reference,DocTemplate,FileAsset,VehicleHold
 from .flow_specs import SPECS,STATES,MODULES,TERMINAL,parse_fields,f,flow_spec,CURRENT_FLOW_VERSION
 from . import flow_engine as eng
+from .flow_navigation import case_entry_route
+from .task_views import WORK_AREAS, filter_task_view
 from .flow_documents import file_info,can_file,upload_file,generate_document,UPLOAD_LABELS,DOC_TITLES,ensure_templates
 from .file_security import require_usable,is_usable
 
@@ -56,7 +58,7 @@ def task_info(db,user,t,row):
     reason=''
     if t.status=='open' and relevant and all(not a['enabled'] for a in relevant):reason=relevant[0]['reason']
     owner=db.get(User,t.assignee_id)
-    return {'id':t.id,'case_id':t.case_id,'key':t.key,'title':t.title,'role':t.role,'role_label':ROLES.get(t.role,t.role),
+    return {'id':t.id,'case_id':t.case_id,'entry_route':case_entry_route(row),'case_kind':row.kind,'module':SPECS[row.kind]['module'],'key':t.key,'title':t.title,'role':t.role,'role_label':ROLES.get(t.role,t.role),
         'assignee_id':t.assignee_id,'assignee_name':owner.display_name if owner else '待配置','status':t.status,'due_date':t.due_date.isoformat(),
         'overdue':t.status=='open' and t.due_date<today(),'blocked':bool(reason),'block_reason':reason,'version':t.version,
         'case_number':row.number,'case_title':row.title,'kind_label':SPECS[row.kind]['label'],'state_label':STATES[row.state],
@@ -73,17 +75,21 @@ def catalog(db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.get('/tasks')
-def tasks(scope:str='mine',status:str='open',page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),db=Depends(get_db),user=Depends(get_user)):
+def tasks(scope:str='mine',status:str='open',page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),
+          area:str='',q:str=Query('',max_length=100),due:str='',db=Depends(get_db),user=Depends(get_user)):
     if status not in {'open','done','cancelled'}:raise HTTPException(422,'任务状态无效')
-    q=select(Task).where(Task.status==status,Task.case_id.in_(eng.case_query(user).with_only_columns(Case.id)))
-    if scope=='mine':q=q.where(Task.assignee_id==user.id)
+    query=select(Task).where(Task.status==status,Task.case_id.in_(eng.case_query(user).with_only_columns(Case.id)))
+    if scope=='mine':query=query.where(Task.assignee_id==user.id)
     elif scope=='all':
         if user.role not in eng.MANAGEMENT:raise HTTPException(403,'当前岗位仅查看自己的任务')
     else:raise HTTPException(422,'任务范围无效')
-    total=db.scalar(select(func.count()).select_from(q.subquery()))
-    allrows=list(db.scalars(q.order_by(Task.due_date,Task.id).offset((page-1)*page_size).limit(page_size)))
+    if area and area not in WORK_AREAS:raise HTTPException(422,'工作模块无效')
+    if due not in {'','today','overdue'}:raise HTTPException(422,'计划日期筛选无效')
+    query=filter_task_view(query,area=area,text=q.strip(),due=due,business_date=today())
+    total=db.scalar(select(func.count()).select_from(query.subquery()))
+    allrows=list(db.scalars(query.order_by(Task.due_date,Task.id).offset((page-1)*page_size).limit(page_size)))
     return {'items':[task_info(db,user,t,eng.scoped_get(db,Case,t.case_id)) for t in allrows],'total':total,'page':page,'page_size':page_size,
-        'overdue_count':db.scalar(select(func.count()).select_from(q.where(Task.due_date<today()).subquery())) if status=='open' else 0}
+        'overdue_count':db.scalar(select(func.count()).select_from(query.where(Task.due_date<today()).subquery())) if status=='open' else 0}
 
 
 @router.post('/tasks/{task_id}/assign')

@@ -14,3 +14,12 @@ playwright-report/
 *.sqlite3
 *.db
 *.zip
+
+# Disposable one-click assistant tests (never commit snapshots or reports)
+.assistant-test-venv/
+.assistant-test.lock
+.assistant-test-worker.lock
+测试报告/
+
+# Local assistant test configuration
+assistant-test-settings.json

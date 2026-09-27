@@ -128,3 +128,61 @@ def export_issues(db=Depends(get_db),user=Depends(get_user)):
     data=issues(db,user)
     return Response(json.dumps(data,ensure_ascii=False,indent=2),media_type='application/json',
                     headers={'Content-Disposition':'attachment; filename="huakangos-assistant-issues.json"'})
+
+
+class ToolCall(Strict):
+    request_id:str=Field(min_length=16,max_length=80,pattern=r'^[A-Za-z0-9_-]+$')
+    name:str=Field(min_length=1,max_length=80)
+    arguments:dict=Field(default_factory=dict)
+
+
+@router.get('/tools')
+def business_tools(db=Depends(get_db),user=Depends(get_user)):
+    """Bound to the ordinary employee session; never exposes a confirmation tool."""
+    from dataclasses import replace
+    single_store(db)
+    config=replace(service.load_config(),tool_profile='business_v1')
+    return {'profile':'business_v1','tools':service.tools_for_config(config),
+            'notice':'仅查询、计划与准备草稿；确认仍在原业务界面由当前员工点击。'}
+
+
+@router.get('/sessions/{session_id}/work-status')
+async def work_status(session_id:str,request:Request,plan_id:str|None=None,case_page:int=1,
+                      db=Depends(get_db),user=Depends(get_user)):
+    from .business_assistant_business_tools import validate
+    from .business_assistant_workboard import work_status as read_status
+    args=validate('get_work_status',{'plan_id':plan_id,'case_page':case_page})
+    return await read_status(db,request,user,session_id,service.load_config(),args)
+
+
+@router.post('/sessions/{session_id}/tools/call')
+async def call_business_tool(session_id:str,body:ToolCall,request:Request,db=Depends(get_db),user=Depends(get_user)):
+    """MCP/application adapter: same actor and same draft-only service, no model call."""
+    import asyncio
+    from dataclasses import replace
+    from datetime import timedelta
+    from fastapi import HTTPException
+    from .db import utcnow
+    if len(json.dumps(body.arguments,ensure_ascii=False))>service.MODEL_ARGUMENT_CHARS:
+        raise HTTPException(413,'工具参数过长，请按完整事项分批处理')
+    config=replace(service.load_config(),tool_profile='business_v1')
+    if body.name not in {t['function']['name'] for t in service.tools_for_config(config)}:
+        raise HTTPException(422,'不是受支持的业务工具；不能通过工具确认或执行任意操作')
+    thread=service.owned_session(db,user,session_id)
+    if thread.busy_token and thread.busy_until and thread.busy_until>utcnow():
+        raise HTTPException(409,'本对话正在处理其他事项，请稍后读取状态再操作')
+    thread.busy_token=body.request_id;thread.busy_until=utcnow()+timedelta(seconds=180)
+    service.commit(db)
+    try:
+        async with asyncio.timeout(120):
+            result=await service.run_tools(db,request,user,session_id,body.name,body.arguments,config)
+            service.owned_session(db,user,session_id)
+            return service.scrub(result)
+    except TimeoutError:
+        raise HTTPException(504,'本次工具调用未完整结束；请先刷新原草稿和计划，不能把部分结果当成全部完成') from None
+    finally:
+        db.rollback()
+        row=db.scalar(select(AssistantSession).where(AssistantSession.id==session_id,
+            AssistantSession.owner_id==user.id).execution_options(populate_existing=True))
+        if row and row.busy_token==body.request_id:
+            row.busy_token=None;row.busy_until=None;row.updated_at=utcnow();service.commit(db)

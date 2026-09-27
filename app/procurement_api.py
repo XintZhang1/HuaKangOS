@@ -1,7 +1,7 @@
 """Typed purchase commands; state, posted value and cash links are server-owned."""
 from fastapi import APIRouter,Depends,HTTPException,Query,Response
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
-from sqlalchemy import select,func
+from sqlalchemy import select,func,or_
 import csv,io
 from .db import get_db
 from .security import get_user
@@ -47,9 +47,10 @@ SCHEMAS.update(PREPAYMENT_SCHEMAS)
 
 
 @router.get('/orders')
-def list_orders(page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),db=Depends(get_db),user=Depends(get_user)):
+def list_orders(page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),q:str=Query('',max_length=100),db=Depends(get_db),user=Depends(get_user)):
     if user.role not in service.READ_ROLES:raise HTTPException(403,'当前岗位不能查看采购')
     query=select(Case).where(Case.kind=='procurement')
+    if q:query=query.where(or_(Case.number.contains(q,autoescape=True),Case.title.contains(q,autoescape=True)))
     total=db.scalar(select(func.count()).select_from(query.subquery()))
     rows=list(db.scalars(query.order_by(Case.id.desc()).offset((page-1)*page_size).limit(page_size)))
     return {'items':[service.describe(db,user,row) for row in rows],'total':total,'page':page,'page_size':page_size}

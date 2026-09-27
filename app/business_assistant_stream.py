@@ -63,13 +63,13 @@ async def model_reply_stream(config,messages,thinking,emit):
         if thought:
             if not isinstance(thought,str):raise ValueError('reasoning')
             reasoning+=thought
-            if len(reasoning)>180000:raise ValueError('reasoning limit')
+            if len(reasoning)>service.MODEL_REASONING_CHARS:raise ValueError('reasoning limit')
             await status('thinking')
         text=delta.get('content')
         if text:
             if not isinstance(text,str):raise ValueError('content')
             content+=text
-            if len(content)>9000:raise ValueError('content limit')
+            if len(content)>service.MODEL_TEXT_CHARS:raise ValueError('content limit')
             await status('responding')
             clean=safe.feed(text)
             if clean:await emit('delta',{'text':clean})
@@ -77,7 +77,7 @@ async def model_reply_stream(config,messages,thinking,emit):
         if not isinstance(calls,list):raise ValueError('tools')
         for fragment in calls:
             index=fragment.get('index')
-            if type(index) is not int or not 0<=index<30:raise ValueError('tool index')
+            if type(index) is not int or not 0<=index<service.HARD_TOOLS:raise ValueError('tool index')
             target=tools.setdefault(index,{'id':'','type':'function','function':{'name':'','arguments':''}})
             if fragment.get('type') not in {None,'function'}:raise ValueError('tool type')
             if fragment.get('id'):
@@ -90,10 +90,11 @@ async def model_reply_stream(config,messages,thinking,emit):
                 if value:
                     if not isinstance(value,str):raise ValueError('tool fragment')
                     target['function'][key]+=value
-                    if len(target['function'][key])>(30000 if key=='arguments' else 100):raise ValueError('tool size')
+                    if len(target['function'][key])>(service.MODEL_ARGUMENT_CHARS if key=='arguments' else 100):raise ValueError('tool size')
         if calls:await status('tool')
         reason=choice.get('finish_reason')
         if reason is not None:
+            if reason=='length':raise service.ModelOutputTruncated()
             if reason not in {'stop','tool_calls'}:raise ValueError('incomplete finish')
             finish=reason
     try:
@@ -103,8 +104,8 @@ async def model_reply_stream(config,messages,thinking,emit):
                 if 'text/event-stream' not in response.headers.get('content-type',''):raise ValueError('not SSE')
                 data_lines=[]
                 async for line in response.aiter_lines():
-                    size+=len(line)
-                    if size>1000000:raise ValueError('stream limit')
+                    size+=len(line.encode('utf-8'))
+                    if size>service.MODEL_RESPONSE_BYTES:raise ValueError('stream limit')
                     if line=='':
                         if data_lines:await packet('\n'.join(data_lines));data_lines=[]
                     elif line.startswith('data:'):data_lines.append(line[5:].lstrip(' '))
@@ -112,13 +113,22 @@ async def model_reply_stream(config,messages,thinking,emit):
         if not done or finish is None:raise ValueError('incomplete stream')
         if (finish=='tool_calls')!=bool(tools):raise ValueError('tool finish mismatch')
         calls=[tools[index] for index in sorted(tools)]
+        if len({call['id'] for call in calls})!=len(calls):raise ValueError('duplicate tool id')
         for call in calls:
             if not call['id'] or not call['function']['name'] or not isinstance(json.loads(call['function']['arguments']),dict):raise ValueError('incomplete tool')
         clean=safe.feed('',final=True)
         if clean:await emit('delta',{'text':clean})
         return {'role':'assistant','content':content,'reasoning_content':reasoning,'tool_calls':calls,'finish_reason':finish}
     except httpx.TimeoutException:raise HTTPException(503,'业务助手响应超时；已确认前的操作不会执行') from None
-    except (httpx.HTTPError,ValueError,KeyError,TypeError):raise HTTPException(503,'回复中断，请刷新对话核对结果') from None
+    except httpx.HTTPError:raise HTTPException(503,'上游连接中断；本段未完整校验的工具未执行，请核对已有卡片') from None
+    except (ValueError,KeyError,TypeError) as exc:
+        known={'data after done','provider error','choices','delta after finish','delta','reasoning','reasoning limit',
+               'content','content limit','tools','tool index','tool id','tool type','tool function','tool fragment','tool size',
+               'incomplete finish','not SSE','stream limit','incomplete stream','tool finish mismatch',
+               'duplicate tool id','tool arguments','tool name','incomplete tool'}
+        # Only fixed parser codes, never an upstream body, credential or raw reasoning.
+        code=str(exc) if type(exc) is ValueError and str(exc) in known else type(exc).__name__
+        raise HTTPException(503,'模型流式协议校验未通过（'+code+'）；本段未执行，请核对已有卡片') from None
 
 
 async def streaming_response(db,request,user,session_id,request_id,content,thinking):

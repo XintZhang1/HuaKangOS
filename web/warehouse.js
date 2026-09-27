@@ -9,9 +9,15 @@ function whStatus(s){return E({pending:'待主管批准',ready:'待实际办理'
 function whReason(s){return E({activation:'启用定位',average_revaluation:'门店均价价值分配',local_dispatch:'店内实际移出',local_accept:'店内实际接收',local_return:'店内实际返回',wh_other_in:'其他入库',wh_other_return:'原其他入库退回',wh_consumable:'耗材领用',wh_consume_return:'原耗材退回',wh_gift:'礼品出库',wh_gift_return:'原礼品退回',wh_disposal:'其他处置',wh_count:'盘点差异'}[s]||whPurposes[s]||s);}
 async function warehousePage(){
  const catalog=await api('/api/warehouse/catalog');if(!catalog.can_read)return empty('请切换到获权门店','仓储作业由本店库管、主管、财务与审计按岗位处理。');
- const [cases,items]=await Promise.all([api('/api/warehouse/cases?page='+state.page),api('/api/warehouse/items?page_size=50')]);
+ const [cases,items]=await Promise.all([api('/api/warehouse/cases?page='+state.page+'&q='+encodeURIComponent(state.q)),api('/api/warehouse/items?page_size=50&q='+encodeURIComponent(state.q))]);
  let html=heading('库位与仓储作业','先核对实际库位，再办理实物收发；盘点观察与差异审批分别留据。')+storeNotice();
- if(catalog.can_create)html+=panel('申请本次作业','<div class="row">'+Object.entries(whNames).map(([op,name])=>b('wh-new',name,`data-operation="${op}"`)).join('')+'</div><p>领退必须关联原单。其他入库退回仅登记实物，实际退款另有财务凭据后办理。</p>');
+ if(catalog.can_create){const buttons=keys=>keys.map(op=>b('wh-new',whNames[op],`data-operation="${op}"`)).join('');html+=panel('本次要处理什么实物',workActionGroups([
+  {title:'收到物资',hint:'采购到货请回采购原单；这里只登记其他来源。',html:buttons(['other_in'])+b('open','采购原单收货','data-route="procurement"')},
+  {title:'领用或发出',hint:'维修领料、销售出库回各自原单；其他用途在这里选择。',html:buttons(['consumable','gift','disposal'])},
+  {title:'退回原收发',hint:'先选原批次，再核对实际退回数量；不会自动记财务退款。',html:buttons(['other_in_return','consumable_return','gift_return'])},
+  {title:'移库与盘点',html:buttons(['local_move','count'])},
+  {title:'首次启用库位',hint:'已有正常库位账不需要反复启用。',html:buttons(['activate']),secondary:true}
+ ]));}html+=workRecordSearch('作业单号、物资名称或编码');
  html+=panel('本店待办与作业',table(['作业／物资','数量','状态',''],cases.items.map(r=>[`${E(r.operation_label)}<br>${E(r.item_name)}`,whQty(r.quantity_milli),whStatus(r.state),b('open','办理',`data-route="warehouse/${r.id}"`)])))+pager(cases.total);
  html+=panel('物资库位启用与可用量',table(['物资','库位账','账面／可用',''],items.items.map(i=>[E(i.name),i.enabled?'已启用':'历史未定位',`${whQty(i.quantity_milli)} / ${whQty(i.available_milli)} ${E(i.unit)}`,b('open','查看库位',`data-route="warehouse-item/${i.id}"`)]))+(items.total>items.items.length?'<p>本页展示前50项；可在具体作业中选择完整物资目录。</p>':''));return html;
 }

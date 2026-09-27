@@ -7,7 +7,11 @@ const masterOptions={vehicles:'整车',materials:'物资',mixed:'整车与物资
 async function typedCatalog(){const c=masterContext();if(!c.catalog)c.catalog=await api('/api/masters/catalog');return c.catalog;}
 async function mastersPage(kind){
  const c=masterContext(),catalog=await typedCatalog();
- if(!kind)return heading('经营主数据','明确的资料字段、门店引用及启停校验。')+`<div class="chartgrid">${Object.entries(catalog.kinds).map(([key,spec])=>panel(spec.label,`<p>查询${E(spec.label)}及其有效引用。</p>${b('open','进入资料',`data-route="masters/${key}"`)}${spec.can_write?` ${b('typed-new','新增',`data-kind="${key}"`,'primary')}`:''}`)).join('')}</div>`;
+ if(!kind){
+  const groups=[['来往单位',['suppliers','insurers']],['车辆目录',['vehicle_brands','vehicle_series','vehicle_models']],['物资目录',['material_brands','material_categories','item_profiles']],['仓库与库位',['warehouses','locations']],['服务项目与会员规则',['teams','work_items','agency_projects','member_tiers']]];
+  const covered=new Set(groups.flatMap(g=>g[1])),extra=Object.keys(catalog.kinds).filter(k=>!covered.has(k));if(extra.length)groups.push(['其他基础资料',extra]);
+  return heading('基础资料','先查已有资料，确实没有时再新增；历史业务与库存流水不会随名称更改。')+storeNotice()+groups.map(([title,keys])=>{const items=keys.filter(k=>catalog.kinds[k]);return items.length?panel(title,`<div class="mux-cards">${items.map(key=>{const spec=catalog.kinds[key];return `<article class="mux-card"><h3>${E(spec.label)}</h3><p>查询已有${E(spec.label)}及有效引用。</p><div class="row">${b('open','查找已有资料',`data-route="masters/${key}"`)}${spec.can_write?b('typed-new','新增'+spec.label,`data-kind="${key}"`):''}</div></article>`;}).join('')}</div>`):'';}).join('');
+ }
  const spec=catalog.kinds[kind];if(!spec)throw new Error('经营主资料类型不存在。');
  const query=new URLSearchParams({q:state.q,page:state.page});
  if(kind==='vehicle_models'&&c.vehicleFilters)for(const [key,value]of Object.entries(c.vehicleFilters))if(value!=='')query.set(key,value);

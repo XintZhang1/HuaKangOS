@@ -8,6 +8,8 @@ def validate_sqlite(connection,object_root=None):
     if connection.execute('PRAGMA foreign_key_check').fetchone():
         raise ValueError('备份存在不完整的关联记录')
     names={row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    from .business_assistant_plan_integrity import validate as validate_assistant_plans
+    validate_assistant_plans(connection)
     from .private_file_backup import validate_connection_files
     files=validate_connection_files(connection,object_root)
     if {'group_entries','group_settlement_entries'} <= names:

@@ -56,7 +56,7 @@ def _guidance(data):
     elif state=='intent':
         notes.append('客户正在意向跟进中。“记录意向跟进”可以登记下次处理日期；补充或更正电话请使用客户资料入口，不要退回售前接待。')
     elif state=='closed':notes.append('接待已结束。需要继续联系时，先按原单重新跟进；不能绕过客户的联系意愿。')
-    notes.append('沟通结果必须来自员工本次提供的事实。只说安排明天回访不代表已经联系，缺少结果时只询问这一项；不能编造客户反馈或联系成功。')
+    notes.append('沟通结果必须来自员工本次提供的真实沟通事实。只说安排明天回访不代表已经联系；若员工明确今天尚未联系，不要建议用“未联系、计划明日回访”冒充本次沟通结果。先查是否有独立提醒动作；当前动作只能登记已发生沟通时，应说明等待实际结果，不能生成假反馈或联系成功。')
     return notes
 
 
@@ -89,6 +89,30 @@ async def _customer_record(db,request,user,thread_id,config,data):
     return None,'同名客户较多，请在客户档案选择本单客户后修改电话',409
 
 
+async def _employee_choices(db,request,user,thread_id,config,data):
+    fields=[field for action in data.get('actions',[]) for field in action.get('fields',[])
+            if field.get('type')=='employee']
+    if not fields:
+        return data
+    result=await _read(db,request,user,thread_id,config,'GET /api/flow/lookup/{kind}',
+                       {'kind':'employee'},{'case_id':data['id']})
+    lookup={'operation_id':'GET /api/flow/lookup/{kind}','path_args':{'kind':'employee'},
+            'query':{'case_id':data['id']}}
+    listing=result.get('data') if result.get('status')==200 else None
+    for field in fields:
+        field['candidate_lookup']=lookup
+        if isinstance(listing,dict):
+            field['candidates']=[{'label':x['label'],'value':x['id']} for x in listing.get('items',[])
+                                 if type(x.get('id')) is int and isinstance(x.get('label'),str)]
+            field['candidates_has_more']=bool(listing.get('has_more') or listing.get('truncated'))
+        else:
+            field['candidate_lookup_error']='本次员工候选未读取成功；不要冒充没有员工，也不要猜编号。'
+    data.setdefault('assistant_guidance',[]).append(
+        '员工候选来自本店业务选择器，不是管理员账号目录；已给姓名可在真实候选中唯一匹配后填写编号，'
+        '未选人则用中文候选缺项卡。同名或候选未列完须进一步查找，不自动选第一项。')
+    return data
+
+
 async def _case(db,request,user,thread_id,config,case_id,with_contact=True):
     result=await _read(db,request,user,thread_id,config,'GET /api/flow/cases/{case_id}',{'case_id':case_id})
     if result.get('status',500)>=400:return result,None
@@ -96,6 +120,7 @@ async def _case(db,request,user,thread_id,config,case_id,with_contact=True):
     if not isinstance(data,dict):raise HTTPException(409,'未能读取业务资料，请重新查询')
     if data.get('truncated'):raise HTTPException(409,'原单资料较多，请在原业务页面核对当前步骤')
     data['assistant_guidance']=_guidance(data)
+    await _employee_choices(db,request,user,thread_id,config,data)
     customer=None
     if with_contact and data.get('customer',{}):
         customer,reason,status=await _customer_record(db,request,user,thread_id,config,data)
@@ -114,7 +139,7 @@ async def handle_case_tool(db,request,user,thread_id,name,args,config):
     from .business_assistant_service import prepare_proposal
     allowed={
         'find_cases':{'query','kind','scope','page'},'get_case':{'case_id'},
-        'prepare_case_action':{'case_id','action','values','summary'},
+        'prepare_case_action':{'case_id','action','values','summary','questions'},
         'prepare_customer_contact':{'case_id','phone','summary'},
     }
     if name not in allowed or not isinstance(args,dict) or set(args)-allowed[name]:
@@ -177,10 +202,30 @@ async def handle_case_tool(db,request,user,thread_id,name,args,config):
     if not isinstance(values,dict):raise HTTPException(422,'请填写本次办理内容')
     # Parsing validates missing facts but must not replace submitted yuan / qty
     # strings with their native integer conversions before the API parses again.
-    parse_fields(action.get('fields',[]),values)
+    question_fields=action.get('fields',[])
+    args=copy.deepcopy(args)
+    if args.get('questions'):
+        for question in args['questions']:
+            field=next((f for f in question_fields if 'values.'+f['key']==question.get('key')),None)
+            if field and field.get('type')=='employee' and not question.get('options'):
+                if field.get('candidates_has_more') or not field.get('candidates'):
+                    raise HTTPException(422,'员工候选未完整确定，请按已提供的candidate_lookup按姓名缩小查询，不要让员工手抄编号')
+                question['options']=field['candidates']
+        from . import business_assistant_gateway as gateway
+        from .business_assistant_service import sanitize_questions,answer_probe
+        questions=sanitize_questions(args['questions'])
+        allowed_keys={'values.'+field['key'] for field in question_fields}
+        if any(q['key'] not in allowed_keys for q in questions):
+            raise HTTPException(422,'缺项必须是当前原单动作中列出的字段')
+        probe=answer_probe(gateway,'POST /api/flow/cases/{case_id}/actions/{action}',
+                           {'values':values},questions,{'case_id':case_id,'action':action['key']},question_fields)
+        parse_fields(question_fields,probe['values'])
+    else:
+        parse_fields(question_fields,values)
     return prepare_proposal(db,user,thread_id,{
         'operation_id':'POST /api/flow/cases/{case_id}/actions/{action}',
         'path_args':{'case_id':case_id,'action':action['key']},
         'body':{'version':data['version'],'values':values},
         'summary':args.get('summary') or action.get('label') or '办理当前业务',
-    })
+        'questions':args.get('questions'),
+    },question_fields=question_fields)

@@ -18,6 +18,7 @@ async function customerChoiceDialog({title,fields,nameKey,phoneKey,onSave,allowE
   }
   await onSave(values);closeModal();state.analytics=null;if(state.user)await render();toast('已保存');
  });
+ if(typeof enhanceOptionalNotes==='function')enhanceOptionalNotes($('#modal'),nameFields,{});
  const form=$('#modal form'),nameInput=form.elements[nameKey],phoneInput=form.elements[phoneKey];
  function showMatches(data,phone='',search=false){
   if(!form.isConnected)return;

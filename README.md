@@ -1,39 +1,24 @@
-# huakangos · 华慷集团
+# HuaKangOS · 华慷集团
 
-多门店经销业务系统，包含原生业务流程、岗位待办、库存/财务/会员记账和员工确认式业务助手。当前为 0.4.0-dev，数据库迁移头 h51i_proposal_questions。此仓库已精简为可打包源码，不代表已完成公司验收或生产部署。
+当前源码候选为 R4-B1-20260927，数据库迁移头 `h52j_assistant_work_plans`。包含多门店业务、岗位待办、库存/财务/会员记账、员工确认式业务助手与本地 MCP 接入。
+
+2026-09-27 按要求精简本地仓库：测试套件、测试入口、历史截图/报告及重复说明已移至仓库外可恢复归档。业务代码和现有数据保持原样。本次清理没有验证模型能力或生产可用性。
 
 ## 启动
 
-需要 Python 3.11–3.13。Windows 推荐双击 start-preview.cmd，然后访问 <http://127.0.0.1:8000/>；首次在页面设置管理员。现有同路径预览保留原账号和数据。预览数据在源码目录之外，换路径会使用另一份预览身份。
+Python 3.11–3.13。Windows 双击 `start-preview.cmd`，按提示打开本地页面；保留同路径原预览账号和数据。也可运行 `start.ps1`；Linux/macOS 运行 `bash start.sh`。配置参考 `.env.example`。
 
-普通本地启动：
+已有库升级前须一致性备份、在副本迁移并验证恢复；R4 新增 h52j 迁移，不能只替换前端。不要对已有库执行演示初始化。
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\start.ps1
-```
+## 保留的维护入口
 
-Linux/macOS：
+- [业务助手交接](docs/业务助手交接.md)
+- [R4 实现与验收边界](docs/R4-B1-实现与验收说明.md)
+- [本地 MCP 接入](docs/R4-B1-MCP接入说明.md)
+- [交付说明](docs/交付说明.md)
+- [原始需求](docs/原始功能需求表.docx)与[工作流手册](docs/全量工作流手册.html)
+- [检查点](CHECKPOINT_STATUS.json)与[开发约束](AGENTS.md)
 
-```bash
-bash start.sh
-```
+手册源为 `docs/workflow-source/`；生成与检查分别运行 `python scripts/build_workflow_guides.py` 和 `python scripts/build_workflow_guides.py --check`。
 
-启动脚本安装固定依赖并交互初始化管理员，没有默认密码。仅在新的独立模拟库中使用 -Demo / --demo。页面运行不需要 Node.js。配置参考 .env.example；模型密钥与实际数据库不要放入交付包。
-
-## 交付与继续开发
-
-- [交付说明](docs/交付说明.md)：目录取舍、升级备份、打包和核验边界。
-- [业务助手交接](docs/业务助手交接.md)：给 GPT‑6 Pro 的代码导航、调用链、确认机制、实际限制、已知矛盾和飞书后续约束。
-- [完整离线工作流手册](docs/全量工作流手册.html)：员工操作说明；应用内也有帮助入口。
-- [原始需求表](docs/原始功能需求表.docx)：业务范围原始来源。
-- [开发约束](AGENTS.md)、[本次检查点](CHECKPOINT_STATUS.json)。
-
-生成源码 ZIP（在 Git 检出运行，包含当前未提交修改，输出到仓库同级）：
-
-```text
-python scripts/package_source.py
-```
-
-测试、历史验证证据和旧自动维护/部署工具已按要求移除。需要继续开发时从 Git 基线 1f884fb 恢复相应测试；详情见交接文档。运行代码、全部历史迁移、前端资源和帮助生成源保留。更新手册用 python scripts/build_workflow_guides.py，再运行同命令加 --check，不要手改生成文件。
-
-会员中心只做记账，不引入集团实际资金支付/清算接口或平级直营门店合作准入审批。助手不能替代员工确认，模型文字不构成审批、库存或现金事实。生产启用要求见交付说明。
+源码打包运行 `python scripts/package_source.py`，读取当前工作树，排除环境、数据和凭据，输出到仓库外。生产仍需 HTTPS、安全 Cookie、明确 Host、ClamAV、备份恢复与公司验收。

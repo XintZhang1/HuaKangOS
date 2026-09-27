@@ -26,7 +26,7 @@ FORBIDDEN_SUFFIXES = {'.pyc', '.pyo', '.db', '.sqlite', '.sqlite3', '.log', '.zi
 
 def source_files():
     names = set(subprocess.check_output(
-        ['git', '-C', str(ROOT), 'ls-files', '-z'], encoding='utf-8').split('\0'))
+        ['git', '-C', str(ROOT), 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], encoding='utf-8').split('\0'))
     names.update(NEW_FILES)
     files = []
     for name in sorted(names):

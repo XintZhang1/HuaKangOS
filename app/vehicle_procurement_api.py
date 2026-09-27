@@ -3,7 +3,7 @@ from datetime import date
 import csv,io
 from fastapi import APIRouter,Depends,HTTPException,Query,Response
 from pydantic import BaseModel,ConfigDict,Field,ValidationError,field_validator
-from sqlalchemy import select,func
+from sqlalchemy import select,func,or_
 from .db import get_db
 from .security import get_user
 from .flow_models import Case
@@ -84,7 +84,7 @@ def catalog(db=Depends(get_db),user=Depends(get_user)):
 def listing(page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),q:str=Query('',max_length=80),db=Depends(get_db),user=Depends(get_user)):
     with svc.authority(db,user,svc.READ):
         query=select(Case).where(Case.kind=='vehicle_procurement')
-        if q:query=query.where(Case.number.contains(q,autoescape=True))
+        if q:query=query.where(or_(Case.number.contains(q,autoescape=True),Case.title.contains(q,autoescape=True)))
         total=db.scalar(select(func.count()).select_from(query.subquery()))
         rows=db.scalars(query.order_by(Case.id.desc()).offset((page-1)*page_size).limit(page_size))
         return {'items':[svc.describe(db,user,row) for row in rows],'total':total,'page':page,'page_size':page_size}
