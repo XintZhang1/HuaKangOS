@@ -367,10 +367,28 @@ def member_available(db,member):
     return member.balance_cents-holds
 
 
+def category_requirement_message(actual,accepted,role=None):
+    """凭据类别不符时的统一说明：写清“本次需要哪一类”，而不是笼统的“类型不匹配”。
+
+    actual  = 上传文件实际归入的类别键（可能为 None）
+    accepted= 该动作接受的类别键（None 表示“任一实际业务凭据都可以”）
+    """
+    from .flow_specs import category_label
+    if not accepted:
+        return ('本岗位不能使用“%s”作为本单凭据：请改用本单实际业务凭据或客户授权；'
+                '资金与价格资料请交财务、店长岗位上传。') % category_label(actual)
+    wanted='、'.join(category_label(key) for key in accepted)
+    return ('本次需要“%s”类别的凭据，当前选择的是“%s”。请在上传弹窗的“文件类别”里改选后重新提交。'
+            % (wanted,category_label(actual)))
+
+
 def file_exists(db,row,file_id,category=None):
     asset=scoped_get(db,FileAsset,file_id)
     if not asset or asset.case_id!=row.id or asset.generated:raise HTTPException(422,'请选择本单实际上传的业务凭据，不可拿系统空白单代替')
-    if category and asset.category!=category:raise HTTPException(422,'凭据类型不匹配')
+    if category:
+        accepted=category if isinstance(category,(list,tuple,set)) else (category,)
+        if asset.category not in accepted:
+            raise HTTPException(422,category_requirement_message(asset.category,tuple(accepted)))
     from .file_security import require_usable
     require_usable(db,asset)
     return asset

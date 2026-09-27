@@ -316,11 +316,19 @@ def _case(db, user, member, case_id, version, store_id, service=False):
     return row
 
 
+GROUP_EVIDENCE_CATEGORIES = ('evidence', 'receipt')
+
+
 def _evidence(db, row, evidence_id, user):
     asset = db.scalar(select(FileAsset).where(FileAsset.id == evidence_id, FileAsset.case_id == row.id,
                                               FileAsset.store_id == row.store_id))
-    if not asset or asset.generated or asset.category not in {'evidence', 'receipt'}:
-        raise HTTPException(422, '请上传本单的实际办理或客户授权凭据；生成文件不代表已确认')
+    if not asset or asset.generated:
+        raise HTTPException(422, '请上传本单的实际办理凭据；生成文件不代表已确认')
+    if asset.category not in GROUP_EVIDENCE_CATEGORIES:
+        # 旧文案写“或客户授权凭据”，但“客户授权”并不在校验接受的类别里，
+        # 员工按提示选“客户授权”必然被拒。这里改成与校验一致的说明。
+        from .flow_engine import category_requirement_message
+        raise HTTPException(422, category_requirement_message(asset.category, GROUP_EVIDENCE_CATEGORIES))
     from .flow_documents import can_file
     if not can_file(user, row, asset):
         raise HTTPException(403, '当前岗位不能使用该类来源凭据，请交获权岗位办理')
