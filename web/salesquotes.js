@@ -4,7 +4,7 @@ const salesQuoteCanWrite=()=>canWrite()&&['admin','manager','sales'].includes(st
 const salesQuoteOutcome={activated:'客户已确认并生效',rejected:'主管退回',withdrawn:'已撤回'};
 async function salesQuotesPage(id){
  if(state.store==='all')return heading('车辆报价与预订')+storeNotice();
- if(!id){const d=await api('/api/flow/cases?kind=order&page='+state.page+'&q='+encodeURIComponent(state.q));return heading('车辆报价与预订','每次报价、价格批准、配车和客户签回分别留档。',salesQuoteCanWrite()?b('sales-quote-new','新建预订合同','','primary'):'')+storeNotice()+workRecordSearch('客户姓名或订单号',100)+panel('本店车辆订单',table(['客户与订单','报价流程','状态',''],d.items.map(r=>[E(r.title)+'<br>'+E(r.number),[3,4].includes(r.flow_version)?'版本报价':'原流程 '+r.flow_version,pill(r.state,r.state_label),b('open','办理',`data-route="${[3,4].includes(r.flow_version)?'sales-quotes':'case'}/${r.id}"`)])))+pager(d.total);}
+ if(!id){const d=await api('/api/flow/cases?kind=order&page='+state.page+'&q='+encodeURIComponent(state.q));return heading('车辆报价与预订','',salesQuoteCanWrite()?b('sales-quote-new','新建预订合同','','primary'):'')+storeNotice()+workRecordSearch('客户姓名或订单号',100)+panel('本店车辆订单',table(['客户与订单','报价流程','状态',''],d.items.map(r=>[E(r.title)+'<br>'+E(r.number),[3,4].includes(r.flow_version)?'版本报价':'原流程 '+r.flow_version,pill(r.state,r.state_label),b('open','办理',`data-route="${[3,4].includes(r.flow_version)?'sales-quotes':'case'}/${r.id}"`)])))+pager(d.total);}
  const r=await api('/api/sales-quotes/orders/'+id);state.salesQuoteOrder=r;state.row=r;
  const active=r.quotes.find(q=>q.id===r.active_quote_id),pending=r.quotes.find(q=>q.id===r.pending_quote_id),selected=pending||active;
  const quoteCard=q=>`<p><strong>第 ${q.revision} 版 · ${E(q.model_snapshot.name)}</strong></p><p>${q.amount_cents!==undefined?'车辆价款 '+money(q.amount_cents)+' 元 · ':''}预计交付 ${E(q.delivery_due)}</p><p>新确认有效期至 ${E(q.valid_until)} · ${E(q.resolution?salesQuoteOutcome[q.resolution.outcome]:q.review?'主管已批准，待客户签回':'待独立主管复核')}</p><p>另单服务：${[['addon','精品加装'],['insurance','本店保险'],['agency','代办服务']].filter(([k])=>q.services[k]).map(([,label])=>label).join('、')||'无'}</p>${q.terms!==undefined?`<p class="wrap">本版约定：${E(q.terms)}</p>`:''}${q.review?`<p>价格复核意见：${E(q.review.reason)}</p>`:''}`;
@@ -16,12 +16,12 @@ async function salesQuotesPage(id){
  if(!selected)html+=panel('等待重新报价','<p>当前没有可继续执行的报价，请销售提交新版本。</p>');
  html+=panel('报价变更',`<p>车辆尚未实际出库时可提出新版本。已执行的配套服务、已出库或已提车辆，须按原单售后处理。换车由库管先确认释放原占用，重新配车和检查。</p>`+(r.can_propose&&canWrite()?b('sales-quote-revise','提交新的报价版本','','primary'):'')+b('open','查看退订退车与原款退回','data-route="aftercare"'));
  if(r.amount_cents!==undefined)html+=panel('车辆款项',`<div class="cards">${[['当前约定价款',r.amount_cents],['已收及已抵用',r.paid_cents],['降价后待退差额',r.excess_cents||0]].map(([label,value])=>`<div class="card"><span>${label}（元）</span><strong>${money(value)}</strong></div>`).join('')}</div><p>车辆价款不包含另单服务。已抵用预收的超额部分回原预收账，实际超收现金由财务按原收款退回；退款完成前不能出库。</p>`);
- html+=panel('现在可以做什么',(r.actions||[]).map(a=>`<div class="actioncard">${b('sales-quote-action',a.label,`data-key="${a.key}" ${!canWrite()||!a.enabled?'disabled':''}`,a.enabled?'primary':'')}<p>${E(a.reason||a.confirm||'')}</p></div>`).join('')||'<p>等待相关岗位办理。</p>');
+ html+=actionPanel((r.actions||[]).map(a=>`<div class="actioncard">${b('sales-quote-action',a.label,`data-key="${a.key}" ${!canWrite()||!a.enabled?'disabled':''}`,a.enabled?'primary':'')}<p>${E(a.reason||a.confirm||'')}</p></div>`).join('')||'<p>等待相关岗位办理。</p>');
  const docKinds=['inventory','technician','reception','customer_service'].includes(state.user.role)?['business']:['contract','handover','business'];
  html+=panel('本版文档与实际凭据',(canWrite()?b('upload','上传实际凭据')+docKinds.map(k=>b('generatedoc','生成'+state.catalog.document_types[k],`data-kind="${k}"`)).join(''):'')+fileList(r.files));
  if(r.children.length)html+=panel('配套及后续业务',r.children.map(c=>`<div class="listrow"><div><strong>${E(c.kind_label)}</strong><p>${pill(c.state,c.state_label)}</p></div>${b('open','查看办理',`data-route="case/${c.id}"`)}</div>`).join(''));
  if(r.payments?.length)html+=panel('实际原款与退款',table(['方向／凭证','金额（元）','日期'],r.payments.map(p=>[E(p.direction==='in'?'收款':'原款退款')+'<br>'+E(p.reference),money(p.amount_cents),E(p.business_date)])));
- html+=panel('报价历史',r.quotes.map(q=>`<details ${q.id===r.pending_quote_id?'open':''}><summary>第 ${q.revision} 版 · ${E(q.model_snapshot.name)}</summary>${quoteCard(q)}</details>`).join(''));
+ html+=historyPanel('报价历史',r.quotes.map(q=>`<details ${q.id===r.pending_quote_id?'open':''}><summary>第 ${q.revision} 版 · ${E(q.model_snapshot.name)}</summary>${quoteCard(q)}</details>`).join(''));
  html+=panel('岗位交接',taskList(r.tasks));
  return html;
 }

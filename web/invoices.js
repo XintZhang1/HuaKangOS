@@ -14,7 +14,7 @@ async function invoicesPage(id){
   const ordersTable=table(['申请／原业务','类型／金额／状态','操作'],orders.items.map(r=>[
    E(r.number)+'<br>'+E(r.source_number),(r.direction==='blue'?'蓝票':'原票冲红')+' · '+money(r.amount_cents)+' 元<br>'+E(invoiceStates[r.state]),
    b('open','办理与核对','data-route="invoices/'+r.id+'"')]));
-  return heading('开票与原票冲红','按照原业务办理申请、外部结果及原票冲红。')+storeNotice()+panel('原业务开票依据',sourcesTable+page(sources,'source'))+panel('开票办理记录',ordersTable+page(orders,'orders'));
+  return heading('开票与原票冲红','')+storeNotice()+panel('原业务开票依据',sourcesTable+page(sources,'source'))+panel('开票办理记录',ordersTable+page(orders,'orders'));
  }
  const r=await api('/api/invoices/orders/'+id);state.invoiceOrder=r;let actions=[];
  if(invoiceManager()&&r.state==='approval')actions.push('approve','reject');

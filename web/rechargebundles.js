@@ -14,7 +14,7 @@ async function rechargeBundlesPage(customerId){
  if(state.store==='all')return heading('会员充值组合套餐')+storeNotice();
  const orders=await api('/api/recharge-bundles/orders');
  const ruleButton=state.user.role==='admin'?b('open','配置冻结组合规则','data-route="recharge-bundle-rules"'):'';
- if(!customerId){const customers=await api(`/api/flow/master/customers?q=${encodeURIComponent(state.q)}&page=${state.page}`);return heading('会员充值组合套餐','一次实际收款存本金，原批次赠品独立记账，退款按完整份额处理。',ruleButton)+searchBar()+panel('选择本店客户',table(['客户','联系电话','办理'],customers.items.map(c=>[E(c.name),E(c.phone),b('open','组合购买与退款',`data-route="recharge-bundles/${c.id}"`)]))+pager(customers.total))+rechargeBundleOrderList(orders.items);}
+ if(!customerId){const customers=await api(`/api/flow/master/customers?q=${encodeURIComponent(state.q)}&page=${state.page}`);return heading('会员充值组合套餐','',ruleButton)+searchBar()+panel('选择本店客户',table(['客户','联系电话','办理'],customers.items.map(c=>[E(c.name),E(c.phone),b('open','组合购买与退款',`data-route="recharge-bundles/${c.id}"`)]))+pager(customers.total))+rechargeBundleOrderList(orders.items);}
  const d=await api('/api/recharge-bundles/purchases?customer_id='+customerId);state.rechargeBundles={...d,customerId:Number(customerId)};
  let html=heading('会员充值组合套餐',d.customer.name,ruleButton+b('open','返回客户列表','data-route="recharge-bundles"')+b('open','集团本金与权益',`data-route="membership/${customerId}"`));
  if(!d.member)return html+panel('先确认集团会员身份','<p>组合购买前，请关联本店客户并开通集团会员。</p>'+b('open','核对并开通会员',`data-route="group/${customerId}"`));
@@ -51,7 +51,7 @@ async function rechargeBundleAction(key){
 async function rechargeBundleRulesPage(){
  if(state.store==='all')return heading('充值组合规则')+storeNotice();
  const d=await api('/api/recharge-bundles/rules');state.rechargeBundleRules=d.items;
- return heading('充值组合规则','本金统一使用集团钱包；赠品单位、门店、期限和退款条件在发行前冻结。',state.user.role==='admin'?b('bundle-rule','发布组合新版本','','primary'):'')+d.items.map(r=>panel(`${r.enabled?'已启用':'未启用'} · ${r.name} · 版本${r.rule_version}`,rechargeBundleRuleFacts(r)+`<p>发行期间：${r.sale_starts_on} 至 ${r.sale_ends_on}</p>`+rechargeBundleTerms(r)+(state.user.role==='admin'?b('bundle-rule','以此追加新版本',`data-id="${r.id}"`):''))).join('');
+ return heading('充值组合规则','',state.user.role==='admin'?b('bundle-rule','发布组合新版本','','primary'):'')+d.items.map(r=>panel(`${r.enabled?'已启用':'未启用'} · ${r.name} · 版本${r.rule_version}`,rechargeBundleRuleFacts(r)+`<p>发行期间：${r.sale_starts_on} 至 ${r.sale_ends_on}</p>`+rechargeBundleTerms(r)+(state.user.role==='admin'?b('bundle-rule','以此追加新版本',`data-id="${r.id}"`):''))).join('');
 }
 async function rechargeBundleRule(id){
  const current=state.rechargeBundleRules?.find(r=>r.id===Number(id)),all=(await api('/api/group/benefits/rules')).items,stores=state.stores.filter(s=>s.active!==false),request_id=requestKey();

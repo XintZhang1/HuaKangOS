@@ -1,0 +1,31 @@
+/* Shared presentation: keep business controls, status and validation visible. */
+.ux-work-intro,.ux-now,.ux-start,.mux-my-work,.mux-browser{border-color:#e5e7eb;border-radius:10px;box-shadow:none;padding:20px}
+.ux-work-intro h2,.ux-now h2{font-size:19px;margin-bottom:4px}
+.ux-start-results,.mux-results{gap:0 24px}
+.ux-start-card,.mux-card{border:0;border-bottom:1px solid #e5e7eb;border-radius:0;padding:18px 0;gap:12px;background:transparent}
+.ux-start-card h3,.mux-card h3{font-size:17px;margin:0 0 8px}
+.ux-start-card-actions{gap:10px}.mux-requirements{margin-top:8px;font-size:14px}
+.ux-start-card-actions button.primary,.mux-card button.primary{background:#fff;color:#253248;border:1px solid #cbd2de;box-shadow:none}
+.ux-start-card-actions button.primary:hover,.mux-card button.primary:hover{background:#f4f6f9;border-color:#8795a9}
+.ux-module-tabs button,.mux-groups button{border-radius:6px}
+.ux-action-options{display:flex;flex-wrap:wrap;gap:12px}
+.ux-action-options .actioncard{padding:0;border:0;background:transparent;border-radius:0;max-width:340px}
+.ux-action-options .actioncard button{width:auto;min-width:110px}
+.ux-action-options .actioncard p:empty{display:none}
+.mux-action-group{border:0;border-top:1px solid #e5e7eb;border-radius:0;padding:14px 0}
+.ux-receipt{padding:12px 14px;border-radius:6px}.ux-receipt p{margin:4px 0 0}
+.ux-history{padding:10px 16px;border-radius:8px;box-shadow:none}
+.mux-contextbar{font-size:14px;margin-bottom:10px}
+.mux-section-disclosure{margin:12px 0 20px;color:#596575}
+.mux-section-disclosure>summary{cursor:pointer;padding:8px 0}
+.mux-section-index{margin:8px 0;padding:0;border:0}
+.mux-section-index button{font-size:14px}
+.ba-cards{background:#fafafa}.ba-cards-head{min-height:auto;padding:14px 18px}
+.ba-transcript{padding:20px}.ba-workboard{box-shadow:none;border-radius:8px}
+@media(max-width:580px){
+ .ux-work-intro,.ux-now,.ux-start,.mux-my-work,.mux-browser{padding:14px}
+ .ux-now-head{flex-direction:column;gap:12px}.ux-now-side{flex-direction:row;align-items:center;flex-wrap:wrap}
+ .ux-start-results,.mux-results{grid-template-columns:minmax(0,1fr)}
+ .ux-action-options .actioncard{width:100%;max-width:none}.ux-action-options .actioncard button{width:100%}
+ .ux-start-search>label:first-child,.mux-search>label:first-child{min-width:0;width:100%}
+}

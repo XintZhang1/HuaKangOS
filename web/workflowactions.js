@@ -9,9 +9,9 @@
 // Missing prerequisites may make the original handler show its normal error.
 globalThis.WORKFLOW_QUICK_FORMS = Object.freeze({
   // app.js createCase('lead') -> customerchoice.js customerChoiceDialog.
-  'wf-reception': Object.freeze({label: '新建售前接待', selector: '[data-act="newcase"][data-kind="lead"]'}),
+  'wf-reception': Object.freeze({label: '新增接待', selector: '[data-act="newcase"][data-kind="lead"]'}),
   // salesquotes.js salesQuoteNew -> salesQuoteForm (no selected lead required).
-  'wf-reservation-contract': Object.freeze({label: '新建预订合同', selector: '[data-act="sales-quote-new"]'}),
+  'wf-reservation-contract': Object.freeze({label: '新增预订', selector: '[data-act="sales-quote-new"]'}),
   // addonorders.js addonNew: employee selects the source sale inside the form.
   'wf-sale-addon': Object.freeze({label: '新建销售加装', selector: '[data-act="addon-new"]'}),
   // insuranceorders.js insuranceOrderNew: customer/vehicle chosen in the form.
@@ -24,13 +24,13 @@ globalThis.WORKFLOW_QUICK_FORMS = Object.freeze({
   // vehicleincome.js vehicleIncomeNew: original sources selected in the form.
   'wf-vehicle-other-income': Object.freeze({label: '新建整车其他收入', selector: '[data-act="vehicle-income-new"]'}),
   // vehicleprocurement.js vpNew; vehicletransfers.js vehicleTransferNew.
-  'wf-vehicle-purchase': Object.freeze({label: '新建整车采购计划', selector: '[data-act="vp-new"]'}),
+  'wf-vehicle-purchase': Object.freeze({label: '新增采购计划', selector: '[data-act="vp-new"]'}),
   'wf-vehicle-transfer': Object.freeze({label: '申请整车调拨', selector: '[data-act="vehicle-transfer-new"]'}),
   // vehicleoperations.js voNew: choose the intended operation in the form.
-  'wf-vehicle-local-move': Object.freeze({label: '填写车辆作业表单', selector: '[data-act="vo-new"]'}),
-  'wf-vehicle-other-out': Object.freeze({label: '填写车辆作业表单', selector: '[data-act="vo-new"]'}),
+  'wf-vehicle-local-move': Object.freeze({label: '新增车辆作业', selector: '[data-act="vo-new"]'}),
+  'wf-vehicle-other-out': Object.freeze({label: '新增车辆作业', selector: '[data-act="vo-new"]'}),
   // serviceintake.js intakeBook; repair.js repairNew.
-  'wf-repair-intake': Object.freeze({label: '登记维修预约或到店', selector: '[data-act="intake-new"]'}),
+  'wf-repair-intake': Object.freeze({label: '登记接待', selector: '[data-act="intake-new"]'}),
   'wf-repair-complete': Object.freeze({label: '新建维修工单', selector: '[data-act="repair-new"]'}),
   // procurement.js procurementNew; transfers.js transferNew.
   'wf-material-purchase': Object.freeze({label: '申请物资采购', selector: '[data-act="procurement-new"]'}),

@@ -41,5 +41,19 @@
       "workflow_generation_check": "passed",
       "business_tests_run": false
     }
+  },
+  "ui_simplification": {
+    "date": "2026-09-27",
+    "report": "docs/UI简化-实现与验证.md",
+    "requirements": "docs/UI简化-功能验证清单.json",
+    "business_tests_passed": 1639,
+    "frontend_tests_passed": 78,
+    "browser_checks_passed": 30,
+    "browser_destinations_loaded": 70,
+    "requirements_with_associated_passing_tests": 193,
+    "business_acceptance": false,
+    "database_migrations_added": 0,
+    "real_model_calls": 0,
+    "evidence_directory": "E:/HuaKangOS-ui-validation-20260927"
   }
 }

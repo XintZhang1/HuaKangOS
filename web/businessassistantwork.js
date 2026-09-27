@@ -4,7 +4,7 @@ function businessAssistantWorkHTML(){
  const current=businessAssistantState,data=current.workboard,plan=data?.plan;
  if(!current.session?.work_plans?.length&&!current.workError)return '';
  const available=data?.plans||current.session?.work_plans||[];
- const selector=available.length>1?`<label class="ba-work-select">本次办事计划<select data-baw-plan aria-label="选择办事计划">${available.map(p=>`<option value="${E(p.id)}" ${p.id===(plan?.id||current.workPlanId)?'selected':''}>${E(p.goal)}</option>`).join('')}</select></label>`:'';
+ const selector=available.length>1?`<label class="ba-work-select">办理进度<select data-baw-plan aria-label="选择办事计划">${available.map(p=>`<option value="${E(p.id)}" ${p.id===(plan?.id||current.workPlanId)?'selected':''}>${E(p.goal)}</option>`).join('')}</select></label>`:'';
  const recordMap=new Map((data?.cases||[]).map(r=>[r.case_id,r]));
  const stepHTML=step=>{
   const record=recordMap.get(step.case_id),route=businessAssistantRoute(step.route),guide=businessAssistantRoute(step.workflow_route);
@@ -17,10 +17,10 @@ function businessAssistantWorkHTML(){
   }else if(step.case_id)handoff='<p>原单即时进度尚未载入，请打开原单核对。</p>';
   const missing=step.missing?.length?`<p>还需填写：${E(step.missing.join('、'))}</p>`:'';
   const wait=step.wait_for&&step.status!=='step_completed'?`<p>计划中待满足：${E(step.wait_for)}</p>`:'';
-  return `<li class="ba-work-step" data-work-status="${E(step.status)}"><div class="spread"><strong>${E(step.title)}</strong><span>${E(step.status_label)}</span></div>${missing}${wait}${handoff}<div class="row">${step.proposal_id&&['awaiting_confirmation','needs_input','failed','uncertain','expired'].includes(step.status)?`<button type="button" data-baw-card="${E(step.proposal_id)}">${step.status==='needs_input'?'补填这张卡':'查看这张卡'}</button>`:''}${route?`<a class="ba-record-link" href="#${E(route)}">查看原单与可办事项</a>`:guide?`<a class="ba-record-link" href="#${E(guide)}">查看原办理入口</a>`:''}</div></li>`;
+  return `<li class="ba-work-step" data-work-status="${E(step.status)}"><div class="spread"><strong>${E(step.title)}</strong><span>${E(step.status_label)}</span></div>${missing}${wait}${handoff}<div class="row">${step.proposal_id&&['awaiting_confirmation','needs_input','failed','uncertain','expired'].includes(step.status)?`<button type="button" data-baw-card="${E(step.proposal_id)}">${step.status==='needs_input'?'补充信息':'查看内容'}</button>`:''}${route?`<a class="ba-record-link" href="#${E(route)}">查看单据</a>`:guide?`<a class="ba-record-link" href="#${E(guide)}">操作指引</a>`:''}</div></li>`;
  };
  const steps=plan?.steps||[],visible=steps.slice(0,2),rest=steps.slice(2);
- return `<section class="ba-workboard" aria-label="本次办事计划"><div class="spread"><strong>本次办事</strong><button type="button" data-baw-action="refresh" ${current.workLoading||current.busy?'disabled':''}>${current.workLoading?'正在核对…':'刷新进度'}</button></div>${selector}${plan?`<h3>${E(plan.goal)}</h3><ol>${visible.map(stepHTML).join('')}</ol>${rest.length?`<details><summary>其余 ${rest.length} 个步骤</summary><ol start="3">${rest.map(stepHTML).join('')}</ol></details>`:''}`:'<p>正在读取计划与原单状态。</p>'}${current.workError?`<p role="alert" class="ba-work-error">${E(current.workError)} 已有办理结果不变，请不要重复提交。</p>`:''}${data?.next_case_page?'<p>部分原单未在本页刷新；请打开对应原单查看实时进度。</p>':''}<p class="ba-work-note">计划不是业务完成凭据。刷新只读原单，不调用模型、不自动办下一单。</p></section>`;
+ return `<section class="ba-workboard" aria-label="办理进度"><div class="spread"><strong>办理进度</strong><button type="button" data-baw-action="refresh" ${current.workLoading||current.busy?'disabled':''}>${current.workLoading?'正在核对…':'刷新进度'}</button></div>${selector}${plan?`<h3>${E(plan.goal)}</h3><ol>${visible.map(stepHTML).join('')}</ol>${rest.length?`<details><summary>其余 ${rest.length} 个步骤</summary><ol start="3">${rest.map(stepHTML).join('')}</ol></details>`:''}`:'<p>正在读取计划与原单状态。</p>'}${current.workError?`<p role="alert" class="ba-work-error">${E(current.workError)} 已有办理结果不变，请不要重复提交。</p>`:''}${data?.next_case_page?'<p>部分原单未在本页刷新；请打开对应原单查看实时进度。</p>':''}</section>`;
 }
 function paintBusinessAssistantWork(){
  if(state.route!=='business-assistant'||businessAssistantState.context!==businessAssistantContext())return;

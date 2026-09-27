@@ -10,7 +10,7 @@ function transferExceptionFiles(files,financial){const allowed=financial?['recei
 function transferExceptionProof(files,financial){return `<label>本店实际${financial?'财务凭据或协议':'实物凭据'}<select name="evidence_id" required><option value="">请选择本单已通过文件检查的原件</option>${transferExceptionFiles(files,financial).map(f=>`<option value="${f.id}">${E(f.name)}</option>`).join('')}</select></label>`;}
 async function transferExceptionsPage(id){
  if(state.store==='all')return heading('物资调拨运输差异')+storeNotice()+'<div class="notice">请选择本店。双方各自确认实物和资金，集团汇总不办理原单。</div>';
- if(!id){const d=await api('/api/transfer-exceptions');return heading('物资调拨运输差异','先记录实际已验收或已退回部分，再核对未处理批次。',canWrite()&&['admin','inventory'].includes(state.user.role)?b('transfer-exception-new','选择原调拨核对','','primary'):'')+panel('本店差异',table(['原调拨','物资与数量','状态',''],d.items.map(r=>[E(r.transfer_number),`${E(r.item_name)}<br>${transferQuantity(r.quantity_milli)} ${E(r.unit)}`,E(r.status_label),b('open','办理',`data-route="transfer-exceptions/${r.id}"`)])));}
+ if(!id){const d=await api('/api/transfer-exceptions');return heading('物资调拨运输差异','',canWrite()&&['admin','inventory'].includes(state.user.role)?b('transfer-exception-new','选择原调拨核对','','primary'):'')+panel('本店差异',table(['原调拨','物资与数量','状态',''],d.items.map(r=>[E(r.transfer_number),`${E(r.item_name)}<br>${transferQuantity(r.quantity_milli)} ${E(r.unit)}`,E(r.status_label),b('open','办理',`data-route="transfer-exceptions/${r.id}"`)])));}
  const r=await api('/api/transfer-exceptions/'+id);transferExceptionContext=r;state.row=await api('/api/flow/cases/'+r.case_id);
  const actions=r.actions.filter(a=>a!=='recovery_create');
  return heading('调拨运输差异',r.transfer_number+' · '+r.item_name,b('open','返回差异','data-route="transfer-exceptions"'))+

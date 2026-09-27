@@ -23,7 +23,7 @@ async function openingBatchPage(id){
  html+=panel('车辆原资料',table(row.totals.vehicle_value_cents!==undefined?['VIN','车型编码','库位编码','原成本（元）']:['VIN','车型编码','库位编码'],row.vehicles.map(v=>[E(v.vin),E(v.model_code),E(v.location_code),...(v.cost_cents!==undefined?[money(v.cost_cents)]:[])])));
  html+=panel('物资原资料',table(row.totals.inventory_value_cents!==undefined?['编码','名称','数量','原价值（元）']:['编码','名称','数量'],row.items.map(i=>[E(i.sku),E(i.name),E((i.quantity_milli/1000)+' '+i.unit),...(i.value_cents!==undefined?[money(i.value_cents)]:[])])));
  if(row.accounts.length)html+=panel('账户期初核对',table(['账户','日初余额（元）','来源'],row.accounts.map(a=>[E(a.name),money(a.opening_balance_cents),E(a.source_reference)])));
- html+=panel('当前办理',row.actions.length?`<div class="row">${row.actions.map(a=>b('oi-action',oiLabels[a],`data-key="${a}"`)).join('')}</div>`:'本批次当前没有可办理动作。');
+ html+=actionPanel(row.actions.length?`<div class="row">${row.actions.map(a=>b('oi-action',oiLabels[a],`data-key="${a}"`)).join('')}</div>`:'本批次当前没有可办理动作。');
  html+=panel('分岗核验凭据',table(['核验事项','经办人','时间','说明'],row.proofs.map(p=>[E({approve:'主管复核',inventory:'实物核验',finance:'财务核验'}[p.kind]),E(p.actor_name),E(time(p.occurred_at)),E(p.reason)])));
  html+=panel('本单核验文件',b('upload','上传本人核验凭据')+fileList(state.row.files||[]));
  html+=panel('岗位责任与期限',table(['待办','负责人','期限'],(state.row.tasks||[]).filter(t=>t.status==='open').map(t=>[E(t.title),E(t.assignee_name),E(t.due_date)])));

@@ -29,7 +29,7 @@ function workFormReveal(control){
 function workFormProgress(form){
  const ui=workFormStates.get(form);if(!ui)return;
  const required=workFormControls(form).filter(el=>el.required),missing=workFormMissing(form);
- const text=!required.length?'核对内容后提交':missing.length?`还需填写 ${missing.length} 项必填内容`:'必填内容已填写，请核对后提交';
+ const text=!required.length?'':missing.length?`还有 ${missing.length} 项必填`:'已填完整';
  if(ui.progress.textContent!==text)ui.progress.textContent=text;
  ui.progress.classList.toggle('is-ready',!missing.length);
  // Mark custom forms consistently without altering their constraints.
@@ -65,7 +65,7 @@ function workFormCloseRequest(dialog){
  if(!ui.dirty)return true;
  let warning=form.querySelector('.wfx-discard');if(warning){warning.querySelector('button').focus();return false;}
  warning=document.createElement('div');warning.className='wfx-discard';warning.setAttribute('role','alert');
- warning.innerHTML='<strong>还有未保存的填写内容</strong><p>继续填写会保留当前内容。放弃后，本次未提交的内容不会保存。</p><div class="row"><button type="button" class="primary" data-wfx-keep>继续填写</button><button type="button" data-wfx-discard>放弃本次填写</button></div>';
+ warning.innerHTML='<strong>还有未保存的填写内容</strong><div class="row"><button type="button" class="primary" data-wfx-keep>继续填写</button><button type="button" data-wfx-discard>放弃填写</button></div>';
  warning.querySelector('[data-wfx-keep]').addEventListener('click',()=>{warning.remove();const control=ui.lastControl;if(control?.isConnected)control.focus();});
  warning.querySelector('[data-wfx-discard]').addEventListener('click',()=>{ui.dirty=false;closeModal();});
  form.prepend(warning);warning.scrollIntoView({block:'start'});warning.querySelector('button').focus();return false;
@@ -76,9 +76,8 @@ function enhanceWorkForm(dialog,title){
  // Context describes the operation, not an inferred parent document.
  const store=state.stores.find(s=>String(s.id)===String(state.store));
  const context=document.createElement('div');context.className='wfx-context';
- context.textContent=`${store?.name||'当前门店'} · ${roleNames[state.user.role]||'当前岗位'} · ${title}`;
- const note=document.createElement('p');note.className='wfx-instructions';note.textContent='带 * 的项目需填写。只记录本次已核对的事实，提交后查看原单与接手人。';
- form.prepend(context,note);
+ context.textContent=`${store?.name||'当前门店'} · ${roleNames[state.user.role]||'当前岗位'}`;
+ form.prepend(context);
  const progress=document.createElement('span');progress.className='wfx-progress';progress.setAttribute('role','status');progress.setAttribute('aria-live','polite');footer.prepend(progress);
  const ui={dirty:false,lastControl:null,progress,observer:null,frame:0};workFormStates.set(form,ui);
  const schedule=()=>{if(ui.frame)return;ui.frame=requestAnimationFrame(()=>{ui.frame=0;if(form.isConnected)workFormProgress(form);});};

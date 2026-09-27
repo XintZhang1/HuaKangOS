@@ -25,7 +25,7 @@ async function customerServicePage(caseId){
  }
  const params=new URLSearchParams({page:state.page,q:c.query||'',subtype:c.subtype||'',status:c.status||''}),d=await api(careAPI+'/cases?'+params);c.rows=d.items;
  const create=Object.keys(catalog.create_types).length?`<div class="row">${careSelect('care_create_type','服务类型',careOptions(catalog.create_types),Object.keys(catalog.create_types)[0])}${b('care-new','登记客户服务','','primary')}</div>`:'';
- return heading('客户服务工作台','咨询、投诉、救援与回访按责任人办理。提醒只建立内部待办，不发送外部消息。',create)
+ return heading('客户服务工作台','',create)
  +`<form id="care-filters" class="filterbar"><label>搜索<input name="q" value="${E(c.query||'')}" placeholder="主题或服务单号"></label>${careSelect('subtype','服务类型',careOptions(catalog.types),c.subtype||'',false)}${careSelect('status','状态',[{id:'open',label:'未结案'},...careOptions(catalog.states)],c.status||'',false)}<button class="primary" type="submit">查询</button></form>`
  +panel('服务任务',table(['客户','服务','主题','状态','责任人','到期','操作'],d.items.map(r=>[E(r.customer_name),E(r.subtype_label),E(r.topic),pill(r.overdue?'overdue':r.state,r.overdue?'已逾期 · '+r.state_label:r.state_label),E(r.assignee_name),E(r.due_date),b('open','办理',`data-route="customer-service/${r.id}"`)]))+pager(d.total));
 }
@@ -85,7 +85,7 @@ async function customerVehiclesPage(id){
   +panel('获准服务历史',`<p>${E(history.notice)}</p>`+(history.items.length?history.items.map(r=>`<article class="notice mt15"><strong>${E(r.store_name)} · ${E(r.business_date)} ${r.external?' · 已授权跨店摘要':''}</strong><p>${E(r.summary)}</p><small>${E(r.number)}</small>${r.case_id?`<div class="mt15">${b('open','本店原单',`data-route="${r.kind==='customer_care'?'customer-service':'case'}/${r.case_id}"`)}</div>`:''}</article>`).join(''):empty('暂无获准服务摘要')));
  }
  const d=await api(careAPI+'/vehicles?'+new URLSearchParams({page:state.page,q:state.q}));c.vehicles=d.items;
- return heading('客户车辆档案','客户车辆与整车库存分开；VIN 共享不会自动开放别店业务。',catalog.can_write?b('care-vehicle-new','登记客户车辆','','primary')+' '+b('open','客户档案','data-route="master/customers"'):'')+searchBar()+panel('本店客户车辆',table(['客户','车牌','VIN','车型','里程','状态','操作'],d.items.map(r=>[E(r.customer_name),E(r.plate||'未登记'),E(r.vin),E(r.model_name),r.odometer_km??'未登记',r.active?'启用':'停用',b('open','查看',`data-route="customer-vehicles/${r.id}"`)]))+pager(d.total));
+ return heading('客户车辆档案','',catalog.can_write?b('care-vehicle-new','登记客户车辆','','primary')+' '+b('open','客户档案','data-route="master/customers"'):'')+searchBar()+panel('本店客户车辆',table(['客户','车牌','VIN','车型','里程','状态','操作'],d.items.map(r=>[E(r.customer_name),E(r.plate||'未登记'),E(r.vin),E(r.model_name),r.odometer_km??'未登记',r.active?'启用':'停用',b('open','查看',`data-route="customer-vehicles/${r.id}"`)]))+pager(d.total));
 }
 
 async function careVehicleDialog(edit=false){
@@ -116,7 +116,7 @@ async function careHistoryLinkDialog(){
 
 async function customerReminderPage(){
  const catalog=await careCatalog();const d=await api(careAPI+'/reminders/rules');careContext().rules=d.items;
- return heading('车辆提醒与续保提取','仅用已登记的日期、里程及来源计算；生成内部任务后，由经办人跟进。',(catalog.can_generate?b('care-generate','检查并生成到期任务','','primary')+' ':'')+b('care-renewals','查看续保跟进'))
+ return heading('车辆提醒与续保提取','',(catalog.can_generate?b('care-generate','检查并生成到期任务','','primary')+' ':'')+b('care-renewals','查看续保跟进'))
  +panel('提醒规则',`<div class="row">${catalog.can_manage?careSelect('care_rule_kind','规则类型',careOptions(Object.fromEntries(['first_service','maintenance','warranty','renewal'].map(k=>[k,catalog.types[k]]))))+b('care-rule-new','建立规则'):''}</div>`+table(['规则','周期天数','周期公里','提前天数','提前公里','状态','操作'],d.items.map(r=>[E(r.name),r.interval_days,r.interval_km,r.lead_days,r.lead_km,r.active?'启用':'停用',catalog.can_manage?b('care-rule-edit','修改',`data-id="${r.id}"`):'只读'])))
  +(careContext().generation?panel('本次检查结果',`<p>新建 ${careContext().generation.created.length} 条内部任务；${careContext().generation.skipped.length} 条规则需核对经办人。</p><p>${E(careContext().generation.notice)}</p>`):'');
 }
@@ -178,7 +178,7 @@ function careQuestionSchema(schema){return table(['题目编号','题目','题�
 async function careQuestionnairePage(){
  await careCatalog();const d=await api(careAPI+'/questionnaires/versions');careContext().questionnaireCatalog=d;
  const labels={active:'当前后续发放使用',superseded:'已被新版本替代',pending:'待独立复核',rejected:'未批准'};
- return heading('问卷题目版本','员工只填写本次发放的原题；新题先经独立复核，再用于后续发放。',(d.can_manage?b('care-q-propose','提出新的题目版本','','primary')+' ':'')+b('open','查看原题统计',`data-route="customer-questionnaire-report"`))
+ return heading('问卷题目版本','',(d.can_manage?b('care-q-propose','提出新的题目版本','','primary')+' ':'')+b('open','查看原题统计',`data-route="customer-questionnaire-report"`))
  +`<div class="notice">${E(d.notice)} 当前后续发放使用 v${d.active_number}。本店未发布新题时，保留原满意度与推荐意愿 v1。</div>`
  +panel('原v1题目（不会被覆盖）',careQuestionSchema(d.legacy.questions))
  +d.items.map(row=>panel(`v${row.number} · ${E(row.name)}`,`<p>${E(labels[row.state])} · 提出理由：${E(row.reason)}</p><details><summary>查看此版本完整题目</summary>${careQuestionSchema(row.questions)}</details>${row.review?`<p class="muted">独立处理记录：${row.review.decision==='approve'?'批准':'未批准'} · ${E(row.review.reason)}</p>`:''}${row.can_review?`<div class="row mt15">${b('care-q-review','逐题复核后批准',`data-id="${row.id}" data-decision="approve"`,'primary')}${b('care-q-review','记录不批准',`data-id="${row.id}" data-decision="reject"`)}</div>`:''}`)).join('');

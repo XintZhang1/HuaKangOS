@@ -8,12 +8,12 @@ async function retailBundlesPage(){
  if(state.store==='all')return heading('精品销售套餐')+storeNotice();
  const d=await api('/api/retail-bundles/rules');state.retailBundleRules=d.items;
  const current=d.items.filter(r=>r.is_latest&&r.enabled);
- return heading('精品销售套餐','组成和价格按发布版本冻结；后续审批、客户确认、出库、安装和收退款沿原精品单办理。',b('open','精品订单','data-route="retail"')+(retailBundleCanConfigure()?b('open','配置套餐规则','data-route="retail-bundle-rules"'):''))+storeNotice()+(current.length?current.map(r=>panel(r.name,`<p>销售期间 ${E(r.sale_starts_on)} 至 ${E(r.sale_ends_on)}</p>`+retailBundleFacts(r)+(retailBundleCanSell()?b('retail-bundle-sale','核对客户与套数',`data-id="${r.id}"`,'primary'):''))).join(''):panel('尚无启用套餐','<p>店长可发布包含商品、安装、参考金额、成交价及明确退货条款的版本，默认关闭，确认后启用新版本。</p>'));
+ return heading('精品销售套餐','',b('open','精品订单','data-route="retail"')+(retailBundleCanConfigure()?b('open','配置套餐规则','data-route="retail-bundle-rules"'):''))+storeNotice()+(current.length?current.map(r=>panel(r.name,`<p>销售期间 ${E(r.sale_starts_on)} 至 ${E(r.sale_ends_on)}</p>`+retailBundleFacts(r)+(retailBundleCanSell()?b('retail-bundle-sale','核对客户与套数',`data-id="${r.id}"`,'primary'):''))).join(''):panel('尚无启用套餐','<p>店长可发布包含商品、安装、参考金额、成交价及明确退货条款的版本，默认关闭，确认后启用新版本。</p>'));
 }
 async function retailBundleRulesPage(){
  if(state.store==='all')return heading('精品套餐配置')+storeNotice();
  const d=await api('/api/retail-bundles/rules');state.retailBundleRules=d.items;
- return heading('精品套餐配置','规则变更只影响之后开单，原单组成与已分摊金额保留。',b('open','返回套餐','data-route="retail-bundles"')+(retailBundleCanConfigure()?b('retail-bundle-rule','发布新套餐','','primary'):''))+d.items.map(r=>panel(retailBundleLabel(r),`<p>${r.is_latest?'当前版本':'历史版本'} · ${r.enabled?'本版本已启用':'本版本未启用'} · ${E(r.sale_starts_on)} 至 ${E(r.sale_ends_on)}</p>`+retailBundleFacts(r)+(retailBundleCanConfigure()&&r.is_latest?b('retail-bundle-rule','复制并发布下一版本',`data-id="${r.id}"`):''))).join('');
+ return heading('精品套餐配置','',b('open','返回套餐','data-route="retail-bundles"')+(retailBundleCanConfigure()?b('retail-bundle-rule','发布新套餐','','primary'):''))+d.items.map(r=>panel(retailBundleLabel(r),`<p>${r.is_latest?'当前版本':'历史版本'} · ${r.enabled?'本版本已启用':'本版本未启用'} · ${E(r.sale_starts_on)} 至 ${E(r.sale_ends_on)}</p>`+retailBundleFacts(r)+(retailBundleCanConfigure()&&r.is_latest?b('retail-bundle-rule','复制并发布下一版本',`data-id="${r.id}"`):''))).join('');
 }
 async function retailBundleSale(id){
  const rule=state.retailBundleRules.find(r=>r.id===id);if(!rule)throw new Error('套餐列表已变化，请刷新。');

@@ -68,7 +68,7 @@ async function rgReassign(key){
 }
 async function retailGroupRulesPage(){
  const c=rgContext(),data=await api('/api/retail-group/rules');c.rules=data;
- return (data.readiness_reason?`<div class="notice warn">${E(data.readiness_reason)}</div>`:'')+heading('精品权益商品规则','公司规则必须明确申请、由另一名主管批准，并在新批次发行时冻结。',data.can_create?b('rg-rule-new','申请商品适用规则'):'')+`<div class="notice warn">旧维修规则和旧钱包不会自动适用于商品。公司尚未确定部分退回与有效期规则时，不可发行商品用途的新批次。</div>`+panel('本店申请',table(['原申请','状态','办理'],data.items.map(r=>[E(r.title),E({draft:'待提交',approval:'待独立批准',completed:'已生效',cancelled:'已取消',rejected:'已拒绝'}[r.state]),b('open','查看',`data-route="retail-group-rule/${r.id}"`)])));
+ return (data.readiness_reason?`<div class="notice warn">${E(data.readiness_reason)}</div>`:'')+heading('精品权益商品规则','',data.can_create?b('rg-rule-new','申请商品适用规则'):'')+`<div class="notice warn">旧维修规则和旧钱包不会自动适用于商品。公司尚未确定部分退回与有效期规则时，不可发行商品用途的新批次。</div>`+panel('本店申请',table(['原申请','状态','办理'],data.items.map(r=>[E(r.title),E({draft:'待提交',approval:'待独立批准',completed:'已生效',cancelled:'已取消',rejected:'已拒绝'}[r.state]),b('open','查看',`data-route="retail-group-rule/${r.id}"`)])));
 }
 async function retailGroupRulePage(id){
  const c=rgContext(),row=await api('/api/retail-group/rules/'+id);c.rule=row;state.row=await api('/api/flow/cases/'+id);

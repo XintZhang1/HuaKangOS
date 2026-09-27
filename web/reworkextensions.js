@@ -3,7 +3,7 @@ const reworkGrantStates={pending:'待原店独立批准',approved:'已批准，�
 const reworkScopes={original_liability:'原责任，免客户收费',customer_extra:'本次新增自费'};
 async function reworkExtensionsPage(id){
  const advise=canWrite()&&['admin','service'].includes(state.user.role),manage=canWrite()&&['admin','manager'].includes(state.user.role);
- if(!id){const d=await api('/api/rework-extensions/grants');return heading('原责任与新增自费返修','原店批准责任项目和本次额度；接收店按行区分原责任与新增自费。',advise?b('rework-new','申请本次原责任授权','','primary'):'')+storeNotice()+panel('原责任授权',table(['原单与车辆','状态','原责任承担',''],d.items.map(g=>[`${E(g.source_number||'待原店批准')}<br>${E(g.vin||'')}`,E(reworkGrantStates[g.status]),`${E(g.responsible_name||'—')}<br>${g.original_liability_limit_cents===undefined?'—':money(g.original_liability_limit_cents)+' 元限额'}`,b('open','核对与办理',`data-route="rework-extensions/${g.id}"`)])));}
+ if(!id){const d=await api('/api/rework-extensions/grants');return heading('原责任与新增自费返修','',advise?b('rework-new','申请本次原责任授权','','primary'):'')+storeNotice()+panel('原责任授权',table(['原单与车辆','状态','原责任承担',''],d.items.map(g=>[`${E(g.source_number||'待原店批准')}<br>${E(g.vin||'')}`,E(reworkGrantStates[g.status]),`${E(g.responsible_name||'—')}<br>${g.original_liability_limit_cents===undefined?'—':money(g.original_liability_limit_cents)+' 元限额'}`,b('open','核对与办理',`data-route="rework-extensions/${g.id}"`)])));}
  const g=await api('/api/rework-extensions/grants/'+id);state.reworkGrant=g;
  const source=g.requested_by!==undefined,buttons=[];
  if(source&&g.status==='pending'&&manage&&g.requested_by!==state.user.id)buttons.push(b('rework-decide','独立批准原责任','data-key="approve"','primary'),b('rework-decide','拒绝','data-key="reject"'));

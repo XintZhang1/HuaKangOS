@@ -12,7 +12,7 @@ async function businessEntitiesPage(){
  if(!catalog.can_read)return heading('经营主体与账户归属')+'<div class="notice">请选择门店</div>';
  const data=await api('/api/business-entities/configuration'),list=await api('/api/business-entities/applications');c.configuration=data;
  const buttons=catalog.can_create?Object.entries(beOperations).map(([key,label])=>b('be-new','申请'+label,`data-kind="${key}"`)).join(''):'';
- return heading('经营主体与账户归属','管理员提出来源资料，另一名主管独立核对批准。',buttons)+
+ return heading('经营主体与账户归属','',buttons)+
  `<div class="notice warn">${E(data.limitation)}</div>`+panel('本店当前批准主体',beLegal(data.store_binding?.entity)+facts({'生效日':data.store_binding?.effective_from,'新业务冻结':data.policy?'已批准启用；原业务归属继续保留':'尚未启用，历史归属不会自动补填'}))+
  panel('实际资金账户',data.accounts.map(a=>`<div class="card">${facts({'账户':a.name,'状态':a.active?'启用':'停用','批准户名':a.binding?.holder_name||'尚未批准','渠道':a.binding?.channel_identifier||'尚未批准','资料版本编号':a.binding?.revision_id})}</div>`).join('')||'<p>尚无本店资金账户。</p>')+
  panel('切换为另一主体前的检查',data.switch_blockers.length?data.switch_blockers.map(r=>`<p class="notice warn">${E(r)}</p>`).join(''):'<p>当前基础检查未发现资金、库存或未结业务阻挡；批准时会再次检查。</p>')+

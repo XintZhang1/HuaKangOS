@@ -15,7 +15,7 @@ async function observationCorrectionsPage(section='vehicles',id){
  const catalog=await api('/api/observation-corrections/catalog');ctx.catalog=catalog;
  if(id)ctx.vehicleId=Number(id);else if(!ctx.vehicleId&&catalog.vehicles.length)ctx.vehicleId=catalog.vehicles[0].id;
  const pick=`<form id="oc-vehicle-select" class="filterbar"><label>本店获权客户车辆<select name="vehicle_id" required><option value="">请选择车辆</option>${catalog.vehicles.map(v=>`<option value="${v.id}" ${v.id===ctx.vehicleId?'selected':''}>${E(v.label)}</option>`).join('')}</select></label><button type="submit" class="primary">查看原观察</button></form>`;
- let html=heading('日期里程原观察纠正','按原资料纠正误登记，保留旧提醒与批准依据。',catalog.can_generate?b('oc-generate','按有效来源检查提醒'):'')+storeNotice()+pick+`<div class="notice">${E(catalog.notice)}</div>`;
+ let html=heading('日期里程原观察纠正','',catalog.can_generate?b('oc-generate','按有效来源检查提醒'):'')+storeNotice()+pick+`<div class="notice">${E(catalog.notice)}</div>`;
  if(!ctx.vehicleId)return html+empty('先选择已确认的客户车辆');
  const value=await api(`/api/observation-corrections/vehicles/${ctx.vehicleId}`);ctx.vehicle=value;
  html+=panel('当前实际里程',`<p>${E(value.vehicle.plate)}</p><p class="fieldhelp">VIN：${E(value.vehicle.vin)}</p><p>${value.vehicle.odometer_km==null?'尚无独立实际里程来源':E(number(value.vehicle.odometer_km))+' 公里 · '+E(value.vehicle.observed_date)}</p><p class="fieldhelp">保险办理带入的历史数值不作为实测里程。</p>`);
