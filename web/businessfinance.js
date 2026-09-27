@@ -47,7 +47,7 @@ async function businessFinanceCreate(key,id){
  if(key==='fee_correction')return businessFinanceFeeCorrection();
  if(key==='other_return_adjust')return businessFinanceReturnAdjust();
  if(key==='other_return_refund')return businessFinanceSupplierRefund();
- const context=state.businessFinanceCustomer,fields=[],initial={},request_id=requestKey();let advance,receipts,targets=[];
+ const context=state.businessFinanceCustomer,fields=[],initial={};let advance,receipts,targets=[],request_id=requestKey();
  if(['advance','advance_apply','advance_refund'].includes(key))fields.push(F('amount','本次金额（元）','money'));
  if(key==='advance_apply'){advance=context.advances.find(a=>a.id===Number(id));targets=context.sources;if(!targets.length)throw new Error('本客户没有通过原业务关口的可抵用客户应收。');fields.push(F('source','原单及当前未结','select',true,targets.map(s=>`${s.number} · ${money(s.due_cents)}元`)));}
  if(key==='advance_refund')advance=context.advances.find(a=>a.id===Number(id));
@@ -65,12 +65,20 @@ async function businessFinanceCreate(key,id){
   if(key==='advance_apply'){const t=targets.find(s=>v.source===`${s.number} · ${money(s.due_cents)}元`);Object.assign(values,{target_case_id:t.case_id,target_version:t.version});}
   if(key==='statement')values={starts_on:v.starts_on,ends_on:v.ends_on};
   if(['correction','stored_correction'].includes(key)){const r=receipts.find(r=>v.original===businessFinanceReceiptLabel(r));if(key==='correction'){const allocations=targets.map(t=>({source_case_id:t.case_id,amount_cents:businessFinanceZero(v['allocation_'+t.case_id])})).filter(a=>a.amount_cents>0);values={original_cash_id:r.cash_id,amount_cents:allocations.reduce((n,a)=>n+a.amount_cents,0)+(r.refunded_cents||0),allocations,allocation_basis:'remaining_after_refunds'};}else values={original_cash_id:r.cash_id,amount_cents:businessFinanceZero(v.amount),source_version:r.source_version,...(r.bundle_purchase_id?{bundle_purchase_id:r.bundle_purchase_id}:{})};if(values.amount_cents)Object.assign(values,{account_id:v.account_id,reference:v.reference});if(v.actual_business_date)values.actual_business_date=v.actual_business_date;}
-  const d=await api('/api/business-finance/orders',{method:'POST',body:{request_id,customer_id:context.customerId,purpose:key,values,reason:v.reason}});go('business-finance-order/'+d.case.id);
+  let d;
+  try{
+   d=await api('/api/business-finance/orders',{method:'POST',body:{request_id,customer_id:context.customerId,purpose:key,values,reason:v.reason}});
+  }catch(error){
+   // 弹窗保持打开供修改；这次没有成功入账，换新请求编号，避免改对内容也被当成重复提交回放。
+   request_id=requestKey();
+   throw error;
+  }
+  go('business-finance-order/'+d.case.id);
  },{notice:key==='correction'?'只更正录入错误。填写各原业务在扣除已实际退款后正确的剩余分配；系统自动加回已退款，得到正确总原款。剩余分配全部为0且没有旧退款才表示完全未到账。原退款账户和事实始终保留，不再次退款。':key==='stored_correction'?'仅更正录入错误。系统保留原现金及原分配，追加冲正和可选正确重记；正确金额填0表示完全未到账。已消费或已批准占用的本金不会被抹除。组合须为原每份本金的整数倍，逐项同步原赠品，保留原到期日。这里不登记实际退款。':'申请先保留来源及理由；抵用、退款和月结须独立复核，真实到账须由财务凭据确认。'});
 }
 async function businessFinanceFeeCorrection(){
  if(!state.catalog?.capabilities?.member_fee_corrections)throw new Error('本次服务尚未启用续会费登记更正，请刷新后核对。');
- const context=state.businessFinanceCustomer,request_id=requestKey();
+ const context=state.businessFinanceCustomer;let request_id=requestKey();
  const rows=(await api('/api/business-finance/receipts?customer_id='+context.customerId)).items.filter(r=>r.source_kind==='membership_fee');
  if(!rows.length)throw new Error('暂无可更正的本店正数续会费；在办原款更正或实际退款须先完成或取消。');
  await formDialog('续会费同额登记更正',[F('original','已核对的原续会费','select',true,rows.map(businessFinanceReceiptLabel)),F('account_id','正确的原收款账户','account'),F('reference','正确银行流水或收款凭证号'),F('reason','登记错误及核对依据','textarea')],{},async v=>{

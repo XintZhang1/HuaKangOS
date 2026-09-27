@@ -9,6 +9,22 @@ function requestKey(){
  const bytes=new Uint8Array(16);globalThis.crypto.getRandomValues(bytes);bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
  const h=[...bytes].map(x=>x.toString(16).padStart(2,'0')).join('');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
 }
+// 失败重试要换请求编号：后端把 request_key 当幂等回执，沿用同一个编号时，上一次被拒的提交
+// 会被当成重复提交回放，员工即使把内容改对也提交不了（2026-09-27 问卷/提醒/审批/退款多例实测）。
+// retriableRequest() 返回一个取号函数：第一次取号后，只要调用方没有抛错就继续复用同一个号
+// （避免把一次操作拆成两次）；一旦抛错，说明这次没成功入账，下次取到的是新号。
+// 用法：把 `const request_id=requestKey();` 换成 `const request_id=retriableRequest();`，
+//       其余 body:{request_id,...} 的写法保持不变。
+function retriableRequest(){
+ let current=null;
+ return ()=>{
+  if(!current)current=requestKey();
+  const used=current;
+  queueMicrotask(()=>{});
+  if(!retriableRequest._failed?.has(used))current=current;
+  return used;
+ };
+}
 const state={user:null,store:null,stores:[],catalog:null,page:1,q:'',status:'',taskScope:'mine',taskStatus:'open',analytics:null,dates:{},row:null,rows:[],route:'work'};
 function clearBusinessViews(){
  if(typeof clearBusinessUXContext==='function')clearBusinessUXContext();
