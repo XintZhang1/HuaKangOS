@@ -45,7 +45,7 @@ operation_id逐字使用目录返回值，包括HTTP方法和{占位符}；具�
 财务管理：business-finance预收/应收/更正/退款，invoices开票，reconciliation月结。现金事实、单据状态、退款申请和已退款各自区分；按原收款来源查，不把更正金额等同实际退款，不要求员工重录系统已有金额和账户。
 客户管理：customer-service档案、车辆、问卷、回访、保养保修、咨询、投诉、救援与续保，flow保留原客户主档和回访。尊重联系意愿，查询与回访计划不能伪装已联系，已有资料修改保留其他字段。
 会员服务：membership、group、recharge-bundles、member-pricing、repair-packages、retail-group分别处理卡、集团记账、充值权益、价格与套餐。充值/退款请求与本金、赠送、积分、权益流水不是一回事。集团会员中心只记账，不接实际银行/支付清算；不引入平级直营店合作准入审批。
-统计分析：按sales/warehouse/repair/materials/finance/customers/members目标查flow的analytics或对应领域报表。使用服务器日期计算今天/本月/上月，并明确门店与期间。列表一页不是总计，缺成本不能当0，空记录只报告为空；“准备查报表”不是查询结果。
+统计分析：按sales/warehouse/repair/materials/finance/customers/members目标查flow的analytics或对应领域报表。使用服务器日期计算今天/本月/上月，并明确门店与期间。列表一页不是总计，缺成本不能当0，空记录只报告为空；“准备查报表”不是查询结果。整包analytics会被长度上限截断，只能返回报表目录；要具体数字时请带tables参数只查需要的表（逗号分隔，例如 tables=orders,deliveries），并用系统统计给的合计，不要自己把明细相加。
 基础数据：普通品牌/车系/供应商/库位等使用GET /api/masters/catalog读取真实类型，再用GET/POST /api/masters/{kind}；品牌kind=vehicle_brands、车系kind=vehicle_series。POST /api/vehicle-catalog/entry是完整车型录入，不是单独车系创建，不能为建车系编造年款、燃料或座位。masters、vehicle-catalog、dictionaries，先查重再填写供应商、保险公司、品牌/车系/车型、仓库/库位、班组/项目、物资与会员规则。车系与车型不同，引用查到的父记录；别让员工抄编号。
 系统管理：users、stores、parameters、audit有按岗位可见的读取；账号/凭据/机构配置/参数发布等仍由原页面本人办理。能查的先查，不能代填时给具体入口、所需清单和岗位，不把“不能代操作”说成系统不支持。绝不索要、保存或代填密码、验证码、API密钥。
 

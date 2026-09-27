@@ -171,6 +171,39 @@ def _iter_report_tables(node,depth=0):
         yield from _iter_report_tables(value,depth+1)
 
 
+def report_table_index(result):
+    """把过大的报表结果压成“表名 + 行数 + 金额合计”目录，供模型按表再查一次。"""
+    index=[]
+    for key,table in _iter_report_tables_keyed(result):
+        rows=table.get('rows') or []
+        headers=table.get('headers') or []
+        entry={'table':key,'title':safe_text(table.get('title') or key,40),'rows':len(rows)}
+        for position,header in enumerate(headers[:TABLE_CAP]):
+            total=None;counted=0
+            for row in rows:
+                values=row.get('values') if isinstance(row,dict) else None
+                if not isinstance(values,list) or position>=len(values):break
+                number=_money_number(values[position])
+                if number is None:break
+                total=(total or Decimal(0))+number;counted+=1
+            else:
+                if total is not None and counted==len(rows) and '（元）' in str(header):
+                    entry.setdefault('totals',{})[safe_text(header,30)]=format(total,'.2f')
+        index.append(entry)
+        if len(index)>=80:break
+    return index
+
+
+def _iter_report_tables_keyed(node,key='',depth=0):
+    if depth>4 or not isinstance(node,dict):return
+    headers=node.get('headers');rows=node.get('rows')
+    if isinstance(headers,list) and headers and isinstance(rows,list):
+        yield key,node
+        return
+    for name,value in list(node.items())[:TABLE_CAP]:
+        yield from _iter_report_tables_keyed(value,str(name),depth+1)
+
+
 def safe_text(value, maximum=6000):
     text=str(value or '')
     text=re.sub(r'\b(?:sk|tp)-[A-Za-z0-9_-]{10,}\b','[密钥已隐藏]',text)
@@ -982,9 +1015,19 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                     except (ValueError,KeyError,TypeError):
                         result={'status':422,'error':'操作参数格式有误，请重新检查字段'}
                         record_issue(db,user,session_id,'model','助手生成的操作参数格式有误',synthetic=config.synthetic)
-                    encoded=json.dumps(scrub(result),ensure_ascii=False)
+                    cleaned=scrub(result)
+                    encoded=json.dumps(cleaned,ensure_ascii=False)
                     if len(encoded)>36000:
-                        encoded=json.dumps({'truncated':True,'message':'结果较多，请指定领域、资料类型或业务编号进一步查询'},ensure_ascii=False)
+                        # 2026-09-27 报表实测：整包 analytics 一定超过本上限，模型只看到"结果较多"，
+                        # 于是回答"读不到"或改用别的口径自己算（合计与页面不符）。这里改成返回**报表目录**
+                        # （表名、行数、金额合计）：模型据此用 tables 参数只取需要的那张表，即可拿到全量数字。
+                        index=report_table_index(result)
+                        if index:
+                            encoded=json.dumps({'truncated':True,
+                                'message':'结果较多，本次只返回报表目录。请用 tables 参数只查询需要的表名（逗号分隔）。',
+                                'tables':index},ensure_ascii=False)
+                        else:
+                            encoded=json.dumps({'truncated':True,'message':'结果较多，请指定领域、资料类型或业务编号进一步查询'},ensure_ascii=False)
                     messages.append({'role':'tool','tool_call_id':call.get('id',''),'content':encoded})
                     # 2026-09-27 报表实测：模型逐行列对了 5 张订单，却把合计写成 733,800 / 直接成本 702,000
                     # （正确 735,200 / 662,500），而它自己列的明细相加正好等于正确值；同一会话里对"交付 0 条"
