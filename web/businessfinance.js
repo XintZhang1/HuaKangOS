@@ -5,7 +5,7 @@ businessFinanceNames.fee_correction='续会费同额登记更正';
 const businessFinanceFront=()=>canWrite()&&['admin','manager','finance','sales','service','reception','customer_service'].includes(state.user.role);
 const businessFinanceCash=()=>canWrite()&&['admin','finance'].includes(state.user.role);
 const businessFinanceManager=()=>canWrite()&&['admin','manager'].includes(state.user.role);
-const businessFinanceZero=v=>/^0(?:\.0{1,2})?$/.test(String(v||'0'))?0:groupFen(v);
+const businessFinanceZero=v=>moneyFen(v||'0',{label:'金额',allowZero:true});
 const businessFinanceReceiptLabel=r=>`${r.business_date} · ${r.account} · ${r.reference} · ${money(r.amount_cents)}元`+(r.bundle_name?` · ${r.bundle_name}（每份${money(r.bundle_principal_per_share)}元）`:'')+(r.refunded_cents?` · 已实退${money(r.refunded_cents)}元，剩余${money(r.net_amount_cents)}元`:'');
 async function businessFinancePage(customerId){
  if(state.store==='all')return heading('业务财务结算')+storeNotice();
@@ -65,7 +65,8 @@ async function businessFinanceCreate(key,id){
   if(key==='advance_apply'){const t=targets.find(s=>v.source===`${s.number} · ${money(s.due_cents)}元`);Object.assign(values,{target_case_id:t.case_id,target_version:t.version});}
   if(key==='statement')values={starts_on:v.starts_on,ends_on:v.ends_on};
   if(['correction','stored_correction'].includes(key)){const r=receipts.find(r=>v.original===businessFinanceReceiptLabel(r));if(key==='correction'){const allocations=targets.map(t=>({source_case_id:t.case_id,amount_cents:businessFinanceZero(v['allocation_'+t.case_id])})).filter(a=>a.amount_cents>0);values={original_cash_id:r.cash_id,amount_cents:allocations.reduce((n,a)=>n+a.amount_cents,0)+(r.refunded_cents||0),allocations,allocation_basis:'remaining_after_refunds'};}else values={original_cash_id:r.cash_id,amount_cents:businessFinanceZero(v.amount),source_version:r.source_version,...(r.bundle_purchase_id?{bundle_purchase_id:r.bundle_purchase_id}:{})};if(values.amount_cents)Object.assign(values,{account_id:v.account_id,reference:v.reference});if(v.actual_business_date)values.actual_business_date=v.actual_business_date;}
-  const d=await api('/api/business-finance/orders',{method:'POST',body:{request_id,customer_id:context.customerId,purpose:key,values,reason:v.reason}});go('business-finance-order/'+d.case.id);
+  const d=await api('/api/business-finance/orders',{method:'POST',body:{request_id,customer_id:context.customerId,purpose:key,values,reason:v.reason}});
+  go('business-finance-order/'+d.case.id);
  },{notice:key==='correction'?'只更正录入错误。填写各原业务在扣除已实际退款后正确的剩余分配；系统自动加回已退款，得到正确总原款。剩余分配全部为0且没有旧退款才表示完全未到账。原退款账户和事实始终保留，不再次退款。':key==='stored_correction'?'仅更正录入错误。系统保留原现金及原分配，追加冲正和可选正确重记；正确金额填0表示完全未到账。已消费或已批准占用的本金不会被抹除。组合须为原每份本金的整数倍，逐项同步原赠品，保留原到期日。这里不登记实际退款。':'申请先保留来源及理由；抵用、退款和月结须独立复核，真实到账须由财务凭据确认。'});
 }
 async function businessFinanceFeeCorrection(){
@@ -96,7 +97,8 @@ async function businessFinanceOther(){
 }
 async function businessFinanceAction(key){
  const d=state.businessFinanceOrder,o=d.order,fields=[],initial={},cash=['execute','collect'].includes(key)&&['advance','advance_refund','statement','other_return','other_return_refund'].includes(o.purpose),sources=new Set();
- if(['approve','execute','collect'].includes(key))fields.push(F('evidence_id','本次批准／实际收退款凭据','file'));
+ if(['approve','execute','collect'].includes(key))fields.push({...F('evidence_id','本次批准／实际收退款凭据','file'),
+   file_category:['approve'].includes(key)?'evidence':'receipt'});
  if(cash)fields.push(F('account_id','本店实际收退款账户','account'),F('reference','真实银行流水或收款凭证号'));
  if(cash&&o.purpose==='other_return_refund')initial.account_id=o.values.original_account_id;
  if(key==='collect'&&o.purpose==='statement')for(const l of d.lines){fields.push(F('allocation_'+l.source_case_id,l.snapshot.number+' 本次分配（元）','money_zero'));initial['allocation_'+l.source_case_id]=money(l.due_cents-d.allocations.filter(a=>a.statement_line_id===l.id).reduce((n,a)=>n+a.amount_cents,0)).replaceAll(',','');sources.add(l.source_case_id);}

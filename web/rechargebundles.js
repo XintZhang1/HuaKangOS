@@ -44,7 +44,8 @@ async function rechargeBundleCreate(key,id){
 async function rechargeBundleAction(key){
  const d=state.rechargeBundleOrder,fields=[],request_id=requestKey();
  if(key==='execute')fields.push(F('account_id',d.order.purpose==='refund'?'原收款门店原账户':'真实收款账户','account'),F('reference','实际银行流水或收退款凭证号'));
- if(['approve','execute'].includes(key))fields.push(F('evidence_id',key==='execute'?'本单实际收付款凭据':'本单客户申请与复核凭据','file'));
+ if(['approve','execute'].includes(key))fields.push({...F('evidence_id',key==='execute'?'本单实际收付款凭据':'本单客户申请与复核凭据','file'),
+   file_category:key==='execute'?'receipt':'evidence'});
  fields.push(F('reason','本人核对的事实及办理依据','textarea'));
  await formDialog({approve:'独立复核完整份额',execute:d.order.purpose==='purchase'?'确认真实到账':'确认原账户实际退款',cancel:'撤销并释放原占额',reject:'退回组合申请'}[key],fields,d.order.purpose==='refund'?{account_id:d.purchase?.effective_account?.id}:{},v=>api(`/api/recharge-bundles/orders/${d.case.id}/actions/${key}`,{method:'POST',body:{request_id,version:d.order.version,case_version:d.case.version,member_version:d.member.version,values:v}}),{caseId:d.case.id,notice:`本次${d.order.values.shares}个完整份额，${money(d.case.amount_cents)}元。${key==='execute'?'先核对真实银行办理结果，系统不代为转账。':''}${d.rule.mandatory_terms} ${d.rule.refund_terms}`});
 }

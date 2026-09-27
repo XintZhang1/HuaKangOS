@@ -3,7 +3,7 @@ const gateStatus={planned:'待实际进厂',inside:'已实际进厂',departed:'�
 const gateActionNames={arrive:'确认实际进厂',leave:'确认实际离场',cancel:'取消未进厂安排',handoff:'沿本次进厂转维修',correct:'申请原事实纠正'};
 const gateCorrectionKinds={arrive_time:'纠正原进厂时间',leave_time:'纠正原离场时间',void_visit:'撤销错误进出厂登记'};
 const gateReviewStatus={pending:'待独立复核',approved:'已批准',rejected:'未通过',cancelled:'申请已撤销'};
-function gateFilesField(){return '<label>办理凭据'+caseFilePickerHTML('evidence_id',state.row.id,state.row.files||[])+'</label>';}
+function gateFilesField(){return '<label>办理凭据'+caseFilePickerHTML('evidence_id',state.row.id,state.row.files||[],'evidence')+'</label>';}
 
 function gateReasonField(){return '<label>本人核实的事实及依据<textarea name="reason" required minlength="2" maxlength="1000"></textarea></label>';}
 function gateActualFields(){return `<label>现场逐位核对 VIN<input name="checked_vin" required minlength="17" maxlength="17" pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{17}" autocomplete="off"></label><label>实际发生时间<input type="datetime-local" name="actual_at" required value="${intakeLocal(new Date())}"></label>${gateFilesField()}${gateReasonField()}<label class="checkrow"><input type="checkbox" name="confirmed" required>我已核实本车和凭据，确认本次进出厂已实际发生，不是预约或业务状态推断。</label>`;}

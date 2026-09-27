@@ -2,7 +2,7 @@
 const retailNames={approve:'主管价格授权',authorize:'记录客户报价确认',cancel:'取消未出库订单',dispatch:'确认整单实际出库',install:'确认实际安装',accept:'确认客户接收',receive:'登记实际收款',return_request:'申请原单部分退货',return_approve:'批准退货',return_cancel:'撤销未验收退货',return_receive:'检查退货可售性',return_rectify:'提交退货整改',refund:'登记原款实际退款',return_reject:'决定拒收并交回',return_handback:'确认拒收商品交回'};
 const retailReturnNames={requested:'待主管复核',approved:'待可售验收',rectification:'验收不合格，待整改',reinspection:'待复检',accepted:'已验收入库',cancelled:'已撤销',handback:'拒收待实物交回',rejected:'已拒收并交回客户'};
 function retailScaled(value,digits){
- const s=String(value).trim();
+ const s=moneyDigits(value).trim();   // 金额/数量输入同样接受千分位与全角字符
  if(![0,2,3].includes(digits))throw new Error('数值精度配置无效。');
  const pattern=digits===0?/^\d+$/:new RegExp('^\\d+(\\.\\d{1,'+digits+'})?$');
  if(!pattern.test(s))throw new Error(digits===0?'券和套餐须填写整数份数。':'金额最多两位、数量最多三位小数。');
@@ -18,6 +18,7 @@ async function retailPage(id){
  if(r.state==='authorization'&&allowed('authorize'))buttons.push(button('authorize'));
  if(!r.data.dispatched&&!r.data.cancelled&&allowed('cancel'))buttons.push(button('cancel'));
  if(r.state==='pending'&&allowed('dispatch'))buttons.push(button('dispatch'));
+ if(canWrite()&&!r.data.cancelled&&['admin','inventory'].includes(state.user.role))buttons.push(b('open','准备物资库位',`data-route="warehouse-allocation/${r.id}"`));
  const active=r.returns.some(x=>!['accepted','cancelled','rejected'].includes(x.status));
  if(r.data.dispatched&&!r.data.installed&&!r.data.accepted_date&&!active&&r.lines.some(l=>l.work_item_id)&&allowed('install'))buttons.push(button('install'));
  if(r.data.dispatched&&!r.data.accepted_date&&!active&&allowed('accept'))buttons.push(button('accept'));
@@ -66,7 +67,8 @@ async function retailAction(key,id){
  if(key==='receive'||key==='refund'){fields.push(F('amount','本次实际金额（元）','money'),F('account_id','实际资金账户','account'),F('reference','实际流水／凭证号'));initial.amount=key==='receive'?((r.totals.cash_collectable_cents??r.totals.receivable_cents)/100).toFixed(2):'';}
  const originals=r.payments.filter(p=>p.direction==='in'&&(p.refundable_cents===undefined||p.refundable_cents>0)&&p.amount_cents>r.payments.filter(x=>x.original_id===p.id).reduce((n,x)=>n+x.amount_cents,0)),paymentLabels=originals.map(p=>`${p.id} · 收款 ${money(p.amount_cents)} 元${p.refundable_cents===undefined?'':' · 本次原份额可退 '+money(p.refundable_cents)+' 元'}`);
  if(key==='refund')fields.push(F('original','原始收款','select',true,paymentLabels));
- if(!['approve','cancel','return_approve','return_cancel','return_reject'].includes(key))fields.push(F('evidence_id',key==='authorize'?'本单客户授权类别凭据':['receive','refund'].includes(key)?'本单收退款类别凭据':'本单实际凭据','file'));
+ if(!['approve','cancel','return_approve','return_cancel','return_reject'].includes(key))fields.push({...F('evidence_id',key==='authorize'?'本单客户授权类别凭据':['receive','refund'].includes(key)?'本单收退款类别凭据':'本单实际凭据','file'),
+   file_category:{authorize:'authorization',receive:'receipt',refund:'receipt'}[key]||'evidence'});
  await formDialog(retailNames[key],fields,initial,v=>{const values={...v,...extra};if(v.minimum!==undefined){values.minimum_total_cents=retailScaled(v.minimum,2);delete values.minimum;}if(v.amount!==undefined){values.amount_cents=retailScaled(v.amount,2);delete values.amount;}if(v.source!==undefined){values.lines=[{dispatch_id:sources[sourceLabels.indexOf(v.source)].id,quantity_milli:retailScaled(v.quantity,3)}];delete values.source;delete values.quantity;}if(v.outcome!==undefined){values.passed=v.outcome==='合格';delete values.outcome;}if(v.original!==undefined){values.original_payment_id=originals[paymentLabels.indexOf(v.original)].id;delete values.original;}return api(`/api/retail/orders/${r.id}/actions/${key}`,{method:'POST',body:{request_id,version:r.version,values}});},{caseId:r.id,notice:key==='authorize'?`客户确认须对应第 ${r.revision} 版报价及安装费用保留约定。`:key==='return_receive'?'不合格不会回到可售库存或增加退款额度。整改并复检通过后才按原单数量及价值入库。':key==='return_approve'?'授权按原出库商品金额比例退货；实际验收按剩余数量分摊，最后一次收尽余分。已完成安装的对应安装费保留。':'请只确认本人实际核对的事实；后台再次检查岗位、当前版本和原单关联。'});
 }
 document.addEventListener('click',async event=>{const el=event.target.closest('[data-act]');if(!el?.dataset.act.startsWith('retail-'))return;try{switch(el.dataset.act){case'retail-new':await retailNew();break;case'retail-action':await retailAction(el.dataset.key,Number(el.dataset.id));break;case'retail-add-line':$('#retail-lines').insertAdjacentHTML('beforeend',state.retailLineHtml);break;case'retail-remove-line':if(document.querySelectorAll('[data-retail-line]').length<=1)throw new Error('至少保留一行商品。');el.closest('[data-retail-line]').remove();break;}}catch(error){toast(error.message,true);}});

@@ -13,6 +13,42 @@ from .db import today
 def f(key, label, type='text', required=True, **kw):
     return dict(key=key,label=label,type=type,required=required,**kw)
 
+
+# 凭据类别的唯一口径：界面下拉、字段要求说明与服务端校验都从这里取词。
+# 之前每个动作各自写中文（“客户授权凭据”“到账凭据”），下拉里却是“客户授权/业务凭据”，
+# 员工只能猜，猜错才被 422 拒绝。这里把“类别键 → 中文名”固定下来：
+# - 字段声明用 file_category='authorization' 表达“本动作需要客户授权类别”；
+# - 界面据此预选下拉并就地说明；
+# - 服务端校验失败时用同一批词说明应选哪一类。
+UPLOAD_CATEGORY_LABELS={
+    'evidence':'业务凭据',
+    'authorization':'客户授权',
+    'receipt':'收退款凭据',
+    'inspection':'检测记录',
+    'invoice':'发票',
+    'procurement_contract':'采购合同与核价凭据',
+    'signed_contract':'合同签回件',
+    'signed_handover':'提车签回件',
+}
+
+
+def category_label(key):
+    """把类别键翻译成界面用词；未知键原样返回，避免静默改写业务含义。"""
+    return UPLOAD_CATEGORY_LABELS.get(key,key or '')
+
+
+def file_requirement(field):
+    """返回字段的凭据类别要求：单类返回键，多类返回元组，无要求返回 None。"""
+    value=field.get('file_category') if isinstance(field,dict) else None
+    if not value:return None
+    return tuple(value) if isinstance(value,(list,tuple)) else value
+
+
+def requirement_text(requirement):
+    if not requirement:return ''
+    keys=requirement if isinstance(requirement,(list,tuple)) else (requirement,)
+    return '、'.join(category_label(key) for key in keys)
+
 NAME=f('customer_name','客户姓名'); PHONE=f('customer_phone','联系电话',required=False)
 NOTE=f('note','说明','textarea',False)
 REASON=f('reason','原因','textarea')
@@ -21,7 +57,7 @@ ASSIGNEE=f('assignee_id','接手员工','employee')
 MONEY=f('amount','金额（元）','money')
 ACCOUNT=f('account_id','收付款账户','account')
 VOUCHER=f('reference','银行流水号或凭证号')
-EVIDENCE=f('evidence_id','到账凭据','file')
+EVIDENCE=f('evidence_id','到账凭据','file',file_category='receipt')
 PAY_FIELDS=[MONEY,ACCOUNT,VOUCHER,EVIDENCE]
 CUSTOMER_FIELDS=[NAME,PHONE]
 ITEM=f('item_id','物资','item'); QTY=f('quantity','数量','quantity')
@@ -57,11 +93,11 @@ SPECS_V1={
  actions=[a('approve','确认订单','manager','reserved',task='approve'),
  a('revise','修改待确认订单','sales','reserved',[f('model','订购车型'),f('amount','车辆约定金额（元）','money'),REASON]),
  a('allocate','选择配车','inventory','executing',[f('vehicle_id','可用车辆','vehicle')],task='allocate'),
- a('sign','确认合同签回','sales','executing',[f('evidence_id','已签合同','signed_file')],task='sign'),
+ a('sign','确认合同签回','sales','executing',[f('evidence_id','已签合同','signed_file',file_category='signed_contract')],task='sign'),
  a('receive','登记实际收款','finance','executing',PAY_FIELDS,task='receive'),
- a('inspect','确认交车检查','technician,service','executing',[f('evidence_id','检测记录','file'),f('result','检查结论','textarea')],task='inspect'),
- a('dispatch','确认车辆出库','inventory','executing',[f('evidence_id','出库凭据','file')],task='dispatch'),
- a('deliver','确认客户提车','sales','executing',[f('evidence_id','提车签回件','handover_file')],task='deliver',confirm='确认客户已经接车。本操作记录实际交接，不可用来预先推进流程。'),
+ a('inspect','确认交车检查','technician,service','executing',[f('evidence_id','检测记录','file',file_category='inspection'),f('result','检查结论','textarea')],task='inspect'),
+ a('dispatch','确认车辆出库','inventory','executing',[f('evidence_id','出库凭据','file',file_category='evidence')],task='dispatch'),
+ a('deliver','确认客户提车','sales','executing',[f('evidence_id','提车签回件','handover_file',file_category='signed_handover')],task='deliver',confirm='确认客户已经接车。本操作记录实际交接，不可用来预先推进流程。'),
  a('cancel_request','申请退订','sales','reserved,executing',[REASON]),
  a('cancel_approve','批准退订','manager','cancel_review',task='cancel_approve'),
  a('cancel_reject','退回退订申请','manager','cancel_review',[REASON],task='cancel_approve'),
@@ -69,45 +105,47 @@ SPECS_V1={
 'repair':dict(label='维修工单',module='repair',create_roles=['service','admin','manager'],
  fields=CUSTOMER_FIELDS+[f('plate','车牌号'),f('repair_type','业务类型','select',options=['一般维修','保养','洗车','保险理赔','厂家索赔','返修','新车检测']),f('problem','客户描述','textarea'),f('due_date','预计完工日期','future_date')],initial='assessment',
  actions=[a('quote','登记报价','service','assessment',[f('labor','工时金额（元）','money_zero'),f('parts','配件金额（元）','money_zero'),f('discount','优惠金额（元）','money_zero'),f('labor_cost','工时直接成本（元）','money_zero'),f('payer','结算方','select',options=['客户','保险公司','厂家','内部']),f('work','施工项目','textarea')],task='quote'),
- a('authorize','确认客户授权','service','authorization',[f('evidence_id','客户授权凭据','file')],task='authorize'),
+ a('authorize','确认客户授权','service','authorization',[f('evidence_id','客户授权凭据','file',file_category='authorization')],task='authorize'),
  a('start','接车开工','technician,service','working',task='work'),
  a('material','申请领料','technician,service','working',[ITEM,QTY,NOTE]),
  a('return_material','退回未用材料','technician,service','working,quality',[f('move_id','原领料记录','stock_issue'),QTY,REASON]),
  a('finish','报完工','technician,service','working',[f('result','施工结果','textarea')],task='work'),
- a('quality','通过质检','service','quality',[f('evidence_id','质检记录','file')],task='quality'),
+ a('quality','通过质检','service','quality',[f('evidence_id','质检记录','file',file_category='inspection')],task='quality'),
  a('rework','退回返工','service','quality',[REASON],task='quality'),
  a('receive','登记实际收款','finance','settling',PAY_FIELDS,task='receive'),
  a('apply_balance','使用会员余额','finance','settling',[MEMBER,MONEY,EVIDENCE]),
  a('internal_settle','确认内部承担','manager','settling',[REASON],task='internal_settle'),
  a('credit','批准月结交车','manager','settling',[f('due_date','约定付款日','future_date'),REASON]),
- a('release','确认客户接车','service','settling',[f('evidence_id','接车凭据','file')],task='release'),
+ a('release','确认客户接车','service','settling',[f('evidence_id','接车凭据','file',file_category='evidence')],task='release'),
  a('late_receive','登记月结到账','finance','credit_open',PAY_FIELDS,task='receive'),
  a('cancel','取消未授权工单','service','assessment,authorization',[REASON])]),
 'addon':dict(label='精品加装',module='sales',create_roles=[],fields=[],initial='pending',
  actions=[a('service_quote','确认加装金额','sales','pending',[f('amount','加装收费（元）','money_zero'),f('work','加装项目','textarea')],task='service'),
  a('material','申请领料','technician,service','working',[ITEM,QTY,NOTE]),
- a('service_finish','确认加装完成','technician,service','working',[f('evidence_id','完工凭据','file')],task='work'),
+ a('service_finish','确认加装完成','technician,service','working',[f('evidence_id','完工凭据','file',file_category='evidence')],task='work'),
  a('receive','登记实际收款','finance','settling',PAY_FIELDS,task='receive')]),
 'insurance':dict(label='车辆保险',module='sales',create_roles=['service','admin','manager'],
  fields=CUSTOMER_FIELDS+[f('plate','车牌号',required=False),NOTE],initial='pending',
  actions=[a('service_quote','确认保险方案','service','pending',[f('amount','代收保费（元）','money_zero'),f('insurer','保险公司'),f('commission','预计佣金（元）','money_zero')],task='service'),
- a('policy_issue','登记已出保单','service','working',[f('policy_number','保单号'),f('start_date','生效日期','date'),f('end_date','到期日期','date'),f('evidence_id','保单文件','file')],task='work'),
+ a('policy_issue','登记已出保单','service','working',[f('policy_number','保单号'),f('start_date','生效日期','date'),f('end_date','到期日期','date'),f('evidence_id','保单文件','file',file_category='evidence')],task='work'),
  a('receive','登记代收保费','finance','settling',PAY_FIELDS,task='receive')]),
 'agency':dict(label='代办服务',module='sales',create_roles=[],fields=[],initial='pending',
  actions=[a('service_quote','确认代办项目','service','pending',[f('amount','代办服务收费（元）','money_zero'),f('work','办理内容','textarea')],task='service'),
- a('service_finish','确认办理完成','service','working',[f('evidence_id','办理凭据','file')],task='work'),
+ a('service_finish','确认办理完成','service','working',[f('evidence_id','办理凭据','file',file_category='evidence')],task='work'),
  a('receive','登记实际收款','finance','settling',PAY_FIELDS,task='receive')]),
 'purchase':dict(label='物资采购入库',module='materials',create_roles=['inventory','manager','admin'],
  fields=[ITEM,QTY,f('unit_cost','单价（元）','money_zero'),f('supplier','供应商'),NOTE],initial='approval',
  actions=[a('approve','批准采购','manager','approval',task='approve'),a('reject','退回采购','manager','approval',[REASON],task='approve'),
- a('stock_in','确认实际到货','inventory','receiving',[f('evidence_id','到货验收凭据','file')],task='stock_in')]),
+ # 到货验收由库管办理：声明的类别必须是库管能上传（web 上传弹窗）也能选用（flow_documents.can_file）的。
+  # 资金类凭据（收退款/发票/采购合同）只有财务、店长、管理员可上传或选用，声明在这里会让本步无原件可选。
+  a('stock_in','确认实际到货','inventory','receiving',[f('evidence_id','到货验收凭据','file',file_category=('evidence','inspection'))],task='stock_in')]),
 'material_issue':dict(label='维修领料',module='materials',create_roles=[],fields=[],initial='approval',
- actions=[a('issue','确认发料','inventory','approval',[f('evidence_id','领料凭据','file')],task='issue'),a('reject','退回领料申请','inventory','approval',[REASON],task='issue')]),
+ actions=[a('issue','确认发料','inventory','approval',[f('evidence_id','领料凭据','file',file_category='evidence')],task='issue'),a('reject','退回领料申请','inventory','approval',[REASON],task='issue')]),
 'material_return':dict(label='维修退料',module='materials',create_roles=[],fields=[],initial='approval',
- actions=[a('return_in','确认退料入库','inventory','approval',[f('evidence_id','退料验收凭据','file')],task='return_in'),a('reject','退回退料申请','inventory','approval',[REASON],task='return_in')]),
-'stock_count':dict(label='物资盘点',module='materials',create_roles=['inventory','admin','manager'],
+ actions=[a('return_in','确认退料入库','inventory','approval',[f('evidence_id','退料验收凭据','file',file_category='evidence')],task='return_in'),a('reject','退回退料申请','inventory','approval',[REASON],task='return_in')]),
+'stock_count':dict(label='物资盘点（全店，非库位）',module='materials',create_roles=['inventory','admin','manager'],
  fields=[ITEM,f('counted','实盘数量','quantity_zero'),REASON],initial='approval',
- actions=[a('count_approve','复核并登记差异','manager','approval',[f('evidence_id','盘点凭据','file')],task='approve'),a('reject','退回盘点','manager','approval',[REASON],task='approve')]),
+ actions=[a('count_approve','复核并登记差异','manager','approval',[f('evidence_id','盘点凭据','file',file_category='evidence')],task='approve'),a('reject','退回盘点','manager','approval',[REASON],task='approve')]),
 'callback':dict(label='客户回访',module='customers',create_roles=['customer_service','sales','service','manager','admin'],
  fields=CUSTOMER_FIELDS+[f('topic','回访事项'),WHEN],initial='pending',
  actions=[a('callback_done','记录回访结果','customer_service,sales,service','pending',[f('result','回访结果','textarea')],task='callback'),
@@ -118,7 +156,7 @@ SPECS_V1={
 'complaint':dict(label='客户投诉',module='customers',create_roles=['customer_service','service','sales','manager','admin'],
  fields=CUSTOMER_FIELDS+[f('problem','投诉内容','textarea')],initial='pending',
  actions=[a('plan','登记处理方案','manager','pending',[f('plan','处理方案','textarea'),WHEN],task='plan'),
- a('resolve','确认处理结果','customer_service,service','resolving',[f('result','处理结果','textarea'),f('evidence_id','处理凭据','file')],task='resolve'),
+ a('resolve','确认处理结果','customer_service,service','resolving',[f('result','处理结果','textarea'),f('evidence_id','处理凭据','file',file_category='evidence')],task='resolve'),
  a('reopen','重新处理','manager','completed',[REASON])]),
 'member_topup':dict(label='会员充值',module='members',create_roles=['customer_service','service','finance','manager','admin'],
  fields=[MEMBER,MONEY,NOTE],initial='pending',
@@ -129,7 +167,7 @@ SPECS_V1={
  a('member_refund_pay','登记退款到账','finance','refund_pending',[ACCOUNT,VOUCHER,EVIDENCE],task='member_refund_pay')]),
 'invoice':dict(label='开票登记',module='finance',create_roles=['finance','admin','manager'],
  fields=[f('related_case_id','关联业务','billable_case'),f('invoice_title','发票抬头'),f('tax_number','税号',required=False),MONEY],initial='pending',
- actions=[a('invoice_issue','登记开票结果','finance','pending',[f('invoice_number','发票号码'),f('evidence_id','发票文件','file')],task='invoice_issue'),a('cancel','取消未开票申请','finance','pending',[REASON])]),
+ actions=[a('invoice_issue','登记开票结果','finance','pending',[f('invoice_number','发票号码'),f('evidence_id','发票文件','file',file_category='invoice')],task='invoice_issue'),a('cancel','取消未开票申请','finance','pending',[REASON])]),
 }
 
 # Version 1 is the preserved catalogue for existing cases. Never edit its business
@@ -141,7 +179,7 @@ for _spec in SPECS_V2.values():
         for _field in _spec['fields']:
             if _field['key']=='customer_name':_field['required']=False
         _spec['fields']+=[f('customer_id','已有客户','customer',False),f('confirm_new_customer','已核对另建独立档案','bool',False)]
-INSPECTION_FIELDS=[f('evidence_id','检测记录','file'),
+INSPECTION_FIELDS=[f('evidence_id','检测记录','file',file_category='inspection'),
     f('outcome','检查结果','select',options=['合格','不合格']),
     f('result','检查发现与结论','textarea')]
 SPECS_V2['order']['actions']=[
@@ -149,7 +187,7 @@ SPECS_V2['order']['actions']=[
     if action.key=='inspect' else action for action in SPECS_V2['order']['actions']]
 SPECS_V2['order']['actions'][6:6]=[
     a('rectify','登记缺陷处理','technician,service','executing',
-      [f('result','缺陷处理结果','textarea'),f('evidence_id','缺陷处理凭据','file')],task='rectify'),
+      [f('result','缺陷处理结果','textarea'),f('evidence_id','缺陷处理凭据','file',file_category='inspection')],task='rectify'),
     a('reinspect','登记交车复检','technician,service','executing',INSPECTION_FIELDS,task='reinspect')]
 SPECS_V2['purchase']['actions'].append(a('cancel','取消未到货采购','manager','receiving',[REASON],
     confirm='仅限尚未发生实际到货或付款的采购，取消后关闭到货待办。'))

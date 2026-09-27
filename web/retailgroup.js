@@ -58,7 +58,7 @@ async function rgAuthorize(){
 }
 async function rgAction(action,id){
  const c=rgContext(),row=c.row,tender=row.tenders.find(t=>t.id===id&&action!=='restore'||t.units_detail.some(u=>u.id===id)&&action==='restore'),request_id=requestKey();
- const fields=[F('evidence_id','本次核对的本单原件','file')];if(action==='release')fields.push(F('reason','客户与原占额核对说明','textarea'));
+ const fields=[{...F('evidence_id','本次核对的本单原件','file'),file_category:'evidence'}];if(action==='release')fields.push(F('reason','客户与原占额核对说明','textarea'));
  await formDialog(rgActions[action],fields,{},v=>{const values={...v,plan_version:row.plan_version,member_version:row.member_version};if(tender.wallet_version)values.wallet_version=tender.wallet_version;if(action==='restore')values.unit_id=id;else values.tender_id=id;if(action==='capture')values.reservation_version=tender.reservation_version;
   return api(`/api/retail-group/orders/${row.case_id}/actions/${action}`,{method:'POST',body:{request_id,version:row.version,values}});
  },{caseId:row.case_id,notice:action==='restore'?'只恢复原本金、赠金或已凑整的原券套餐；不产生现金。恢复保留原有效期。':action==='release'?'释放未核销占额，不制造退款或收款；原行剩余部分成为现金待结。':'请仅确认本人实际核对的原批次；占额与实际核销是两个独立步骤。'});
@@ -80,7 +80,7 @@ async function rgRuleNew(){
 }
 async function rgRuleAction(action){
  const c=rgContext(),row=c.rule,request_id=requestKey();
- if(action!=='submit')return formDialog(action==='approve'?'独立批准公司商品规则':'结束未生效申请',[...(action==='cancel'?[]:[F('evidence_id','本次复核的本单原件','file')]),F('reason','本人的核对结果','textarea')],{},values=>api(`/api/retail-group/rules/${row.id}/actions/${action}`,{method:'POST',body:{request_id,version:row.version,values}}),{caseId:row.id,notice:'批准不会为旧批次补授商品用途；申请与批准必须由不同获权主管完成。'});
+ if(action!=='submit')return formDialog(action==='approve'?'独立批准公司商品规则':'结束未生效申请',[...(action==='cancel'?[]:[{...F('evidence_id','本次复核的本单原件','file'),file_category:'evidence'}]),F('reason','本人的核对结果','textarea')],{},values=>api(`/api/retail-group/rules/${row.id}/actions/${action}`,{method:'POST',body:{request_id,version:row.version,values}}),{caseId:row.id,notice:'批准不会为旧批次补授商品用途；申请与批准必须由不同获权主管完成。'});
  const stores=(state.stores||[]).filter(s=>['admin','manager'].includes(s.role||state.user.role)&&row.rule.allowed_store_ids.includes(s.id));
  const datasets=await Promise.all(stores.map(async s=>({store:s,...await api('/api/retail-group/rule-items/'+s.id)})));
  const mode='<label>部分退回规则<select name="partial_return_mode" required><option value="">请明确选择</option><option value="accumulate_original_unit">按原整数单位累计恢复，零头不可消费</option></select></label><label>恢复有效期<select name="expiry_mode" required><option value="">请明确选择</option><option value="original_expiry">保留原有效期，不自动延期</option></select></label><label>待恢复负债<select name="pending_claim_expiry" required><option value="">请明确选择</option><option value="none">不自动清零，继续按原批次追溯</option></select></label>';

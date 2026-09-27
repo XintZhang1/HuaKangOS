@@ -60,7 +60,7 @@ async function serviceOrderAction(key,e){
  const cash=['receive','disburse','thirdparty_return','refund'].includes(key),creditRefund=key==='refund'&&r.tenders.find(x=>x.id===tender)?.credit_link_id;
  if(cash){fields.push(F('amount','本次实际金额（元）','money'));if(!creditRefund)fields.push(F('account_id','原资金账户','account'),F('reference','本次独立流水或凭证号'));
   if(tender&&!creditRefund)initial.account_id=r.tenders.find(x=>x.id===tender)?.account_id;if(original)initial.account_id=r.pass_entries.find(x=>x.id===original)?.account_id;}
- if(!['cancel','termination_cancel'].includes(key))fields.push(F('evidence_id','本单本次实际原件','file'));
+ if(!['cancel','termination_cancel'].includes(key))fields.push({...F('evidence_id','本单本次实际原件','file'),file_category:'evidence'});
  await formDialog(serviceOrderNames[key],fields,initial,v=>{const body={...v,...values};if('amount'in body){body.amount_cents=repairScaled(body.amount,2);delete body.amount;}if('minimum'in body){body.minimum_fee_cents=repairScaled(body.minimum,2);delete body.minimum;body.allow_below_minimum=body.allow==='明确批准本版低价';delete body.allow;}if('outcome'in body)body.outcome={批准:'approved',拒绝:'rejected',要求补件:'need_documents'}[body.outcome];return serviceOrderSend(r,key,body,request_id);},{caseId:r.id,notice:creditRefund?'本步骤只将原抵用额恢复到原本店预收余额，不产生客户现金退款。':'仅确认本人已实际核对的结果。审批与客户授权都不会自动记录现金。'});
 }
 async function serviceOrderMaster(kind){

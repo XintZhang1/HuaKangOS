@@ -85,7 +85,7 @@ def catalog(db,user):
     for v in db.scalars(select(CustomerVehicle).where(CustomerVehicle.active==True).order_by(CustomerVehicle.id).limit(1001)):
         c=_one(db,Customer,v.customer_id)
         if user.role=='reception' and c.owner_id!=user.id:continue
-        vehicles.append({'id':v.id,'customer_id':c.id,'customer_name':c.name,'plate':v.plate,'vin':v.vin})
+        vehicles.append({'id':v.id,'customer_id':c.id,'customer_name':c.name,'customer_phone':c.phone,'plate':v.plate,'vin':v.vin})
     if len(vehicles)>1000:raise HTTPException(422,'客户车辆超过本版选择上限，请按部署规模扩展检索，不返回截断选择')
     resources=[{'id':r.id,'version':r.version,'code':r.code,'name':r.name,'resource_type':r.resource_type,'active':r.active,'in_use':r.active_case_id is not None} for r in _rows(db,ServiceResource)]
     presets=[{'id':p.id,'version':p.version,'code':p.code,'name':p.name,'profile':p.profile,'active':p.active,

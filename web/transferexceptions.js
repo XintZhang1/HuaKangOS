@@ -5,7 +5,7 @@ const transferExceptionStages={outbound:'发出后尚未验收',rejected:'已拒
 const transferExceptionActions={observe:'本人追加实物核对',plan:'拟定双方成本承担',approve:'独立批准本版方案',reject_plan:'退回重新核对',dispose:'确认本店实际处置',post_loss:'确认原在途损失',cancel:'取消未生效差异',recovery_create:'确认实际追偿目标',recovery_plan:'追加赔付目标版本',recovery_approve:'独立批准追偿目标',recovery_reject:'拒绝本版追偿目标',recovery_cancel:'撤回未生效追偿目标',recovery_receive:'登记实际赔款到账',recovery_refund:'退回原超收赔款'};
 const transferObservationNames={dispatch_verified:'本人核对原发运',return_dispatch_verified:'本人核对退回发运',missing:'本人核对尚未收到',held_damaged:'本人核对在手坏件'};
 const transferRecoveryStates={pending:'待独立复核',approve:'已批准',reject:'已拒绝',cancelled:'未生效已撤回'};
-function transferExceptionMoney(value){const v=String(value).trim();if(!/^\d+(\.\d{1,2})?$/.test(v))throw new Error('金额请填写非负数，最多两位小数。');const [a,b='']=v.split('.');const n=Number(a)*100+Number(b.padEnd(2,'0'));if(!Number.isSafeInteger(n)||n>1000000000000)throw new Error('金额超过允许范围。');return n;}
+function transferExceptionMoney(value){return moneyFen(value,{label:'金额',allowZero:true});}
 function transferExceptionFiles(files,financial){const allowed=financial?['receipt','procurement_contract']:['evidence','inspection','authorization'];return files.filter(f=>!f.generated&&allowed.includes(f.category)&&f.security?.can_use);}
 function transferExceptionProof(files,financial){return `<label>本店实际${financial?'财务凭据或协议':'实物凭据'}<select name="evidence_id" required><option value="">请选择本单已通过文件检查的原件</option>${transferExceptionFiles(files,financial).map(f=>`<option value="${f.id}">${E(f.name)}</option>`).join('')}</select></label>`;}
 async function transferExceptionsPage(id){

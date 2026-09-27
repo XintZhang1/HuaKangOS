@@ -49,7 +49,7 @@ async function membershipCreate(key,id){
 async function membershipAction(key){
  const d=state.membershipOrder,o=d.order,fields=[];const needsCash=key==='execute'&&(o.purpose==='topup'||o.purpose==='renew_refund'||o.purpose==='renew'&&d.case.amount_cents>0||o.purpose==='benefit_issue'&&o.values.action==='purchase');
  if(needsCash)fields.push(F('account_id','本店真实收退款账户','account'),F('reference','真实银行流水或收款凭证号'));
- if(['execute','approve'].includes(key))fields.push(F('evidence_id','本单客户确认／实际办理凭据','file'));fields.push(F('reason','本人核对的事实与办理依据','textarea'));
+ if(['execute','approve'].includes(key))fields.push({...F('evidence_id','本单客户确认／实际办理凭据','file'),file_category:'evidence'});fields.push(F('reason','本人核对的事实与办理依据','textarea'));
  const request_id=requestKey();await formDialog({execute:'确认实际办理',approve:'独立复核批准',reject:'退回申请',cancel:'撤销申请'}[key],fields,{},async values=>{if(key==='execute'&&o.purpose==='points_adjust'){const balances=await api('/api/group/benefits/members?customer_id='+d.case.customer_id);const w=balances.wallets.find(w=>w.id===o.values.wallet_id);if(!w)throw new Error('原积分批次不存在，请核对。');values.wallet_version=w.version;}await api(`/api/membership/orders/${d.case.id}/actions/${key}`,{method:'POST',body:{request_id,version:o.version,case_version:d.case.version,member_version:d.member.version,values}});},{caseId:d.case.id,notice:needsCash?'只有真实资金收付完成后才能登记。系统不会调用银行转账。':key==='approve'?'须由不同于申请人的主管独立复核；卡号不代表财务授权。':'仅确认本次自身办理事实；换补后原卡作废，会员本金及已发行权益保持原账。'});
 }
 async function membershipCardLookup(){await formDialog('按卡号识别本店客户',[F('number','完整会员识别卡号')],{},async v=>{const d=await api('/api/membership/cards/lookup?number='+encodeURIComponent(v.number));go('membership/'+d.customer.id);},{notice:'只识别有效卡及本店已经确认关联的客户；没有本店关系的卡不会显示外店客户资料。'});}
