@@ -2,7 +2,7 @@
 const retailNames={approve:'主管价格授权',authorize:'记录客户报价确认',cancel:'取消未出库订单',dispatch:'确认整单实际出库',install:'确认实际安装',accept:'确认客户接收',receive:'登记实际收款',return_request:'申请原单部分退货',return_approve:'批准退货',return_cancel:'撤销未验收退货',return_receive:'检查退货可售性',return_rectify:'提交退货整改',refund:'登记原款实际退款',return_reject:'决定拒收并交回',return_handback:'确认拒收商品交回'};
 const retailReturnNames={requested:'待主管复核',approved:'待可售验收',rectification:'验收不合格，待整改',reinspection:'待复检',accepted:'已验收入库',cancelled:'已撤销',handback:'拒收待实物交回',rejected:'已拒收并交回客户'};
 function retailScaled(value,digits){
- const s=String(value).trim();
+ const s=moneyDigits(value).trim();   // 金额/数量输入同样接受千分位与全角字符
  if(![0,2,3].includes(digits))throw new Error('数值精度配置无效。');
  const pattern=digits===0?/^\d+$/:new RegExp('^\\d+(\\.\\d{1,'+digits+'})?$');
  if(!pattern.test(s))throw new Error(digits===0?'券和套餐须填写整数份数。':'金额最多两位、数量最多三位小数。');

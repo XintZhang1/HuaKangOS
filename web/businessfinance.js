@@ -5,7 +5,7 @@ businessFinanceNames.fee_correction='续会费同额登记更正';
 const businessFinanceFront=()=>canWrite()&&['admin','manager','finance','sales','service','reception','customer_service'].includes(state.user.role);
 const businessFinanceCash=()=>canWrite()&&['admin','finance'].includes(state.user.role);
 const businessFinanceManager=()=>canWrite()&&['admin','manager'].includes(state.user.role);
-const businessFinanceZero=v=>/^0(?:\.0{1,2})?$/.test(String(v||'0'))?0:groupFen(v);
+const businessFinanceZero=v=>moneyFen(v||'0',{label:'金额',allowZero:true});
 const businessFinanceReceiptLabel=r=>`${r.business_date} · ${r.account} · ${r.reference} · ${money(r.amount_cents)}元`+(r.bundle_name?` · ${r.bundle_name}（每份${money(r.bundle_principal_per_share)}元）`:'')+(r.refunded_cents?` · 已实退${money(r.refunded_cents)}元，剩余${money(r.net_amount_cents)}元`:'');
 async function businessFinancePage(customerId){
  if(state.store==='all')return heading('业务财务结算')+storeNotice();

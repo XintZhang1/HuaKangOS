@@ -5,7 +5,7 @@ const aftercareTenderNames={cash:'原现金退款',principal:'原集团本金',b
 function aftercareQuantity(v){const s=String(v).trim();if(!/^\d+(\.\d{1,3})?$/.test(s))throw new Error('套餐组件数量最多三位小数。');const [a,b='']=s.split('.');const n=Number(a)*1000+Number(b.padEnd(3,'0'));if(!Number.isSafeInteger(n))throw new Error('套餐组件数量超出范围。');return n;}
 function aftercareReturnUnits(t){return t.kind==='repair_package'?String(t.units/1000)+' 原组件数量':t.kind==='benefit'?t.units+' 原单位':money(t.units)+' 元';}
 function aftercareReturnAvailable(t){return t.kind==='repair_package'?'原组件可退数量 '+String(t.remaining_units/1000)+'，对应原抵扣 '+money(t.remaining_credit_cents)+' 元；部分退回按原数量分摊计算':t.kind==='benefit'?'每原单位抵 '+money(t.credit_per_unit)+' 元，可退 '+t.remaining_units+' 单位':'可退 '+money(t.remaining_units)+' 元';}
-function aftercareAmount(v){const s=String(v).trim();if(!/^\d+(\.\d{1,2})?$/.test(s))throw new Error('金额最多两位小数。');const [a,b='']=s.split('.');const n=Number(a)*100+Number(b.padEnd(2,'0'));if(!Number.isSafeInteger(n))throw new Error('金额超出范围。');return n;}
+function aftercareAmount(v){return moneyFen(v,{label:'金额',allowZero:true});}
 async function aftercarePage(id){
  if(!id){const d=await api('/api/aftercare/orders?page='+state.page);return heading('售后纠正','',canWrite()&&['admin','sales','service'].includes(state.user.role)?b('aftercare-new','申请售后纠正','','primary'):'')+storeNotice()+panel('售后申请',table(['原业务／售后','类型','当前状态',''],d.items.map(r=>[E(r.title)+'<br>'+E(r.number),E(aftercareScenarios[r.scenario]),pill(r.state),b('open','办理',`data-route="aftercare/${r.id}"`)])))+pager(d.total);}
  const r=await api('/api/aftercare/orders/'+id);state.aftercareOrder=r;state.row=await api('/api/flow/cases/'+id);

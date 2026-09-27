@@ -4,7 +4,7 @@ const groupPurpose={correction:'原充值误记更正（非退款）',topup:'本
 const groupRequester=()=>canWrite()&&['admin','finance','service','customer_service'].includes(state.user.role);
 const groupApprover=()=>canWrite()&&['admin','manager'].includes(state.user.role);
 const groupFinance=()=>canWrite()&&['admin','finance'].includes(state.user.role);
-function groupFen(value){const s=String(value).trim();if(!/^\d+(\.\d{1,2})?$/.test(s))throw new Error('金额应为正数，最多两位小数。');const [whole,fraction='']=s.split('.');const n=Number(whole)*100+Number(fraction.padEnd(2,'0'));if(!Number.isSafeInteger(n)||n<=0||n>100000000000)throw new Error('金额超出允许范围。');return n;}
+function groupFen(value){return moneyFen(value,{label:'金额'});}
 async function groupPage(customerId,caseId){
  if(state.store==='all')return heading('集团会员')+storeNotice()+'<div class="notice">请选择办理门店查看会员权益及本店结算记录。集团合并往来请在数据可视化中查看。</div>';
  if(!customerId){const customers=await api(`/api/flow/master/customers?q=${encodeURIComponent(state.q)}&page=${state.page}`);return heading('集团会员','从本店客户档案识别集团会员，跨店业务历史按授权保留。',full()?b('open','本店会员对账','data-route="group-reconciliation"'):'')+searchBar()+panel('本店客户',table(['客户','联系电话',''],customers.items.map(c=>[E(c.name),E(c.phone),b('open','查询会员',`data-route="group/${c.id}"`)]))+pager(customers.total));}

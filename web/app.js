@@ -51,6 +51,22 @@ const b=(act,text,data='',cls='')=>`<button type="button" class="${cls}" data-ac
 const nav=(url,text,icon='')=>`<a class="navlink ${state.route===url?'active':''}" href="#${url}">${icon?`<span class="navicon">${icon}</span>`:''}${E(text)}</a>`;
 const pill=(key,text)=>`<span class="pill ${['done','completed','approved','available','success'].includes(key)?'good':['cancelled','void','rejected','failed'].includes(key)?'bad':['submitted','refund_pending','cancel_review','overdue'].includes(key)?'warning':'info'}">${E(text||state.catalog?.states[key]||labels[key]||key)}</span>`;
 const money=v=>v==null?'—':new Intl.NumberFormat('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)/100);
+// 金额输入的单一解析口径：屏幕上显示给用户的金额（千分位、货币符号、全角字符）必须能被原样提交。
+// 修复前各模块各自用 /^\d+(\.\d{1,2})?$/ 校验，用户按默认值提交（如 145,500.00）必被拒。
+const moneyDigits=v=>String(v??'')
+ .replace(/[\uFF10-\uFF19]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))   // 全角数字
+ .replace(/[\uFF0E\u3002]/g,'.')                                              // 全角句点
+ .replace(/[\uFF0C\u3001,，\s\u00A0]/g,'')                                    // 千分位与各种分隔空格
+ .replace(/^[¥￥$]/,'');
+const moneyFen=(value,{label='金额',allowZero=false}={})=>{
+ const s=moneyDigits(value).trim();
+ if(!/^\d+(\.\d{1,2})?$/.test(s))throw new Error(`${label}应为${allowZero?'非负':'正'}数字，最多两位小数；可直接填写 0 或整数元。`);
+ const [whole,fraction='']=s.split('.');
+ const cents=Number(whole)*100+Number(fraction.padEnd(2,'0'));
+ if(!Number.isSafeInteger(cents)||cents<0||(!allowZero&&cents<=0)||cents>100000000000)throw new Error(`${label}超出允许范围。`);
+ return cents;
+};
+
 const number=v=>new Intl.NumberFormat('zh-CN',{maximumFractionDigits:3}).format(Number(v));
 const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const relativeDay=(n,from=day())=>{const d=new Date(from+'T12:00:00+08:00');d.setUTCDate(d.getUTCDate()+n);return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);};
