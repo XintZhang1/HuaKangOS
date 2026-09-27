@@ -218,11 +218,30 @@ function businessAssistantCardsPanel(){
  const emptyText=q.filter==='pending'?'目前没有待确认卡。已办完的在“已结束”，异常结果在“需处理”。':q.filter==='attention'?'目前没有需要核对或重新准备的卡片。':'目前没有已结束的卡片。';
  return `<aside class="ba-cards" id="business-assistant-cards" aria-label="办理事项"><div class="ba-cards-head"><div><strong>办理事项</strong></div></div><div id="business-assistant-workboard">${typeof businessAssistantWorkHTML==='function'?businessAssistantWorkHTML():''}</div><div class="ba-queue-tabs" aria-label="办理事项状态">${[['pending','待确认'],['attention','需处理'],['history','已结束']].map(([key,label])=>`<button type="button" data-ba-action="queue-filter" data-filter="${key}" aria-pressed="${q.filter===key}">${label} ${q.buckets[key].length}</button>`).join('')}</div><div class="ba-cards-list">${businessAssistantState.receipt?`<p class="ba-card-receipt" role="status">${E(businessAssistantState.receipt)}</p>`:''}${chooser}${selected?businessAssistantProposal(selected):`<p class="ba-cards-empty">${emptyText}</p>`}${batch}</div>${selected?businessAssistantConfirmBar(selected):''}</aside>`;
 }
+function businessAssistantFocusedField(host){
+ // 记下"员工正在哪个必填项里打字、光标在第几位"：整栏重画只发生在别的事件上（换卡、整批结果、
+ // 一轮结束），这些时候也不能把人家从输入框里顶出去（业主实测："输了一个 1 就跳出来了"）。
+ const active=typeof document!=='undefined'?document.activeElement:null;
+ if(!active||!host.contains||!host.contains(active))return null;
+ const key=active.dataset?.baqKey;
+ if(!key)return null;
+ let start=null,end=null;
+ try{start=active.selectionStart;end=active.selectionEnd;}catch{/* number/date 控件不暴露选区 */}
+ return {key,start,end};
+}
+function businessAssistantRestoreField(host,keep){
+ if(!keep||!host.querySelector)return;
+ const field=host.querySelector(`[data-baq-key="${String(keep.key).replace(/["\\]/g,'')}"]`);
+ if(!field)return;
+ try{field.focus({preventScroll:true});if(keep.start!==null&&keep.start!==undefined&&field.setSelectionRange)field.setSelectionRange(keep.start,keep.end);}catch{/* 聚焦失败不影响已填的值 */}
+}
 function paintBusinessAssistantCards(){
  const host=$('#business-assistant-cards');if(!host||state.route!=='business-assistant'||businessAssistantState.context!==businessAssistantContext())return false;
  const before=host.querySelector('[data-proposal]')?.dataset.proposal,top=host.querySelector('.ba-cards-list')?.scrollTop||0;
+ const keep=businessAssistantFocusedField(host);
  const panel=businessAssistantCardsPanel();host.innerHTML=panel.slice(panel.indexOf('>')+1,panel.lastIndexOf('</aside>'));
  const list=host.querySelector('.ba-cards-list');if(list)list.scrollTop=before===String(businessAssistantState.activeCardId)?top:0;
+ businessAssistantRestoreField(host,keep);
  return true;
 }
 function businessAssistantNextStep(){
@@ -297,9 +316,13 @@ function paintBusinessAssistant({focus=false}={}){
  const main=$('#main');if(!main)return;
  const old=$('#business-assistant-messages'),follow=!old||old.scrollHeight-old.scrollTop-old.clientHeight<100,top=old?.scrollTop||0;
  const input=document.activeElement,restoreInput=input?.id==='business-assistant-input',selection=restoreInput?[input.selectionStart,input.selectionEnd]:null;
+ // 员工正在卡片必填项里打字时整页重画（一轮结束、批量结果、刷新结果都会走到这里）：
+ // 内容和光标都要留在原处，不能让人重新点一次输入框、更不能再打一遍。
+ const keepField=businessAssistantFocusedField(main);
  main.innerHTML=businessAssistantHTML();bindBusinessAssistantPage();
  const transcript=$('#business-assistant-messages');if(transcript)transcript.scrollTop=follow?transcript.scrollHeight:top;
- if(focus||restoreInput){const text=$('#business-assistant-input');if(text&&!text.readOnly){text.focus({preventScroll:true});text.setSelectionRange(...(selection||[text.value.length,text.value.length]));}}
+ if(keepField)businessAssistantRestoreField(main,keepField);
+ else if(focus||restoreInput){const text=$('#business-assistant-input');if(text&&!text.readOnly){text.focus({preventScroll:true});text.setSelectionRange(...(selection||[text.value.length,text.value.length]));}}
 }
 function bindBusinessAssistantPage(){
  if(typeof bindBusinessAssistantFiles==='function')bindBusinessAssistantFiles();
