@@ -176,8 +176,11 @@ def act(case_id:int,action:str,body:ActionInput,db=Depends(get_db),user=Depends(
     eng.process_action(db,user,row,action,body.values,body.version);eng.save_receipt(db,user,body.request_id,digest,row)
     db.commit()
     # Finishing an assigned task can legitimately end this employee's read
-    # scope. Report the successful action without telling the UI to reopen it.
-    return {**describe_case(db,user,row),'can_view':eng.can_read(db,user,row)}
+    # scope. Report the successful action without telling the UI to reopen it,
+    # and without shipping case data the actor may no longer read: this is the
+    # same minimal receipt the replay path above returns.
+    if not eng.can_read(db,user,row):return {'id':row.id,'can_view':False}
+    return {**describe_case(db,user,row),'can_view':True}
 
 
 @router.post('/cases/{case_id}/documents')

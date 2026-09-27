@@ -5,7 +5,7 @@
 import io, re, sys
 from pathlib import Path
 sys.path.insert(0, str(Path('E:/HuaKangOS')))
-from app.flow_specs import UPLOAD_CATEGORY_LABELS, SPECS_V1, SPECS_V2
+from app.flow_specs import UPLOAD_CATEGORY_LABELS, SPECS_V1, SPECS_V2, file_requirement
 
 KNOWN = set(UPLOAD_CATEGORY_LABELS)
 problems = []
@@ -105,6 +105,55 @@ unknown = sorted(k for k in front_values if k not in KNOWN)
 if unknown:
     problems.append('前端取值位置出现词表外类别: ' + ', '.join(unknown))
 print('前端声明的类别值:', sorted(front_values))
+
+# ---- 动作声明的类别必须是"该动作办理岗位真能上传、也真能选用"的类别 ----
+# 只看词表还不够：物资采购"确认实际到货"曾声明成资金三类凭据，而办理岗位是库管——
+# 库管既不能在上传弹窗里选到这三类（web/app.js uploadDialog、web/formhelpers.js
+# inlineUploadCategories 只放给财务/店长/管理员），也不能选用别人上传的（app/flow_documents.can_file
+# 对库管/技师/前台/客服只放 业务凭据/检测记录/客户授权/业务）。结果是该步原件下拉为空、
+# 界面提示与实际可选项互相矛盾。这里把两边规则写成一张表并逐动作核对。
+ALL_ROLES = {'admin', 'manager', 'finance', 'sales', 'service', 'technician',
+             'inventory', 'reception', 'customer_service', 'auditor'}
+FINANCIAL = {'receipt', 'invoice', 'procurement_contract'}
+SIGNED = {'signed_contract', 'signed_handover'}
+UPLOAD_ROLES = {**{k: {'admin', 'manager', 'finance'} for k in FINANCIAL},
+                **{k: {'admin', 'manager', 'sales'} for k in SIGNED}}
+READ_NEUTRAL = {'evidence', 'inspection', 'authorization', 'business'}
+READ_LIMITED_ROLES = {'inventory', 'technician', 'reception', 'customer_service'}
+
+
+def role_can_upload(role, category):
+    return role in UPLOAD_ROLES.get(category, ALL_ROLES)
+
+
+def role_can_read(role, category):
+    if category == 'procurement_contract':
+        return role in {'admin', 'manager', 'finance', 'auditor'}
+    if role in READ_LIMITED_ROLES:
+        return category in READ_NEUTRAL
+    return True
+
+
+role_checked = 0
+seen_specs = set()
+for name, spec in list(SPECS_V1.items()) + list(SPECS_V2.items()):
+    if id(spec) in seen_specs:
+        continue          # SPECS_V2 复用 V1 的同一份规格对象，避免同一问题报两遍
+    seen_specs.add(id(spec))
+    for action in spec.get('actions', []):
+        for field in action.fields:
+            req = file_requirement(field)
+            if not req:
+                continue
+            keys = tuple(req) if isinstance(req, (list, tuple)) else (req,)
+            role_checked += 1
+            broken = [role for role in action.roles
+                      if not any(role_can_upload(role, c) and role_can_read(role, c) for c in keys)]
+            if broken:
+                problems.append('%s.%s 的「%s」声明类别 %s：岗位 %s 既不能上传也不能选用该类别，'
+                                '该步会没有可选原件' % (name, action.key, field.get('label', field.get('key')),
+                                                  '/'.join(keys), '、'.join(broken)))
+print('按岗位核对的动作字段:', role_checked)
 
 if problems:
     print('PROBLEMS:')

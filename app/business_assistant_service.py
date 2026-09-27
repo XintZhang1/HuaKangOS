@@ -117,7 +117,9 @@ def status():
 
 
 MONEY_TEXT=re.compile(r'^-?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?$|^-?\d+(?:\.\d{1,2})?$')
-TABLE_CAP=40
+TABLE_CAP=40            # 每张表最多检查的列数（表头 + 金额合计）
+TABLE_INDEX_CAP=240     # 报表目录最多列出的表数：build_analytics 实测 154 张表，留出余量
+TABLE_SCAN_CAP=2000     # 目录遍历的总节点预算，避免病态大对象；正常报表远低于此
 
 
 def _money_number(text):
@@ -160,21 +162,29 @@ def read_result_tally(result):
               '若需要别的口径，请再调用工具查询，不要用手头明细凑数。')
 
 
-def _iter_report_tables(node,depth=0):
-    """在只读结果里找报表结构：带 headers + rows 的字典（允许 tables/data 等一层包装）。"""
-    if depth>4 or not isinstance(node,dict):return
+def _iter_report_tables(node,depth=0,budget=None):
+    """在只读结果里找报表结构：带 headers + rows 的字典（允许 tables/data 等一层包装）。
+
+    逐层不再按前 40 个键截断：analytics 实测 154 张表都在同一个 tables 字典里，
+    截断会让后面的表静默消失（合计与目录都会漏）。改用总节点预算控制遍历代价。
+    """
+    if budget is None:budget=[TABLE_SCAN_CAP]
+    if depth>4 or not isinstance(node,dict) or budget[0]<=0:return
     headers=node.get('headers');rows=node.get('rows')
     if isinstance(headers,list) and headers and isinstance(rows,list) and rows:
         yield node
         return
-    for value in list(node.values())[:TABLE_CAP]:
-        yield from _iter_report_tables(value,depth+1)
+    for value in node.values():
+        budget[0]-=1
+        if budget[0]<=0:return
+        yield from _iter_report_tables(value,depth+1,budget)
 
 
 def report_table_index(result):
     """把过大的报表结果压成“表名 + 行数 + 金额合计”目录，供模型按表再查一次。"""
-    index=[]
+    index=[];cut=False
     for key,table in _iter_report_tables_keyed(result):
+        if len(index)>=TABLE_INDEX_CAP:cut=True;break
         rows=table.get('rows') or []
         headers=table.get('headers') or []
         entry={'table':key,'title':safe_text(table.get('title') or key,40),'rows':len(rows)}
@@ -190,18 +200,22 @@ def report_table_index(result):
                 if total is not None and counted==len(rows) and '（元）' in str(header):
                     entry.setdefault('totals',{})[safe_text(header,30)]=format(total,'.2f')
         index.append(entry)
-        if len(index)>=80:break
+    if cut:index.append({'table':'_truncated','title':'表较多，仅列出前 %d 张，请按业务类型缩小查询' % TABLE_INDEX_CAP,'rows':0})
     return index
 
 
-def _iter_report_tables_keyed(node,key='',depth=0):
-    if depth>4 or not isinstance(node,dict):return
+def _iter_report_tables_keyed(node,key='',depth=0,budget=None):
+    """与 _iter_report_tables 同样的遍历，但带表名；同样不按前 40 个键截断（见上）。"""
+    if budget is None:budget=[TABLE_SCAN_CAP]
+    if depth>4 or not isinstance(node,dict) or budget[0]<=0:return
     headers=node.get('headers');rows=node.get('rows')
     if isinstance(headers,list) and headers and isinstance(rows,list):
         yield key,node
         return
-    for name,value in list(node.items())[:TABLE_CAP]:
-        yield from _iter_report_tables_keyed(value,str(name),depth+1)
+    for name,value in node.items():
+        budget[0]-=1
+        if budget[0]<=0:return
+        yield from _iter_report_tables_keyed(value,str(name),depth+1,budget)
 
 
 def safe_text(value, maximum=6000):

@@ -96,3 +96,16 @@ RT-10 机制：`app/addon_service.py:149` 起 `_sync` 仅在无进行中处置�
 
 - 私有附件目录需放在**支持硬链接**的本地文件系统（E: 为 exFAT，`private_local` 会 503）；建议写进部署说明。
 - 复测用的合成库口令建议轮换。
+
+## 9. Review 意见处理（codex 三条 P2：已修 + 浏览器实测）
+
+| 意见 | 位置 | 处理 | 实测证据 |
+|---|---|---|---|
+| 动作成功后本人已失去读取权，仍返回整份案件数据（与重放路径不一致） | `app/flow_api.py` | 改为与重放路径一致的最小回执 `{id, can_view: false}`，不再 `describe_case` | 浏览器抓该 POST 的响应体：`{"id": 151, "can_view": false}`，无 `files/events/tasks/payments` 等字段；界面仍提示「分派接待已完成，后续由接手员工办理；已返回业务列表。」并落回 `#cases/lead` |
+| 报表目录只索引前 40 张表（而 `report_table_index` 设计到 80） | `app/business_assistant_service.py` | 逐层遍历不再按 40 个键截断（改用总节点预算 `TABLE_SCAN_CAP`），目录上限显式化为 `TABLE_INDEX_CAP=240`，超出时给出 `_truncated` 标记 | 离线计数（同一份合成库）：`len(tables)=154`、目录条目 **154**（修前 40，114 张静默丢失）；`_iter_report_tables`（权威合计）同步修好 |
+| 物资采购「确认实际到货」声明的是资金类类别，库管既不能上传也不能选用 | `app/flow_specs.py` | 声明改为 `('evidence','inspection')`（业务凭据／检测记录）——**这条是本批 `91be7bd` 引入的回归** | 浏览器实测（库管小赵）：提示「本步需要“业务凭据、检测记录”类别的凭据。」、上传面板只提供这两类且预选业务凭据，真实上传后提交成功；单据转 `completed`，物资库存 +1（`flow_stock_moves` quantity 1000） |
+
+**把这条缺陷类型做成检查**：`scripts/check_category_vocabulary.py` 现在除词表校验外，还按"该动作由谁办理、谁能上传、谁能选用"逐条核对 54 个类别声明。
+把上面那条旧声明放回去，检查会失败：`purchase.stock_in … 岗位 inventory 既不能上传也不能选用该类别，该步会没有可选原件`；改回后 PASS。
+
+**一条与 review 无关但实测撞上的既有行为**（已记在 `FINDINGS-master.md` RT-09/RT-10）：新采购单的到货待办按"在办量最少"分给了替班库管账号，需店长在页面"明确交接"给库管小赵才能办理——本次复测就是走这条正常路径办成的。

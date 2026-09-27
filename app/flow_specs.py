@@ -136,7 +136,9 @@ SPECS_V1={
 'purchase':dict(label='物资采购入库',module='materials',create_roles=['inventory','manager','admin'],
  fields=[ITEM,QTY,f('unit_cost','单价（元）','money_zero'),f('supplier','供应商'),NOTE],initial='approval',
  actions=[a('approve','批准采购','manager','approval',task='approve'),a('reject','退回采购','manager','approval',[REASON],task='approve'),
- a('stock_in','确认实际到货','inventory','receiving',[f('evidence_id','到货验收凭据','file',file_category=('receipt','invoice','procurement_contract'))],task='stock_in')]),
+ # 到货验收由库管办理：声明的类别必须是库管能上传（web 上传弹窗）也能选用（flow_documents.can_file）的。
+  # 资金类凭据（收退款/发票/采购合同）只有财务、店长、管理员可上传或选用，声明在这里会让本步无原件可选。
+  a('stock_in','确认实际到货','inventory','receiving',[f('evidence_id','到货验收凭据','file',file_category=('evidence','inspection'))],task='stock_in')]),
 'material_issue':dict(label='维修领料',module='materials',create_roles=[],fields=[],initial='approval',
  actions=[a('issue','确认发料','inventory','approval',[f('evidence_id','领料凭据','file',file_category='evidence')],task='issue'),a('reject','退回领料申请','inventory','approval',[REASON],task='issue')]),
 'material_return':dict(label='维修退料',module='materials',create_roles=[],fields=[],initial='approval',
