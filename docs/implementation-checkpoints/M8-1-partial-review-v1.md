@@ -185,7 +185,6 @@ DB 套件由 1 项通过推进到 **4 项通过 / 1 项失败**（run `20260928T
 旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入。
 
 ## 2j. 第八轮：旧租约不能覆盖新状态的**精确 CAS 语义**（逐字核对，DB 演练的断言清单）
-
 `assistant_runtime_events._append_queue_transition(db, run, *, previous_status, clock)` 的守卫（逐条）：
 
 1. `_attached(db, run)`：run 必须在当前会话中附着；
@@ -204,6 +203,31 @@ DB 套件由 1 项通过推进到 **4 项通过 / 1 项失败**（run `20260928T
 
 `Run` 必填列已初步核对：`id`/`owner_id`/`store_id`/`session_id`/`trigger_kind`/`trigger_key`/
 `request_digest`/`auth_kind`（+ `plan_id`/`request_id`/`entry_context` 可空），构造时仍需按其真实默认值补齐（预计 1 次迭代）。
+
+### 2j.1 `_committed` 是**独立读取会话**里的已提交状态（本轮新增，决定用例写法）
+
+```python
+def _committed(db, run_id, factory=None):
+    with _reader(db, factory) as reader:
+        row = reader.scalar(select(Run).where(Run.id == run_id))
+        return None if row is None else {key: getattr(row, key)
+                                        for key in (*_SOURCE_FIELDS, 'version', 'event_seq', 'status')}
+```
+
+结论：CAS 比对的是**数据库里已提交的行**（经**另一个 reader 会话**读取），因此**同事务内未提交的改动对它不可见**。
+同理 `_attached(db, run)` 要求实例 `state.session is db and state.persistent and not state.deleted`，
+并额外做 `_scope(db, run.store_id)` 校验。
+
+**由此确定 DB 用例的正确写法**：
+1. 建 `Run` 并 **`db.commit()`**（让 `_committed` 能看到它，初始 `status='queued'`）；
+2. 在新会话里把该 run 推进（`status='running'`）并 **commit**（这就是"新状态"）；
+3. 用**旧的** `previous_status='queued'` 调 `_state_event(db, run, previous_status='queued', clock=…)`
+   → 因 `old['status'] == 'running' != 'queued'` 必须 **409**（旧租约被拒）；
+4. 反向用例：`previous_status == run.status` → 返回 `None` 且**不落事件**；
+5. 版本未前进（`run.version <= old['version']`）→ 同样 409。
+
+待补：`Run` 的 `status`/`trigger_kind`/`auth_kind` 合法取值（存在 CHECK 约束的可能），
+按真实模型默认值构造后即可落地上述 3–5 条断言。
 
 ## 4. 状态登记
 
