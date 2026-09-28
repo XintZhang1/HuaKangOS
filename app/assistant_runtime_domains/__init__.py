@@ -115,6 +115,8 @@ from .system_readonly import (SYS_FACTS, SYS_OBJECT_TYPE, SYS_PARAMETERS,
 from .escalation_request import (ESC_ACTIONS, ESC_CREATE, ESC_FACTS, ESC_INDEX,
                                     ESC_REFUSALS, ESC_TYPE, ESC_UNREGISTERED_ACTION,
                                     REFUSAL_TYPE, EscalationRequestAdapter)
+from .insurance_order import (INS_ACTION, INS_ACTIONS, INS_CREATE, INS_FACTS,
+                                INS_OBJECT_TYPE, INS_READ, InsuranceOrderAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -210,7 +212,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'SYS_FACTS', 'SYS_OBJECT_TYPE', 'SYS_PARAMETERS', 'SYS_STORES',
            'SystemReadonlyAdapter',
            'ESC_ACTIONS', 'ESC_CREATE', 'ESC_FACTS', 'ESC_INDEX', 'ESC_REFUSALS', 'ESC_TYPE',
-           'ESC_UNREGISTERED_ACTION', 'REFUSAL_TYPE', 'EscalationRequestAdapter']
+           'ESC_UNREGISTERED_ACTION', 'REFUSAL_TYPE', 'EscalationRequestAdapter',
+           'INS_ACTION', 'INS_ACTIONS', 'INS_CREATE', 'INS_FACTS', 'INS_OBJECT_TYPE',
+           'INS_READ', 'InsuranceOrderAdapter']
 
 
 def register_adapters(registry):
@@ -224,6 +228,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.12.1：保险单（insurance_order）静态注册；key 即原 Case.id（InsuranceOrder.id 与之相同）。
+    registry.register(DomainAdapterSpec(
+        name='insurance_order', factory=InsuranceOrderAdapter,
+        object_types=(INS_OBJECT_TYPE,),
+        operation_ids=(INS_READ, INS_CREATE, INS_ACTION),
+        fact_keys=INS_FACTS,
+        fallback_object_types=(),
     ))
     # M7.11.4：评审升级申请（escalation_request）静态注册；只准备，人工处理动作不代办。
     registry.register(DomainAdapterSpec(

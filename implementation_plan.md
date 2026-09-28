@@ -3534,48 +3534,13 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.12.1 保险报价、外部承保与原款退回
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过；前置侦察见 `M7-12-1-recon-note.md`）
 
 **全局顺序前置**：M7.11.4 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：Case.id 键、三条事实（含"外部结果≠已出保""同意需同摘要"）与回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `insurance_order` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/insurance_api.py`、`app/insurance_service.py`、`app/insurance_models.py`、`app/insurance_finance.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/insurance_order.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_insurance_order.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/insurance-orders/{case_id}；quote/review/authorize/submit/result/receive/disburse/direct_paid/termination/refund/commission_review 等见 LABELS。
-
-**注册合同**：object_type=case（InsuranceOrder.id 与原 Case.id 相同）；adapter=`app/assistant_runtime_domains/insurance_order.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`insurance.current_quote_consented`：当前原报价有 InsuranceConsent，引用同 quote_id/digest；`insurance.external_result_recorded`：本单原 InsuranceResult 及原 submission_id/outcome；`insurance.policy_issued`：原结果 outcome=issued 且真实 policy_number 存在。任意外部结果不能满足已出保；保费/佣金保持各自原资金事实。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：当前保单报价/授权、保险公司实际结果、代收代缴/直付直退、实际佣金各自来源。
-3. 接统一只读回执 resolver：InsuranceRequest/insurance_requests，沿 insurance_service._execute 的原 action/payload 摘要。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：代收保费不能算收入；客户直付不制造本店现金；撤保批准不等于退保/退款已实际发生；外部补件保持 waiting。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_insurance_order.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.12.1
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-12-2"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/insurance_order.py`（`InsuranceOrderAdapter`，`object_types=('case',)`：**key 即原 `Case.id`**（源码核对：`get_order` → `flow.get_case(db,user,key)` → `_one(db, InsuranceOrder, row.id)`），快照单次只读 `GET /api/insurance-orders/{case_id}`，ID 不一致 502、对象类型必须是 case、动作可用性一律 `unknown`；事实 `insurance.current_quote_consented`（以 `data.insurance_quote_id` 指向的**当前报价**为准，要求 `history` 中同 `quote.id` 条目 `authorized=True`；**历史里别的报价不能当当前报价的同意**，缺字段/缺历史/摘要不可判一律未知）、`insurance.external_result_recorded`（需原 `InsuranceResult` 的 `submission_id` 与 `outcome`；**任意外部结果不能满足已出保**）、`insurance.policy_issued`（**`outcome=issued` 且真实 `policy_number`**，空白不算；issued 缺保单号即未知；**保费/佣金保持各自原资金事实**）；**附件（authorization/receipt）不作为任何事实的满足条件**；`extract_result` 只绑定保险族写入；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；**未使用的 `POST /api/observation-corrections/insurance/{case_id}/sync` 绝不被调用**），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原资金与佣金口径。**实测拦截与修复（如实保留）**：套件要求理由含字面 `policy_number`，实现用中文"存在真实保单号"表述 → 按语义修正断言（产品代码未改）。外部套件 `$ValidationRoot/tests/runtime_domains/test_insurance_order.py`（7 项），run `20260928T143757Z-fb0f49b108` passed。详见 `docs/implementation-checkpoints/M7-12-1-review-v1.md`。源码指纹 `6c6ef7dce093e260053a3958322c5ca97a55098e79a6ca3ddf73561feba1b7ab`。下一项 M7.12.2。
 
 ### M7.12.2 销售明细加装与原物资退回
 
