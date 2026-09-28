@@ -58,7 +58,13 @@ class Issue(Strict):
 @router.get('/status')
 def assistant_status(db=Depends(get_db),user=Depends(get_user)):
     single_store(db)
-    return service.status()
+    from .assistant_runtime_schemas import RuntimeFeatures
+    # Feature discovery is independent of changing workspace projections.
+    return {**service.status(), 'features': RuntimeFeatures(
+        home=settings.assistant_home_enabled,
+        runtime=settings.assistant_runtime_enabled,
+        followup=settings.assistant_followup_enabled,
+        notifications=settings.assistant_notifications_enabled).model_dump()}
 
 
 @router.get('/sessions')

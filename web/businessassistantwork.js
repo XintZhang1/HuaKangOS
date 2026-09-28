@@ -35,9 +35,8 @@ function paintBusinessAssistantWork(){
 }
 async function businessAssistantRefreshWork(current=businessAssistantState,generation=current.generation,planId=null){
  // M6.6：确认/取消卡、切换计划后只重新读取；是否继续准备由服务器按 active Grant 决定，UI 不自动重试。
- if(planId)bawLoadPlan(planId);
- if(!current.session||!businessAssistantAlive(current,generation))return;
- if(!current.session.work_plans?.length){current.workboard=null;current.workError='';paintBusinessAssistantWork();return;}
+ if(!businessAssistantAlive(current,generation))return;
+ if(!current.session?.work_plans?.length){current.workSerial++;current.workboard=null;current.workPlanId=null;current.workError='';current.workLoading=false;await bawLoadPlan(null);paintBusinessAssistantWork();return;}
  const sid=current.session.id,serial=(current.workSerial||0)+1;
  current.workSerial=serial;current.workLoading=true;current.workError='';
  if(planId)current.workPlanId=planId;
@@ -47,6 +46,7 @@ async function businessAssistantRefreshWork(current=businessAssistantState,gener
   const data=await businessAssistantRequest(path);
   if(!businessAssistantAlive(current,generation)||current.session?.id!==sid||serial!==current.workSerial)return;
   current.workboard=data;current.workPlanId=data.plan?.id||null;
+  await bawLoadPlan(current.workPlanId);
  }catch(error){
   if(businessAssistantAlive(current,generation)&&current.session?.id===sid&&serial===current.workSerial)
    current.workError='交接进度暂未读取成功，请刷新或打开原单核对。';

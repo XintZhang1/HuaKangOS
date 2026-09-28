@@ -6,12 +6,16 @@ on:
     paths:
       - 'app/**'
       - 'web/**'
+      - 'migrations/**'
+      - 'requirements.txt'
       - 'tests/assistant_offline/**'
       - '.github/workflows/assistant-offline-checks.yml'
   pull_request:
     paths:
       - 'app/**'
       - 'web/**'
+      - 'migrations/**'
+      - 'requirements.txt'
       - 'tests/assistant_offline/**'
       - '.github/workflows/assistant-offline-checks.yml'
 
@@ -36,31 +40,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Compile Python without importing the application
-        run: python -m compileall -q app migrations
-      - name: Check JavaScript syntax
-        shell: bash
+      - name: Install pinned application and browser dependencies
         run: |
-          set -euo pipefail
-          while IFS= read -r -d '' file; do node --check "$file"; done < <(find web -name '*.js' -print0)
-      - name: Run isolated offline regressions when present
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -d tests/assistant_offline ]; then
-            python -m unittest discover -s tests/assistant_offline -p 'test_*.py' -v
-          fi
-      - name: Package tracked source for reproducible offline review
-        if: always()
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/assistant-review"
-          git archive --format=tar.gz --output="$RUNNER_TEMP/assistant-review/source.tar.gz" HEAD
-          git rev-parse HEAD > "$RUNNER_TEMP/assistant-review/commit.txt"
+          python -m pip install -r requirements.txt playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Run isolated regressions with native browser transport
+        run: >-
+          python tests/assistant_offline/run_isolated.py
+          --source "$GITHUB_WORKSPACE"
+          --output "$RUNNER_TEMP/assistant-validation"
+          --browser-mode native
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: assistant-source-${{ github.sha }}
-          path: ${{ runner.temp }}/assistant-review/
-          retention-days: 3
-          if-no-files-found: error
+          name: assistant-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/assistant-validation/evidence/
+          retention-days: 7
+          if-no-files-found: warn

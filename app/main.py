@@ -50,7 +50,7 @@ def _embedded_runtime_worker():
     global _EMBEDDED_WORKER
     if os.environ.get('HUAKANGOS_LOCAL_PREVIEW') != '1':
         return None
-    if not settings.assistant_runtime_enabled:
+    if not (settings.assistant_runtime_enabled or settings.assistant_notifications_enabled):
         return None
     if _EMBEDDED_WORKER is not None:
         return _EMBEDDED_WORKER

@@ -3581,6 +3581,8 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **本轮追加检查点（不替代历史证据）**：业主授权在当前 feature 基点继续修复并执行离线/页面测试。生产缺陷补丁范围见 `PATCH-M8-1-REGISTRY-01`、`PATCH-M8-1-CLIENT-01`、`PATCH-M8-1-WIRING-01`；结果见 `docs/implementation-checkpoints/M8-1-offline-runtime-checkpoint-v1.md`。本轮新增后端 26/26、完整前端模块 28/28、Chromium 桥接页面 10/10；测试、全量日志和合成夹具随外部复验包交付，不写入生产源码。生产树指纹 `e2fe5e52a842703ea177255ba0ae667e16a29c09012cf5448f50d67ce5c45c45`。已实际覆盖客户样例确认前零原业务写入、重复确认不重写、丢失回执不重放、旧租约晚写拒绝、HTTP 退出及取消后的迟到响应、模型协议整段拒绝及并发登录。上述是指定场景证据，未覆盖整个 M8.1：发件箱/唤醒、全业务批量、完整 Plan/跟进链、access_signals 全路径及原生浏览器等仍待测；不勾选全局完成检查，不改为 done，不放行生产。
 
+**2026-09-29 接续检查点 v2**：在真实上游祖先恢复上轮修复后，补齐 worker 的发件箱/到期计划调用、积压调度、Plan/通知页面链路、真实接待事实、旧后端批量首项失败即停与上下文竞态。精确补丁见 PATCH-M8-1-FOLLOWUP-01、BATCH-01、VALIDATION-01；实测报告见 `docs/implementation-checkpoints/M8-1-offline-followup-checkpoint-v2.md`。仓库 `tests/assistant_offline/run_isolated.py` 将测试源码复制到全新外部目录后执行；本轮完整退出 0，后端 67/67、前端模块 42/42、Chromium 桥接页面 12/12。生产指纹 `b05424bd1668f2531be01fb5931c7bd1784bd3a3f0e6fd1492821fb306fe011c`；不代表原生浏览器或全部业务族验收。已覆盖两步显式跟进、暂停/恢复/撤销、登出后仍须人工确认、原账号/门店撤权、重复唤醒、发件箱提交故障、第二项未知时批量停止；仍保留原全部完成检查，M8.1 不改 done。测试源码版本化不等于恢复原归档套件，运行数据/证据不进入 Git。
+
 **目标**：验证已完成各子系统接在一起后，不重复准备、不越权、不丢批量项，不把未知结果变成自动重试。
 
 **依赖**：schema/迁移、确认冻结、回执适配、后台身份、WorkItem/队列、计划/上下文、发件箱/跟进、通知及业务适配对应里程碑done且各自定向测试passed。

@@ -23,3 +23,7 @@ playwright-report/
 
 # Local assistant test configuration
 assistant-test-settings.json
+
+# Offline test execution must stay outside the repository.
+tests/assistant_offline/runtime/
+tests/assistant_offline/evidence/

@@ -30,9 +30,9 @@
     return { features: null, counts: null, groups: [], cursors: {}, loading: false,
       error: '', selected: null, serial: 0, mounted: false, bound: false, context: '',
       drawer: false, notice: '', host: null, toggle: null, handoff: null, handoffLabel: '', handoffPrompt: '',
-      plan: null, planError: '', planLoading: false, planSerial: 0, followupPending: '', revokeArmed: false,
+      plan: null, planError: '', planLoading: false, planSerial: 0, followupPending: '', followupToken: null, revokeArmed: false,
       notices: [], noticeUnread: 0, noticeCursor: null, noticeOpen: false, noticeError: '',
-      noticeSerial: 0, noticeLoading: false, noticePoll: null, noticeSeen: null, noticeReadPending: '',
+      noticeSerial: 0, noticeLoading: false, noticePoll: null, noticeSeen: null, noticeReadPending: '', noticeBound: false,
       receipts: {} };
   }
   let state = fresh();
@@ -46,6 +46,11 @@
     ? businessAssistantState : null; }
   function contextKey() {
     return typeof businessAssistantContext === 'function' ? businessAssistantContext() : '';
+  }
+  // Serial counters restart on disposal; identity plus context prevents ABA responses.
+  function requestGuard() {
+    const owner = state, epoch = contextKey();
+    return () => owner === state && epoch === contextKey();
   }
   function alive() { return state.mounted && state.context === contextKey(); }
   function groupOf(key) { return state.groups.find((group) => group.key === key) || null; }
@@ -65,6 +70,7 @@
   }
 
   async function load(options) {
+    const valid = requestGuard();
     const settings = options || {}, before = state.serial;
     const serial = before + 1;
     state.serial = serial; state.loading = true; state.error = '';
@@ -78,13 +84,13 @@
     try {
       view = await businessAssistantRequest('/workspace' + (query.length ? '?' + query.join('&') : ''));
     } catch (error) {
-      if (state.serial !== serial) return null;
+      if (!valid() || state.serial !== serial) return null;
       state.loading = false;
       state.error = (error && error.message) || '读取待办失败，请稍后重试。';
       renderSidebarInto();
       return null;
     }
-    if (state.serial !== serial) return null;  // 迟到的分页结果按序号丢弃，不合并到新上下文
+    if (!valid() || state.serial !== serial) return null;  // 迟到的分页结果按序号丢弃，不合并到新上下文
     apply(view, settings);
     return view;
   }
@@ -120,6 +126,8 @@
       state.selected = found || null;   // 服务器不再返回就清空，不自作主张改选别的项
     }
     renderSidebarInto();
+    if (state.mounted) startNotifications();
+    patchCurrent();
   }
 
   function itemHTML(item) {
@@ -428,6 +436,10 @@
   }
 
   async function loadPlan(planId) {
+    const valid = requestGuard();
+    if (!planId || state.plan?.id !== planId) {
+      state.plan = null; state.revokeArmed = false; state.followupPending = ''; state.followupToken = null;
+    }
     const serial = (state.planSerial || 0) + 1;
     state.planSerial = serial; state.planLoading = true; state.planError = '';
     if (!planId) { state.plan = null; state.planLoading = false; patchCurrent(); return null; }
@@ -435,14 +447,14 @@
     try {
       view = await businessAssistantRequest('/plans/' + encodeURIComponent(String(planId)));
     } catch (error) {
-      if (state.planSerial !== serial) return null;
+      if (!valid() || state.planSerial !== serial) return null;
       state.planLoading = false;
       state.plan = null;
       state.planError = (error && error.message) || '读取事项进度失败，请稍后重试。';
       patchCurrent();
       return null;
     }
-    if (state.planSerial !== serial) return null;
+    if (!valid() || state.planSerial !== serial) return null;
     state.plan = view || null;
     state.planLoading = false;
     state.revokeArmed = false;
@@ -452,6 +464,8 @@
 
   // 只提交当前 plan.id 与当前 version；不重放、不自造版本、不改本地授权快照。
   async function setFollowup(action) {
+    const validContext = requestGuard();
+    if (state.followupPending || state.planLoading) return { ok: false, reason: '正在核对，请稍后再操作。' };
     const plan = state.plan;
     if (!plan || !plan.id) return { ok: false, reason: '还没有可跟进的事项，请先选一件事项。' };
     if (!FOLLOWUP_LABELS[action]) return { ok: false, reason: '不支持的跟进操作。' };
@@ -463,24 +477,30 @@
     }
     const version = plan.version;
     if (!Number.isSafeInteger(version)) return { ok: false, reason: '事项版本未知，请刷新后重试。' };
-    state.followupPending = action;
+    const token = {};
+    state.followupToken = token; state.followupPending = action; state.planSerial++;
+    const valid = () => validContext() && state.followupToken === token && state.plan?.id === plan.id;
     patchCurrent();
     try {
       const updated = await businessAssistantRequest(
         '/plans/' + encodeURIComponent(String(plan.id)) + '/followup',
         { method: 'POST', body: { action: action, expected_version: version } });
-      if (state.plan && state.plan.id === plan.id) {
+      if (!valid()) return { ok: false, reason: '当前事项已切换。' };
+      state.planSerial++; state.planLoading = false;
+      if (state.plan && state.plan.id === plan.id && (!Number.isSafeInteger(updated?.version) || updated.version >= state.plan.version)) {
         state.plan = Object.assign({}, state.plan, updated || {});
         state.planError = '';
       }
       state.revokeArmed = false;
       return { ok: true, plan: updated };
     } catch (error) {
+      if (!valid()) return { ok: false, reason: '当前事项已切换。' };
       const status = error && error.status;
       if (status === 409) {
         // 版本冲突：不重放动作，读回当前 Plan 让员工重新核对；提示在读回之后仍然可见。
-        const changed = '事项已经变化（可能被其他同事或另一台设备更新），已重新读取；请核对目标与权限后再决定。';
+        const changed = '事项已变化，请核对后再操作。';
         await loadPlan(plan.id);
+        if (!valid()) return { ok: false, reason: '当前事项已切换。' };
         state.planError = changed;
         patchCurrent();
         return { ok: false, reason: changed };
@@ -495,8 +515,9 @@
       patchCurrent();
       return { ok: false, reason: state.planError };
     } finally {
-      state.followupPending = '';
-      patchCurrent();
+      if (validContext() && state.followupToken === token) {
+        state.followupPending = ''; state.followupToken = null; patchCurrent();
+      }
     }
   }
 
@@ -524,17 +545,13 @@
     }
     if (!grant.enabled && followupAllowed('enable')) {
       // 开启前把范围讲清楚：目标、门店、本人、只查询与准备、退出后继续、暂停与结束入口。
-      lines.push('<div class="ba-plan-scope"><p><strong>开启前请确认范围</strong></p><ul>'
-        + '<li>目标：' + escapeText(plan.goal || '当前事项') + '</li>'
-        + '<li>门店：' + escapeText(String((globalThis.state && globalThis.state.store) || '')) + '（只按当前门店权限）</li>'
-        + '<li>以你本人身份查询和准备，不替你做业务提交</li>'
-        + '<li>实际办理仍需你在卡片上确认</li>'
-        + '<li>退出登录后仍会继续查询和准备，直到你暂停或结束</li>'
-        + '<li>随时可以暂停跟进或结束这件事</li></ul></div>');
+      const storeName = typeof businessAssistantStoreName === 'function' ? businessAssistantStoreName() : '当前门店';
+      lines.push('<p class="ba-plan-scope">以你在' + escapeText(storeName)
+        + '的权限查询和准备此事项，办理仍需逐张确认。退出登录后继续跟进，可随时暂停或结束。</p>');
     }
     const buttons = ['enable', 'resume', 'pause', 'revoke'].filter(followupAllowed).map((action) => {
       const label = action === 'revoke' && state.revokeArmed ? '确认结束这件事' : FOLLOWUP_LABELS[action];
-      const busy = state.followupPending === action ? ' disabled' : '';
+      const busy = state.followupPending || state.planLoading ? ' disabled' : '';
       return '<button type="button" class="ba-plan-action' + (action === 'revoke' ? ' danger' : '')
         + '" data-baws-action="followup" data-baws-followup="' + action + '"' + busy + '>'
         + escapeText(label) + '</button>';
@@ -558,6 +575,7 @@
   }
 
   async function loadNotifications(options) {
+    const valid = requestGuard();
     const settings = options || {};
     if (!notificationsOn() && !settings.force) return null;   // 未开启时连读取都不做
     const serial = (state.noticeSerial || 0) + 1;
@@ -569,13 +587,13 @@
     try {
       view = await businessAssistantRequest('/notifications' + (query.length ? '?' + query.join('&') : ''));
     } catch (error) {
-      if (state.noticeSerial !== serial) return null;
+      if (!valid() || state.noticeSerial !== serial) return null;
       state.noticeLoading = false;
       state.noticeError = (error && error.message) || '读取通知失败，请稍后重试。';
       patchCurrent();
       return null;
     }
-    if (state.noticeSerial !== serial) return null;
+    if (!valid() || state.noticeSerial !== serial) return null;
     const items = Array.isArray(view && view.items) ? view.items : [];
     if (settings.cursor) {
       for (const item of items) {
@@ -600,18 +618,21 @@
   }
 
   function startNotifications() {
-    stopNotifications();
-    if (!notificationsOn()) return false;   // 未开启通知时不轮询
+    if (!notificationsOn()) { stopNotifications(); return false; }
+    if (state.noticeBound) return true;   // 未开启通知时不轮询
     if (typeof document === 'undefined' || !document.addEventListener) return false;
+    state.noticeBound = true;
     document.addEventListener('visibilitychange', onVisibility);
     if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('focus', onVisibility);
     if (document.visibilityState !== 'hidden') {
+      if (!state.noticeLoading) void loadNotifications({ silent: true });
       state.noticePoll = setTimeout(pollTick, 30000);
     }
     return true;
   }
 
   function stopNotifications() {
+    state.noticeBound = false;
     if (state.noticePoll) { clearTimeout(state.noticePoll); state.noticePoll = null; }
     if (typeof document !== 'undefined' && document.removeEventListener) {
       document.removeEventListener('visibilitychange', onVisibility);
@@ -623,14 +644,16 @@
   function pollTick() {
     state.noticePoll = null;
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    const valid = requestGuard();
     loadNotifications({ silent: true }).then(() => {
-      if (state.mounted && typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
+      if (valid() && notificationsOn() && !state.noticePoll && state.mounted && typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
         state.noticePoll = setTimeout(pollTick, 30000);
       }
     });
   }
 
   function onVisibility() {
+    if (!state.mounted || !notificationsOn()) return;
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
       if (state.noticePoll) { clearTimeout(state.noticePoll); state.noticePoll = null; }
       return;   // 隐藏标签停止轮询
@@ -647,45 +670,62 @@
   }
 
   async function openNotification(id) {
+    const valid = requestGuard();
     const item = state.notices.find((notice) => notice && notice.id === id);
-    if (!item) return false;
-    const reference = item.task_id ? { source_type: 'task', task_id: item.task_id }
-      : item.proposal_id || item.plan_id || item.session_id
-        ? { source_type: 'session' } : null;
-    // 先按引用打开目标：任务走统一守卫，会话/计划走事项切换，其余只用原业务路由。
-    if (reference && reference.source_type === 'task') {
-      const opened = await openTaskReference(reference.task_id, item.safe_summary);
-      if (!opened) return false;
-    } else if (item.session_id && typeof businessAssistantChooseSession === 'function') {
-      const guard = guardHandoff();
-      if (!guard.ok && guard.choice !== 'stay-or-open') {
-        if (typeof toast === 'function') toast(guard.reason, true);
-        return false;
+    if (!item || state.noticeReadPending) return false;
+    // Latch the whole open/read sequence; a double click must not decrement twice.
+    state.noticeReadPending = item.id;
+    let opened = false;
+    try {
+      if (item.task_id) {
+        opened = await openTaskReference(item.task_id, item.safe_summary);
+      } else if (item.session_id) {
+        const page = current();
+        if (page?.session?.id === item.session_id) {
+          opened = typeof businessAssistantRefreshCurrentSession === 'function'
+            && await businessAssistantRefreshCurrentSession();
+        } else {
+          const guard = switchGuard(item);
+          if (!guard.ok) { if (typeof toast === 'function') toast(guard.reason, true); return false; }
+          opened = typeof businessAssistantChooseSession === 'function'
+            && await businessAssistantChooseSession(item.session_id);
+        }
+        if (opened && valid() && item.plan_id && typeof businessAssistantRefreshWork === 'function') {
+          await businessAssistantRefreshWork(undefined, undefined, item.plan_id);
+        }
+        if (opened && valid() && item.proposal_id) {
+          const active = current(), card = active?.session?.proposals?.find(p => p.id === item.proposal_id);
+          if (card) {
+            active.activeCardId = card.id;
+            active.queueFilter = typeof businessAssistantBucket === 'function' ? businessAssistantBucket(card) : 'pending';
+            active.mobilePane = 'cards';
+            if (typeof paintBusinessAssistant === 'function') paintBusinessAssistant();
+          }
+        }
+      } else if (item.manual_route && typeof go === 'function') {
+        go(item.manual_route); opened = true;
       }
-      const page = current();
-      if (page && page.session && page.session.id !== item.session_id) await businessAssistantChooseSession(item.session_id);
-    } else if (item.manual_route) {
-      if (typeof go === 'function') go(item.manual_route);
-    } else {
-      return false;
-    }
-    if (item.status === 'unread') {
-      state.noticeReadPending = item.id;
-      try {
+      if (!valid() || !opened) return false;
+      if (item.status === 'unread') {
+        const serial = ++state.noticeSerial; // Invalidate polls started before this read.
         const updated = await businessAssistantRequest('/notifications/' + encodeURIComponent(String(item.id)) + '/read',
           { method: 'POST', body: {} });
-        state.notices = state.notices.map((notice) => notice.id === item.id
-          ? Object.assign({}, notice, updated || {}, { status: (updated && updated.status) || 'read' }) : notice);
-        state.noticeUnread = Math.max(0, Number(state.noticeUnread || 0) - 1);
-      } catch (error) {
-        // 已打开的业务不回退；只说明已读状态没更新。
-        state.noticeError = '已打开，已读状态未更新：' + ((error && error.message) || '请稍后重试。');
-      } finally {
-        state.noticeReadPending = '';
+        if (!valid()) return false;
+        const latest = state.notices.find(notice => notice.id === item.id);
+        state.notices = state.notices.map(notice => notice.id === item.id
+          ? Object.assign({}, notice, updated || {}, { status: updated?.status || 'read' }) : notice);
+        if (latest?.status === 'unread') state.noticeUnread = Math.max(0, Number(state.noticeUnread || 0) - 1);
+        // A concurrent poll has its own exact server count; re-read instead of guessing.
+        if (state.noticeSerial !== serial) void loadNotifications({ silent: true });
+        else state.noticeLoading = false;
       }
+      return true;
+    } catch (error) {
+      if (valid()) state.noticeError = opened ? '已打开，已读状态未更新，请稍后刷新。' : '未能打开，请稍后刷新。';
+      return opened && valid();
+    } finally {
+      if (valid()) { state.noticeReadPending = ''; patchCurrent(); }
     }
-    patchCurrent();
-    return true;
   }
 
   async function openTaskReference(taskId, label) {
@@ -704,13 +744,16 @@
   }
 
   async function checkReceipt(sessionId, proposalId) {
+    const valid = requestGuard();
     if (!sessionId || !proposalId) return null;
     const key = String(proposalId);
     try {
       const view = await businessAssistantRequest('/sessions/' + encodeURIComponent(String(sessionId))
         + '/proposals/' + encodeURIComponent(key) + '/execution-result');
+      if (!valid()) return null;
       state.receipts[key] = view || null;
     } catch (error) {
+      if (!valid()) return null;
       state.receipts[key] = { status: 'unavailable', reason: (error && error.message) || '核对失败，请稍后重试。' };
     }
     patchCurrent();
@@ -768,21 +811,28 @@
       renderSidebarInto();
       return false;
     }
+    const validContext = requestGuard();
+    const valid = () => validContext() && state.selected === item;
     state.notice = '';
     state.selected = item;
     renderSidebarInto();
     patchCurrent();
-    if (item.kind === 'native_task') { state.plan = null; patchCurrent(); return true; }   // 查看原任务不创建会话、不调用模型
-    if (item.plan_id) await loadPlan(item.plan_id);
-    else { state.plan = null; }
+    if (item.kind === 'native_task') {
+      await loadPlan(null);   // Viewing a native task never creates a session or calls a model.
+      return valid();
+    }
+    await loadPlan(item.plan_id || null);
+    if (!valid()) return false;
     if (item.session_id && typeof businessAssistantChooseSession === 'function') {
       const page = current();
       if (!page || !page.session || page.session.id !== item.session_id) {
-        await businessAssistantChooseSession(item.session_id);
-        restoreUi();   // 回到旧事项只恢复同一 proposal_id 的答案
+        const opened = await businessAssistantChooseSession(item.session_id);
+        if (!valid() || !opened) return false;
+        restoreUi();   // Restore answers only for the same proposal in the chosen session.
       }
       if (typeof businessAssistantRefreshWork === 'function' && item.plan_id) {
         await businessAssistantRefreshWork(undefined, undefined, item.plan_id);
+        if (!valid()) return false;
       }
     }
     patchCurrent();
@@ -826,7 +876,7 @@
       return;
     }
     if (action === 'drawer-close') { closeDrawer(); return; }
-    if (action === 'notices') { state.noticeOpen = !state.noticeOpen; patchCurrent(); return; }
+    if (action === 'notices') { state.noticeOpen = !state.noticeOpen; patchCurrent(); if (state.noticeOpen) await loadNotifications({ silent: true }); return; }
     if (action === 'notices-more') { await loadNotifications({ cursor: state.noticeCursor || '' }); return; }
     if (action === 'notice-open') { await openNotification(String(target.dataset.noticeId || '')); return; }
     if (action === 'receipt') {
@@ -879,6 +929,8 @@
   function mount(root) {
     state.mounted = true;
     state.context = contextKey();
+    const features = current()?.status?.features;
+    if (features && ['home', 'runtime', 'followup', 'notifications'].every(key => typeof features[key] === 'boolean')) state.features = features;
     if (!state.bound) {
       document.addEventListener('click', onClick);
       document.addEventListener('keydown', onKeydown);

@@ -1704,11 +1704,10 @@ async def decide_proposal(db,request,user,session_id,row,digest,cancel=False,ans
 
 
 async def batch_decide(db,request,user,session_id,items,cancel=False):
-    """业主 2026-09-25：一轮准备好的几十张卡不该让员工点几十次。
+    """Employee confirmation of one group, with independent native transactions.
 
-    员工在页面上核对这一组后点一次"全部确认"，服务端逐张照办——但**每张仍是它自己的那次办理**：
-    各自的 digest、岗位/门店/版本/过期校验、各自提交、各自留痕，失败的那张单独报出来，其它照办。
-    这不是"一次写多张"，模型也不能调用这个入口：它只接受员工在页面上按下的那一次点击。
+    Stop on the first refusal/failure/unknown result, without rolling back prior
+    successes or silently dropping later rows. This is never a model tool.
     """
     thread=owned_session(db,user,session_id)
     if not isinstance(items,list) or not items:raise HTTPException(422,'请选择要办理的卡片')
@@ -1726,14 +1725,37 @@ async def batch_decide(db,request,user,session_id,items,cancel=False):
     rows={row.id:row for row in db.scalars(select(AssistantProposal).where(
         AssistantProposal.session_id==thread.id,AssistantProposal.owner_id==user.id,
         AssistantProposal.id.in_(list(wanted))))}
+    # Use real grouping facts before making even the first native submission.
+    # Legacy cards without a turn remain independent, as in the browser queue.
+    from .assistant_runtime_models import WorkItem
+    groups=set()
+    for row in rows.values():
+        native_step=(None,None)
+        if row.source_work_item_id:
+            work=db.scalar(select(WorkItem).where(WorkItem.id==row.source_work_item_id,
+                WorkItem.owner_id==user.id,WorkItem.store_id==thread.store_id,
+                WorkItem.session_id==session_id,WorkItem.item_kind=='prepare'))
+            if work is None or work.operation_id!=row.operation_id:
+                raise HTTPException(409,'卡片来源已变化，请刷新后核对')
+            native_step=(work.plan_id,work.step_id)
+        groups.add((row.request_id or 'card-'+row.id,(row.step_label or '').strip(),native_step))
+    if len(groups)>1:
+        raise HTTPException(422,'请分别核对每一组事项，不能跨轮次或步骤批量办理')
     # A later rollback expires every loaded ORM row, including unprocessed cards.
     # Exception handling must use plain values captured before the first attempt.
     card_details={key:(row.summary,row.operation_id) for key,row in rows.items()}
     results=[]
+    stopped=False
+    expected='cancelled' if cancel else 'succeeded'
     for card_id,(digest,answers) in wanted.items():
+        if stopped:
+            results.append({'id':card_id,'status':'skipped','message':'前项未完成，尚未提交'})
+            continue
         row=rows.get(card_id)
         if row is None:
-            results.append({'id':card_id,'status':'refused','message':'没有找到这项操作'});continue
+            results.append({'id':card_id,'status':'refused','message':'没有找到这项操作'})
+            stopped=True
+            continue
         try:
             async with asyncio.timeout(90):
                 results.append(await decide_proposal(db,request,user,session_id,row,digest,cancel,answers))
@@ -1748,7 +1770,8 @@ async def batch_decide(db,request,user,session_id,items,cancel=False):
         except Exception:
             db.rollback()
             results.append({'id':card_id,'summary':card_details[card_id][0],'status':'uncertain','message':'这张未收到结果，请到原页面核对'})
-    done=sum(1 for item in results if item.get('status') in {'succeeded','cancelled'})
+        stopped=results[-1].get('status')!=expected
+    done=sum(1 for item in results if item.get('status')==expected)
     view=confirmation_view(db,user,session_id,results)
-    view['batch']={'total':len(results),'done':done,'items':results}
+    view['batch']={'total':len(results),'done':done,'items':results,'stopped':stopped}
     return view

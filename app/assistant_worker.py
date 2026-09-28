@@ -5,9 +5,9 @@ reviewed local preview embeds one ``Worker`` only after its own marker is
 verified; an independent deployment runs ``python -m app.assistant_worker``
 beside the Web image with the same explicit database configuration.
 
-Nothing in this module performs a business write. The worker only recovers
-expired leases and drives one already-authorized, already-queued Run through the
-runtime's reviewed paths; a confirmed business submission stays an employee click
+Nothing in this module performs a business write. The worker dispatches committed
+signals, checks explicitly granted due plans, recovers expired leases and drives
+one authorized Run through the runtime's reviewed paths; a confirmed business submission stays an employee click
 on the original API. Feature switches stay default-off, and a disabled runtime
 never claims work.
 """
@@ -332,7 +332,7 @@ class Worker:
     def __init__(self, *, worker_id=None, lease_owner=None, session_factory=None, clock=None,
                  runner=None, queue=None, config=None, check_seconds=CHECK_SECONDS,
                  heartbeat_seconds=HEARTBEAT_SECONDS, cleanup_seconds=CLEANUP_SECONDS,
-                 stop_event=None, read_session_factory=None, bound_engine=None):
+                 stop_event=None, read_session_factory=None, bound_engine=None, outbox=None):
         self.worker_id = worker_id or new_worker_id()
         worker_key(self.worker_id)
         self.lease_owner = lease_owner or ('worker:' + self.worker_id)
@@ -344,6 +344,7 @@ class Worker:
         self.bound_engine = bound_engine
         self._runner = runner
         self._queue = queue
+        self._outbox = outbox
         self.config = config
         self.check_seconds = check_seconds
         self.heartbeat_seconds = heartbeat_seconds
@@ -372,6 +373,43 @@ class Worker:
             from .assistant_runtime_runner import run_once
             self._runner = run_once
         return self._runner
+
+    @property
+    def outbox(self):
+        if self._outbox is None:
+            from . import assistant_runtime_outbox as outbox
+            self._outbox = outbox
+        return self._outbox
+
+    async def _check_signals(self, result):
+        """Bound each cycle to one event and one due plan, in separate Sessions.
+
+        The existing outbox owns reauthorization, fact reads, deduplication and
+        short write transactions. A failed/deferred check must not starve an
+        already queued employee Run, and never authorizes a business command.
+        Notifications have their own switch even when Run execution is off.
+        """
+        checks = []
+        followup = settings.assistant_runtime_enabled and settings.assistant_followup_enabled
+        if followup or settings.assistant_notifications_enabled:
+            checks.append(('dispatch', self.outbox.dispatch_one))
+        if followup:
+            checks.append(('poll', self.outbox.poll_due_plan))
+        for name, check in checks:
+            if self._stop.is_set():
+                break
+            try:
+                with self.session_factory() as db:
+                    outcome = await check(db, clock=self.clock,
+                        read_session_factory=self.read_session_factory)
+                if outcome is not None:
+                    # Only scheduler status belongs in operational telemetry.
+                    result[name] = outcome.state
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                result.setdefault('maintenance_errors', {})[name] = _error_code(exc)
+                self._record_failure(result, exc)
 
     # -- heartbeat and maintenance --------------------------------------------
     def beat_now(self, *, error=None, now=None):
@@ -453,8 +491,15 @@ class Worker:
         result = {'cycle': self.cycles, 'at': _iso(now), 'worker': self.worker_id,
                   'state': self.state, 'claimed': False, 'run_id': None, 'status': None,
                   'reason': None, 'error': None}
+        if self._stop.is_set():
+            result['reason'] = 'stopping'
+            return result
+        await self._check_signals(result)
         if not settings.assistant_runtime_enabled:
             result['reason'] = 'runtime_disabled'
+            return result
+        if self._stop.is_set():
+            result['reason'] = 'stopping'
             return result
         try:
             recovered = self._recover()
@@ -462,6 +507,9 @@ class Worker:
                 result['recovered'] = recovered.id
         except Exception as exc:
             return self._record_failure(result, exc)
+        if self._stop.is_set():
+            result['reason'] = 'stopping'
+            return result
         try:
             principal = self._claim()
         except Exception as exc:
@@ -499,8 +547,9 @@ class Worker:
         try:
             while not self._stop.is_set():
                 began = asyncio.get_running_loop().time()
+                result = None
                 try:
-                    await self.tick()
+                    result = await self.tick()
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
@@ -508,7 +557,16 @@ class Worker:
                 if once:
                     break
                 spent = asyncio.get_running_loop().time() - began
-                if await self._pause(max(0.0, self.check_seconds - spent)):
+                # A cycle consumes only one event/plan/Run. Drain committed
+                # backlog without imposing five seconds per item; due timestamps
+                # already enforce each source's retry and polling backoff.
+                progress = result and not result.get('error') and (
+                    result.get('claimed') or result.get('recovered')
+                    or result.get('dispatch') in {'dispatched', 'pending'}
+                    or result.get('poll') in {'checked', 'invalidated', 'deferred'})
+                if progress:
+                    await asyncio.sleep(0)  # Give Web, heartbeats and stop a turn.
+                if await self._pause(0.0 if progress else max(0.0, self.check_seconds - spent)):
                     break
         finally:
             if self._stop.is_set():

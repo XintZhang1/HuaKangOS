@@ -21,8 +21,6 @@ LEAD_KIND = 'lead'
 LEAD_ACTIONS = ('assign', 'intent', 'remind', 'follow', 'reserve', 'close', 'reopen')
 # 本项登记的三条事实，每条都必须有原详情的直接证据。
 LEAD_FACTS = ('lead.customer_linked', 'lead.owner_assigned', 'lead.reserve_recorded')
-_RESERVED_ORDER_KEYS = ('reserved_order_id', 'vehicle_order_id', 'order_id')
-_ORDER_LINK_KINDS = ('order', 'case')
 
 
 def _now():
@@ -89,44 +87,46 @@ class LeadAdapter(FlowCaseAdapter):
             ])
 
         if fact_key == 'lead.owner_assigned':
-            owner_id = data.get('owner_id')
-            owner_name = data.get('owner_name')
-            if _positive_id(owner_id):
-                return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=[from_case],
-                                    reason=None if (type(owner_name) is str and owner_name.strip())
-                                    else '负责人姓名缺失，请到原页面核对')
-            # 原详情没有 owner 字段时，只有真实分派待办的 assignee 才算已分派。
-            for task in record['tasks']:
-                if type(task) is dict and _positive_id(task.get('assignee_id')):
-                    return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=[
-                        EvidenceRef(source_type='task', source_id=task.get('id'),
-                                    native_version=task.get('version') if _positive_id(task.get('version')) else None,
-                                    observed_at=observed_at),
-                        from_case,
-                    ], reason=None)
-            return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[],
-                                reason='原详情没有实际负责人，请先在原页面分派接待')
+            # new_case initializes owner_id to the creator *before* reception
+            # assignment. Neither that ID nor an arbitrary task assignee proves
+            # that the original assign command was performed.
+            assignments = [task for task in record['tasks']
+                if type(task) is dict and task.get('key') == 'assign'
+                and task.get('case_id') == record['id'] and _positive_id(task.get('id'))]
+            if len(assignments) != 1:
+                return _unknown(fact_key, '未取得明确的原分派记录，请在原单核对')
+            assignment = assignments[0]
+            if assignment.get('status') == 'open':
+                return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[],
+                                    reason='接待尚未分派')
+            if (assignment.get('status') != 'done' or not _positive_id(data.get('owner_id'))
+                    or record.get('state') == 'unassigned'):
+                return _unknown(fact_key, '分派结果与负责人尚未核实，请在原单核对')
+            return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[
+                EvidenceRef(source_type='task', source_id=assignment['id'],
+                            native_version=assignment.get('version') if _positive_id(assignment.get('version')) else None,
+                            observed_at=observed_at),
+                from_case,
+            ])
 
-        # lead.reserve_recorded：必须以原 reserve 结果或原事件确证的车辆订单引用为准；
-        # follow 待办结束、状态文字或动作可用性都不能代替。
-        order_id = None
-        native = data.get('data')
-        native = native if type(native) is dict else {}
-        for key in _RESERVED_ORDER_KEYS:
-            if _positive_id(native.get(key)) or _positive_id(data.get(key)):
-                order_id = native.get(key) if _positive_id(native.get(key)) else data[key]
-                break
-        if order_id is None:
-            for link in data.get('links') or []:
-                if (type(link) is dict and link.get('kind') in _ORDER_LINK_KINDS
-                        and _positive_id(link.get('id'))):
-                    order_id = link['id']
-                    break
-        if order_id is None:
-            return _unknown(fact_key, '需要原 reserve 成功结果或原事件确证车辆订单，请在原单核对后继续')
+        # The original reserve command creates an order whose parent is this
+        # lead. case_detail exposes authorized children, not a generic links
+        # collection. A loose case ID, state caption or ended task is no proof.
+        children = data.get('children')
+        if type(children) is not list:
+            return _unknown(fact_key, '未取得原关联订单，请在原单核对')
+        orders = [child for child in children if type(child) is dict
+            and child.get('kind') == 'order' and _positive_id(child.get('id'))
+            and type(child.get('parent_id')) is int and child['parent_id'] == record['id']
+            and type(child.get('store_id')) is int and child['store_id'] == record['store_id']]
+        if not orders:
+            # An absent readable child does not prove that another role has no
+            # order; leave the missing business fact explicitly unknown.
+            return _unknown(fact_key, '未找到可核对的关联车辆订单')
         return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[
-            EvidenceRef(source_type='object', source_id=BusinessObjectRef(type='case', id=order_id),
-                        native_version=None, observed_at=observed_at),
+            *[EvidenceRef(source_type='object', source_id=BusinessObjectRef(type='case', id=child['id']),
+                          native_version=child.get('version') if _positive_id(child.get('version')) else None,
+                          observed_at=observed_at) for child in sorted(orders, key=lambda child: child['id'])],
             from_case,
         ])
 

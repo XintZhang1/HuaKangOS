@@ -344,6 +344,7 @@ async function businessAssistantNewMatter(){
  const current=businessAssistantState;
  current.session=null;current.workboard=null;current.workPlanId=null;current.workError='';current.workSerial++;current.error='';current.needsRefresh=false;current.retry=null;current.stream=null;current.thinking=false;current.tab='chat';current.historyOpen=false;current.activeCardId=null;current.queueFilter='pending';current.receipt=null;current.mobilePane='chat';current.handoffChoice=null;current.switchIntent=null;
  businessAssistantWorkspaceModule()?.clearHandoff?.();
+ await businessAssistantWorkspaceModule()?.loadPlan?.(null);
  paintBusinessAssistant({focus:true});
 }
 function businessAssistantCompose(){
@@ -407,7 +408,7 @@ function bindBusinessAssistantPage(){
 }
 function businessAssistantRememberSession(session){
  const previous=businessAssistantState.session,newest=session.work_plans?.[0]?.id;
- if(previous?.id!==session.id){businessAssistantDetachRun();businessAssistantState.workboard=null;businessAssistantState.workPlanId=null;businessAssistantState.workError='';businessAssistantState.workSerial++;}
+ if(previous?.id!==session.id){businessAssistantWorkspaceModule()?.loadPlan?.(null);businessAssistantDetachRun();businessAssistantState.workboard=null;businessAssistantState.workPlanId=null;businessAssistantState.workError='';businessAssistantState.workSerial++;}
  else if(newest&&newest!==previous.work_plans?.[0]?.id){businessAssistantState.workboard=null;businessAssistantState.workPlanId=newest;businessAssistantState.workError='';businessAssistantState.workSerial++;}
  businessAssistantState.session=session;
  businessAssistantState.sessions=[session,...businessAssistantState.sessions.filter(item=>item.id!==session.id)];
@@ -422,6 +423,8 @@ async function businessAssistantTask(work){
 }
 async function businessAssistantRuntimeFeatures(){
  const current=businessAssistantState;
+ const features=current.status?.features;
+ if(features&&['home','runtime','followup','notifications'].every(key=>typeof features[key]==='boolean')){current.runtimeFeatures=features;return features;}
  if(current.runtimeFeatures)return current.runtimeFeatures;
  try{const view=await businessAssistantRequest('/workspace');current.runtimeFeatures=view?.features||{};}
  catch(error){current.runtimeFeatures=null;}  // 读取失败绝不能改走另一个入口重发同一句话
@@ -455,6 +458,7 @@ function businessAssistantWatchRuntimeRun(runId){
    current.runStop=businessAssistantRunText(status);current.stream=null;current.retry=null;
    if(current.runSubscription){try{current.runSubscription();}catch{}current.runSubscription=null;}
    current.runId=null;
+   if(event.session&&typeof businessAssistantRefreshWork==='function')void businessAssistantRefreshWork(current,current.generation);
   }
   paintBusinessAssistant();
  });
@@ -531,9 +535,31 @@ async function businessAssistantSendLegacy(text){
   if(!businessAssistantAlive(current,generation))return;businessAssistantRememberSession(session);current.draft='';current.retry=null;current.stream=null;
  });
 }
+// Notification refresh is read-only: it preserves the composer, answers and card selection.
+// A newer confirmation/session snapshot always wins over an in-flight refresh.
+async function businessAssistantRefreshCurrentSession(){
+ const current=businessAssistantState,generation=current.generation,before=current.session;
+ if(!before||current.busy||current.runId||current.retry||!businessAssistantAlive(current,generation))return false;
+ try{
+  const session=await businessAssistantRequest('/sessions/'+encodeURIComponent(before.id));
+  if(!businessAssistantAlive(current,generation)||current.session!==before||current.busy||current.runId||current.retry)return false;
+  if(!session||session.id!==before.id||!Array.isArray(session.messages)||!Array.isArray(session.proposals))throw new Error('对话结果不完整，请刷新后核对。');
+  businessAssistantRememberSession(session);
+  if(typeof businessAssistantRefreshWork==='function')await businessAssistantRefreshWork(current,generation);
+  if(!businessAssistantAlive(current,generation)||current.session?.id!==before.id)return false;
+  paintBusinessAssistant();return true;
+ }catch(error){
+  if(businessAssistantAlive(current,generation)&&current.session?.id===before.id){current.error=error.message;paintBusinessAssistant();}
+  return false;
+ }
+}
 async function businessAssistantChooseSession(id){
- if(businessAssistantState.draft.trim()||businessAssistantState.retry){toast('当前输入框里还有未发送的内容，请先发送或自行清空后再切换对话。',true);return;}
- await businessAssistantTask(async(current,generation)=>{const session=await businessAssistantRequest('/sessions/'+encodeURIComponent(id));if(!businessAssistantAlive(current,generation))return;businessAssistantRememberSession(session);current.retry=null;current.stream=null;current.needsRefresh=false;current.tab='chat';current.activeCardId=null;current.queueFilter='pending';current.receipt=null;current.historyOpen=false;});
+ const previous=businessAssistantState,generation=previous.generation;
+ if(previous.busy)return false;
+ if(previous.draft.trim()||previous.retry){toast('请先处理未发送的内容，再切换对话。',true);return false;}
+ let opened=false;
+ await businessAssistantTask(async(current,generation)=>{const session=await businessAssistantRequest('/sessions/'+encodeURIComponent(id));if(!businessAssistantAlive(current,generation))return;businessAssistantRememberSession(session);current.retry=null;current.stream=null;current.needsRefresh=false;current.tab='chat';current.activeCardId=null;current.queueFilter='pending';current.receipt=null;current.historyOpen=false;opened=true;});
+ return opened&&businessAssistantAlive(previous,generation)&&previous.session?.id===id;
 }
 async function businessAssistantDecide(id,confirm){
  const current=businessAssistantState,proposal=current.session?.proposals?.find(item=>String(item.id)===String(id));
@@ -687,7 +713,7 @@ document.addEventListener('click',async event=>{
   if(current.busy)return;
   if(action==='new'){
    if(!(await businessAssistantSwitchMatter({kind:'new'})))return;
-   current.session=null;current.workboard=null;current.workPlanId=null;current.workError='';current.workSerial++;current.error='';current.needsRefresh=false;current.retry=null;current.stream=null;current.thinking=false;current.tab='chat';current.historyOpen=false;current.activeCardId=null;current.queueFilter='pending';current.receipt=null;current.mobilePane='chat';paintBusinessAssistant({focus:true});
+   await businessAssistantNewMatter();
   }
   else if(action==='thinking'){if(!current.retry){current.thinking=!current.thinking;paintBusinessAssistant();}}
   else if(action==='suggestion'){if(!current.retry&&!current.draft.trim()){current.draft=element.dataset.prompt||'';paintBusinessAssistant({focus:true});}else toast('输入框中已有内容，请先处理当前草稿。',true);}
