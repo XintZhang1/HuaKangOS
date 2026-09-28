@@ -3440,50 +3440,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/vehicle_transfer.py`（`VehicleTransferAdapter`，`object_types=('vehicle_transfer',)`：快照单次只读 `GET /api/vehicle-transfers/{key}`，**key 即原 `VehicleTransfer.id`**，ID 不一致 502、**未登记状态 422**，动作可用性一律 `unknown`；`extract_result` 覆盖整车调拨族 operation（目的店读不绑定结果）；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `vehicle_transfer.accepted`（**原状态 `accepted` 且原 accept/`VehicleMovement` 同 VIN**；状态吻合但无车移动不算，流水缺失或 VIN 不一致一律未知）、`vehicle_transfer.returned`（原状态 `returned` 且原 return_receive 事实吻合；**`rejected` 不能满足 returned**）、`vehicle_transfer.lost`（原状态 `lost`；不推断找回或赔偿）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原保管与结算规则。**实测拦截与修复（如实保留）**：① 套件把展示编号写成 VIN，实际按原单号展示，按契约修正断言；② 修正补丁把字面 `\n` 写进套件文件被 `ast.parse` 立即拦截，已用文件式脚本还原（产品代码未被污染）。外部套件 `$ValidationRoot/tests/runtime_domains/test_vehicle_transfer.py`（8 项），run `20260928T141837Z-f0a1a48ba2` passed。详见 `docs/implementation-checkpoints/M7-10-2-review-v1.md`。源码指纹 `fcc650a6327d5e6396997bbbc5921d2f455e8eb6abf67d75080450d40808dec9`。下一项 M7.10.3。
 
-### M7.10.3 物资运输差异及损失处置
+### M7.10.3 调拨差异处置
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.10.2 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `transfer_exception` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/transfer_exception_api.py`、`app/transfer_exception_service.py`、`app/transfer_exception_models.py`、`app/transfer_exception_recovery.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/transfer_exception.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_transfer_exception.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/transfer-exceptions/{key}、/origins/{transfer_id}；observe/plan/approve/reject_plan/dispose/post_loss/cancel。
-
-**注册合同**：object_type=transfer_exception（TransferException.id）；adapter=`app/assistant_runtime_domains/transfer_exception.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`transfer_exception.observation_recorded`：本单原 TransferExceptionObservation；`transfer_exception.disposal_recorded`：本单原 TransferExceptionDisposal；`transfer_exception.loss_posted`：本单原 TransferLossPosting。方案批准不等于处置或过账。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：实际 missing/damaged 观察、双方独立复核、实际处置/原损失及赔付目标来源。
-3. 接统一只读回执 resolver：TransferExceptionReceipt，_execute；摘要包含真实异常原单和方案版本。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：两店独立复核缺一保持 waiting；已批准处置不等于实际损失过账或赔款到账；任何未知赔付不重放。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_transfer_exception.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.10.3
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-10-4"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/transfer_exception.py`（`TransferExceptionAdapter`，`object_types=('transfer_exception',)`：快照单次只读 `GET /api/transfer-exceptions/{key}`，**key 即原 `TransferException.id`**，ID 不一致 502、**缺原调拨单引用 502**（不补默认值），动作可用性一律 `unknown`；`extract_result` 覆盖差异族 operation（来源读不绑定结果）；`read_receipt` 走 `TransferExceptionReceipt` 族并保持冻结 `request_id`；事实 `transfer_exception.observation_recorded`（原 `TransferExceptionObservation`）、`transfer_exception.disposal_recorded`（原 `TransferExceptionDisposal`）、`transfer_exception.loss_posted`（原 `TransferLossPosting`）——只在原详情确实提供对应记录时满足，**只看到方案（plan）时返回未知并点名"方案批准不等于处置或过账"**），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原数量与损失公式。外部套件 `$ValidationRoot/tests/runtime_domains/test_transfer_exception.py`（7 项），run `20260928T141958Z-778dc94ded` passed。详见 `docs/implementation-checkpoints/M7-10-3-review-v1.md`。源码指纹 `a70755e2b77a8f9aea31b5d9d3ed67b7c67edb5786b9011c3f7db6c7af282488`。下一项 M7.10.4。
 
 ### M7.10.4 原损失物资查找与找回
 

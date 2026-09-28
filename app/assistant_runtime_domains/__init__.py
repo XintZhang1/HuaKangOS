@@ -94,6 +94,9 @@ from .material_transfer import (TRANSFER_ACTION, TRANSFER_ACTIONS, TRANSFER_CREA
                                 TRANSFER_READ, MaterialTransferAdapter)
 from .vehicle_transfer import (VT_ACTION, VT_ACTIONS, VT_CREATE, VT_DESTINATIONS,
                                VT_FACTS, VT_OBJECT_TYPE, VT_READ, VehicleTransferAdapter)
+from .transfer_exception import (EXC_ACTION, EXC_ACTIONS, EXC_CREATE, EXC_FACTS,
+                                 EXC_OBJECT_TYPE, EXC_ORIGINS, EXC_READ,
+                                 TransferExceptionAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -172,7 +175,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'TRANSFER_ACTION', 'TRANSFER_ACTIONS', 'TRANSFER_CREATE', 'TRANSFER_DESTINATIONS',
            'TRANSFER_FACTS', 'TRANSFER_OBJECT_TYPE', 'TRANSFER_READ', 'MaterialTransferAdapter',
            'VT_ACTION', 'VT_ACTIONS', 'VT_CREATE', 'VT_DESTINATIONS', 'VT_FACTS',
-           'VT_OBJECT_TYPE', 'VT_READ', 'VehicleTransferAdapter']
+           'VT_OBJECT_TYPE', 'VT_READ', 'VehicleTransferAdapter',
+           'EXC_ACTION', 'EXC_ACTIONS', 'EXC_CREATE', 'EXC_FACTS', 'EXC_OBJECT_TYPE',
+           'EXC_ORIGINS', 'EXC_READ', 'TransferExceptionAdapter']
 
 
 def register_adapters(registry):
@@ -186,6 +191,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.10.3：调拨差异处置（transfer_exception）静态注册；key 即原 TransferException.id。
+    registry.register(DomainAdapterSpec(
+        name='transfer_exception', factory=TransferExceptionAdapter,
+        object_types=(EXC_OBJECT_TYPE,),
+        operation_ids=(EXC_READ, EXC_CREATE, EXC_ACTION),
+        fact_keys=EXC_FACTS,
+        fallback_object_types=(),
     ))
     # M7.10.2：整车调拨（vehicle_transfer）静态注册；key 即原 VehicleTransfer.id。
     registry.register(DomainAdapterSpec(
