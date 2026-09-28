@@ -144,6 +144,28 @@ DB 套件由 1 项通过推进到 **4 项通过 / 1 项失败**（run `20260928T
 
 
 
+## 2h. 第六轮：第 ③ 项「无授权不能继续」的直接证据（授权闸门零容忍）
+
+新用例追加进 `m81-freeze-confirmation-db` 命令后，两条命令同时通过：
+**run `20260928T145741Z-963ec6b936`**，`status=passed`、`phase_complete=true`，
+源码指纹 `e667ed446c3f3c88e99c3aefa51e4450d46bd90e65746061bfdd55e76f102532`。
+
+| 命令 | 结果 |
+|---|---|
+| `m81-fault-and-recovery-acceptance` | **11 passed** |
+| `m81-freeze-confirmation-db` | **17 passed**（5 项冻结确认 + 12 项授权闸门/事务标记） |
+
+**授权闸门证据**：`assistant_runtime_runner._require_authorized(value)` 对**除 `True` 以外的一切值**
+（含 `False`、`None`、`0`、`1`、`0.0`、`""`、`"true"`、`"True"`、`[]`、`{}` —— 共 10 类参数化输入）
+一律 `403 本次准备尚未完成员工授权核验`，**不做真值转换**；只有 `True` 通过。
+这直接支撑清单第 ③ 项中「无授权不能继续」的一半。
+
+**另加**：`assistant_runtime_runner._flush(db)` 后 `db.info["assistant_preparation_transaction"]` 仍存在 ——
+读取期守卫在 flush 后不失效（实现注释所述"read-phase guard after flush empties new/dirty collections"已被实测确认）。
+
+**仍未完成**：③ 的后半（撤权后**已存在会话**不得继续/泄露结果的会话级演练，含 `access_signals` 两条事件路径）、
+旧租约不得覆盖新状态的 DB 级跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入。
+
 ## 4. 状态登记
 
 `### M8.1` 登记为 **`in_progress`**（唯一在办项）：已具备可执行的部分证据，但上节 5 项未完成前不得 `done`。
