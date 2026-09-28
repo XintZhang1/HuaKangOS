@@ -56,6 +56,9 @@ from .membership_order import (MEMBERSHIP_ACTION, MEMBERSHIP_ACTIONS, MEMBERSHIP
                                MembershipOrderAdapter)
 from .group_principal import (MEMBER_ACTION, MEMBER_COMMANDS, MEMBER_FACTS,
                               MEMBER_OBJECT_TYPE, MEMBER_READ, GroupPrincipalAdapter)
+from .group_benefit import (BENEFIT_ACTION, BENEFIT_FACTS, BENEFIT_KINDS,
+                            BENEFIT_MEMBERS, BENEFIT_OBJECT_TYPE, BENEFIT_RULES,
+                            GroupBenefitAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -103,7 +106,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'MEMBERSHIP_ACTION', 'MEMBERSHIP_ACTIONS', 'MEMBERSHIP_CREATE', 'MEMBERSHIP_FACTS',
            'MEMBERSHIP_PURPOSES', 'MEMBERSHIP_READ', 'MembershipOrderAdapter',
            'MEMBER_ACTION', 'MEMBER_COMMANDS', 'MEMBER_FACTS', 'MEMBER_OBJECT_TYPE',
-           'MEMBER_READ', 'GroupPrincipalAdapter']
+           'MEMBER_READ', 'GroupPrincipalAdapter',
+           'BENEFIT_ACTION', 'BENEFIT_FACTS', 'BENEFIT_KINDS', 'BENEFIT_MEMBERS',
+           'BENEFIT_OBJECT_TYPE', 'BENEFIT_RULES', 'GroupBenefitAdapter']
 
 
 def register_adapters(registry):
@@ -117,6 +122,16 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.7.3：集团权益（group_benefit）静态注册。
+    # 权益读取按客户维度（必填 customer_id），与登记的 member 维度不一致：
+    # 适配器只登记已评审 operation，不编造 member→customer 映射，事实按合同返回未知。
+    registry.register(DomainAdapterSpec(
+        name='group_benefit', factory=GroupBenefitAdapter,
+        object_types=(BENEFIT_OBJECT_TYPE,),
+        operation_ids=(BENEFIT_MEMBERS, BENEFIT_RULES, BENEFIT_ACTION),
+        fact_keys=BENEFIT_FACTS,
+        fallback_object_types=(),
     ))
     # M7.7.2：集团本金与权益（group_principal）静态注册。
     registry.register(DomainAdapterSpec(
