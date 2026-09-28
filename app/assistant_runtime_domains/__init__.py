@@ -27,6 +27,9 @@ from .rework_grant import (GRANT_ACTION, GRANT_ACTIONS, GRANT_CREATE, GRANT_FACT
                           ReworkGrantAdapter)
 from .claim_order import (CLAIM_ACTION, CLAIM_ACTIONS, CLAIM_CREATE, CLAIM_FACTS,
                          CLAIM_OPTIONS, CLAIM_READ, ClaimOrderAdapter)
+from .gate_visit import (GATE_ACTION, GATE_ACTIONS, GATE_CORRECTION,
+                        GATE_CORRECTION_ACTION, GATE_CREATE, GATE_DEPARTURE, GATE_FACTS,
+                        GATE_OBJECT_TYPE, GATE_READ, GateVisitAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -48,7 +51,10 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'GRANT_ACTION', 'GRANT_ACTIONS', 'GRANT_CREATE', 'GRANT_FACTS', 'GRANT_OBJECT_TYPE',
            'GRANT_QUOTE', 'GRANT_READ', 'GRANT_REQUEST', 'ReworkGrantAdapter',
            'CLAIM_ACTION', 'CLAIM_ACTIONS', 'CLAIM_CREATE', 'CLAIM_FACTS', 'CLAIM_OPTIONS',
-           'CLAIM_READ', 'ClaimOrderAdapter']
+           'CLAIM_READ', 'ClaimOrderAdapter',
+           'GATE_ACTION', 'GATE_ACTIONS', 'GATE_CORRECTION', 'GATE_CORRECTION_ACTION',
+           'GATE_CREATE', 'GATE_DEPARTURE', 'GATE_FACTS', 'GATE_OBJECT_TYPE', 'GATE_READ',
+           'GateVisitAdapter']
 
 
 def register_adapters(registry):
@@ -62,6 +68,15 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.3.5：维修出厂与真实进出厂时间（gate_visit）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='gate_visit', factory=GateVisitAdapter,
+        object_types=(GATE_OBJECT_TYPE,),
+        operation_ids=(GATE_READ, GATE_CREATE, GATE_ACTION, GATE_CORRECTION,
+                       GATE_CORRECTION_ACTION, GATE_DEPARTURE),
+        fact_keys=GATE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.3.4：理赔核赔受理（claim_order）静态注册。
     registry.register(DomainAdapterSpec(
