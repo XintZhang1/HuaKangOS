@@ -127,6 +127,22 @@ run `20260928T144342Z-875dbfaa7d`，`phase_complete=true`，源码指纹 `9bebdc
 **状态**：该套件**进行中且未登记**（登记仍指向已通过的 11 项 recovery 套件），
 以免把未通过内容混入 M8.1 的通过证据。下一步：先建 `AssistantSession` 行再建提案，随后复跑。
 
+## 2f. DB 级套件的第四个真实约束与当前进度（第四轮）
+
+补齐 `AssistantSession`（`id`/`owner_id`/`owner_role`/`access_version`/`title`/`store_id`，其余有默认值）后，
+DB 套件由 1 项通过推进到 **4 项通过 / 1 项失败**（run `20260928T145319Z-d8800c4abe`）。
+
+**本轮最重要发现（schema 级保证）**：
+手工插入第二个确认项时数据库直接拒绝 ——
+`sqlite3.IntegrityError: UNIQUE constraint failed: business_assistant_run_items.proposal_id`。
+即「**每个稳定 WorkItem / 提案至多一个有效确认项**」不是仅靠代码判断，而是**唯一约束在 schema 层兜底**；
+代码中的 `len(existing) > 1 → 409` 只是防御性兜底。用例已据此改为断言**数据库唯一约束**（比断言 409 更强）。
+
+**仍失败 1 项**（未放宽、未删除）：`sqlalchemy.exc.InvalidRequestError: Instance '<RunItem …>' is not persisted`——
+删除冻结点后再确认的路径上，ORM 层直接拒绝（属"拒绝"语义，但我的断言写法未覆盖该形态）；
+下一轮定位该用例的确切 nodeid 与抛出点后再修断言。
+
+
 
 ## 4. 状态登记
 
