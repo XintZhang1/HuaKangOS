@@ -2,7 +2,7 @@
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
-**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 13+8）、M6.6（持续跟进与生命周期控制 12+7），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
+**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 13+8）、M6.6（持续跟进与生命周期控制 12+7）、M6.7（通知/协作/回执核对 11+9），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
 
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
@@ -81,7 +81,7 @@
 | CP-13 | M5.7—M5.8 | Windows/Linux启动定义与回退 | implementation_released | docs/implementation-checkpoints/M5-7-review-v1.md；M5-8-review-v1.md | 集中测试阶段实测：M5.7（7+16）与 M5.8（7+17）在新指纹上 passed；嵌入顺序、显式 profile、同库同镜像校验、无密钥样例均实测；真实 Windows 预览实例与真实 Linux 部署仍属 M8.7/M8.8，故不记 released；继续 M6.1—M6.8（CP-14—CP-16） |
 | CP-14 | M6.1—M6.4 | 客户端归并、恢复、事项工作台、默认入口 | implementation_released | docs/implementation-checkpoints/M6-1-review-v1.md；M6-2-review-v1.md；M6-3-review-v1.md；M6-4-review-v1.md | 集中测试阶段实测：M6.1（15+7）、M6.2（9+7）、M6.3（10+6）、M6.4（6+6）在同一批指纹上 passed；每次前端改动后同指纹回归（workboard/r3/ux/workspaces/oneclick）diagnostic_passed；M6.1 的取消/清理边界随 M6.2 接线同步移动并复跑。仅放行后续编码，不表示测试全部通过或功能启用；继续 M6.5—M6.8（CP-15） |
 | CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | implementation_released | docs/implementation-checkpoints/M6-4-review-v1.md；M6-5-review-v1.md；M6-6-review-v1.md | M6.4（6+6）、M6.5（13+8）、M6.6（12+7）均已 implemented 并实测通过，退出后 worker 继续与真实浏览器反馈留待 M8.1/M8.4；仅放行后续编码，继续 M6.7—M6.8（CP-16） |
-| CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | not_ready | — | — |
+| CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | in_progress | docs/implementation-checkpoints/M6-7-review-v1.md | M6.7 已 implemented 并实测（11+9）；M6.8 未开始，故不记 implementation_released |
 | CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | not_ready | — | — |
 | CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | not_ready | — | — |
 | CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | not_ready | — | — |
@@ -2681,11 +2681,13 @@ runner 向 Node 注入 `HUAKANGOS_TEST_SOURCE_ROOT` 和 `HUAKANGOS_TEST_OUTPUT`�
 
 ## M6.7：站内通知、原任务协作和未知结果核对
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测）
 
 **全局顺序前置**：M6.6 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：通知投影/轮询/点击已读、协作引用与回执核对实测通过；真实浏览器与真实事件流属 M8.1/M8.4。
+
+**执行记录**：2026-09-28 在 `web/assistantworkspace.js` 新增 `loadNotifications/startNotifications/stopNotifications/pollTick/onVisibility/invalidateNotifications/openNotification/checkReceipt/receiptText/notificationPanelHTML/receiptButtonHTML`：未读计数取 `NotificationList.unread_count`，列表只用 `safe_summary`/`created_at`/授权引用，稳定 `id` 去重、`next_cursor` 原样透传、不按摘要拼路由；可见页每 30 秒轮询、隐藏停止、回前台立即读取、切店/退出停轮询并清缓存，既有运行事件只触发一次合并读取且未新增事件类型，只在通知首次出现时轻提示一次；点击通知先按引用打开目标（任务走统一守卫、会话按引用切换、其余只见原 `manual_route`）再显式 `POST read`，守卫拒绝或 read 失败不假称已读（提示「已打开，已读状态未更新」）；`核对办理结果` 只 GET 原 `execution-result`，五种结果固定文案，失败保持待核对、不重发业务写、不换 `request_id`；模块内不含 `assignDialog`/`state.row` 等代理动作，评审引导只消费服务端结果字段。`web/assistantworkspace.css` 追加 `.ba-notice-*`。实测发现并修复：新增轮询把 M6.3/M6.5/M6.6 的 Node 替身挂死（真实 30 秒定时器占住事件循环），三套替身改为记录式定时器；M6.6 的“禁止前端定时器”按计划收窄为“定时器只用于通知轮询”。外部套件 `V/tests/frontend/test_m6_7.cjs`（11 项）+ `V/tests/runtime/test_m6_7.py`（9 项），run `20260928T121421Z-ba5b526aa9` passed；同指纹 M6.1—M6.6 与前端回归全部 passed。详见 `docs/implementation-checkpoints/M6-7-review-v1.md`。源码指纹 `e04af80248373abb5459737ffd50d5e0bf99f8abc4b780d9583b718d448cc3d6`。
 
 
 **目标**：重要变化可见且可恢复，不复制同事私聊；通知与执行结果不会覆盖员工当前工作。

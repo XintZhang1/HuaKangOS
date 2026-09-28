@@ -31,7 +31,10 @@
       error: '', selected: null, serial: 0, mounted: false, bound: false, context: '',
       error: '', selected: null, serial: 0, mounted: false, bound: false, context: '',
       drawer: false, notice: '', host: null, toggle: null, handoff: null, handoffLabel: '', handoffPrompt: '',
-      plan: null, planError: '', planLoading: false, planSerial: 0, followupPending: '', revokeArmed: false };
+      plan: null, planError: '', planLoading: false, planSerial: 0, followupPending: '', revokeArmed: false,
+      notices: [], noticeUnread: 0, noticeCursor: null, noticeOpen: false, noticeError: '',
+      noticeSerial: 0, noticeLoading: false, noticePoll: null, noticeSeen: null, noticeReadPending: '',
+      receipts: {} };
   }
   let state = fresh();
 
@@ -176,6 +179,7 @@
   }
   function planHTML() {
     const item = state.selected, parts = [];
+    parts.push(notificationPanelHTML());
     parts.push(planHeaderHTML());
     if (!item) parts.push('<p class="ba-current-hint">左侧选一项待办，或直接在下面说要办的事；助手只读真实数据，不会自动提交。</p>');
     else {
@@ -544,6 +548,211 @@
     return lines.join('');
   }
 
+  // ---- M6.7 站内通知：只读服务器通知投影；点击先打开目标再显式标记已读。----
+  const RECEIPT_TEXT = {
+    confirmed_success: '已找到原业务成功回执，请按原单核对结果。',
+    not_found: '还没找到原业务结果，保持“待核对”，不要重复提交。',
+    unsupported: '这类业务暂不支持助手核对，请到原页面核对。',
+    inaccessible: '当前权限看不到原业务结果，请核对岗位或门店权限。',
+    mismatch: '原业务结果与本次提交不一致，请先核对原单。',
+  };
+
+  function noticeSeen() {
+    if (!(state.noticeSeen instanceof Set)) state.noticeSeen = new Set();
+    return state.noticeSeen;
+  }
+
+  async function loadNotifications(options) {
+    const settings = options || {};
+    const serial = (state.noticeSerial || 0) + 1;
+    state.noticeSerial = serial; state.noticeLoading = true;
+    const query = [];
+    if (settings.cursor) query.push('cursor=' + encodeURIComponent(settings.cursor));
+    if (settings.limit) query.push('limit=' + encodeURIComponent(settings.limit));
+    let view;
+    try {
+      view = await businessAssistantRequest('/notifications' + (query.length ? '?' + query.join('&') : ''));
+    } catch (error) {
+      if (state.noticeSerial !== serial) return null;
+      state.noticeLoading = false;
+      state.noticeError = (error && error.message) || '读取通知失败，请稍后重试。';
+      patchCurrent();
+      return null;
+    }
+    if (state.noticeSerial !== serial) return null;
+    const items = Array.isArray(view && view.items) ? view.items : [];
+    if (settings.cursor) {
+      for (const item of items) {
+        if (item && item.id && !state.notices.some((existing) => existing.id === item.id)) state.notices.push(item);
+      }
+    } else {
+      state.notices = items.slice();
+    }
+    state.noticeCursor = (view && view.next_cursor) || null;   // 原样透传给下一页，不自行拼装
+    state.noticeUnread = Number((view && view.unread_count) || 0) || 0;
+    state.noticeLoading = false;
+    state.noticeError = '';
+    // 只在新通知 ID 首次出现时轻提示一次；同页刷新不重复。
+    const seen = noticeSeen();
+    const fresh = state.notices.filter((item) => item && item.id && item.status === 'unread' && !seen.has(item.id));
+    for (const item of state.notices) if (item && item.id) seen.add(item.id);
+    if (fresh.length && !settings.silent && typeof toast === 'function') {
+      toast('有 ' + fresh.length + ' 条新的业务助手通知。');
+    }
+    patchCurrent();
+    return view;
+  }
+
+  function startNotifications() {
+    stopNotifications();
+    if (typeof document === 'undefined' || !document.addEventListener) return false;
+    document.addEventListener('visibilitychange', onVisibility);
+    if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('focus', onVisibility);
+    if (document.visibilityState !== 'hidden') {
+      state.noticePoll = setTimeout(pollTick, 30000);
+    }
+    return true;
+  }
+
+  function stopNotifications() {
+    if (state.noticePoll) { clearTimeout(state.noticePoll); state.noticePoll = null; }
+    if (typeof document !== 'undefined' && document.removeEventListener) {
+      document.removeEventListener('visibilitychange', onVisibility);
+    }
+    if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('focus', onVisibility);
+    return true;
+  }
+
+  function pollTick() {
+    state.noticePoll = null;
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    loadNotifications({ silent: true }).then(() => {
+      if (state.mounted && typeof document !== 'undefined' && document.visibilityState !== 'hidden') {
+        state.noticePoll = setTimeout(pollTick, 30000);
+      }
+    });
+  }
+
+  function onVisibility() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      if (state.noticePoll) { clearTimeout(state.noticePoll); state.noticePoll = null; }
+      return;   // 隐藏标签停止轮询
+    }
+    loadNotifications({ silent: true });   // 回到前台立即读取一次
+    if (!state.noticePoll) state.noticePoll = setTimeout(pollTick, 30000);
+  }
+
+  function invalidateNotifications() {
+    // 既有运行事件只用来触发一次合并读取；不新增事件类型。
+    if (state.noticeLoading) return false;
+    loadNotifications({ silent: true });
+    return true;
+  }
+
+  async function openNotification(id) {
+    const item = state.notices.find((notice) => notice && notice.id === id);
+    if (!item) return false;
+    const reference = item.task_id ? { source_type: 'task', task_id: item.task_id }
+      : item.proposal_id || item.plan_id || item.session_id
+        ? { source_type: 'session' } : null;
+    // 先按引用打开目标：任务走统一守卫，会话/计划走事项切换，其余只用原业务路由。
+    if (reference && reference.source_type === 'task') {
+      const opened = await openTaskReference(reference.task_id, item.safe_summary);
+      if (!opened) return false;
+    } else if (item.session_id && typeof businessAssistantChooseSession === 'function') {
+      const guard = guardHandoff();
+      if (!guard.ok && guard.choice !== 'stay-or-open') {
+        if (typeof toast === 'function') toast(guard.reason, true);
+        return false;
+      }
+      const page = current();
+      if (page && page.session && page.session.id !== item.session_id) await businessAssistantChooseSession(item.session_id);
+    } else if (item.manual_route) {
+      if (typeof go === 'function') go(item.manual_route);
+    } else {
+      return false;
+    }
+    if (item.status === 'unread') {
+      state.noticeReadPending = item.id;
+      try {
+        const updated = await businessAssistantRequest('/notifications/' + encodeURIComponent(String(item.id)) + '/read',
+          { method: 'POST', body: {} });
+        state.notices = state.notices.map((notice) => notice.id === item.id
+          ? Object.assign({}, notice, updated || {}, { status: (updated && updated.status) || 'read' }) : notice);
+        state.noticeUnread = Math.max(0, Number(state.noticeUnread || 0) - 1);
+      } catch (error) {
+        // 已打开的业务不回退；只说明已读状态没更新。
+        state.noticeError = '已打开，已读状态未更新：' + ((error && error.message) || '请稍后重试。');
+      } finally {
+        state.noticeReadPending = '';
+      }
+    }
+    patchCurrent();
+    return true;
+  }
+
+  async function openTaskReference(taskId, label) {
+    const guard = guardHandoff();
+    if (!guard.ok && !(guard.choice === 'stay-or-open' && guard.keepCurrent === true)) {
+      if (typeof toast === 'function') toast(guard.reason, true);
+      return false;   // 守卫拒绝时不假称已读
+    }
+    const result = requestHandoff({ reference: { source_type: 'task', task_id: taskId },
+      intent: 'query_status', label: label });
+    if (!result.ok) {
+      if (typeof toast === 'function') toast(result.reason, true);
+      return false;
+    }
+    return true;
+  }
+
+  async function checkReceipt(sessionId, proposalId) {
+    if (!sessionId || !proposalId) return null;
+    const key = String(proposalId);
+    try {
+      const view = await businessAssistantRequest('/sessions/' + encodeURIComponent(String(sessionId))
+        + '/proposals/' + encodeURIComponent(key) + '/execution-result');
+      state.receipts[key] = view || null;
+    } catch (error) {
+      state.receipts[key] = { status: 'unavailable', reason: (error && error.message) || '核对失败，请稍后重试。' };
+    }
+    patchCurrent();
+    return state.receipts[key];
+  }
+
+  function receiptText(view) {
+    if (!view) return '';
+    const primary = RECEIPT_TEXT[view.status];
+    if (primary) return primary;
+    return '核对未完成：' + ((view && view.reason) || '请稍后重试。');
+  }
+
+  function notificationPanelHTML() {
+    const unread = Number(state.noticeUnread || 0) || 0;
+    const entry = '<button type="button" class="ba-notice-entry" data-baws-action="notices" aria-expanded="'
+      + (state.noticeOpen ? 'true' : 'false') + '">通知' + (unread ? ' <span class="ba-notice-badge">' + unread + '</span>' : '') + '</button>';
+    if (!state.noticeOpen) return '<div class="ba-notice-bar">' + entry + '</div>';
+    const rows = state.notices.length ? state.notices.map((item) => {
+      const when = item.created_at && typeof time === 'function' ? time(item.created_at) : '';
+      const readable = Boolean(item.task_id || item.session_id || item.manual_route);
+      return '<li class="ba-notice' + (item.status === 'unread' ? ' unread' : '') + '" data-notice="' + escapeText(item.id) + '">'
+        + '<button type="button" data-baws-action="notice-open" data-notice-id="' + escapeText(item.id) + '"'
+        + (readable ? '' : ' disabled') + '>' + escapeText(item.safe_summary || '业务助手通知') + '</button>'
+        + '<p class="ba-notice-meta">' + escapeText(when) + (item.status === 'unread' ? ' · 未读' : '') + '</p></li>';
+    }).join('') : '<li class="ba-notice-empty">还没有通知。</li>';
+    const more = state.noticeCursor
+      ? '<button type="button" class="link" data-baws-action="notices-more">继续加载</button>' : '';
+    return '<div class="ba-notice-bar">' + entry + '</div><div class="ba-notice-panel">'
+      + (state.noticeError ? '<p class="ba-notice-error" role="alert">' + escapeText(state.noticeError) + '</p>' : '')
+      + '<ul class="ba-notice-list">' + rows + '</ul>' + more + '</div>';
+  }
+
+  function receiptButtonHTML(sessionId, proposalId) {
+    if (!sessionId || !proposalId) return '';
+    return '<button type="button" data-baws-action="receipt" data-session="' + escapeText(sessionId)
+      + '" data-proposal="' + escapeText(proposalId) + '">核对办理结果</button>';
+  }
+
   function handoffLabel() { return state.handoffLabel || ''; }
 
   async function openItem(key) {
@@ -614,6 +823,14 @@
       return;
     }
     if (action === 'drawer-close') { closeDrawer(); return; }
+    if (action === 'notices') { state.noticeOpen = !state.noticeOpen; patchCurrent(); return; }
+    if (action === 'notices-more') { await loadNotifications({ cursor: state.noticeCursor || '' }); return; }
+    if (action === 'notice-open') { await openNotification(String(target.dataset.noticeId || '')); return; }
+    if (action === 'receipt') {
+      const view = await checkReceipt(target.dataset.session, target.dataset.proposal);
+      if (view && typeof toast === 'function') toast(receiptText(view), view.status !== 'confirmed_success');
+      return;
+    }
     if (action === 'followup') {
       const result = await setFollowup(String(target.dataset.bawsFollowup || ''));
       if (!result.ok && typeof toast === 'function') toast(result.reason, true);
@@ -665,6 +882,7 @@
       state.bound = true;
     }
     if (root) state.host = root;
+    startNotifications();
     if (!state.groups.length && !state.loading && !state.error) { load(); return true; }
     renderSidebarInto();
     patchCurrent();
@@ -677,6 +895,7 @@
       document.removeEventListener('keydown', onKeydown);
     }
     closeDrawer();
+    stopNotifications();
     clearUi();
     // 退出/切店只清前端：绝不在这里调用 followup pause/revoke。
     state.plan = null; state.planError = ''; state.planSerial = 0; state.followupPending = ''; state.revokeArmed = false;          // 切店/退出清空整个内存编辑态与待交接内容
@@ -689,6 +908,10 @@
     patchCurrent: patchCurrent, disposeContext: disposeContext,
     requestHandoff: requestHandoff, guardHandoff: guardHandoff,
     handoffButton: handoffButton, parseRef: parseRef,
+    loadNotifications: loadNotifications, startNotifications: startNotifications,
+    stopNotifications: stopNotifications, invalidateNotifications: invalidateNotifications,
+    openNotification: openNotification, checkReceipt: checkReceipt, receiptText: receiptText,
+    notificationPanelHTML: notificationPanelHTML, receiptButtonHTML: receiptButtonHTML,
     loadPlan: loadPlan, setFollowup: setFollowup, planStatusText: planStatusText,
     grantStatusText: grantStatusText, followupAllowed: followupAllowed,
     pendingHandoff: pendingHandoff, clearHandoff: clearHandoff, handoffLabel: handoffLabel,
@@ -702,6 +925,10 @@
         plan: state.plan ? { id: state.plan.id, status: state.plan.status, version: state.plan.version,
           grant: (state.plan.grant && state.plan.grant.status) || null, revokeArmed: state.revokeArmed } : null,
         planError: state.planError || '',
+        noticeUnread: Number(state.noticeUnread || 0) || 0,
+        noticeIds: state.notices.map((item) => item && item.id).filter(Boolean),
+        noticeCursor: state.noticeCursor, noticeOpen: state.noticeOpen,
+        noticeError: state.noticeError || '', receipts: Object.keys(state.receipts || {}),
         handoffLabel: state.handoffLabel || '', uiSessions: uiBySession.size };
     },
   };

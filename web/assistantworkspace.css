@@ -46,3 +46,15 @@
 .ba-plan-scope ul{margin:4px 0 0 18px}
 .ba-plan-actions{margin:6px 0}
 .ba-plan-action.danger{border-color:#b3261e;color:#b3261e}
+
+/* M6.7 通知入口与回执核对：只追加助手范围内样式 */
+.ba-notice-bar{display:flex;justify-content:flex-end;margin:4px 0 0}
+.ba-notice-entry{position:relative}
+.ba-notice-badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:#2f6fdd;color:#fff;font-size:12px}
+.ba-notice-panel{margin:6px 0;padding:8px 10px;border:1px solid #e5eaf1;border-radius:9px;background:#fbfcfe}
+.ba-notice-list{list-style:none;margin:0;padding:0}
+.ba-notice{padding:6px 0;border-bottom:1px solid #eef2f7}
+.ba-notice:last-child{border-bottom:0}
+.ba-notice.unread button{font-weight:600}
+.ba-notice-meta,.ba-notice-empty{margin:2px 0;color:#5b6b7c;font-size:12px}
+.ba-notice-error{margin:2px 0;color:#b3261e;font-size:12px}
