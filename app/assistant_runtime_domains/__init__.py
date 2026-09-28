@@ -10,13 +10,18 @@ from .sales_order import (SALES_CREATE, SALES_FACTS, SALES_KIND, SALES_PROPOSE,
 from .aftercare import (AFTERCARE_ACTION, AFTERCARE_CREATE, AFTERCARE_FACTS,
                         AFTERCARE_FLOW_VERSION, AFTERCARE_KIND, AFTERCARE_READ,
                         AFTERCARE_SCENARIOS, AftercareAdapter)
+from .vehicle_purchase import (PURCHASE_ACTION, PURCHASE_ACTIONS, PURCHASE_CREATE,
+                              PURCHASE_FACTS, PURCHASE_FLOW_VERSION, PURCHASE_KIND,
+                              PURCHASE_READ, VehiclePurchaseAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
            'SALES_CREATE', 'SALES_FACTS', 'SALES_KIND', 'SALES_PROPOSE', 'SALES_READ',
            'SALES_VEHICLES', 'SalesOrderAdapter',
            'AFTERCARE_ACTION', 'AFTERCARE_CREATE', 'AFTERCARE_FACTS', 'AFTERCARE_FLOW_VERSION',
-           'AFTERCARE_KIND', 'AFTERCARE_READ', 'AFTERCARE_SCENARIOS', 'AftercareAdapter']
+           'AFTERCARE_KIND', 'AFTERCARE_READ', 'AFTERCARE_SCENARIOS', 'AftercareAdapter',
+           'PURCHASE_ACTION', 'PURCHASE_ACTIONS', 'PURCHASE_CREATE', 'PURCHASE_FACTS',
+           'PURCHASE_FLOW_VERSION', 'PURCHASE_KIND', 'PURCHASE_READ', 'VehiclePurchaseAdapter']
 
 
 def register_adapters(registry):
@@ -30,6 +35,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.2.1：整车采购逐 VIN 进度（vehicle_purchase）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='vehicle_purchase', factory=VehiclePurchaseAdapter, object_types=('case',),
+        operation_ids=(PURCHASE_READ, PURCHASE_CREATE, PURCHASE_ACTION),
+        kind_versions=(('case', PURCHASE_KIND, PURCHASE_FLOW_VERSION),),
+        fact_kind_versions=(('case', PURCHASE_KIND, PURCHASE_FLOW_VERSION),),
+        fallback_object_types=(),
     ))
     # M7.1.3：退订退车及维修退款纠正（aftercare）静态注册。
     registry.register(DomainAdapterSpec(

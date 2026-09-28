@@ -83,7 +83,7 @@
 | CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | implementation_released | docs/implementation-checkpoints/M6-4-review-v1.md；M6-5-review-v1.md；M6-6-review-v1.md | M6.4（6+6）、M6.5（13+8）、M6.6（12+7）均已 implemented 并实测通过，退出后 worker 继续与真实浏览器反馈留待 M8.1/M8.4；仅放行后续编码，继续 M6.7—M6.8（CP-16） |
 | CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | implementation_released | docs/implementation-checkpoints/M6-7-review-v1.md；M6-8-review-v1.md | M6.7（11+9）与 M6.8（21 条命令全通过：M6.1—M6.8 Node 82 项 + 旧回归 67 项 + Python 61 项 + 语法/生成物检查）均已 implemented 并实测；真实浏览器、真实模型、PostgreSQL、员工试用仍属 M8.x，故不记 released；M6 章节收口，继续 M7.1.1（CP-17） |
 | CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | implementation_released | docs/implementation-checkpoints/M7-1-1-review-v1.md；M7-1-2-review-v1.md；M7-1-3-review-v1.md | M7.1.1（lead 10 项）、M7.1.2（sales_order 9 项）、M7.1.3（aftercare 9 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.2.1（CP-18） |
-| CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | not_ready | — | — |
+| CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | in_progress | docs/implementation-checkpoints/M7-2-1-review-v1.md | M7.2.1（vehicle_purchase，9 项）已 implemented 并实测通过，同指纹回归通过；M7.2.2/M7.2.3 未开始，故不记 implementation_released |
 | CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | not_ready | — | — |
 | CP-20 | M7.3.4—M7.3.5 | 理赔核赔、真实进出厂 | not_ready | — | — |
 | CP-21 | M7.4.1—M7.4.3 | 精品及套餐、混合支付 | not_ready | — | — |
@@ -2996,11 +2996,14 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.2.1 整车采购逐 VIN 进度
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；9 项通过）
 
 **全局顺序前置**：M7.1.3 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/采购族回执在隔离夹具中通过；真实原库与真实模型属 M8.x。
+
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/vehicle_purchase.py`（`VehiclePurchaseAdapter(FlowCaseAdapter)`，`kind='vehicle_procurement'`、`flow_version=2`：`read_snapshot` 单次只读 `GET /api/vehicle-procurement/orders/{case_id}`，旧/未知版本 404 兜底、跨店与原岗位 403 都不暴露旧快照；`extract_result` 覆盖采购族 operation；`read_receipt` 走 `vehicle_purchase_` 前缀回执族并保持冻结 `request_id`；事实 `vehicle_purchase.shipment_recorded`（原 Shipment）、`vehicle_purchase.receipt_recorded`（原 Receipt 且带 shipment/vehicle 引用，逐 VIN）、`vehicle_purchase.payment_recorded`（`direction='out'` 的原 Payment；付款申请不满足，岗位不可见时未知）——三个键都只证明至少一笔，不声明整批齐套），并在 `__init__.py` 显式注册（`kind_versions=fact_kind_versions=(('case','vehicle_procurement',2),)`、`fallback_object_types=()`）。外部套件 `$ValidationRoot/tests/runtime_domains/test_vehicle_purchase.py`（9 项），run `20260928T130552Z-33d5660f42` passed；同指纹 M7.1.3 回归通过。详见 `docs/implementation-checkpoints/M7-2-1-review-v1.md`。源码指纹 `936951adca48b39bbfecb6af8306eef828c17cb8b169e7cdec1dc44bdaf5bcd9`。下一项 M7.2.2。
+
 
 
 **目标**：只完成 `vehicle_purchase` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
