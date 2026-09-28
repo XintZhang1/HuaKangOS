@@ -54,6 +54,8 @@ from .care_reminder import (REMINDER_FACTS, REMINDER_GENERATE, REMINDER_KINDS,
 from .membership_order import (MEMBERSHIP_ACTION, MEMBERSHIP_ACTIONS, MEMBERSHIP_CREATE,
                                MEMBERSHIP_FACTS, MEMBERSHIP_PURPOSES, MEMBERSHIP_READ,
                                MembershipOrderAdapter)
+from .group_principal import (MEMBER_ACTION, MEMBER_COMMANDS, MEMBER_FACTS,
+                              MEMBER_OBJECT_TYPE, MEMBER_READ, GroupPrincipalAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -99,7 +101,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'REMINDER_FACTS', 'REMINDER_GENERATE', 'REMINDER_KINDS', 'REMINDER_OBJECT_TYPE',
            'REMINDER_RULE_SAVE', 'REMINDER_RULES', 'CareReminderAdapter',
            'MEMBERSHIP_ACTION', 'MEMBERSHIP_ACTIONS', 'MEMBERSHIP_CREATE', 'MEMBERSHIP_FACTS',
-           'MEMBERSHIP_PURPOSES', 'MEMBERSHIP_READ', 'MembershipOrderAdapter']
+           'MEMBERSHIP_PURPOSES', 'MEMBERSHIP_READ', 'MembershipOrderAdapter',
+           'MEMBER_ACTION', 'MEMBER_COMMANDS', 'MEMBER_FACTS', 'MEMBER_OBJECT_TYPE',
+           'MEMBER_READ', 'GroupPrincipalAdapter']
 
 
 def register_adapters(registry):
@@ -113,6 +117,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.7.2：集团本金与权益（group_principal）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='group_principal', factory=GroupPrincipalAdapter,
+        object_types=(MEMBER_OBJECT_TYPE,),
+        operation_ids=(MEMBER_READ, MEMBER_ACTION),
+        fact_keys=MEMBER_FACTS,
+        fallback_object_types=(),
     ))
     # M7.7.1：会员业务单（membership_order）静态注册；key 一律取原 Case.id。
     registry.register(DomainAdapterSpec(

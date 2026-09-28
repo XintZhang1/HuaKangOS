@@ -90,7 +90,7 @@
 | CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | implementation_released | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md；M7-5-3-review-v1.md | M7.5.1（8 项）、M7.5.2（8 项）、M7.5.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.6.1（CP-23） |
 | CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | implementation_released | docs/implementation-checkpoints/M7-6-1-review-v1.md；M7-6-2-review-v1.md；M7-6-3-review-v1.md | M7.6.1（9 项）、M7.6.2（9 项）、M7.6.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.1（CP-24） |
 | CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | **计划内部不一致（待业主确认）** | — | 本表引用的 M7.6.4/M7.6.5 在计划正文中**没有对应条目**（正文 M7.6 组只有 M7.6.1—M7.6.3，其后直接为 M7.7.1）；按正文编号顺序继续实施 M7.7.1，不自行虚构缺失条目；此不一致由实施者如实登记，不擅自改动业主计划的分组意图 |
-| CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益 | in_progress | docs/implementation-checkpoints/M7-7-1-review-v1.md | M7.7.1（membership_order，8 项）已 implemented 并实测通过；M7.7.2/M7.7.3 未开始，故不记 implementation_released |
+| CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益 | in_progress | docs/implementation-checkpoints/M7-7-1-review-v1.md；M7-7-2-review-v1.md | M7.7.1（8 项）与 M7.7.2（9 项）已 implemented 并实测通过；M7.7.3 未开始，故不记 implementation_released |
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | not_ready | — | — |
 | CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | not_ready | — | — |
 | CP-28 | M7.8.4—M7.8.5 | 店间清算、其他收入 | not_ready | — | — |
@@ -3274,50 +3274,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/membership_order.py`（`MembershipOrderAdapter`，`object_types=('case',)`：快照单次只读 `GET /api/membership/orders/{key}`，**key 一律取原 `Case.id`**（显式拒绝用 `MembershipOrder.id` 替代 → 502），未登记 purpose 422，动作可用性一律 `unknown`；`extract_result` 覆盖会员族 operation；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `membership.executed`（**原执行事件与原单状态必须吻合**，只有其一即未知）、`membership.fee_refund_basis_recorded`（原 `MembershipEvent.action='fee_refund_basis'`；**原权限脱敏时仍承认事实但不替原权限开口**）、`membership.period_linked`（原结果明确关联实际周期，未提供即未知）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原状态机。外部套件 `$ValidationRoot/tests/runtime_domains/test_membership_order.py`（8 项），run `20260928T134722Z-58418d55d4` passed。详见 `docs/implementation-checkpoints/M7-7-1-review-v1.md`。源码指纹 `985c6bd47496c7fdc5c7cf4c11d194d6e921ed09850907406299d2fb4750f4a5`。下一项 M7.7.2。
 
-### M7.7.2 集团会员本金与原款退回
+### M7.7.2 集团本金与权益
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；9 项通过）
 
 **全局顺序前置**：M7.7.1 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `group_principal` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/group_api.py`、`app/group_service.py`、`app/group_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/group_principal.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_group_principal.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/group/members/{member_id}；topup/reserve/capture/release/reverse/refund_request/refund_approve/refund 等以原 command 为准。
-
-**注册合同**：object_type=group_member（GroupMember.id）；adapter=`app/assistant_runtime_domains/group_principal.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`group_principal.entry_recorded`：该会员原 GroupEntry，保留 kind/金额及原来源；`group_principal.reservation_recorded`：该会员原 GroupReservation；`group_principal.refund_recorded`：该会员原 refund 成功回执与原资金退回账目一致。任意一笔流水只证明存在，不能当作某单已结清。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：GroupEntry、原 reservation、实际本金占用/核销/释放与原退款；会员中心仍是记账事实。
-3. 接统一只读回执 resolver：GroupReceipt，group._digest/_execute 原 action+payload。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：集团视图只读；占用不等于到账；跨店本金可用范围遵守原权属，退款审批与实际退款分离。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_group_principal.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.7.2
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-7-3"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/group_principal.py`（`GroupPrincipalAdapter`，`object_types=('group_member',)`：快照单次只读 `GET /api/group/members/{member_id}`，ID 不一致 502，动作可用性一律 `unknown`；`extract_result` 覆盖集团会员动作 operation；`read_receipt` 走集团回执族并保持冻结 `request_id`；事实 `group_principal.entry_recorded`（原 `GroupEntry` 且保留 kind/金额与来源；**达到原 `limit(100)` 分页上限时如实说明截断**）、`group_principal.reservation_recorded`（原 `GroupReservation`；占用不代表已核销）、`group_principal.refund_recorded`（**原退款成功结果与原资金退回账目一致**；仅申请/审批返回未知）——三条都只证明存在，不当作某单已结清），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原金额公式。外部套件 `$ValidationRoot/tests/runtime_domains/test_group_principal.py`（9 项），run `20260928T134846Z-28b9dc6c02` passed。详见 `docs/implementation-checkpoints/M7-7-2-review-v1.md`。源码指纹 `acebc011468eaf5b7a1dce7ed7d804c55265bfd745fbbe3064f48c5e4ac71f92`。下一项 M7.7.3。
 
 ### M7.7.3 集团权益固定单位
 
