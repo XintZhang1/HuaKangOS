@@ -6,7 +6,6 @@ store, so their role checks, versions, ledgers and transactions remain authorita
 import copy
 import json
 import re
-import uuid
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote
@@ -70,8 +69,8 @@ DENIED = re.compile(r'/(?:files|download|export|opening|example)(?:/|$)|(?:\.csv
 # 预先代替接口做决定。被接口拒绝时提示"这一步需要更高权限，要不要提交评审申请"。仍然不放开的只有
 # 两类**非业务**面（凭据与部署、原始文件与导出）和三个明确的人工动作位（见 CLASSIFIED_BLOCKED_WRITES）：
 # 这些不是"步骤"，而是安全边界本身。原生接口的岗位、门店、状态、版本、证据与幂等始终是权威。
-COMMITMENT_HINT = ('这一步需要更高的岗位权限。可以读 GET /api/escalations/refusals 找到这条被挡记录，'
-                   '再用 prepare_operation 生成评审申请确认卡，问员工要不要提交；业务规则不允许的事项不能提交评审。')
+COMMITMENT_HINT = ('服务器已记录{reason}（被挡记录 {refusal_id}）。'
+                   '请在原评审页面核对这条记录后由本人提交申请；评审不改变权限，也不代为执行业务。')
 # Writes that are deliberately outside the assistant even though they are registered routes:
 # accounts/credentials, store and legal-entity configuration, parameter rules, finding review,
 # daily-report generation and the arbitrary legacy record CRUD.
@@ -91,11 +90,25 @@ CLASSIFIED_BLOCKED_WRITES = frozenset({
 })
 
 
+def refusal_metadata(status, data):
+    """Consume only the native HTTP handler's persisted refusal envelope."""
+    if status not in {403,422} or not isinstance(data,dict):return None
+    refusal=data.get('refusal')
+    if not isinstance(refusal,dict):return None
+    ident=refusal.get('id');category=refusal.get('category');allowed=refusal.get('can_escalate')
+    if (type(ident) is not int or ident<=0 or type(category) is not str
+            or category not in {'authority','amount','rule'} or type(allowed) is not bool):
+        return None
+    if category=='rule' and allowed:return None
+    return {'id':ident,'category':category,'can_escalate':allowed}
+
+
 def permission_hint(status, detail=''):
-    """接口按岗位拒绝时给出的下一步：提示可以向上级申请评审。"""
-    if status != 403:
-        return ''
-    return COMMITMENT_HINT
+    """No text inference: an audited, eligible refusal is required for a hint."""
+    refusal=refusal_metadata(status,detail)
+    if not refusal or refusal['can_escalate'] is not True:return ''
+    reason='岗位权限不足' if refusal['category']=='authority' else '金额或额度限制'
+    return COMMITMENT_HINT.format(reason=reason,refusal_id=refusal['id'])
 
 SECRET_KEYS = {'password','password_hash','new_password','current_password','api_key',
                'deepseek_key','token','access_token','refresh_token','authorization',
@@ -346,6 +359,8 @@ def _parameters(op,path_args,query):
     return result_path,result_query
 
 def validate_operation(operation_id,path_args=None,query=None,body=None):
+    # Pure validation: request IDs are fixed once when a proposal is prepared.
+    # Revalidating employee answers must never replace the native idempotency key.
     # 2026-09-25 业主裁定：不再用白名单/禁用词替接口做判断——动作名只要在已评审的接口上，
     # 就按员工本人身份准备；能不能办由原接口的岗位、门店、状态与版本决定，被拒时再走评审申请。
     op=_operation(operation_id);path_args,query=_parameters(op,path_args or {},query or {})
@@ -355,7 +370,6 @@ def validate_operation(operation_id,path_args=None,query=None,body=None):
         value=None
     elif op['route'].body_field:
         if not isinstance(value,dict):raise HTTPException(422,'请补充办理内容')
-        if op['idempotent']:value['request_id']=str(uuid.uuid4())
         try:value=op['route'].body_field.type_.model_validate(value).model_dump(mode='json',exclude_unset=True)
         except ValidationError as exc:
             fields=['.'.join(str(x) for x in error['loc']) for error in exc.errors()]
@@ -497,6 +511,42 @@ def sanitize(value,depth=0):
     if isinstance(value,str):return re.sub(r'(?:sk|tp|ttp)-[A-Za-z0-9_-]{12,}','[密钥已隐藏]',value[:4000])
     return value
 
+async def _internal_get(request, user, op, path, query, body):
+    """Private ASGI GET through the full app and its ordinary authorization."""
+    from .assistant_runtime_principal import (
+        _SCOPE_KEY, _InternalCall, _check_call, _caller_matches,
+        runtime_request_context, revalidate_principal, internal_base_url,
+    )
+    from fastapi import Request
+    context = runtime_request_context(request)
+    if context is None or op['method'] != 'GET' or op['write'] or body not in (None, {}):
+        raise HTTPException(403, '内部助手只能调用已登记的原业务查询')
+    principal = context.principal
+    _caller_matches(user, principal, principal.session_id)
+    revalidate_principal(context.db, principal)
+    if role_may_read(principal.role, op) is False:
+        raise HTTPException(403, '当前岗位不能使用此原业务查询')
+    call = _InternalCall(context, op['id'], path, str(httpx.QueryParams(query)).encode('ascii'))
+    from .main import app
+
+    async def bound_app(scope, receive, send):
+        scope = dict(scope)
+        scope[_SCOPE_KEY] = call
+        _check_call(Request(scope), call)
+        await app(scope, receive, send)
+
+    factory = context.client_factory or httpx.AsyncClient
+    async with factory(transport=httpx.ASGITransport(app=bound_app, raise_app_exceptions=False),
+                       base_url=internal_base_url(), timeout=30, follow_redirects=False,
+                       trust_env=False) as client:
+        response = await client.get(path, params=query,
+            headers={'X-App-Request': '1', 'X-Store-ID': str(principal.store_id)})
+    # The route's transaction has ended. Observe committed revocations/lease
+    # changes now, before even exposing an error body or a query result.
+    revalidate_principal(context.db, principal)
+    return response
+
+
 async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
     op=_operation(operation_id)
     if getattr(user,'_aggregate_scope',False):raise HTTPException(409,'请先选择办理门店')
@@ -508,21 +558,25 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
     if '{' in path:raise HTTPException(422,'请补充业务编号')
     _declared_dispatch(op,path)
     subset=query.pop('assistant_kind',None)
-    headers={'X-App-Request':'1','X-Store-ID':str(getattr(user,'_active_store_id','')),
-             'Cookie':request.headers.get('cookie',''),'X-CSRF-Token':request.headers.get('x-csrf-token','')}
-    from .main import app
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app,raise_app_exceptions=False),base_url=str(request.base_url),timeout=30) as client:
-        response=await client.request(op['method'],path,params=query,headers=headers,json=body if op['write'] else None)
+    if '_huakang_runtime' in request.scope:
+        response=await _internal_get(request,user,op,path,query,body)
+    else:
+        headers={'X-App-Request':'1','X-Store-ID':str(getattr(user,'_active_store_id','')),
+                 'Cookie':request.headers.get('cookie',''),'X-CSRF-Token':request.headers.get('x-csrf-token','')}
+        from .main import app
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app,raise_app_exceptions=False),base_url=str(request.base_url),timeout=30) as client:
+            response=await client.request(op['method'],path,params=query,headers=headers,json=body if op['write'] else None)
     if 'application/json' not in response.headers.get('content-type',''):
         return {'status':response.status_code if response.status_code>=400 else 422,'data':{'detail':'文件请在原业务页面查看或下载'}}
     try:data=response.json()
     except ValueError:return {'status':502,'data':{'detail':'业务服务返回异常，请到原单核对'}}
+    refusal=refusal_metadata(response.status_code,data)
     if subset and op['path'] in {'/api/flow/catalog','/api/masters/catalog'} and response.status_code<400:
         selections={name:{subset:data[name][subset]} for name in ('kinds','master_types')
                     if isinstance(data.get(name),dict) and subset in data[name]}
         if not selections:
             return {'status':403,'data':{'detail':'当前岗位不能查看此类资料，请在对应门店页面核对'},
-                    'error_category':'permission','route':manual_route(operation_id,path_args)}
+                    'error_category':'refused','route':manual_route(operation_id,path_args)}
         data={name:selections.get(name,{}) for name in ('kinds','master_types')}
     data=sanitize(data)
     encoded=json.dumps(data,ensure_ascii=False)
@@ -530,11 +584,19 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
         # Never pretend a clipped JSON fragment is a complete business result.
         data={'detail':'结果较多，请指定资料类型、客户或单号查询','truncated':True,'top_level_fields':list(data) if isinstance(data,dict) else [],'total':data.get('total') if isinstance(data,dict) else None}
     result={'status':response.status_code,'data':data,'route':manual_route(operation_id,path_args,data)}
+    if refusal is not None:result['refusal']=refusal
     if response.status_code>=400:
-        result['error_category']=('input' if response.status_code==422 else 'permission' if response.status_code in {401,403}
-                                  else 'not_found' if response.status_code==404 else 'business_rule' if response.status_code==409 else 'system')
-        # Owner ruling 2026-09-25: the interface decides authority. When it refuses for the
-        # employee's role, tell the model how to offer the escalation instead of stopping there.
-        hint=permission_hint(response.status_code,data if isinstance(data,dict) else {})
-        if hint:result['hint']=hint
+        category=refusal['category'] if refusal else None
+        if response.status_code in {403,422} and category:
+            result['error_category']={'authority':'permission','amount':'amount','rule':'business_rule'}[category]
+        else:
+            result['error_category']=('input' if response.status_code==422 else 'permission' if response.status_code==401
+                else 'refused' if response.status_code==403 else 'not_found' if response.status_code==404
+                else 'business_rule' if response.status_code==409 else 'system')
+        hint=permission_hint(response.status_code,{'refusal':refusal})
+        # The legacy confirmation consumer appends fixed authority wording for
+        # every 403 hint. Preserve an amount refusal without mislabelling it.
+        # Its native detail and audited category remain available to the caller.
+        if hint and not (op['write'] and response.status_code==403 and category=='amount'):
+            result['hint']=hint
     return result

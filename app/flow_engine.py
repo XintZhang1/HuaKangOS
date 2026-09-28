@@ -232,20 +232,45 @@ def customer_for(db,user,values,flow_version=2):
 
 
 def log_event(db,user,row,action,label,before='',detail=None):
-    db.add(FlowEvent(case_id=row.id,actor_id=user.id,action=action,label=label,before_state=before,after_state=row.state,detail=detail or {}))
+    event=FlowEvent(case_id=row.id,actor_id=user.id,action=action,label=label,before_state=before,after_state=row.state,detail=detail or {})
+    db.add(event)
     audit(db,user.id,'flow_'+action,'flow',row.id,reason=label,after={'store_id':row.store_id,'state':row.state,'number':row.number})
+    from .config import settings
+    if settings.assistant_runtime_enabled or settings.assistant_notifications_enabled:
+        # The original caller still owns commit/rollback. Only persisted source
+        # IDs enter the outbox; labels, customer details and event detail do not.
+        from .assistant_runtime_outbox import emit_wake_event
+        db.flush()
+        emit_wake_event(db,'flow:'+str(event.id),'flow',{
+            'store_id':row.store_id,'object_ref':{'type':'case','id':row.id},
+            'source_ref':{'type':'flow_event','id':event.id,'version':None}})
+
+
+def _emit_task_signal(db, task):
+    """Append a real Task revision; the original business caller owns commit."""
+    from .config import settings
+    if not (settings.assistant_runtime_enabled or settings.assistant_notifications_enabled):
+        return
+    from .assistant_runtime_outbox import emit_wake_event
+    emit_wake_event(db, f'task:{task.id}:{task.version}', 'task', {
+        'store_id': task.store_id, 'task_id': task.id,
+        'object_ref': {'type': 'case', 'id': task.case_id},
+        'source_ref': {'type': 'task', 'id': task.id, 'version': task.version}})
 
 
 def ensure_task(db,row,key,title,role,assignee=None,due=None,reopen=False):
     task=db.scalar(select(Task).where(Task.case_id==row.id,Task.key==key))
     if task and task.status=='done' and not reopen:return task
     if task and task.status=='open':
+        previous=(task.assignee_id,task.due_date)
         # Synchronizing related facts must never silently undo a human handoff.
         if assignee is not None:
             assignable(db,assignee,row.store_id)
             task.assignee_id=assignee
         if due is not None:task.due_date=due
-        db.flush();return task
+        db.flush()
+        if previous!=(task.assignee_id,task.due_date):_emit_task_signal(db,task)
+        return task
     if assignee is None:
         candidates=eligible_users(db,role,row.store_id)
         if not candidates:raise HTTPException(409,'当前门店缺少可接手此任务的岗位或管理员，请先配置账号')
@@ -258,7 +283,7 @@ def ensure_task(db,row,key,title,role,assignee=None,due=None,reopen=False):
         db.add(task)
     else:
         task.status='open';task.assignee_id=assignee;task.due_date=due or today();task.done_at=None;task.done_by=None
-    db.flush();return task
+    db.flush();_emit_task_signal(db,task);return task
 
 
 def finish_task(db,row,key,user,status='done'):

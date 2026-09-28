@@ -115,29 +115,38 @@ def note_refusal(request,status_code,detail):
     try:
         user_id = getattr(request.state,'user_id',None)
         store_id = getattr(request.state,'store_id',None)
-        if not user_id or not store_id: return
+        if not user_id or not store_id: return None
         from .db import SessionLocal
         from .escalation_service import record_refusal
         from .security import User
         with SessionLocal() as db:
             user = db.get(User,user_id)
-            if not user or not user.active: return
+            if not user or not user.active: return None
             class _Principal:
                 id = user.id
                 role = getattr(request.state,'role',user.role) or user.role
                 account_role = user.role
                 def __getattr__(self,name): return getattr(user,name)
-            record_refusal(db, store_id=store_id, user=_Principal(), method=request.method,
-                           path=request.url.path, status_code=status_code, message=detail)
+            row = record_refusal(db, store_id=store_id, user=_Principal(), method=request.method,
+                                 path=request.url.path, status_code=status_code, message=detail)
+            refusal = None if row is None else {
+                'id': row.id, 'category': row.category,
+                'can_escalate': row.category in ('authority', 'amount'),
+            }
             db.commit()
+            return refusal
     except Exception as exc:                       # evidence must never break the response
         log.warning('Refusal evidence not recorded (%s)',type(exc).__name__)
+        return None
 
 
 @app.exception_handler(StarletteHTTPException)
 async def http_error(request,exc):
-    if exc.status_code in (403,422): note_refusal(request,exc.status_code,exc.detail)
-    return JSONResponse({'detail':exc.detail},status_code=exc.status_code,headers=getattr(exc,'headers',None))
+    refusal = note_refusal(request,exc.status_code,exc.detail) if exc.status_code in (403,422) else None
+    content = {'detail':exc.detail}
+    if refusal is not None:
+        content['refusal'] = refusal
+    return JSONResponse(content,status_code=exc.status_code,headers=getattr(exc,'headers',None))
 
 @app.exception_handler(IntegrityError)
 async def integrity_error(request,exc):
@@ -288,6 +297,11 @@ def reset_password(user_id: int,body: ResetPasswordInput,db=Depends(get_db),user
     target.must_change_password = True
     db.execute(delete(LoginSession).where(LoginSession.user_id==target.id))
     audit(db,user.id,'reset_password','users',target.id,reason=body.reason)
+    if settings.assistant_runtime_enabled:
+        from .assistant_runtime_access_signals import emit_user_security_changed
+        record = next(row for row in db.new if type(row) is AuditLog and row.actor_id == user.id
+            and row.action == 'reset_password' and row.entity_type == 'users' and row.entity_id == target.id)
+        emit_user_security_changed(db, record)
     db.commit(); return {'ok':True}
 
 
@@ -558,6 +572,11 @@ def edit_store(store_id:int,body:StoreInput,db=Depends(get_db),user=Depends(get_
     before=plain(row)
     for k,v in body.model_dump().items(): setattr(row,k,v)
     audit(db,user.id,'update_store','stores',row.id,before,plain(row))
+    if settings.assistant_runtime_enabled and before['active'] != row.active:
+        from .assistant_runtime_access_signals import emit_store_access_changed
+        record = next(value for value in db.new if type(value) is AuditLog and value.actor_id == user.id
+            and value.action == 'update_store' and value.entity_type == 'stores' and value.entity_id == row.id)
+        emit_store_access_changed(db, record)
     db.commit(); return plain(row)
 
 
@@ -694,6 +713,8 @@ app.include_router(branding_router)
 
 from .business_assistant_api import router as business_assistant_router
 app.include_router(business_assistant_router)
+from .assistant_runtime_api import router as assistant_runtime_router
+app.include_router(assistant_runtime_router)
 
 from .workflow_guides_api import router as workflow_guides_router
 app.include_router(workflow_guides_router)

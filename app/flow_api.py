@@ -105,6 +105,15 @@ def assign_task(task_id:int,body:AssignInput,db=Depends(get_db),user=Depends(get
         customer=eng.scoped_get(db,Customer,row.customer_id) if row.customer_id else None
         if customer and customer.owner_id==old_owner:customer.owner_id=target.id
     eng.log_event(db,user,row,'reassign','转交任务',row.state,{'task_id':task.id,'from':old,'to':target.id,'reason':body.reason})
+    from .config import settings
+    if (settings.assistant_runtime_enabled or settings.assistant_notifications_enabled) and old!=task.assignee_id:
+        # This endpoint is the transaction owner. Flush obtains the real Task
+        # version; the existing commit below saves reassignment and signal once.
+        from .assistant_runtime_outbox import emit_wake_event
+        db.flush()
+        emit_wake_event(db,'task:'+str(task.id)+':'+str(task.version),'task',{
+            'store_id':task.store_id,'object_ref':{'type':'case','id':row.id},'task_id':task.id,
+            'source_ref':{'type':'task','id':task.id,'version':task.version}})
     db.commit();return task_info(db,user,task,row)
 
 

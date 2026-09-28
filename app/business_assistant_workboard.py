@@ -4,8 +4,11 @@ A plan never executes an operation and its free text is not business evidence.
 """
 from __future__ import annotations
 from copy import deepcopy
+from dataclasses import dataclass
+from time import monotonic
 from uuid import uuid4
 from datetime import timedelta
+from weakref import WeakKeyDictionary, ref
 import re
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -50,23 +53,98 @@ def owned_proposals(db,user,sid,ids):
         AssistantProposal.store_id==thread.store_id,AssistantProposal.id.in_(ids)))} if ids else {}
 
 
-async def save_plan(db,request,user,sid,config,args):
+@dataclass(frozen=True, slots=True, weakref_slot=True, eq=False)
+class ResolvedLegacyPlan:
+    """Opaque completed reads, consumed once by this same database Session."""
+
+
+_legacy_plan_saves=WeakKeyDictionary()
+
+
+def _legacy_conflict():
+    raise HTTPException(409,'计划或关联记录已变化，请重新核对后保存')
+
+
+def _legacy_identity(user,sid,store_id):
+    return (user.id,store_id,sid,user.role,user.access_version)
+
+
+def _legacy_runtime_source(db,principal,user,sid,*,clock=None):
+    if principal is None:return
+    from .assistant_runtime_models import Run
+    from .assistant_runtime_mcp import is_mcp_run
+    from .assistant_runtime_plans import _runtime_plan_source
+    _runtime_plan_source(db,principal,user,sid,None,clock=clock)
+    run=db.scalar(select(Run).where(Run.id==principal.run_id,
+        Run.owner_id==principal.actor_id,Run.store_id==principal.store_id,Run.session_id==sid))
+    if (principal.auth_kind!='login' or principal.plan_id is not None
+            or principal.goal_version is not None or run is None or not is_mcp_run(run)):
+        _legacy_conflict()
+
+
+def _legacy_plan(db,thread,plan_id,rid,*,lock=False):
+    query=select(AssistantWorkPlan).where(AssistantWorkPlan.session_id==thread.id,
+        AssistantWorkPlan.owner_id==thread.owner_id,AssistantWorkPlan.store_id==thread.store_id)
+    query=query.where(AssistantWorkPlan.id==plan_id) if plan_id else query.where(AssistantWorkPlan.request_id==rid)
+    if lock:query=query.with_for_update()
+    row=db.scalar(query.execution_options(populate_existing=True))
+    if plan_id and row is None:raise HTTPException(404,'计划不存在或不可访问')
+    if row is not None and row.engine_version!=1:
+        raise HTTPException(409,'此计划已使用结构化步骤，请按 schema_version=2 读取和修改，不能降级覆盖')
+    return row
+
+
+def _legacy_plan_revision(row):
+    return (row.id,row.version,row.engine_version) if row is not None else None
+
+
+def _legacy_card_refs(db,user,thread,steps):
+    ids=[step['proposal_id'] for step in steps if step.get('proposal_id')]
+    cards={row.id:row for row in db.scalars(select(AssistantProposal).where(
+        AssistantProposal.session_id==thread.id,AssistantProposal.owner_id==user.id,
+        AssistantProposal.store_id==thread.store_id,AssistantProposal.owner_role==user.role,
+        AssistantProposal.access_version==user.access_version,AssistantProposal.id.in_(ids))
+        .execution_options(populate_existing=True))} if ids else {}
+    if len(cards)!=len(ids):raise HTTPException(404,'草稿不属于当前对话或已不可访问')
+    for step in steps:
+        card=cards.get(step.get('proposal_id'))
+        if card and step.get('case_id') and proposal_case_id(card)!=step['case_id']:
+            raise HTTPException(422,'草稿与所选原单的关系尚未证实，请勿混合关联')
+    return tuple(sorted((row.id,row.version,proposal_case_id(row)) for row in cards.values()))
+
+
+async def resolve_legacy_plan(db,request,user,sid,config,args,*,principal=None,clock=None):
+    """Resolve the original schema-1 references without saving a Plan or result."""
     from . import business_assistant_service as s
-    from .business_assistant_business_tools import native, checked
+    from .business_assistant_business_tools import native,checked,validate
+    from .assistant_runtime_plans import _authorized_thread
+    from .assistant_runtime_principal import RuntimePrincipal,runtime_request_context
     from .workflow_guides_api import load_catalogue
-    thread=s.owned_session(db,user,sid)
-    steps=deepcopy(args['steps']);validate_graph(steps)
+    s.require_preparation_read_phase(db)
+    context=runtime_request_context(request) if hasattr(request,'scope') else None
+    if (context is not None and (context.db is not db or context.principal is not principal)
+            or principal is not None and context is None
+            or type(user) is RuntimePrincipal and principal is None):
+        _legacy_conflict()
+    _legacy_runtime_source(db,principal,user,sid,clock=clock)
+    data=validate('save_work_plan',deepcopy(args))
+    if data.get('schema_version',1)!=1:_legacy_conflict()
+    steps=deepcopy(data['steps']);validate_graph(steps)
     ordered=[];pending=list(steps);done=set()
     while pending:
         step=next(x for x in pending if set(x.get('depends_on',[]))<=done)
         pending.remove(step);ordered.append(step);done.add(step['key'])
     steps=ordered
     # Do not persist credentials or silently mutate reference identifiers.
-    if s.scrub({'goal':args['goal'],'steps':steps})!={'goal':args['goal'],'steps':steps}:
+    if s.scrub({'goal':data['goal'],'steps':steps})!={'goal':data['goal'],'steps':steps}:
         raise HTTPException(422,'计划含隐藏信息或过长内容，请只写业务目标与必要步骤')
-    refs=[x['proposal_id'] for x in steps if x.get('proposal_id')]
-    proposals=owned_proposals(db,user,sid,refs)
-    if len(proposals)!=len(refs):raise HTTPException(404,'草稿不属于当前对话或已不可访问')
+    thread=_authorized_thread(db,user,sid)
+    identity=_legacy_identity(user,sid,thread.store_id)
+    session_version,busy_token=thread.version,thread.busy_token
+    rid=busy_token or ('manual-'+uuid4().hex)
+    plan=_legacy_plan(db,thread,data.get('plan_id'),rid)
+    original_plan=_legacy_plan_revision(plan)
+    cards=_legacy_card_refs(db,user,thread,steps)
     case_ids={x['case_id'] for x in steps if x.get('case_id')}
     if len(case_ids)>LIVE_CASE_PAGE:
         raise HTTPException(422,'一份计划最多关联10条原单；大量独立项请关联真实草稿，避免每次刷新遍历全库')
@@ -76,36 +154,99 @@ async def save_plan(db,request,user,sid,config,args):
     for step in steps:
         if not step.get('proposal_id') and not step.get('case_id') and not step.get('workflow_id'):
             raise HTTPException(422,'尚未关联原单的计划步骤必须注明真实发布的工作流')
-        p=proposals.get(step.get('proposal_id'))
-        if p and step.get('case_id') and proposal_case_id(p)!=step['case_id']:
-            raise HTTPException(422,'草稿与所选原单的关系尚未证实，请勿混合关联')
         wf=step.get('workflow_id')
         if wf:
             if wf not in published:
                 raise HTTPException(422,'请关联实际发布的工作流，不要编造说明编号')
-    # Nested native calls commit their reader transactions; re-authorize afterwards.
-    thread=s.owned_session(db,user,sid)
-    rid=thread.busy_token or ('manual-'+uuid4().hex)
-    row=None
-    if args.get('plan_id'):
-        row=db.scalar(select(AssistantWorkPlan).where(AssistantWorkPlan.id==args['plan_id'],
-            AssistantWorkPlan.session_id==sid,AssistantWorkPlan.owner_id==user.id,AssistantWorkPlan.store_id==thread.store_id))
-        if not row:raise HTTPException(404,'计划不存在或不可访问')
-    else:
-        row=db.scalar(select(AssistantWorkPlan).where(AssistantWorkPlan.session_id==sid,AssistantWorkPlan.request_id==rid))
+    # A nested original GET can finish its read transaction. Keep primitives,
+    # then recheck the real identity; never adopt a refreshed caller identity.
+    thread=_authorized_thread(db,user,sid)
+    if _legacy_identity(user,sid,thread.store_id)!=identity:_legacy_conflict()
+    _legacy_runtime_source(db,principal,user,sid,clock=clock)
+    resolved=ResolvedLegacyPlan()
+    from .assistant_runtime_plans import _condition_identity
+    _legacy_plan_saves[resolved]={'session_ref':ref(db),'bind':db.get_bind(),
+        'principal':principal,'principal_identity':_condition_identity(principal) if principal is not None else None,
+        'identity':identity,'issued_at':monotonic(),'data':deepcopy(data),'steps':steps,
+        'rid':rid,'busy_token':busy_token,'session_version':session_version,'plan':original_plan,'cards':cards}
+    return resolved
+
+
+def persist_legacy_plan(db,user,sid,resolved,*,principal=None,clock=None):
+    """Flush only. The MCP caller owns the fenced checkpoint and commit/rollback."""
+    from .assistant_runtime_plans import _authorized_thread,_condition_identity
+    from .assistant_runtime_principal import _time
+    from .business_assistant_models import AssistantSession
+    state=_legacy_plan_saves.pop(resolved,None) if type(resolved) is ResolvedLegacyPlan else None
+    if (state is None or state['session_ref']() is not db or state['bind'] is not db.get_bind()
+            or state['principal'] is not principal or monotonic()-state['issued_at']>60
+            or state['identity']!=_legacy_identity(user,sid,state['identity'][1])
+            or db.new or db.dirty or db.deleted):
+        _legacy_conflict()
+    _legacy_runtime_source(db,principal,user,sid,clock=clock)
+    if principal is not None:
+        from .assistant_runtime_events import _capability
+        if state['principal_identity']!=_condition_identity(principal):_legacy_conflict()
+        _capability(db,principal,clock=clock)
+    data,steps,rid=state['data'],state['steps'],state['rid']
+    thread=_authorized_thread(db,user,sid)
+    locked=db.scalar(select(AssistantSession).where(AssistantSession.id==sid,
+        AssistantSession.owner_id==user.id,AssistantSession.store_id==thread.store_id)
+        .with_for_update().execution_options(populate_existing=True))
+    if (locked is None or locked.version!=state['session_version'] or locked.busy_token!=state['busy_token']
+            or _legacy_identity(user,sid,locked.store_id)!=state['identity']):
+        _legacy_conflict()
+    row=_legacy_plan(db,locked,data.get('plan_id'),rid,lock=True)
+    if (_legacy_plan_revision(row)!=state['plan']
+            or _legacy_card_refs(db,user,locked,steps)!=state['cards']):
+        _legacy_conflict()
     if row:
-        if row.goal==args['goal'] and row.steps==steps:
+        if row.goal==data['goal'] and row.steps==steps:
             return {'status':200,'plan_id':row.id,'version':row.version,'reused':True,'business_executed':False}
-        if args.get('expected_version')!=row.version:raise HTTPException(409,'计划已更新，请读取最新版本后修改')
-        row.goal=args['goal'];row.steps=steps;row.updated_at=utcnow()
+        if data.get('expected_version')!=row.version:raise HTTPException(409,'计划已更新，请读取最新版本后修改')
+        row.goal=data['goal'];row.steps=deepcopy(steps);row.updated_at=_time((clock or utcnow)())
     else:
-        if args.get('expected_version') not in (None,0):raise HTTPException(409,'新计划没有旧版本')
-        row=AssistantWorkPlan(id=str(uuid4()),store_id=thread.store_id,session_id=sid,owner_id=user.id,
-            request_id=rid,goal=args['goal'],steps=steps)
+        if data.get('expected_version') not in (None,0):raise HTTPException(409,'新计划没有旧版本')
+        row=AssistantWorkPlan(id=str(uuid4()),store_id=locked.store_id,session_id=sid,owner_id=user.id,
+            request_id=rid,goal=data['goal'],steps=deepcopy(steps))
         db.add(row)
-    s.commit(db)
+    db.info['assistant_preparation_transaction']=db.get_transaction()
+    db.flush()
+    from .assistant_runtime_plans import _emit_plan_signal
+    _emit_plan_signal(db,row)
     return {'status':200,'plan_id':row.id,'version':row.version,'business_executed':False,
             'notice':'仅保存本次办事计划；进度以草稿确认结果和实际原单为准，未自动执行业务。'}
+
+
+async def save_plan(db,request,user,sid,config,args):
+    from . import business_assistant_service as s
+    thread=s.owned_session(db,user,sid)
+    current=None
+    if args.get('plan_id'):
+        current=db.scalar(select(AssistantWorkPlan).where(AssistantWorkPlan.id==args['plan_id'],
+            AssistantWorkPlan.session_id==sid,AssistantWorkPlan.owner_id==user.id,
+            AssistantWorkPlan.store_id==thread.store_id))
+    elif thread.busy_token:
+        # A retried same-turn legacy call must not downgrade a structured Plan.
+        current=db.scalar(select(AssistantWorkPlan).where(AssistantWorkPlan.request_id==thread.busy_token,
+            AssistantWorkPlan.session_id==sid,AssistantWorkPlan.owner_id==user.id,
+            AssistantWorkPlan.store_id==thread.store_id))
+    if args.get('schema_version',1)==2 or current is not None and current.engine_version==2:
+        from .assistant_runtime_plans import save_plan as save_runtime_plan
+        return await save_runtime_plan(db,request,user,sid,config,args)
+    try:
+        resolved=await resolve_legacy_plan(db,request,user,sid,config,args)
+        result=persist_legacy_plan(db,user,sid,resolved)
+        if result.get('reused'):
+            db.rollback()  # No writes; do not retain the new short row locks.
+        else:
+            s.commit(db)
+        return result
+    except Exception as exc:
+        # Flush now happens before the original commit wrapper. Preserve its
+        # optimistic/unique/serialization conflict mapping at that boundary.
+        from .assistant_runtime_plans import _followup_failure
+        _followup_failure(db,exc)
 
 
 def proposal_case_id(proposal):
@@ -154,7 +295,12 @@ def plan_briefs(db,user,sid):
     rows=list(db.scalars(select(AssistantWorkPlan).where(AssistantWorkPlan.session_id==sid,
         AssistantWorkPlan.owner_id==user.id,AssistantWorkPlan.store_id==thread.store_id)
         .order_by(AssistantWorkPlan.updated_at.desc(),AssistantWorkPlan.id).limit(20)))
-    return [{'id':p.id,'goal':p.goal,'version':p.version,'step_count':len(p.steps),
+    def step_count(plan):
+        if plan.engine_version==1:return len(plan.steps)
+        from .assistant_runtime_models import PlanStep
+        from sqlalchemy import func
+        return db.scalar(select(func.count()).select_from(PlanStep).where(PlanStep.plan_id==plan.id))
+    return [{'id':p.id,'goal':p.goal,'version':p.version,'step_count':step_count(p),
              'updated_at':stamp(p.updated_at)} for p in rows]
 
 
@@ -169,8 +315,14 @@ async def work_status(db,request,user,sid,config,args):
     if not plan:
         if args.get('plan_id'):raise HTTPException(404,'计划不存在或不可访问')
         return {'status':200,'plan':None,'plans':plan_briefs(db,user,sid),'notice':'当前对话没有保存的多步计划；单项业务直接核对原卡片。'}
-    proposals=owned_proposals(db,user,sid,[x['proposal_id'] for x in plan.steps if x.get('proposal_id')])
-    steps=derive_steps(plan.steps,proposals)
+    if plan.engine_version==2:
+        from .assistant_runtime_plans import project_legacy_plan
+        plan_view=project_legacy_plan(db,user,sid,plan)
+        steps=plan_view['steps']
+    else:
+        proposals=owned_proposals(db,user,sid,[x['proposal_id'] for x in plan.steps if x.get('proposal_id')])
+        steps=derive_steps(plan.steps,proposals)
+        plan_view={'id':plan.id,'goal':plan.goal,'version':plan.version,'steps':steps}
     from .workflow_guides_api import load_catalogue
     published={r['id']:r for r in load_catalogue()}
     for step in steps:
@@ -198,7 +350,10 @@ async def work_status(db,request,user,sid,config,args):
             records.append({'case_id':cid,'status':exc.status_code,'error':'原单进度未读取成功或已不可访问，请重试或到原页面核对。'})
     # Recheck access before exposing a result after nested calls.
     s.owned_session(db,user,sid)
-    return {'status':200,'plan':{'id':plan.id,'goal':plan.goal,'version':plan.version,'steps':steps},
+    if plan_view.get('engine_version')==2:
+        from .assistant_runtime_plans import _authorized_thread
+        _authorized_thread(db,user,sid)
+    return {'status':200,'plan':{**plan_view,'steps':steps},
         'plans':plan_briefs(db,user,sid),'cases':records,'case_page':page,'case_total':len(case_ids),
         'next_case_page':page+1 if offset+LIVE_CASE_PAGE<len(case_ids) else None,
         'checked_at':s.stamp(utcnow()),'business_executed':False,

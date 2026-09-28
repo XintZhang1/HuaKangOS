@@ -71,9 +71,14 @@ def change_access(db, principal, target_id, body, account_info, assign_stores):
         record = db.scalar(select(AuditLog).where(AuditLog.actor_id == actor.id,
             AuditLog.entity_type == 'users', AuditLog.entity_id == target.id,
             AuditLog.action == 'update_user').order_by(AuditLog.id.desc()))
-        db.add(UserAccessReceipt(actor_id=actor.id, target_id=target.id,
+        receipt = UserAccessReceipt(actor_id=actor.id, target_id=target.id,
             request_key=body.request_id, digest=digest, previous_version=body.access_version,
-            request_data=values, result=after, audit_id=record.id))
+            request_data=values, result=after, audit_id=record.id)
+        db.add(receipt)
+        from .config import settings
+        if settings.assistant_runtime_enabled:
+            from .assistant_runtime_access_signals import emit_user_access_changed
+            emit_user_access_changed(db, receipt)
         db.commit()
         return after
     except HTTPException:

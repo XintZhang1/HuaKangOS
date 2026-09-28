@@ -1,5 +1,6 @@
 """Bounded provider adapters and conversation orchestration; models only prepare."""
 import asyncio
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import timedelta
 import hashlib
@@ -14,7 +15,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, or_, func
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm.exc import StaleDataError
-from .config import ROOT
+from .config import ROOT, settings
 from .db import utcnow, today
 from .tenancy import single_store
 from .models import User
@@ -39,7 +40,6 @@ MODEL_REASONING_CHARS = 180000
 SETTLED_PROPOSAL_WINDOW = 40
 PROPOSAL_MINUTES = 30
 # 员工在确认卡上看到的"被岗位挡下"提示（模型拿到的是 gateway.COMMITMENT_HINT，措辞是给模型看的）。
-WRITE_REFUSAL_HINT = '这一步需要更高的岗位权限；可以让助手按这条被挡记录准备一张评审申请卡，提交给店长评审'
 ISSUE_CATEGORIES = {'input','rule','system','model','unsupported'}
 PRIVATE_KEYS = {'password','password_hash','api_key','secret','token','authorization','cookie','csrf','content_base64','blob','file_content','raw_content'}
 
@@ -218,7 +218,7 @@ def proposal_view(row):
             'questions':scrub(row.questions or []),
             'operation_id':row.operation_id,'label':row.label,'summary':row.summary,
             'details':scrub(row.payload),'display_fields':fields,'manual_route':manual_route,'digest':row.digest,'status':status,
-            'expires_at':stamp(row.expires_at),'created_at':stamp(row.created_at),'result':scrub(row.result)}
+            'expires_at':stamp(row.expires_at),'created_at':stamp(row.created_at),'result':scrub(receipt_result_view(row))}
 
 
 def session_view(db,user,session_id):
@@ -235,12 +235,30 @@ def session_view(db,user,session_id):
     proposals=sorted(open_cards+settled,key=lambda item:(item.created_at,item.id))
     last=next((m for m in reversed(messages) if m.role=='user'),None)
     last_request=None
+    runtime_waiting=False
     if last:
         replied=any(m.request_id==last.request_id+':reply' for m in messages)
         state='processing' if row.busy_token==last.request_id and row.busy_until and row.busy_until>utcnow() else 'completed' if replied else 'interrupted'
-        last_request={'request_id':last.request_id,'thinking':last.thinking,'status':state}
+        # A disabled Runtime still exposes its existing records. Older schemas
+        # have no Run table; inspect this fixed table without caching migration
+        # state or turning database errors into a fabricated absent result.
+        from sqlalchemy import inspect
+        run_id=None
+        if inspect(db.connection()).has_table('business_assistant_runs'):
+            from .assistant_runtime_models import Run
+            execution=db.execute(select(Run.id,Run.status).where(Run.owner_id==user.id,
+                Run.store_id==row.store_id,Run.session_id==row.id,
+                Run.trigger_kind=='user',Run.request_id==last.request_id,
+                Run.trigger_key=='user:'+row.id+':'+last.request_id)).one_or_none()
+            if execution is not None:
+                run_id=execution.id
+                runtime_waiting=execution.status in {'queued','running'}
+                state='processing' if runtime_waiting else 'completed' if replied else 'interrupted'
+        last_request={'request_id':last.request_id,'thinking':last.thinking,'status':state,'run_id':run_id}
     from .business_assistant_workboard import plan_briefs
-    return {**session_brief(row),'work_plans':plan_briefs(db,user,session_id),'last_request':last_request,'messages':[{'id':m.id,'role':m.role,'content':m.content,
+    brief=session_brief(row)
+    if settings.assistant_runtime_enabled and runtime_waiting:brief['busy']=True
+    return {**brief,'work_plans':plan_briefs(db,user,session_id),'last_request':last_request,'messages':[{'id':m.id,'role':m.role,'content':m.content,
             'request_id':m.request_id,'thinking':m.thinking,'created_at':stamp(m.created_at)} for m in messages],
             'proposals':[proposal_view(p) for p in proposals]}
 
@@ -345,33 +363,90 @@ def apply_answers(row,answers,operation=None):
     return merge_answers(gateway,row,answers)
 
 
-def prepare_proposal(db,user,session_id,args,*,question_fields=None):
+@dataclass(frozen=True)
+class ResolvedPreparation:
+    """Server-internal preparation, never a model argument or an authorization."""
+    operation_id: str
+    path_args: dict
+    query: dict
+    body: dict
+    questions: list
+    question_fields: list | None
+    label: str
+    summary: str
+    step_order: int
+    step_label: str
+    prerequisites: tuple
+    idempotent: bool
+    generate_request_id: bool
+    session_id: str
+    owner_id: int
+    store_id: int
+    owner_role: str
+    access_version: int
+    presentation: dict | None = None
+    references: dict = field(default_factory=dict)
+    form_ref: str | None = None
+
+
+@dataclass(frozen=True)
+class ResolvedBatchPreparation:
+    """Ordered internal results; rejected/source-missing rows retain their place."""
+    kind: str
+    items: list
+    input_count: int
+
+
+def require_preparation_read_phase(db):
+    # Native reads close their own transaction. They must not accidentally
+    # commit a caller's half-built card, WorkItem, Step or event.
+    transaction=db.get_transaction()
+    prepared_transaction=db.info.get('assistant_preparation_transaction')
+    if db.new or db.dirty or db.deleted or (prepared_transaction is not None and prepared_transaction is transaction):
+        raise HTTPException(409,'当前处理尚未结束，请稍后重新查询并准备')
+    # A committed/rolled-back preparation no longer prevents a new read phase.
+    db.info.pop('assistant_preparation_transaction',None)
+
+
+def resolve_preparation(db,user,session_id,args,*,question_fields=None):
+    """Validate a direct draft without adding a card or assigning a request ID.
+
+    Business/case resolvers finish their authorized GETs before calling this.
+    The temporary request ID is only a schema probe; persistence generates the
+    actual ID after checking for an existing draft/stable work item.
+    """
     from . import business_assistant_gateway as gateway
     thread=owned_session(db,user,session_id)
     operation_id=args.get('operation_id','')
-    path_args=args.get('path_args') or {};query=args.get('query') or {};body=args.get('body') or {}
+    path_args=args.get('path_args') or {};query=args.get('query') or {};body=deepcopy(args.get('body') or {})
+    declared=gateway.inspect_operation(operation_id)
+    properties=(declared.get('body_schema') or {}).get('properties') or {}
+    generate_request_id=isinstance(body,dict) and 'request_id' in properties and 'request_id' not in body
+    validation_body=deepcopy(body)
+    if generate_request_id:validation_body['request_id']='00000000-0000-0000-0000-000000000000'
     questions=sanitize_questions(args.get('questions'))
     if questions:
         from .business_assistant_forms import describe_questions
         questions=describe_questions(gateway,operation_id,path_args,body,questions,question_fields)
     probed=False
     try:
-        normalized=gateway.validate_operation(operation_id,path_args,query,body)
+        normalized=gateway.validate_operation(operation_id,path_args,query,validation_body)
     except HTTPException as exc:
         # 模型不知道、只能由员工填的字段（questions）在准备时必然是空的：用类型正确的占位值探一次，
         # 确认"缺的正是员工要填的那几项"就允许成卡。占位值不会保存，员工填完在确认时再真校验。
         if not questions:raise
-        try:normalized=gateway.validate_operation(operation_id,path_args,query,answer_probe(gateway,operation_id,body,questions,path_args,question_fields))
+        try:normalized=gateway.validate_operation(operation_id,path_args,query,answer_probe(gateway,operation_id,validation_body,questions,path_args,question_fields))
         except HTTPException:raise exc from None
         probed=True
     operation=normalized['operation']
     if not operation.get('write',operation.get('method','GET').upper()!='GET'):
         raise HTTPException(422,'查询操作无需确认，请直接查询')
     if probed:
-        payload={'path_args':dict(path_args),'query':dict(query),'body':dict(body) if isinstance(body,dict) else {}}
+        payload={'path_args':deepcopy(path_args),'query':deepcopy(query),'body':deepcopy(body) if isinstance(body,dict) else {}}
     else:
         payload={key:normalized.get(key,{}) for key in ('path_args','query','body')}
         if not isinstance(payload.get('body'),dict):payload['body']={}
+        if generate_request_id:payload['body'].pop('request_id',None)
     if len(json.dumps(payload,ensure_ascii=False))>24000:raise HTTPException(422,'本次内容过多，请拆成几步办理')
     if scrub(payload)!=payload:raise HTTPException(422,'操作内容含密码、密钥或过长字段，请回到原页面处理')
     # 业主 2026-09-25 第二条限制：中间单据不能凭空建。前序事实既要真的回到模型手里（否则"逐项确认"
@@ -387,40 +462,178 @@ def prepare_proposal(db,user,session_id,args,*,question_fields=None):
         # "1 售前接待" 与 step_order=1 同时给也不该显示成"1 · 1 售前接待"：序号只留一份。
         if not step_order:step_order=int(leading.group(1))
         step_label=(leading.group(2) or step_label).strip()
-    def prepared(row):
-        view=proposal_view(row)
-        if notes:
-            view['prerequisites']=notes
-            view['prerequisite_rule']=('先核对已查询的原单和员工已提供的事实，不重复询问已知信息；'
-                                       '确实缺少的事实集中放进当前卡片，依赖未产生的原单则等待确认后再继续。')
-        return view
+    return ResolvedPreparation(operation_id=operation_id,**payload,questions=deepcopy(questions),
+        question_fields=deepcopy(question_fields),label=safe_text(operation.get('label',operation_id),160),
+        summary=safe_text(args.get('summary') or operation.get('label',operation_id),600),
+        step_order=step_order,step_label=step_label,prerequisites=tuple(notes),
+        idempotent=bool(operation.get('idempotent',False)),generate_request_id=generate_request_id,
+        session_id=thread.id,owner_id=user.id,store_id=thread.store_id,
+        owner_role=user.role,access_version=user.access_version)
+
+
+def preparation_question_intent(fields):
+    """Labels describe candidates; their native values and constraints identify them."""
+    result=deepcopy(fields)
+    for question in result or []:
+        question.pop('label',None)
+        for key in ('options','candidates'):
+            for option in question.get(key) or []:
+                if isinstance(option,dict):option.pop('label',None)
+    return result
+
+
+def build_proposal(db,user,session_id,resolved,*,source_work_item_id=None):
+    """Build/reuse a card in the caller's transaction; no network or commit."""
+    from . import business_assistant_gateway as gateway
+    if not isinstance(resolved,ResolvedPreparation):
+        raise TypeError('Expected server-resolved preparation')
+    thread=owned_session(db,user,session_id)
+    expected=(thread.id,user.id,thread.store_id,user.role,user.access_version)
+    actual=(resolved.session_id,resolved.owner_id,resolved.store_id,resolved.owner_role,resolved.access_version)
+    if actual!=expected:raise HTTPException(409,'账号、岗位或门店已变化，请重新查询并准备')
+    # Detach and revalidate the internal value before saving; it contains nested
+    # dictionaries even though its outer dataclass is frozen. This is local only.
+    checked=resolve_preparation(db,user,session_id,{
+        'operation_id':resolved.operation_id,'path_args':resolved.path_args,'query':resolved.query,
+        'body':resolved.body,'questions':resolved.questions,'summary':resolved.summary,
+        'step':resolved.step_label,'step_order':resolved.step_order},question_fields=resolved.question_fields)
+    operation_id=checked.operation_id
+    payload={key:deepcopy(getattr(checked,key)) for key in ('path_args','query','body')}
+    properties=(gateway.inspect_operation(operation_id).get('body_schema') or {}).get('properties') or {}
+    source=None
+    if source_work_item_id is not None:
+        from .assistant_runtime_models import WorkItem
+        if not isinstance(source_work_item_id,str) or not source_work_item_id:
+            raise HTTPException(422,'准备来源格式有误')
+        source=db.scalar(select(WorkItem).where(WorkItem.id==source_work_item_id,
+            WorkItem.owner_id==user.id,WorkItem.store_id==thread.store_id,
+            WorkItem.session_id==thread.id))
+        if source is None or source.item_kind!='prepare' or source.operation_id!=operation_id:
+            raise HTTPException(409,'准备来源与当前操作不一致')
+        generated=(source.validated_intent or {}).get('generate_request_id')
+        if type(generated) is not bool or generated!=checked.generate_request_id:
+            raise HTTPException(409,'准备来源的提交标识约定已变化')
+        prior=db.scalar(select(AssistantProposal).where(
+            AssistantProposal.source_work_item_id==source.id))
+        if prior is not None:
+            if (prior.owner_id,prior.store_id,prior.session_id,prior.operation_id)!=(
+                    user.id,thread.store_id,thread.id,operation_id):
+                raise HTTPException(409,'准备来源关联有误')
+            previous=deepcopy(prior.payload)
+            # Only the ID generated by this preparation is absent from its
+            # intent. Explicit native IDs, versions and every other field count.
+            if generated:
+                previous['body'].pop('request_id',None)
+            if (previous!=payload or preparation_question_intent(prior.questions or [])
+                    !=preparation_question_intent(checked.questions or [])):
+                raise HTTPException(409,'同一准备来源的内容已变化，请明确重新准备')
+            # Terminal/expired/unknown cards stay attached to their original
+            # intent. A retry must never silently create a fresh business action.
+            return prior
+        if source.status!='planned':
+            raise HTTPException(409,'准备来源缺少原卡片，请先核对记录')
     active=list(db.scalars(select(AssistantProposal).where(AssistantProposal.session_id==thread.id,
         AssistantProposal.owner_id==user.id,AssistantProposal.status.in_({'pending','executing','uncertain'}),
         or_(AssistantProposal.status!='pending',AssistantProposal.expires_at>utcnow()))))
     def intent(value):
         body=value.get('body')
         return {**value,'body':{k:v for k,v in body.items() if k!='request_id'} if isinstance(body,dict) else body}
-    for old in active:
+    # Runtime identity is the WorkItem key: two equal input rows are still two
+    # separate intentions. Legacy callers keep their original content dedupe.
+    for old in active if source is None else ():
         if old.operation_id==operation_id and old.owner_role==user.role and old.access_version==user.access_version and intent(old.payload)==intent(payload):
             if old.status in {'executing','uncertain'}:
                 raise HTTPException(409,'这项操作正在办理或结果待核对，请先到原页面核对记录，不能重复提交')
-            return prepared(old)
+            if 'request_id' in properties:
+                request_spec=properties['request_id']
+                old_id=(old.payload.get('body') or {}).get('request_id')
+                if (not isinstance(old_id,str)
+                        or len(old_id)<request_spec.get('minLength',0)
+                        or len(old_id)>request_spec.get('maxLength',80)
+                        or (request_spec.get('pattern') and not re.search(request_spec['pattern'],old_id))):
+                    # Historical probe-only drafts could lose the generated ID.
+                    # Never silently mutate a card whose digest the employee saw.
+                    raise HTTPException(409,'已有待确认卡缺少有效提交标识，请先取消该卡，再重新准备；本次未执行业务')
+            row=old
+            break
+    else:
+        row=None
     # 2026-09-25 业主裁定"别按行数卡住"：整表导入（67 行）一轮要准备 60+ 张卡，原来的 20 张上限
     # 会被当成"系统拒绝"打断导入。默认放宽到 MAX_PENDING_PROPOSALS，仍保留一个明确上限，
     # 避免一次对话堆出无上限的待确认写入。session_view 会保证这些待确认卡都看得到（见那里的窗口）。
-    if sum(row.status=='pending' for row in active)>=MAX_PENDING_PROPOSALS:
+    if row is None and sum(card.status=='pending' for card in active)>=MAX_PENDING_PROPOSALS:
         raise HTTPException(409,'待确认操作较多（已达 %d 张），请先确认或取消现有操作' % MAX_PENDING_PROPOSALS)
-    row=AssistantProposal(id=str(uuid4()),store_id=thread.store_id,session_id=thread.id,owner_id=user.id,
-        owner_role=user.role,access_version=user.access_version,operation_id=operation_id,
-        label=safe_text(operation.get('label',operation_id),160),summary=safe_text(args.get('summary') or operation.get('label',operation_id),600),
+    if row is None:
+        if checked.generate_request_id:payload['body']['request_id']=str(uuid4())
+        if len(json.dumps(payload,ensure_ascii=False))>24000:raise HTTPException(422,'本次内容过多，请拆成几步办理')
+        row=AssistantProposal(id=str(uuid4()),store_id=thread.store_id,session_id=thread.id,owner_id=user.id,
+            owner_role=user.role,access_version=user.access_version,operation_id=operation_id,
+            source_work_item_id=source.id if source is not None else None,
+            label=checked.label,summary=checked.summary,
         # 本轮正在处理的消息编号就是会话的 busy_token：同一轮准备的卡共用它，页面据此折叠成分页的一组。
-        request_id=safe_text(thread.busy_token or '',100),
-        step_order=step_order,step_label=step_label,questions=questions or None,
-        payload=payload,digest=proposal_digest(user,thread.store_id,operation_id,payload),
-        idempotent=bool(operation.get('idempotent',False)),expires_at=utcnow()+timedelta(minutes=PROPOSAL_MINUTES))
-    if notes:row.result={'prerequisites':notes}
-    db.add(row);commit(db)
-    return prepared(row)
+            request_id=source.origin_request_id if source is not None else safe_text(thread.busy_token or '',100),
+            step_order=checked.step_order,step_label=checked.step_label,questions=checked.questions or None,
+            payload=payload,digest=proposal_digest(user,thread.store_id,operation_id,payload),
+            idempotent=checked.idempotent,expires_at=utcnow()+timedelta(minutes=PROPOSAL_MINUTES))
+        if checked.prerequisites:row.result={'prerequisites':list(checked.prerequisites)}
+    if resolved.presentation is not None:
+        row.label=safe_text(resolved.label,160)
+        row.result={**(row.result or {}),'business_presentation':deepcopy(resolved.presentation)}
+    return row
+
+
+def flush_proposal(db,row):
+    """Flush within the caller's transaction; exceptions require caller rollback."""
+    db.add(row)
+    # After flush, new/dirty may be empty while the card is still uncommitted.
+    # Track this transaction so a later resolver cannot trigger a hidden commit.
+    db.info['assistant_preparation_transaction']=db.get_transaction()
+    db.flush()
+    return row
+
+
+def prepared_view(row,resolved):
+    view=proposal_view(row)
+    if resolved.prerequisites:
+        view['prerequisites']=list(resolved.prerequisites)
+        view['prerequisite_rule']=('先核对已查询的原单和员工已提供的事实，不重复询问已知信息；'
+            '确实缺少的事实集中放进当前卡片，依赖未产生的原单则等待确认后再继续。')
+    if resolved.form_ref:
+        view.update(business_form_ref=resolved.form_ref,requires_employee_confirmation=True)
+    return view
+
+
+def persist_preparation(db,user,session_id,resolved,*,source_work_item_id=None):
+    """No commit: later Runtime callers can add work/steps/events atomically."""
+    row=flush_proposal(db,build_proposal(db,user,session_id,resolved,
+                                     source_work_item_id=source_work_item_id))
+    if row.status=='pending':
+        _emit_proposal_result(db,row)
+    return prepared_view(row,resolved)
+
+
+def commit_preparation(db,user,session_id,resolved):
+    """Legacy wrapper; exactly one commit also saves the display snapshot."""
+    try:
+        result=persist_preparation(db,user,session_id,resolved)
+        commit(db)
+    except (StaleDataError,IntegrityError):
+        db.rollback()
+        raise HTTPException(409,'操作正在处理或内容已更新，请刷新查看') from None
+    except OperationalError as exc:
+        db.rollback()
+        if 'locked' in str(exc).lower() or getattr(exc.orig,'sqlstate',None) in {'40001','40P01'}:
+            raise HTTPException(409,'另一项操作正在处理，请刷新查看') from None
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    return result
+
+
+def prepare_proposal(db,user,session_id,args,*,question_fields=None):
+    resolved=resolve_preparation(db,user,session_id,args,question_fields=question_fields)
+    return commit_preparation(db,user,session_id,resolved)
 
 
 def tool(name,description,properties,required=()):
@@ -494,103 +707,80 @@ from .business_assistant_prompt import SYSTEM_PROMPT
 
 
 def tools_for_config(config):
-    if config.tool_profile == 'business_v1':
-        from .business_assistant_business_tools import tool_definitions
-        return tool_definitions() + TOOLS
-    return TOOLS
+    from .assistant_runtime_registry import registry_for_config
+    return registry_for_config(config).definitions()
 
 
 def prompt_for_config(config):
     if config.tool_profile == 'business_v1':
         from .business_assistant_business_prompt import BUSINESS_INSTRUCTIONS
-        return SYSTEM_PROMPT if SYSTEM_PROMPT.endswith(BUSINESS_INSTRUCTIONS) else SYSTEM_PROMPT + '\n' + BUSINESS_INSTRUCTIONS
+        result=SYSTEM_PROMPT if SYSTEM_PROMPT.endswith(BUSINESS_INSTRUCTIONS) else SYSTEM_PROMPT + '\n' + BUSINESS_INSTRUCTIONS
+        if settings.assistant_runtime_enabled:
+            from .business_assistant_prompt import (
+                RUNTIME_PLAN_INSTRUCTIONS, RUNTIME_CONTEXT_INSTRUCTIONS,
+                RUNTIME_EXECUTION_INSTRUCTIONS,
+            )
+            result+='\n'+RUNTIME_PLAN_INSTRUCTIONS+'\n'+RUNTIME_CONTEXT_INSTRUCTIONS+'\n'+RUNTIME_EXECUTION_INSTRUCTIONS
+        return result
     return SYSTEM_PROMPT
 
 
+async def build_runtime_context(db,principal,config,*,thinking=False,tool_messages=(),
+                                client_factory=None,clock=None,context_char_budget=None):
+    """Build sourced inputs for a claimed Run; legacy conversations stay intact."""
+    from .assistant_runtime_context import build_context
+    return await build_context(db,principal,system_prompt=prompt_for_config(config),
+        thinking=thinking,tool_messages=tool_messages,client_factory=client_factory,clock=clock,
+        context_char_budget=context_char_budget)
+
+
+async def run_runtime_once(db,principal,config=None,*,stream=True,clock=None,
+                           client_factory=None,context_char_budget=None,max_preparations=None):
+    """Execute an already claimed internal Run; this does not enqueue or log in.
+
+    HTTP and worker entry points are wired by their own milestones. Keeping this
+    wrapper separate preserves the legacy conversation and confirmation paths.
+    """
+    from .assistant_runtime_runner import run_once
+    return await run_once(db,principal,config,stream=stream,clock=clock,
+        client_factory=client_factory,context_char_budget=context_char_budget,
+        max_preparations=max_preparations)
+
+
 def provider_request(config,messages,thinking=False,stream=False):
-    """Fixed official endpoints; credentials never select a URL or a fallback."""
-    # 业主 2026-09-25："为什么要设置回复上限啊，赶紧删掉！"——不再下发 max_tokens/max_completion_tokens，
-    # 输出长度交给服务方自己的上限；轮次与总时长仍是防跑飞的边界（不是"回复上限"）。
-    body={'model':config.model,'messages':messages,'tools':tools_for_config(config),'tool_choice':'auto','thinking':{'type':'enabled' if thinking else 'disabled'}}
-    if stream:body['stream']=True
-    if thinking:body['reasoning_effort']='low'
-    else:body['temperature']=0.3 if config.provider=='mimo' else 0.1
-    if config.provider=='deepseek':
-        endpoint='https://api.deepseek.com/chat/completions'
-    elif config.provider=='mimo' and config.api_kind in {'token_plan','pay_as_you_go'}:
-        host='token-plan-cn.xiaomimimo.com' if config.api_kind=='token_plan' else 'api.xiaomimimo.com'
-        endpoint='https://'+host+'/v1/chat/completions'
-    else:
-        raise HTTPException(503,'业务助手服务配置有误，请联系管理员检查')
-    return endpoint,body
+    """Compatibility entry point for the shared fixed-endpoint adapter."""
+    from .assistant_runtime_provider import provider_request as shared_request
+    return shared_request(config,messages,thinking=thinking,stream=stream)
 
 
 async def model_reply(config,messages,thinking=False):
-    """一次模型调用。**模型调用是只读的**，所以网络抖动可以重试一次；
-    业务写入永远不自动重试（确认卡由员工点击，失败也不重放）。"""
-    attempt=0
-    while True:
-        attempt+=1
-        try:
-            endpoint,body=provider_request(config,messages,thinking=thinking)
-            async with httpx.AsyncClient(timeout=config.timeout_seconds,follow_redirects=False,trust_env=False) as client:
-                response=await client.post(endpoint,headers={'Authorization':'Bearer '+config.api_key},json=body)
-            if response.status_code in {401,403}:raise HTTPException(503,'业务助手连接凭据无效，请联系管理员检查')
-            if response.status_code==402:raise HTTPException(503,'业务助手额度不足，请联系管理员补充额度')
-            if response.status_code==429:raise HTTPException(503,'业务助手暂时繁忙，请稍后再试')
-            if response.status_code>=500 and attempt==1:
-                await asyncio.sleep(1.0);continue
-            if response.status_code>=400:raise HTTPException(503,'业务助手暂时无法连接，请稍后再试')
-            if len(response.content)>MODEL_RESPONSE_BYTES:raise ValueError('response too large')
-            choice=response.json()['choices'][0]
-            finish=choice.get('finish_reason')
-            if finish=='length':
-                # 截断的 tool_calls 不能拿来执行（参数可能是半截的），也不能谎称"连接异常"。
-                raise ModelOutputTruncated()
-            if finish not in {None,'stop','tool_calls'}:raise ValueError('incomplete reply')
-            reply=choice['message']
-            if not isinstance(reply,dict):raise ValueError('invalid reply')
-            text=reply.get('content') or ''
-            if not isinstance(text,str) or len(text)>MODEL_TEXT_CHARS:raise ValueError('invalid or excessive text')
-            calls=reply.get('tool_calls') or []
-            if not isinstance(calls,list) or len(calls)>HARD_TOOLS:raise ValueError('invalid tools')
-            for call in calls:
-                if not isinstance(call,dict):raise ValueError('invalid tool')
-                arguments=call.get('function',{}).get('arguments','')
-                if not isinstance(arguments,str) or len(arguments)>MODEL_ARGUMENT_CHARS:raise ValueError('invalid tool arguments')
-            return reply
-        except httpx.TimeoutException:
-            if attempt==1:
-                await asyncio.sleep(1.0);continue
-            raise HTTPException(503,'业务助手响应超时，请稍后重试；尚未确认的操作不会执行') from None
-        except httpx.TransportError as exc:                # 连接被重置、DNS/代理抖动等
-            if attempt==1:
-                await asyncio.sleep(1.0);continue
-            # 带上异常类别（不含凭据/URL），否则"连接异常"无法定位是超时、重置还是解析失败。
-            raise HTTPException(503,'业务助手连接异常，请稍后再试（%s）' % type(exc).__name__) from None
-        except (httpx.HTTPError,ValueError,KeyError,IndexError,TypeError):
-            # 回复格式不对是确定性问题，重试也不会变好：直接报错，不重复消耗额度。
-            raise HTTPException(503,'业务助手连接异常，请稍后再试') from None
+    """Preserve the legacy message-only result and call signature."""
+    from .assistant_runtime_provider import model_reply as shared_reply
+    return await shared_reply(config,messages,thinking=thinking)
 
 
-async def run_tools(db,request,user,thread_id,name,args,config):
+async def run_tools(db,request,user,thread_id,name,args,config,*,resolve_only=False):
+    from .assistant_runtime_principal import RuntimePrincipal
+    if type(user) is RuntimePrincipal:
+        if type(resolve_only) is not bool:raise TypeError('resolve_only must be a server boolean')
+        # Composite legacy resolvers re-enter here for native reads. A real
+        # Runtime carrier must never reach the legacy issue/discovery commits.
+        # Preparation and plan writes belong to the runner's fenced checkpoints.
+        from .assistant_runtime_runner import runtime_read_tool
+        return await runtime_read_tool(db,request,user,thread_id,name,args,config)
+    from .assistant_runtime_registry import dispatch
+    return await dispatch(db,request,user,thread_id,name,args,config,resolve_only=resolve_only)
+
+
+async def _run_registered_tool(db,request,user,thread_id,name,args,config,*,resolve_only=False):
+    """Compatibility handlers reached only after registry argument validation."""
     from . import business_assistant_gateway as gateway
     from .business_assistant_business_tools import SPECS, handle
+    if type(resolve_only) is not bool:raise TypeError('resolve_only must be a server boolean')
+    if resolve_only:require_preparation_read_phase(db)
     if name in SPECS:
         if config.tool_profile != 'business_v1': raise HTTPException(403,'当前工具配置未开启业务工具层')
-        return await handle(db,request,user,thread_id,name,args,config)
-    definition=next((item['function'] for item in TOOLS if item['function']['name']==name),None)
-    if not definition:raise HTTPException(422,'业务助手只能查询资料和准备业务表单，不支持此操作')
-    schema=definition['parameters'];properties=schema['properties']
-    if not isinstance(args,dict) or set(args)-set(properties) or set(schema['required'])-set(args):
-        raise HTTPException(422,'操作包含未支持的字段或缺少必要信息，请按业务表单填写')
-    for key,value in args.items():
-        field=properties[key];kind=field.get('type')
-        if (kind=='string' and not isinstance(value,str) or kind=='object' and not isinstance(value,dict)
-            or kind=='integer' and type(value) is not int or kind=='array' and not isinstance(value,list) or 'enum' in field and value not in field['enum']
-            or 'minimum' in field and (type(value) is not int or value<field['minimum'])
-            or 'maximum' in field and (type(value) is not int or value>field['maximum'])):
-            raise HTTPException(422,'请核对操作字段的格式')
+        return await handle(db,request,user,thread_id,name,args,config,resolve_only=resolve_only)
     if name=='read_data' and args.get('body'):raise HTTPException(403,'查询不能提交业务修改，请先准备待确认表单')
     if name=='list_operations':
         if not args.get('domain') and not args.get('query') and hasattr(gateway,'DOMAINS'):
@@ -614,11 +804,12 @@ async def run_tools(db,request,user,thread_id,name,args,config):
         thread.recent_operation_ids=[item for item in (thread.recent_operation_ids or []) if item!=canonical][-5:]+[canonical]
         commit(db)
         return operation
-    if name=='prepare_operation':return prepare_proposal(db,user,thread_id,args)
-    if name=='prepare_operations':return prepare_operations(db,user,thread_id,args)
+    if name=='prepare_operation':
+        return resolve_preparation(db,user,thread_id,args) if resolve_only else prepare_proposal(db,user,thread_id,args)
+    if name=='prepare_operations':return prepare_operations(db,user,thread_id,args,resolve_only=resolve_only)
     if name in {'find_cases','get_case','prepare_case_action','prepare_customer_contact'}:
         from .business_assistant_case_tools import handle_case_tool
-        result=await handle_case_tool(db,request,user,thread_id,name,args,config)
+        result=await handle_case_tool(db,request,user,thread_id,name,args,config,resolve_only=resolve_only)
         if name=='get_case' and config.tool_profile=='business_v1' and isinstance(result,dict):
             data=result.get('data',result)
             if isinstance(data,dict):
@@ -664,21 +855,108 @@ def known_operations(operation_ids,proposals):
 
 
 # A factual consistency check, NEVER an instruction to create a business record.
-# Match an affirmative claim in one clause; negation and future/conditional prose
-# must not turn a read-only question into a write-preparation request.
+# Match an affirmative claim inside one clause; negation, questions, quotations,
+# unconfirmed and future/conditional prose must not turn a read-only question into
+# a write request. Only the narrow句式 below count: "尚未生成确认卡"、
+# "如果确认卡已生成"、"确认卡已真实生成吗？"、引用或解释该说法的句子都不算办完。
+# 业务完成证据只能来自数据库，不能来自这里的文字匹配；未匹配也绝不等于业务已办。
+# 条件从句把整句变成未发生："如果确认卡已生成…"不能读成已完成。
+CLAIM_CONDITION = ('如果', '若', '假如')
+# 只作用于"另一件事"的词：切开后各自判断，前面的已完成宣称不因后面待核对而消失。
+CLAIM_SPLIT = ('但', '但是', '不过', '然而', '而是', '所以', '因此', '因为', '由于',
+               '需要核对', '需核对', '需要核实', '待核实', '未核对', '待核对', '尚无',
+               '请问', '是否')
+# 这些词直接否掉它所在的那个部分：这一部分整体不算宣称，不做恢复性删除。
+CLAIM_REJECT_PART = ('尚未', '并未', '并没有', '没有', '未曾', '不会', '不需要', '无需',
+                     '不生成', '不准备', '不创建', '未生成', '未准备', '未创建', '未提交',
+                     '未证实', '未经证实', '无法证实', '不能证实', '待证实')
+# 只是在解释/引用某个说法，不是在宣称完成。
+CLAIM_EXPLANATION = ('说法', '解释', '含义', '错误', '这句话', '是否正确', '说的是')
+# 引用/解释一个说法不等于正在宣称完成；中英文引号都算。
+CLAIM_QUOTE_PAIRS = (('“', '”'), ('「', '」'), ('『', '』'), ('"', '"'))
+CLAIM_QUESTION = ('吗', '呢', '么？', '么?')
+# 肯定前缀必须含明确完成标记"已/已经/成功"；"真实/确实/实际"只能作为它们的
+# 受限修饰（"已真实生成"），不能单独把"实际生成确认卡前"当成办完。
+CLAIM_MARK = (r'(?:(?:已(?:经)?|成功)(?:均|都|也|又|再|已)?'
+              r'(?:为你|为您|替你|替您)?(?:真实|确实|实际|真的)?|(?:均|都|已经)+'
+              r'(?:真实|确实|实际|真的)?)')
+# 宾语在前、肯定动词在后的结构；填充有边界：只允许数量、修饰和顿号/逗号（引用删除后
+# 会留下一个逗号），不含句号、分号、否定和疑问词。
+CLAIM_FILLER = r'[0-9０-９一二三四五六七八九十百千万两半个张份条行批项步 　的都是也已经好、，,]*'
+CLAIM_SUFFIX = r'(?:好(?:了)?|完成|成功|完毕)'
+CLAIM_DONE = r'(?:已经|已)?(?:好(?:了)?|完成|成功|完毕)'
+# "…生成吗"、"…生成前"这种未完句不能算办完，作为整体句尾再挡一层。
+CLAIM_TAIL_GUARD = r'(?![吗呢么]|前)'
+
+
+def unquoted(text):
+    """Drop quoted runs inside one clause: a quoted claim is never the claim itself."""
+    value = str(text or '')
+    for opening, closing in CLAIM_QUOTE_PAIRS:
+        while True:
+            start = value.find(opening)
+            if start == -1:
+                break
+            end = value.find(closing, start + len(opening))
+            if end == -1:
+                break
+            value = value[:start] + value[end + 1:]
+    return value
+
+
+def clause_is_affirmative(clause):
+    """Whether a clause can carry a completion claim, and what it should be read as.
+
+    A condition such as "如果…" makes the whole sentence unfinished. A quotation,
+    an explanation of the wording, "未证实/尚未" or a question denies the claim in
+    its own part. Rulings that only concern another matter ("…，客户地址需要核对")
+    cut the clause instead, so a finished claim before them is not lost.
+    """
+    if any(word in clause for word in CLAIM_CONDITION):
+        return False, []
+    if any(word in clause for word in CLAIM_REJECT_PART):
+        return False, []
+    visible = unquoted(clause)
+    parts = [visible]
+    if any(word in visible for word in CLAIM_EXPLANATION):
+        # An explanation only rejects its own comma-delimited part. A request
+        # to check correctness must not erase an earlier completed-card claim.
+        # Keep the existing short-phrase path unchanged when no explanation
+        # appears, including supported wording that spans a comma.
+        parts = [part for part in re.split(r'[，,]', visible)
+                 if not any(word in part for word in CLAIM_EXPLANATION)]
+    for marker in CLAIM_SPLIT:
+        parts = [piece for part in parts for piece in part.split(marker)]
+    keep = []
+    for part in parts:
+        part = part.strip()
+        if not part or any(word in part for word in CLAIM_REJECT_PART):
+            continue
+        if any(word in part for word in CLAIM_QUESTION):
+            continue
+        keep.append(part)
+    return bool(keep), keep
+
+
 def claimed_actions(text):
     for clause in re.split(r'[。！？\n；;]', str(text or '')):
         clause = clause.strip()
-        if not clause or any(word in clause for word in
-                ('没有', '并未', '未曾', '尚未', '未生成', '未准备', '未创建', '未提交',
-                 '不会', '不需要', '不生成', '不准备', '不创建', '无需', '如果', '若要',
-                 '确认后', '提交后', '填写后', '将会', '可以', '可由', '尚无')):
+        if not clause:
             continue
-        if re.search(r'(?:已(?:经)?|成功)(?:为你|为您|替你|替您)?(?:准备|生成|创建)'
-                     r'[^。！？\n；;]{0,48}(?:确认卡|待确认(?:操作|表单|卡片)|确认表单)', clause):
-            return True
-        if re.search(r'(?:确认卡|确认表单)[^。！？\n；;]{0,16}(?:已(?:经)?(?:生成|准备)|准备好了|生成成功)', clause):
-            return True
+        affirmative, parts = clause_is_affirmative(clause)
+        if not affirmative:
+            continue
+        for segment in parts:
+            # Quoted wording describes a claim, it does not make one.
+            segment = unquoted(segment)
+            if re.search(CLAIM_MARK + r'(?:准备|生成|创建)'
+                         r'[^。！？\n；;]{0,48}(?:确认卡|待确认(?:操作|表单|卡片)|确认表单)'
+                         + CLAIM_TAIL_GUARD, segment):
+                return True
+            if re.search(r'(?:确认卡|确认表单)' + CLAIM_FILLER +
+                         r'(?:' + CLAIM_MARK + r'(?:生成|准备|创建)' + CLAIM_SUFFIX + r'?'
+                         r'|(?:生成|准备|创建|准备就绪)' + CLAIM_DONE + r')' + CLAIM_TAIL_GUARD, segment):
+                return True
     return False
 
 
@@ -697,7 +975,7 @@ def prepared_ids(result):
             if isinstance(row, dict) and row.get('status') == 'pending' and row.get('id')}
 
 
-def prepare_operations(db, user, thread_id, args):
+def prepare_operations(db, user, thread_id, args, *, resolve_only=False):
     """Compact transport of independent drafts; native per-row checks are unchanged.
 
     Only proposals are persisted, never the underlying business records. Each
@@ -717,14 +995,20 @@ def prepare_operations(db, user, thread_id, args):
            or not isinstance(row.get('summary'), str) or not row['summary'].strip() for row in rows):
         raise HTTPException(422, '每项只填body、summary和可选questions，不能省略资料或事项说明')
     shared = {key: value for key, value in args.items() if key != 'rows'}
+    if resolve_only:require_preparation_read_phase(db)
     results = []
     for index, row in enumerate(rows, 1):
         try:
+            if resolve_only:
+                results.append(resolve_preparation(db,user,thread_id,{**shared,**row}))
+                continue
             proposal = prepare_proposal(db, user, thread_id, {**shared, **row})
             results.append({'index': index, 'id': proposal['id'], 'status': 'pending',
                             'summary': proposal['summary'], 'question_count': len(proposal.get('questions') or [])})
         except HTTPException as exc:
             results.append({'index': index, 'status': exc.status_code, 'error': safe_text(exc.detail, 600)})
+    if resolve_only:
+        return ResolvedBatchPreparation(kind='operation',items=results,input_count=len(rows))
     return {'items': results, 'requested': len(rows), 'prepared_or_reused': len(prepared_ids({'items':results})),
             'rejected': sum(row['status'] != 'pending' for row in results),
             'notice': '按输入序号逐项核对；只生成或复用待确认卡，未执行业务。失败项没有生成卡，不代表其他项回滚。'}
@@ -740,6 +1024,89 @@ def busy_lease_seconds(config):
     """会话租约要盖住整轮上限，否则长任务跑到一半就被当成"已中断"。"""
     turn=max(30,min(600,int(getattr(config,'turn_timeout_seconds',600) or 600)))
     return turn+60
+
+
+def cas_session_busy(db,row,*,mode,token,now,until=None,touch_updated_at=False,require_live=False):
+    """Compare-and-set only this private session's busy fields, without commit.
+
+    The caller establishes employee scope first. Runtime callers additionally
+    hold and CAS their actual Run lease/fence in the same transaction; matching
+    a busy token alone never authorizes worker writes. A Runtime heartbeat only
+    extends the lease, preserving the semantic session version used by reads.
+    """
+    from datetime import datetime,timezone
+    from sqlalchemy import inspect
+    from sqlalchemy.orm import object_session
+    from sqlalchemy.orm.attributes import set_committed_value
+    if (mode not in {'claim','renew','release','heartbeat'} or type(token) is not str
+            or not token or len(token)>80 or type(touch_updated_at) is not bool
+            or type(require_live) is not bool or not isinstance(now,datetime)):
+        raise ValueError('Invalid internal session lease operation')
+    now=now.astimezone(timezone.utc).replace(tzinfo=None) if now.tzinfo else now
+    if mode in {'claim','renew','heartbeat'}:
+        if not isinstance(until,datetime):raise ValueError('A lease requires its expiry')
+        until=until.astimezone(timezone.utc).replace(tzinfo=None) if until.tzinfo else until
+        if until<=now:raise ValueError('A new lease must expire after the current time')
+    elif until is not None:
+        raise ValueError('Release cannot set a new lease')
+    if mode=='heartbeat' and (not token.startswith('runtime:') or not require_live or touch_updated_at):
+        raise ValueError('Runtime heartbeat requires a live fenced lease')
+    if not isinstance(row,AssistantSession) or object_session(row) is not db:
+        raise HTTPException(409,'对话租约来源已变化，请重新读取')
+    state=inspect(row)
+    if not state.persistent or row in db.deleted or any(state.attrs[key].history.has_changes()
+            for key in ('id','owner_id','store_id','version','busy_token','busy_until')):
+        raise HTTPException(409,'对话租约已有待保存修改，请重新读取')
+    with db.no_autoflush:
+        scope=db.info.get('store_scope')
+        if (type(scope) not in (tuple,list) or db.info.get('aggregate_scope')
+                or db.info.get('write_store')!=row.store_id
+                or row.store_id not in scope or any(value not in (0,row.store_id) for value in scope)):
+            raise HTTPException(409,'对话租约必须使用当前员工的单店范围')
+        version=row.version
+        if type(version) is not int or version<1:
+            raise HTTPException(409,'对话版本不正确，请重新读取')
+        table=AssistantSession.__table__
+        checks=[table.c.id==row.id,table.c.owner_id==row.owner_id,
+                table.c.store_id==row.store_id,table.c.version==version]
+        if mode=='claim':
+            checks.append(or_(table.c.busy_token.is_(None),table.c.busy_token=='',
+                              table.c.busy_until.is_(None),table.c.busy_until<=now))
+        else:
+            checks.append(table.c.busy_token==token)
+            if require_live:checks.append(table.c.busy_until>now)
+        values={'busy_token':None if mode=='release' else token,
+                'busy_until':None if mode=='release' else until}
+        if mode=='heartbeat':
+            # A late concurrent heartbeat must not shorten a newer lease.
+            checks.append(table.c.busy_until<=until)
+        else:
+            values['version']=version+1
+        if touch_updated_at:values['updated_at']=now
+        # This fixed control table has explicit scope and version predicates.
+        # Do not open a generic scoped-ORM bulk-write bypass for business rows.
+        result=db.connection().execute(table.update().where(*checks).values(**values))
+        if result.rowcount!=1:return False
+        for key,value in values.items():set_committed_value(row,key,value)
+        return True
+
+
+def legacy_session_busy(db,row,**values):
+    """Keep the old request paths' transaction-error mapping around the CAS."""
+    owned_release=values.get('mode') in {'renew','release'} and row.busy_token==values.get('token')
+    try:
+        changed=cas_session_busy(db,row,**values)
+        if not changed and owned_release:
+            # The old ORM version guard rejected a stale owned release too.
+            # Do not report a completed reply while silently leaving it busy.
+            db.rollback()
+            raise HTTPException(409,'本次对话状态已变化，请刷新查看')
+        return changed
+    except OperationalError as exc:
+        db.rollback()
+        if 'locked' in str(exc).lower() or getattr(exc.orig,'sqlstate',None) in {'40001','40P01'}:
+            raise HTTPException(409,'另一项操作正在处理，请刷新查看') from None
+        raise
 
 
 def progress_message(db,user,session_id):
@@ -760,8 +1127,8 @@ def interrupted_turn(db,state,session_id,request_id,thinking):
     db.rollback()
     thread=db.scalar(select(AssistantSession).where(AssistantSession.id==session_id,
         AssistantSession.owner_id==state['owner_id'],AssistantSession.store_id==state['store_id']).execution_options(populate_existing=True))
-    if not thread or thread.busy_token!=request_id:return
-    thread.busy_token=None;thread.busy_until=None;thread.updated_at=utcnow()
+    if not thread or not legacy_session_busy(db,thread,mode='release',token=request_id,
+                                             now=utcnow(),touch_updated_at=True):return
     old=db.scalar(select(AssistantMessage.id).where(AssistantMessage.session_id==session_id,AssistantMessage.request_id==request_id+':reply'))
     if not old:db.add(AssistantMessage(store_id=thread.store_id,session_id=session_id,request_id=request_id+':reply',role='assistant',
         content='已停止本次回复。请核对已有待确认操作，再继续办理。',thinking=thinking))
@@ -789,11 +1156,12 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
     if existing:
         if existing.content!=content or existing.thinking is not thinking:raise HTTPException(409,'这次发送编号已被使用，请保持原消息和思考设置，或重新发送')
         return session_view(db,user,session_id)
-    if thread.busy_token and thread.busy_until and thread.busy_until>utcnow():raise HTTPException(409,'上一条消息还在处理，请稍候')
     # 2026-09-25 Codex 复核 P2：单轮上限已经放到 600 秒，租约却还写死 4 分钟——整表导入跑过 4 分钟后
     # 会话会被当成"已中断"并接受第二条消息，两条链会交错写提案。租约按本轮上限来，并在每轮续租。
-    thread.busy_token=request_id
-    thread.busy_until=utcnow()+timedelta(seconds=busy_lease_seconds(config));thread.updated_at=utcnow()
+    claim_time=utcnow()
+    if not legacy_session_busy(db,thread,mode='claim',token=request_id,now=claim_time,
+            until=claim_time+timedelta(seconds=busy_lease_seconds(config)),touch_updated_at=True):
+        raise HTTPException(409,'上一条消息还在处理，请稍候')
     if thread.title=='新对话':thread.title=content[:36]
     db.add(AssistantMessage(store_id=thread.store_id,session_id=thread.id,request_id=request_id,role='user',content=content,thinking=thinking));commit(db)
     turn_state.update(claimed=True,owner_id=user.id,store_id=thread.store_id)
@@ -845,7 +1213,10 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                 live=owned_session(db,user,session_id)
                 if live.busy_token==request_id:
                     # 每轮续租：整表导入一轮能跑几分钟，租约必须跟着走。
-                    live.busy_until=utcnow()+timedelta(seconds=busy_lease_seconds(config))
+                    renewal_time=utcnow()
+                    if not legacy_session_busy(db,live,mode='renew',token=request_id,now=renewal_time,
+                            until=renewal_time+timedelta(seconds=busy_lease_seconds(config))):
+                        raise HTTPException(409,'本次对话状态已变化，请刷新查看')
                 db.commit()
                 # Long goals (read the order, read the catalogue, prepare several steps) can use
                 # most of the budget. Ask for a conclusion in the last rounds instead of letting
@@ -895,11 +1266,11 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                         corrected=True
                         continue
                     answer=text or '请补充要办理的业务内容。';break
-                if len(calls)>HARD_TOOLS:raise ModelBudget('模型一次返回过多或无效工具，已停止处理')
-                if any(not isinstance(call,dict) or not isinstance(call.get('id'),str) or not call['id'] for call in calls):
-                    raise ModelBudget('模型工具编号无效，已停止处理')
-                if len({call['id'] for call in calls})!=len(calls):
-                    raise ModelBudget('模型工具编号重复，已停止处理')
+                from .assistant_runtime_registry import registry_for_config
+                # Validate the whole complete list before the first handler.
+                # A later truncated/duplicate/unknown call cannot follow an
+                # already persisted earlier preparation from this same list.
+                validated_calls=registry_for_config(config).validate_calls(calls)
                 # 2026-09-25 业主："为什么要设置回复上限啊，赶紧删掉！"——一次回复里提多少个准备调用
                 # 就执行多少个（原来只执行前 12 个、其余回"未执行"）。HARD_TOOLS 只是畸形回复兜底。
                 assistant_reply={'role':'assistant','content':text or None,'tool_calls':calls}
@@ -908,16 +1279,15 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                     if not isinstance(reason,str):raise ModelBudget('思考回复格式有误，已停止处理')
                     assistant_reply['reasoning_content']=reason
                 messages.append(assistant_reply)
-                for call in calls:
+                for call,intent in zip(calls,validated_calls):
                     call_count+=1
                     if call_count>call_budget:raise ModelBudget('本次实际工具调用达到%d次上限' % call_budget)
                     await send('status',{'phase':'tool','round':round_index+1,'message':'正在核对业务资料'})
                     args={}
                     try:
-                        fn=call['function'];args=json.loads(fn.get('arguments') or '{}')
-                        if not isinstance(args,dict):raise ValueError('arguments')
-                        result=await run_tools(db,request,user,session_id,fn['name'],args,config)
-                        if fn['name'] in {'prepare_operation','prepare_operations','prepare_case_action','prepare_customer_contact','prepare_business_form','prepare_business_batch'}:
+                        args=deepcopy(intent.arguments)
+                        result=await run_tools(db,request,user,session_id,intent.name,args,config)
+                        if intent.kind=='prepare':
                             prepared_card_ids.update(prepared_ids(result))
                     except HTTPException as exc:
                         result={'status':exc.status_code,'error':safe_text(exc.detail)}
@@ -962,8 +1332,7 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
         record_issue(db,user,session_id,'system','对话处理出现未预期错误（'+type(exc).__name__+'）；未确认的操作没有执行',synthetic=config.synthetic)
         await send('error',{'message':answer})
     thread=owned_session(db,user,session_id)
-    if thread.busy_token==request_id:
-        thread.busy_token=None;thread.busy_until=None;thread.updated_at=utcnow()
+    legacy_session_busy(db,thread,mode='release',token=request_id,now=utcnow(),touch_updated_at=True)
     db.add(AssistantMessage(store_id=thread.store_id,session_id=thread.id,request_id=request_id+':reply',role='assistant',content=answer,thinking=thinking));commit(db)
     return session_view(db,user,session_id)
 
@@ -971,8 +1340,110 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
 async def confirm_proposal(db,request,user,session_id,proposal_id,digest,cancel=False,answers=None):
     thread=owned_session(db,user,session_id)
     row=db.scalar(select(AssistantProposal).where(AssistantProposal.id==proposal_id,AssistantProposal.session_id==thread.id,AssistantProposal.owner_id==user.id))
-    await decide_proposal(db,request,user,session_id,row,digest,cancel,answers)
-    return session_view(db,user,session_id)
+    outcome=await decide_proposal(db,request,user,session_id,row,digest,cancel,answers)
+    return confirmation_view(db,user,session_id,[outcome])
+
+
+def confirmation_view(db,user,session_id,outcomes):
+    """Project a known native result without claiming failed helper storage succeeded."""
+    try:
+        view=session_view(db,user,session_id)
+    except Exception as exc:
+        db.rollback()
+        # Never expose a cached conversation after its authorization changed.
+        known_success=any(item.get('business_status',item.get('status'))=='succeeded' for item in outcomes)
+        detail=('原业务接口已返回成功，但当前无法读取助手结果；请核对原单，勿重复提交'
+                if known_success else '当前无法读取助手结果，请先核对原单，勿重复提交')
+        if isinstance(exc,HTTPException):
+            raise HTTPException(exc.status_code,detail,headers=exc.headers) from None
+        raise HTTPException(503,detail) from None
+    for outcome in outcomes:
+        card=next((item for item in view['proposals'] if item['id']==outcome['id']),None)
+        if card is None:
+            # Only add a real authorized row omitted by the normal display window.
+            try:
+                row=db.scalar(select(AssistantProposal).where(AssistantProposal.id==outcome['id'],
+                    AssistantProposal.session_id==session_id,AssistantProposal.owner_id==user.id,
+                    AssistantProposal.store_id==single_store(db)))
+                if row is not None:
+                    card=proposal_view(row);view['proposals'].append(card)
+            except Exception:
+                db.rollback()  # Keep the safe receipt; never invent a replacement card.
+        if outcome.get('result_persisted') is not False:continue
+        if card is not None and card['status'] not in {'succeeded','failed','cancelled','expired'}:
+            card['status']='uncertain'
+            card['result']={'message':outcome['message'],'business_status':outcome['business_status'],
+                            'result_persisted':False}
+    # The old client reads proposals. This extra safe receipt is for later clients;
+    # no internal submission snapshot is exposed through either representation.
+    view['confirmation_results']=outcomes
+    return view
+
+
+def receipt_success_result(previous, confirmation_id, submission_digest, lookup):
+    """Append a typed receipt observation without fabricating an HTTP response.
+
+    Authorization and the original frozen confirmation are checked by the
+    reconciliation coordinator. The old status/data/presentation stay intact.
+    This pure mapper never submits, saves, or grants permission to retry.
+    """
+    from copy import deepcopy
+    from .assistant_runtime_schemas import ReceiptLookup
+    checked=ReceiptLookup.model_validate(lookup)
+    if (checked.status!='confirmed_success' or not checked.object_refs or not checked.evidence_refs
+            or type(confirmation_id) is not str or type(submission_digest) is not str
+            or not re.fullmatch(r'[0-9a-f]{64}',submission_digest)
+            or previous is not None and type(previous) is not dict):
+        raise HTTPException(409,'原回执依据不完整，不能更新办理结果')
+    result=deepcopy(previous) if previous is not None else {}
+    if 'reconciliation' in result:
+        raise HTTPException(409,'原回执核对记录已经存在，不能覆盖')
+    observation=checked.model_dump(mode='json')
+    observation.pop('reason_code')
+    result['reconciliation']={'schema_version':1,'confirmation_id':confirmation_id,
+        'submission_digest':submission_digest,**observation}
+    return result
+
+
+def receipt_result_view(row):
+    """Show the verified recovery note without changing the original response."""
+    from sqlalchemy.orm import object_session
+    from .assistant_runtime_models import RunItem
+    from .assistant_runtime_receipts import _checked_snapshot, _reconciliation_record, _proposal_identity
+    if row.status!='succeeded' or type(row.result) is not dict or 'reconciliation' not in row.result:
+        return row.result
+    db=object_session(row)
+    if db is None:
+        return row.result
+    with db.no_autoflush:
+        items=list(db.scalars(select(RunItem).where(RunItem.kind=='confirmation',RunItem.proposal_id==row.id)))
+        if len(items)!=1:
+            return row.result
+        item=items[0]
+        try:
+            snapshot=_checked_snapshot(item)
+            record=_reconciliation_record(row,item)
+        except (HTTPException,ValueError,TypeError):
+            return row.result
+        if (record is None or item.status!='succeeded' or item.finished_at is None
+                or item.work_item_id!=row.source_work_item_id
+                or (snapshot.operation_id,snapshot.actor_id,snapshot.store_id,snapshot.role,snapshot.access_version)
+                   !=_proposal_identity(row)):
+            return row.result
+    return {**row.result,'message':'原回执已核对：本次操作已成功提交，请查看原单记录。'}
+
+
+def _emit_proposal_result(db,row):
+    """Keep the actual card lifecycle and reference-only signal in one TX."""
+    if not (settings.assistant_runtime_enabled or settings.assistant_notifications_enabled):
+        return
+    from .assistant_runtime_outbox import emit_wake_event
+    db.flush()
+    emit_wake_event(db,f'proposal:{row.id}:{row.version}:{row.status}','proposal',{
+        'store_id':row.store_id,'proposal_id':row.id,
+        'source_ref':{'type':'proposal','id':row.id,'version':row.version}},
+        # The original effective-unknown rule is strictly older than 3 minutes.
+        not_before=row.started_at+timedelta(minutes=3,microseconds=1) if row.status=='executing' else None)
 
 
 async def decide_proposal(db,request,user,session_id,row,digest,cancel=False,answers=None):
@@ -983,14 +1454,19 @@ async def decide_proposal(db,request,user,session_id,row,digest,cancel=False,ans
     answers 是员工在卡片必填项里填的值：没填完不放行，填了就并进这次办理的内容再校验一次。
     """
     from . import business_assistant_gateway as gateway
+    from .assistant_runtime_models import RunItem
+    from .assistant_runtime_receipts import freeze_confirmation,frozen_payload
+    thread=owned_session(db,user,session_id)
     if not row:raise HTTPException(404,'没有找到这项操作')
+    if (row.session_id,row.owner_id,row.store_id)!=(thread.id,user.id,thread.store_id):
+        raise HTTPException(404,'没有找到这项操作')
     if not hmac.compare_digest(row.digest,digest):raise HTTPException(409,'待确认内容已变化，请刷新查看')
     if row.status!='pending':return {'id':row.id,'summary':row.summary,'status':row.status,'message':'这张卡已经处理过'}
     if cancel:
-        row.status='cancelled';row.finished_at=utcnow();commit(db)
+        row.status='cancelled';row.finished_at=utcnow();_emit_proposal_result(db,row);commit(db)
         return {'id':row.id,'summary':row.summary,'status':'cancelled','message':'已取消'}
     if row.expires_at<=utcnow():
-        row.status='expired';commit(db)
+        row.status='expired';_emit_proposal_result(db,row);commit(db)
         raise HTTPException(409,'这项操作已过期，请让助手重新查询并准备')
     if row.owner_role!=user.role or row.access_version!=user.access_version:
         raise HTTPException(409,'账号或岗位已变化，请重新准备这项操作')
@@ -1002,43 +1478,86 @@ async def decide_proposal(db,request,user,session_id,row,digest,cancel=False,ans
     try:operation=gateway.inspect_operation(row.operation_id)
     except HTTPException:operation=None
     execution=apply_answers(row,answers,operation)
-    if execution!=row.payload:
-        # 员工填进来的值也算"这次办理的内容"，仍然按原接口的真实字段再校验一遍。
-        normalized=gateway.validate_operation(row.operation_id,execution.get('path_args') or {},
-                                              execution.get('query') or {},execution.get('body') or {})
-        execution={key:normalized.get(key,{}) for key in ('path_args','query','body')}
+    normalized=gateway.validate_operation(row.operation_id,execution.get('path_args') or {},
+                                          execution.get('query') or {},execution.get('body') or {})
+    execution={key:normalized.get(key) for key in ('path_args','query','body')}
+    if (execution.get('body') or {}).get('request_id')!=(row.payload.get('body') or {}).get('request_id'):
+        raise HTTPException(409,'提交标识已变化，请重新核对待确认卡')
     from .business_assistant_presentation import with_answers
     presentation=with_answers((row.result or {}).get('business_presentation'),row.questions or [],execution)
-    row.status='executing';row.started_at=utcnow();commit(db)
-    operation_id=row.operation_id;payload=execution;proposal_key=row.id
-    db.commit()
+    proposal_key=row.id;summary=row.summary;store_id=row.store_id
+    try:
+        confirmed_at=utcnow()
+        item,created=freeze_confirmation(db,user,row,execution,confirmed_at)
+        if not created:raise HTTPException(409,'这张卡已有冻结提交，请先核对原业务结果，不能再次提交')
+        frozen=frozen_payload(item)
+        row.status='executing';row.started_at=confirmed_at
+        # If this process stops after the durable claim, recheck its real card
+        # at the original unknown-result deadline. Never replay the submission.
+        _emit_proposal_result(db,row)
+        commit(db)
+        item_id=item.id;claimed_version=row.version;item_version=item.version
+    except Exception:
+        db.rollback()
+        raise
+    operation_id=frozen.pop('operation_id');payload=frozen
     # The durable claim is committed before a native business API is invoked.
     # No automatic retry is made, including after an uncertain process/network failure.
+    code=503;state='uncertain';clean=None;result_route='';hint=''
+    message='未收到办理结果，请先到原页面核对记录，避免重复办理'
     try:
         async with asyncio.timeout(60):
             result=await gateway.invoke(request,user,operation_id,**payload)
         code=result.get('status',500)
+        if type(code) is not int or not 100<=code<=599:raise ValueError('Invalid native status')
         state='succeeded' if 200<=code<300 else 'uncertain' if code>=500 else 'failed'
         clean=scrub(result.get('data'))
         result_route=result.get('route','')
-        # 2026-09-25 Codex 复核 P1：写操作走的是"员工点确认 → 原接口"，那条 403 的评审提示原来只加在
-        # 读路径上，确认结果里被丢掉了。现在把提示一起存进这张卡，并在员工看得到的文字里补一句人话。
-        hint=safe_text(result.get('hint'),600) if isinstance(result,dict) else ''
+        hint=safe_text(gateway.permission_hint(code,clean),600)
         message='已办理' if state=='succeeded' else safe_text(clean.get('detail') if isinstance(clean,dict) else clean,1000) or '操作未完成，请查看原业务记录'
-        if hint and code==403:message=message+'（'+WRITE_REFUSAL_HINT+'）'
+        if hint:message=message+'（'+hint+'）'
     except Exception:
-        code=503;state='uncertain';clean=None;result_route='';hint='';message='未收到办理结果，请先到原页面核对记录，避免重复办理'
-    row=db.scalar(select(AssistantProposal).where(AssistantProposal.id==proposal_key,AssistantProposal.owner_id==user.id,AssistantProposal.store_id==single_store(db)))
-    row.status=state;row.finished_at=utcnow()
-    row.result={'status':code,'message':message,'data':clean,'route':result_route}
-    if presentation:row.result['business_presentation']=presentation
-    if hint:row.result['hint']=hint
-    commit(db)
+        # A display/sanitization failure after an observed 2xx does not undo the
+        # native transaction. A transport failure remains genuinely unknown.
+        if state=='succeeded':message='原业务接口已返回成功，请核对原单记录'
+        elif state=='failed':message='原业务接口拒绝本次办理，请到原页面核对原因'
+        else:code=503
+        clean=None;result_route='';hint=''
+    try:
+        row=db.scalar(select(AssistantProposal).where(AssistantProposal.id==proposal_key,
+            AssistantProposal.owner_id==user.id,AssistantProposal.store_id==store_id,
+            AssistantProposal.session_id==session_id).execution_options(populate_existing=True))
+        item=db.scalar(select(RunItem).where(RunItem.id==item_id,RunItem.proposal_id==proposal_key,
+            RunItem.kind=='confirmation').execution_options(populate_existing=True))
+        if (row is None or item is None or row.version!=claimed_version or item.version!=item_version
+                or row.status!='executing' or item.status!='running'):
+            raise HTTPException(409,'助手办理记录已变化，请核对原业务结果')
+        row.status=state;row.finished_at=utcnow()
+        row.result={'status':code,'message':message,'data':clean,'route':result_route}
+        if presentation:row.result['business_presentation']=presentation
+        if hint:row.result['hint']=hint
+        item.status=state;item.finished_at=row.finished_at
+        refusal=gateway.refusal_metadata(code,clean or {})
+        item.error_code=(None if state=='succeeded' else 'runtime_unavailable' if state=='uncertain'
+            else 'invalid_input' if code==422 else 'not_found' if code==404
+            else 'permission_denied' if code==401 or refusal and refusal['category']=='authority'
+            else 'precondition_conflict')
+        _emit_proposal_result(db,row)
+        commit(db)
+    except Exception:
+        db.rollback()
+        message=('原业务接口已返回成功，但助手结果未能保存；请核对原单，勿重复提交' if state=='succeeded'
+            else '原业务接口已拒绝本次办理，但助手结果未能保存；请核对原单' if state=='failed'
+            else '办理结果尚未确认，助手记录也未能更新；请核对原单，勿重复提交')
+        return {'id':proposal_key,'summary':summary,'status':'uncertain','business_status':state,
+                'result_persisted':False,'message':message}
     if state!='succeeded':
-        try:synthetic=load_config().synthetic
-        except HTTPException:synthetic=False
-        record_issue(db,user,session_id,'system' if code>=500 else 'rule','确认办理未成功：'+message,operation_id,code,synthetic)
-    return {'id':proposal_key,'summary':row.summary,'status':state,'message':message}
+        try:
+            try:synthetic=load_config().synthetic
+            except HTTPException:synthetic=False
+            record_issue(db,user,session_id,'system' if code>=500 else 'rule','确认办理未成功：'+message,operation_id,code,synthetic)
+        except Exception:db.rollback()  # Diagnostics cannot replace a saved outcome.
+    return {'id':proposal_key,'summary':summary,'status':state,'message':message,'result_persisted':True}
 
 
 async def batch_decide(db,request,user,session_id,items,cancel=False):
@@ -1064,6 +1583,9 @@ async def batch_decide(db,request,user,session_id,items,cancel=False):
     rows={row.id:row for row in db.scalars(select(AssistantProposal).where(
         AssistantProposal.session_id==thread.id,AssistantProposal.owner_id==user.id,
         AssistantProposal.id.in_(list(wanted))))}
+    # A later rollback expires every loaded ORM row, including unprocessed cards.
+    # Exception handling must use plain values captured before the first attempt.
+    card_details={key:(row.summary,row.operation_id) for key,row in rows.items()}
     results=[]
     for card_id,(digest,answers) in wanted.items():
         row=rows.get(card_id)
@@ -1073,13 +1595,17 @@ async def batch_decide(db,request,user,session_id,items,cancel=False):
             async with asyncio.timeout(90):
                 results.append(await decide_proposal(db,request,user,session_id,row,digest,cancel,answers))
         except HTTPException as exc:
-            results.append({'id':card_id,'summary':row.summary,'status':'refused','message':safe_text(exc.detail,600)})
+            db.rollback()
+            results.append({'id':card_id,'summary':card_details[card_id][0],'status':'refused','message':safe_text(exc.detail,600)})
         except TimeoutError:
-            results.append({'id':card_id,'summary':row.summary,'status':'uncertain','message':'这张办理超时，请到原页面核对后再决定'})
-            record_issue(db,user,session_id,'system','批量确认中有卡片办理超时，未自动重试',row.operation_id,synthetic=False)
+            db.rollback()
+            results.append({'id':card_id,'summary':card_details[card_id][0],'status':'uncertain','message':'这张办理超时，请到原页面核对后再决定'})
+            try:record_issue(db,user,session_id,'system','批量确认中有卡片办理超时，未自动重试',card_details[card_id][1],synthetic=False)
+            except Exception:db.rollback()
         except Exception:
-            results.append({'id':card_id,'summary':row.summary,'status':'uncertain','message':'这张未收到结果，请到原页面核对'})
+            db.rollback()
+            results.append({'id':card_id,'summary':card_details[card_id][0],'status':'uncertain','message':'这张未收到结果，请到原页面核对'})
     done=sum(1 for item in results if item.get('status') in {'succeeded','cancelled'})
-    view=session_view(db,user,session_id)
+    view=confirmation_view(db,user,session_id,results)
     view['batch']={'total':len(results),'done':done,'items':results}
     return view

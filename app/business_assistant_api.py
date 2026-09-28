@@ -7,6 +7,7 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from .db import get_db
+from .config import settings
 from .security import get_user
 from .tenancy import single_store
 from .models import User
@@ -82,11 +83,17 @@ def session(session_id:str,db=Depends(get_db),user=Depends(get_user)):
 
 @router.post('/sessions/{session_id}/messages')
 async def message(session_id:str,body:Message,request:Request,db=Depends(get_db),user=Depends(get_user)):
+    if settings.assistant_runtime_enabled:
+        from .business_assistant_stream import runtime_message
+        return await runtime_message(db,request,user,session_id,body.request_id,body.content,body.thinking)
     return await service.conversation(db,request,user,session_id,body.request_id,body.content,thinking=body.thinking)
 
 
 @router.post('/sessions/{session_id}/messages/stream')
 async def stream_message(session_id:str,body:Message,request:Request,db=Depends(get_db),user=Depends(get_user)):
+    if settings.assistant_runtime_enabled:
+        from .business_assistant_stream import runtime_streaming_response
+        return await runtime_streaming_response(db,request,user,session_id,body.request_id,body.content,body.thinking)
     from .business_assistant_stream import streaming_response
     return await streaming_response(db,request,user,session_id,body.request_id,body.content,body.thinking)
 
@@ -168,10 +175,14 @@ async def call_business_tool(session_id:str,body:ToolCall,request:Request,db=Dep
     config=replace(service.load_config(),tool_profile='business_v1')
     if body.name not in {t['function']['name'] for t in service.tools_for_config(config)}:
         raise HTTPException(422,'不是受支持的业务工具；不能通过工具确认或执行任意操作')
+    if settings.assistant_runtime_enabled:
+        return await _runtime_business_tool(db,request,user,session_id,body,config)
+    _protect_accepted_tool_request(db,request,user,session_id,body.request_id)
     thread=service.owned_session(db,user,session_id)
-    if thread.busy_token and thread.busy_until and thread.busy_until>utcnow():
+    claim_time=utcnow()
+    if not service.legacy_session_busy(db,thread,mode='claim',token=body.request_id,now=claim_time,
+                                      until=claim_time+timedelta(seconds=180)):
         raise HTTPException(409,'本对话正在处理其他事项，请稍后读取状态再操作')
-    thread.busy_token=body.request_id;thread.busy_until=utcnow()+timedelta(seconds=180)
     service.commit(db)
     try:
         async with asyncio.timeout(120):
@@ -184,5 +195,72 @@ async def call_business_tool(session_id:str,body:ToolCall,request:Request,db=Dep
         db.rollback()
         row=db.scalar(select(AssistantSession).where(AssistantSession.id==session_id,
             AssistantSession.owner_id==user.id).execution_options(populate_existing=True))
-        if row and row.busy_token==body.request_id:
-            row.busy_token=None;row.busy_until=None;row.updated_at=utcnow();service.commit(db)
+        if row and service.legacy_session_busy(db,row,mode='release',token=body.request_id,
+                                              now=utcnow(),touch_updated_at=True):
+            service.commit(db)
+
+
+def _protect_accepted_tool_request(db,request,user,session_id,request_id):
+    """Switching Runtime off must not turn an accepted tool into a new write.
+
+    An original h52 database needs no Runtime tables. An upgraded instance may
+    still contain a previous request receipt; read only its owned identity and
+    keep the legacy handler from repeating it. Failures are never 'not found'.
+    """
+    from fastapi import HTTPException
+    from sqlalchemy import inspect
+    from .assistant_runtime_api import _capture, _reading, _guard, _errors
+    from .assistant_runtime_models import Run
+    with _errors(db):
+        auth=_capture(db,request,user,session_id)
+        with _reading(db,auth) as reader:
+            exists=inspect(reader.connection()).has_table(Run.__tablename__)
+            original=reader.scalar(select(Run.id).where(
+                Run.owner_id==auth.actor_id,Run.store_id==auth.store_id,
+                Run.session_id==session_id,Run.trigger_key==f'mcp:{session_id}:{request_id}')) if exists else None
+        _guard(db,auth)
+        if original is not None:
+            raise HTTPException(503,{'message':'原工具请求已经接纳，当前执行开关已关闭；请查看原执行、草稿和计划，不要更换请求号重复办理',
+                                     'run_id':original,'accepted':True})
+
+
+async def _runtime_business_tool(db,request,user,session_id,body,config):
+    """Keep the old wire shape while using a real, tool-only durable Run.
+
+    The request Session is never handed to a worker claim. A fixed same-engine
+    Session owns the claimed fragment; its fence, not the public request ID,
+    controls all writes and release. Reads/results remain employee-authorized.
+    """
+    import asyncio
+    from uuid import uuid4
+    from fastapi import HTTPException
+    from sqlalchemy.orm import Session
+    from .assistant_runtime_api import _capture, _guard, _errors, _require_runtime_schema
+    from .assistant_runtime_queue import enqueue_mcp_run, claim_mcp_run
+    from .assistant_runtime_mcp import execute_mcp, replay_mcp
+
+    with _errors(db):
+        auth=_capture(db,request,user,session_id)
+        _require_runtime_schema(db)
+        handle=enqueue_mcp_run(db,request,auth,session_id,body.request_id,body.name,body.arguments)
+    service.require_preparation_read_phase(db)
+    db.rollback()
+    if handle.status in {'succeeded','failed','cancelled'}:
+        return service.scrub(await replay_mcp(db,request,auth,session_id,handle.id,config))
+    try:
+        with Session(bind=auth.bind,autoflush=False,expire_on_commit=False) as execution_db:
+            principal=claim_mcp_run(execution_db,handle.id,'mcp-http:'+uuid4().hex)
+            if principal is None:
+                # A worker may have completed between enqueue and this claim.
+                # The replay service rechecks actual status and never prepares.
+                return service.scrub(await replay_mcp(db,request,auth,session_id,handle.id,config))
+            async with asyncio.timeout(120):
+                result=await execute_mcp(execution_db,principal,config)
+            # A retry may come from another still-valid login of this employee.
+            # The Run keeps its original login; the HTTP response also requires
+            # this request's frozen login after the last awaited cleanup.
+            _guard(db,auth)
+            return service.scrub(result)
+    except TimeoutError:
+        raise HTTPException(504,{'message':'本次工具调用未完整结束；请读取原草稿和计划，同一请求号可继续查询原结果，不要另发新编号',
+                                 'run_id':handle.id,'accepted':True}) from None

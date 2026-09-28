@@ -370,3 +370,4 @@ from . import member_pricing_models  # independently approved local membership p
 from . import repair_package_models  # explicit prepaid work/material components and original-source returns
 
 from . import business_assistant_models  # owner/store-scoped confirmed business assistant
+from . import assistant_runtime_models  # plan graph and durable assistant work; no business writes

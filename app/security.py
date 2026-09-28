@@ -76,6 +76,9 @@ def clear_cookies(response: Response):
 
 
 def get_user(request: Request, db: Session = Depends(get_db)) -> User:
+    if '_huakang_runtime' in request.scope:
+        from .assistant_runtime_principal import internal_user
+        return internal_user(request, db)
     token = request.cookies.get('dealer_session', '')
     session = db.get(LoginSession, digest(token)) if token else None
     if session is None or session.expires_at <= utcnow():

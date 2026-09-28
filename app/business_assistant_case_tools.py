@@ -134,9 +134,10 @@ async def _case(db,request,user,thread_id,config,case_id,with_contact=True):
     return result,customer
 
 
-async def handle_case_tool(db,request,user,thread_id,name,args,config):
-    """Entry for service.run_tools. Only prepare_proposal can persist a draft."""
-    from .business_assistant_service import prepare_proposal
+async def resolve_preparation(db,request,user,thread_id,name,args,config):
+    """Complete authorized reads and validation without persisting a draft."""
+    from . import business_assistant_service as s
+    s.require_preparation_read_phase(db)
     allowed={
         'find_cases':{'query','kind','scope','page'},'get_case':{'case_id'},
         'prepare_case_action':{'case_id','action','values','summary','questions'},
@@ -181,7 +182,7 @@ async def handle_case_tool(db,request,user,thread_id,name,args,config):
         if type(customer.get('version')) is not int:raise HTTPException(409,'未能读取客户资料版本，请重新查询')
         values={key:copy.deepcopy(customer.get(key)) for key in ('name','contact_allowed','note')}
         values['phone']=phone;values['note']=values.get('note') or ''
-        return prepare_proposal(db,user,thread_id,{
+        return s.resolve_preparation(db,user,thread_id,{
             'operation_id':'PUT /api/flow/master/{kind}/{record_id}',
             'path_args':{'kind':'customers','record_id':customer['id']},
             'body':{'version':customer['version'],'values':values},
@@ -222,10 +223,19 @@ async def handle_case_tool(db,request,user,thread_id,name,args,config):
         parse_fields(question_fields,probe['values'])
     else:
         parse_fields(question_fields,values)
-    return prepare_proposal(db,user,thread_id,{
+    return s.resolve_preparation(db,user,thread_id,{
         'operation_id':'POST /api/flow/cases/{case_id}/actions/{action}',
         'path_args':{'case_id':case_id,'action':action['key']},
         'body':{'version':data['version'],'values':values},
         'summary':args.get('summary') or action.get('label') or '办理当前业务',
         'questions':args.get('questions'),
     },question_fields=question_fields)
+
+
+async def handle_case_tool(db,request,user,thread_id,name,args,config,*,resolve_only=False):
+    """Keep the original tool result; Runtime may request only resolved intent."""
+    from . import business_assistant_service as s
+    result = await resolve_preparation(db,request,user,thread_id,name,args,config)
+    if resolve_only or not isinstance(result,s.ResolvedPreparation):
+        return result
+    return s.commit_preparation(db,user,thread_id,result)

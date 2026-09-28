@@ -6,11 +6,14 @@ The legacy reviewed tools remain available for specialised native workflows.
 """
 from __future__ import annotations
 from copy import deepcopy
+from dataclasses import replace
 from decimal import Decimal, InvalidOperation
+import json
 import re
 from typing import Literal
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from .assistant_runtime_schemas import BusinessObjectRef, Condition
 
 PROFILE = 'business_v1'
 MAX_ROWS = 200  # Same resource bound as existing proposals/tool batches.
@@ -67,12 +70,40 @@ class WorkStep(Strict):
     workflow_id: str | None = Field(default=None,max_length=100)
     wait_for: str = Field(default='',max_length=500,
         description='计划上待满足的事实，不是已完成声明；服务端状态优先。')
+    object_ref: BusinessObjectRef | None = None
+    form_ref: str | None = Field(default=None,min_length=1,max_length=160)
+    conditions: list[Condition] = Field(default_factory=list,max_length=MAX_ROWS)
+    completion_conditions: list[Condition] = Field(default_factory=list,max_length=MAX_ROWS)
+    required: bool = True
+
+    @model_validator(mode='after')
+    def matching_case(self):
+        if (self.case_id is not None and self.object_ref is not None
+                and (self.object_ref.type != 'case' or self.object_ref.id != self.case_id)):
+            raise ValueError('case_id and object_ref must name the same original Case')
+        return self
 
 class WorkPlan(Strict):
     plan_id: str|None = Field(default=None,max_length=36)
     goal: str = Field(min_length=1,max_length=300)
     steps: list[WorkStep] = Field(min_length=1,max_length=MAX_ROWS)
     expected_version: int | None = Field(default=None,ge=1)
+    schema_version: Literal[1,2] = 1
+
+    @field_validator('schema_version',mode='before')
+    @classmethod
+    def exact_schema_version(cls,value):
+        if type(value) is not int or value not in (1,2):
+            raise ValueError('Expected plan schema version 1 or 2')
+        return value
+
+    @model_validator(mode='after')
+    def explicit_runtime_schema(self):
+        if self.schema_version == 1 and any(
+                step.object_ref is not None or step.form_ref is not None or step.conditions
+                or step.completion_conditions or step.required is not True for step in self.steps):
+            raise ValueError('Structured Runtime fields require schema_version=2')
+        return self
 
 class WorkStatus(Strict):
     plan_id: str | None = Field(default=None,max_length=36)
@@ -97,7 +128,26 @@ def tool_definitions():
 
 def validate(name, args):
     if name not in SPECS: raise HTTPException(422,'未知业务工具')
-    try: return SPECS[name][0].model_validate(args).model_dump()
+    try:
+        parsed=SPECS[name][0].model_validate(args)
+        if name=='save_work_plan':
+            if parsed.schema_version==2:
+                # due_at has a validated datetime internally; tool arguments and
+                # persisted plan JSON retain its canonical UTC string form.
+                result=parsed.model_dump(mode='json')
+                from .business_assistant_service import MODEL_ARGUMENT_CHARS
+                # Defaults can expand a compact model call. Reject it during
+                # whole-list preflight, before any earlier call is dispatched.
+                if len(json.dumps(result,ensure_ascii=False,separators=(',',':'))) > MODEL_ARGUMENT_CHARS:
+                    raise HTTPException(422,'计划内容超过本次工具参数容量，请缩小本次计划范围')
+                return result
+            result=parsed.model_dump()
+            result.pop('schema_version')
+            for step in result['steps']:
+                for key in ('object_ref','form_ref','conditions','completion_conditions','required'):
+                    step.pop(key)
+            return result
+        return parsed.model_dump()
     except ValidationError as exc:
         fields=', '.join('.'.join(map(str,e['loc'])) for e in exc.errors()[:6])
         raise HTTPException(422,'业务工具字段不正确，请核对：'+fields) from None
@@ -265,9 +315,11 @@ def scale_value(value,scale,label):
     except (ValueError,InvalidOperation): raise HTTPException(422,label+'的精度不正确，不能自动四舍五入') from None
 
 
-async def prepare(db,request,user,sid,c,args,form=None):
+async def resolve_preparation(db,request,user,sid,c,args,form=None):
+    """Resolve native facts and fields without creating or changing a proposal."""
     from . import business_assistant_service as s
-    from .business_assistant_case_tools import handle_case_tool
+    s.require_preparation_read_phase(db)
+    from .business_assistant_case_tools import resolve_preparation as resolve_case_preparation
     form=form or await inspect_form(db,request,user,sid,c,args['form_ref'])
     values=deepcopy(args['values']);selected=args['selections'];fields={f['key']:f for f in form['fields']}
     if set(values)-set(fields) or set(selected)-set(fields): raise HTTPException(422,'只接受当前表单的字段，不接受版本、门店、接口或任意参数')
@@ -321,7 +373,7 @@ async def prepare(db,request,user,sid,c,args,form=None):
             if key.endswith('_cents'): values[key]=scale_value(value,100,fields[key]['label'])
             elif key.endswith('_milli'): values[key]=scale_value(value,1000,fields[key]['label'])
     if form['kind']=='action':
-        result=await handle_case_tool(db,request,user,sid,'prepare_case_action',
+        resolved=await resolve_case_preparation(db,request,user,sid,'prepare_case_action',
             {'case_id':form['case_id'],'action':form['action'],'values':values,
              'questions':questions,'summary':args['summary']},c)
     else:
@@ -333,24 +385,30 @@ async def prepare(db,request,user,sid,c,args,form=None):
             from . import business_assistant_gateway as g
             probe=s.answer_probe(g,form['operation_id'],body,questions,form['path_args'],list(fields.values())) if questions else body
             parse_fields(list(fields.values()),probe['values'])
-        result=s.prepare_proposal(db,user,sid,{'operation_id':form['operation_id'],'path_args':form['path_args'],
+        resolved=s.resolve_preparation(db,user,sid,{'operation_id':form['operation_id'],'path_args':form['path_args'],
             'body':body,'summary':args['summary'],'step':args.get('step') or form['label'],
             'step_order':args.get('step_order',1),'questions':questions},
             question_fields=list(fields.values()) if form['kind'] in {'flow','crm'} else None)
-    if result.get('id'):
-        from .business_assistant_models import AssistantProposal
-        from .business_assistant_presentation import snapshot
-        row=db.get(AssistantProposal,result['id'])
-        # Reused pending cards have the same verified native payload. Never mutate
-        # a settled card or its operation/digest to make a new request appear done.
-        if row and row.status=='pending':
-            row.label=form['label'];row.result={**(row.result or {}),'business_presentation':snapshot(form,references)}
-            s.commit(db);result={**result,**s.proposal_view(row)}
-    return {**result,'business_form_ref':form['form_ref'],'requires_employee_confirmation':True}
+    if not isinstance(resolved,s.ResolvedPreparation):
+        return resolved
+    from .business_assistant_presentation import snapshot
+    return replace(resolved,label=form['label'],presentation=snapshot(form,references),
+                   references=deepcopy(references),form_ref=form['form_ref'])
 
 
-async def handle(db,request,user,sid,name,args,c):
+async def prepare(db,request,user,sid,c,args,form=None,*,resolve_only=False):
+    """Keep the original prepare-and-commit API; Runtime can request facts only."""
     from . import business_assistant_service as s
+    resolved=await resolve_preparation(db,request,user,sid,c,args,form)
+    if not isinstance(resolved,s.ResolvedPreparation) or resolve_only:
+        return resolved
+    result=s.commit_preparation(db,user,sid,resolved)
+    return {**result,'business_form_ref':resolved.form_ref,'requires_employee_confirmation':True}
+
+
+async def handle(db,request,user,sid,name,args,c,*,resolve_only=False):
+    from . import business_assistant_service as s
+    if name in PREPARE_NAMES:s.require_preparation_read_phase(db)
     s.owned_session(db,user,sid)
     args=validate(name,args)
     if name=='find_business_objects': return await find_objects(db,request,user,sid,c,args)
@@ -359,11 +417,23 @@ async def handle(db,request,user,sid,name,args,c):
         data=await inspect_form(db,request,user,sid,c,args['form_ref'])
         # No internal HTTP or source version is required from the model on this path.
         return {'status':200,'data':{k:v for k,v in data.items() if k not in {'operation_id','path_args','case_version'}}}
-    if name=='prepare_business_form': return await prepare(db,request,user,sid,c,args)
+    if name=='prepare_business_form': return await prepare(db,request,user,sid,c,args,resolve_only=resolve_only)
     if name=='prepare_business_batch':
         if args['form_ref'].startswith('case:'): raise HTTPException(409,'同一原单的动作不能当成独立批量；请按真实依赖逐项准备')
+        s.require_preparation_read_phase(db)
         form=await inspect_form(db,request,user,sid,c,args['form_ref'])
         if form['kind']=='action': raise HTTPException(409,'同一原单的动作不能当成独立批量；请按真实依赖逐项准备')
+        if resolve_only:
+            items=[]
+            for index,row in enumerate(args['rows'],1):
+                try:
+                    result=await prepare(db,request,user,sid,c,
+                        {**row,'form_ref':args['form_ref'],'step':args['step'],'step_order':1},
+                        form,resolve_only=True)
+                    items.append(result if isinstance(result,s.ResolvedPreparation) else {**result,'row':index})
+                except HTTPException as exc:
+                    items.append({'row':index,'status':exc.status_code,'error':s.safe_text(exc.detail,500)})
+            return s.ResolvedBatchPreparation(kind='business',items=items,input_count=len(args['rows']))
         results=[];seen=set()
         for index,row in enumerate(args['rows'],1):
             try:

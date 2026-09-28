@@ -1,6 +1,6 @@
 """Private, owner/store-scoped conversations and immutable operation proposals."""
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, Boolean, DateTime, ForeignKey, JSON, UniqueConstraint, CheckConstraint, false
+from sqlalchemy import String, Text, Integer, Boolean, DateTime, ForeignKey, JSON, UniqueConstraint, CheckConstraint, Index, false
 from sqlalchemy.orm import Mapped, mapped_column
 from .db import Base, utcnow
 from .models import StoreScoped
@@ -64,9 +64,16 @@ class AssistantProposal(StoreScoped, Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Legacy proposals have no Runtime work item; never invent a preparation history.
+    source_work_item_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey('business_assistant_work_items.id', name='fk_assistant_proposal_work_item', use_alter=True),
+        nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     __mapper_args__ = {'version_id_col': version}
-    __table_args__ = (CheckConstraint("status IN ('pending','executing','succeeded','failed','uncertain','cancelled','expired')", name='ck_assistant_proposal_status'),)
+    __table_args__ = (
+        CheckConstraint("status IN ('pending','executing','succeeded','failed','uncertain','cancelled','expired')", name='ck_assistant_proposal_status'),
+        UniqueConstraint('source_work_item_id', name='uq_assistant_proposal_work_item'),
+    )
 
 
 class AssistantIssue(StoreScoped, Base):
@@ -91,9 +98,25 @@ class AssistantWorkPlan(StoreScoped, Base):
     owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
     request_id: Mapped[str] = mapped_column(String(100))
     goal: Mapped[str] = mapped_column(String(300))
+    # Version 1 retains its historical JSON. Version 2 writes only PlanStep rows.
     steps: Mapped[list] = mapped_column(JSON)
+    engine_version: Mapped[int] = mapped_column(Integer, default=1, server_default='1')
+    goal_version: Mapped[int] = mapped_column(Integer, default=1, server_default='1')
+    status: Mapped[str] = mapped_column(String(20), default='active', server_default='active')
+    next_check_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    context_snapshot_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey('business_assistant_context_snapshots.id',
+                               name='fk_assistant_plan_context', use_alter=True),
+        nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     version: Mapped[int] = mapped_column(Integer, default=1)
     __mapper_args__ = {'version_id_col': version}
-    __table_args__ = (UniqueConstraint('session_id','request_id',name='uq_assistant_work_plan_turn'),)
+    __table_args__ = (
+        UniqueConstraint('session_id','request_id',name='uq_assistant_work_plan_turn'),
+        CheckConstraint('engine_version IN (1,2)', name='ck_assistant_plan_engine'),
+        CheckConstraint('goal_version >= 1 AND version >= 1', name='ck_assistant_plan_versions'),
+        CheckConstraint("status IN ('active','paused','completed','cancelled')", name='ck_assistant_plan_status'),
+        Index('ix_assistant_plan_owner_store', 'owner_id', 'store_id'),
+        Index('ix_assistant_plan_next_check', 'status', 'next_check_at'),
+    )

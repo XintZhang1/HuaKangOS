@@ -24,6 +24,10 @@ class Settings:
     allowed_hosts: tuple = tuple(x.strip() for x in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',') if x.strip())
     cookie_secure: bool = flag('COOKIE_SECURE')
     legacy_business_write: bool = flag('LEGACY_BUSINESS_WRITE')
+    assistant_home_enabled: bool = flag('ASSISTANT_HOME_ENABLED')
+    assistant_runtime_enabled: bool = flag('ASSISTANT_RUNTIME_ENABLED')
+    assistant_followup_enabled: bool = flag('ASSISTANT_FOLLOWUP_ENABLED')
+    assistant_notifications_enabled: bool = flag('ASSISTANT_NOTIFICATIONS_ENABLED')
     session_hours: int = int(os.getenv('SESSION_HOURS', '8'))
     scheduler_enabled: bool = flag('SCHEDULER_ENABLED', 'true')
     scheduler_mode: str = os.getenv('SCHEDULER_MODE', 'embedded')
@@ -51,6 +55,8 @@ class Settings:
 
     def __post_init__(self):
         ZoneInfo(self.timezone)
+        if self.assistant_followup_enabled and not self.assistant_runtime_enabled:
+            raise ValueError('ASSISTANT_FOLLOWUP_ENABLED requires ASSISTANT_RUNTIME_ENABLED=true')
         if self.file_storage_mode not in {'blob','private_local'}:
             raise ValueError('FILE_STORAGE_MODE must be blob or private_local')
         if self.file_storage_mode=='private_local' and (not self.private_file_root or not Path(self.private_file_root).is_absolute()):

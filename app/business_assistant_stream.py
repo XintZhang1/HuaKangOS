@@ -1,134 +1,16 @@
 """Bounded upstream SSE transport and downstream events; never emit raw reasoning."""
 import asyncio
 import json
-import re
 import httpx
 from fastapi import HTTPException
 from starlette.responses import StreamingResponse
-
-
-class SafeDeltas:
-    """Hold partial credential tokens until they can be redacted as a whole."""
-    def __init__(self,sanitize):self.pending='';self.sanitize=sanitize
-    def feed(self,text,final=False):
-        self.pending+=text
-        cut=len(self.pending)
-        if not final:
-            # Ordinary Chinese characters can leave immediately. Hold only the
-            # current ASCII token and a possible credential-label prefix.
-            tail=re.search(r'[A-Za-z0-9_+\-]+$',self.pending)
-            if tail:cut=min(cut,tail.start())
-            lowered=self.pending.lower()
-            for keyword in ('密码','口令','验证码','password','api_key','api-key','api key','secret','bearer','sk-','tp-'):
-                for length in range(1,min(len(keyword),len(lowered))+1):
-                    if lowered.endswith(keyword[:length]):cut=min(cut,len(lowered)-length)
-            label=re.search(r'(?i)(?:Bearer\s*|(?:密码|口令|验证码|password|api[_ -]?key|secret)\s*(?:[:：=]|是)?\s*)$',self.pending)
-            if label:cut=min(cut,label.start())
-            pattern=r'(?i)(?:\b(?:sk|tp)-[A-Za-z0-9_-]*|Bearer\s+[^\s"\']*|(?:密码|口令|验证码|password|api[_ -]?key|secret)\s*(?:[:：=]|是)\s*[^\s,，;；"\']*)'
-            for match in re.finditer(pattern,self.pending):
-                if match.start()<cut<match.end() or match.end()==len(self.pending):cut=min(cut,match.start())
-        ready,self.pending=self.pending[:cut],self.pending[cut:]
-        return self.sanitize(ready,max(1,len(ready))) if ready else ''
-
-
-def provider_error(status):
-    if status in {401,403}:return '业务助手连接凭据无效，请联系管理员检查'
-    if status==402:return '业务助手额度不足，请联系管理员补充额度'
-    if status==429:return '业务助手暂时繁忙，请稍后再试'
-    return '业务助手暂时无法连接，请稍后再试'
+from .assistant_runtime_provider import SafeDeltas, provider_error
 
 
 async def model_reply_stream(config,messages,thinking,emit):
-    from . import business_assistant_service as service
-    endpoint,body=service.provider_request(config,messages,thinking=thinking,stream=True)
-    tools={};content='';reasoning='';finish=None;done=False;size=0;phase=None
-    safe=SafeDeltas(service.safe_text)
-    async def status(next_phase):
-        nonlocal phase
-        if next_phase!=phase:
-            phase=next_phase;await emit('status',{'phase':phase})
-    async def packet(raw):
-        nonlocal content,reasoning,finish,done,size
-        if raw=='[DONE]':done=True;return
-        if done:raise ValueError('data after done')
-        data=json.loads(raw)
-        if not isinstance(data,dict) or data.get('error'):raise ValueError('provider error')
-        choices=data.get('choices',[])
-        if not choices:return
-        if not isinstance(choices,list) or len(choices)!=1 or choices[0].get('index',0)!=0:raise ValueError('choices')
-        choice=choices[0];delta=choice.get('delta') or {}
-        if finish is not None and delta:raise ValueError('delta after finish')
-        if not isinstance(delta,dict):raise ValueError('delta')
-        thought=delta.get('reasoning_content')
-        if thought:
-            if not isinstance(thought,str):raise ValueError('reasoning')
-            reasoning+=thought
-            if len(reasoning)>service.MODEL_REASONING_CHARS:raise ValueError('reasoning limit')
-            await status('thinking')
-        text=delta.get('content')
-        if text:
-            if not isinstance(text,str):raise ValueError('content')
-            content+=text
-            if len(content)>service.MODEL_TEXT_CHARS:raise ValueError('content limit')
-            await status('responding')
-            clean=safe.feed(text)
-            if clean:await emit('delta',{'text':clean})
-        calls=delta.get('tool_calls') or []
-        if not isinstance(calls,list):raise ValueError('tools')
-        for fragment in calls:
-            index=fragment.get('index')
-            if type(index) is not int or not 0<=index<service.HARD_TOOLS:raise ValueError('tool index')
-            target=tools.setdefault(index,{'id':'','type':'function','function':{'name':'','arguments':''}})
-            if fragment.get('type') not in {None,'function'}:raise ValueError('tool type')
-            if fragment.get('id'):
-                if not isinstance(fragment['id'],str):raise ValueError('tool id')
-                target['id']+=fragment['id']
-            function=fragment.get('function') or {}
-            if not isinstance(function,dict):raise ValueError('tool function')
-            for key in ('name','arguments'):
-                value=function.get(key)
-                if value:
-                    if not isinstance(value,str):raise ValueError('tool fragment')
-                    target['function'][key]+=value
-                    if len(target['function'][key])>(service.MODEL_ARGUMENT_CHARS if key=='arguments' else 100):raise ValueError('tool size')
-        if calls:await status('tool')
-        reason=choice.get('finish_reason')
-        if reason is not None:
-            if reason=='length':raise service.ModelOutputTruncated()
-            if reason not in {'stop','tool_calls'}:raise ValueError('incomplete finish')
-            finish=reason
-    try:
-        async with httpx.AsyncClient(timeout=config.timeout_seconds,follow_redirects=False,trust_env=False) as client:
-            async with client.stream('POST',endpoint,headers={'Authorization':'Bearer '+config.api_key},json=body) as response:
-                if response.status_code!=200:raise HTTPException(503,provider_error(response.status_code))
-                if 'text/event-stream' not in response.headers.get('content-type',''):raise ValueError('not SSE')
-                data_lines=[]
-                async for line in response.aiter_lines():
-                    size+=len(line.encode('utf-8'))
-                    if size>service.MODEL_RESPONSE_BYTES:raise ValueError('stream limit')
-                    if line=='':
-                        if data_lines:await packet('\n'.join(data_lines));data_lines=[]
-                    elif line.startswith('data:'):data_lines.append(line[5:].lstrip(' '))
-                if data_lines:await packet('\n'.join(data_lines))
-        if not done or finish is None:raise ValueError('incomplete stream')
-        if (finish=='tool_calls')!=bool(tools):raise ValueError('tool finish mismatch')
-        calls=[tools[index] for index in sorted(tools)]
-        if len({call['id'] for call in calls})!=len(calls):raise ValueError('duplicate tool id')
-        for call in calls:
-            if not call['id'] or not call['function']['name'] or not isinstance(json.loads(call['function']['arguments']),dict):raise ValueError('incomplete tool')
-        clean=safe.feed('',final=True)
-        if clean:await emit('delta',{'text':clean})
-        return {'role':'assistant','content':content,'reasoning_content':reasoning,'tool_calls':calls,'finish_reason':finish}
-    except httpx.TimeoutException:raise HTTPException(503,'业务助手响应超时；已确认前的操作不会执行') from None
-    except httpx.HTTPError:raise HTTPException(503,'上游连接中断；本段未完整校验的工具未执行，请核对已有卡片') from None
-    except (ValueError,KeyError,TypeError) as exc:
-        known={'data after done','provider error','choices','delta after finish','delta','reasoning','reasoning limit',
-               'content','content limit','tools','tool index','tool id','tool type','tool function','tool fragment','tool size',
-               'incomplete finish','not SSE','stream limit','incomplete stream','tool finish mismatch',
-               'duplicate tool id','tool arguments','tool name','incomplete tool'}
-        # Only fixed parser codes, never an upstream body, credential or raw reasoning.
-        code=str(exc) if type(exc) is ValueError and str(exc) in known else type(exc).__name__
-        raise HTTPException(503,'模型流式协议校验未通过（'+code+'）；本段未执行，请核对已有卡片') from None
+    """Legacy SSE entry point; parsing and protection live in one adapter."""
+    from .assistant_runtime_provider import model_reply_stream as shared_stream
+    return await shared_stream(config,messages,thinking,emit)
 
 
 async def streaming_response(db,request,user,session_id,request_id,content,thinking):
@@ -171,3 +53,213 @@ async def streaming_response(db,request,user,session_id,request_id,content,think
             try:await super().__call__(scope,receive,send)
             finally:await stop()
     return ManagedStream(events(),media_type='text/event-stream',headers={'Cache-Control':'no-store','X-Accel-Buffering':'no'})
+
+
+_RUNTIME_WAIT_SECONDS = 600
+_RUNTIME_TERMINAL = frozenset({'succeeded', 'failed', 'cancelled'})
+
+
+def _runtime_error(code, run_id, message, *, status=None):
+    detail = {'message': message, 'run_id': run_id}
+    if status is not None:
+        detail['status'] = status
+    return HTTPException(code, detail)
+
+
+def _runtime_guard(auth):
+    """Subscriptions never retain the request's get_db Session."""
+    from sqlalchemy.orm import Session
+    from .assistant_runtime_api import _guard
+    with Session(bind=auth.bind, autoflush=False, expire_on_commit=False) as db:
+        _guard(db, auth)
+
+
+def _runtime_result(auth, run_id, body):
+    """Read this exact terminal Run/reply before returning the old SessionView.
+
+    A newer conversation reply, progress frame, or a model's completion claim
+    cannot stand in for this Run's durable original response. This is read-only
+    and independently rechecks the original HTTP identity before disclosure.
+    """
+    from sqlalchemy import select
+    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.orm import Session
+    from . import business_assistant_service as service
+    from .assistant_runtime_api import _guard, _reading, _owned, _text
+    from .assistant_runtime_models import Run
+    from .assistant_runtime_queue import _digest
+    from .business_assistant_models import AssistantMessage
+    with Session(bind=auth.bind, autoflush=False, expire_on_commit=False) as db:
+        try:
+            with _reading(db, auth) as reader:
+                run = _owned(reader, auth, Run, run_id)
+                if (run.trigger_kind != 'user' or run.auth_kind != 'login'
+                        or run.request_id != body.request_id
+                        or run.trigger_key != f'user:{auth.session_id}:{body.request_id}'
+                        or run.request_digest != _digest({'schema_version': 1, **body.model_dump(mode='json')})):
+                    raise _runtime_error(409, run_id, '本次执行与原发送内容不一致，请刷新核对')
+                original = reader.scalar(select(AssistantMessage).where(
+                    AssistantMessage.session_id == auth.session_id,
+                    AssistantMessage.request_id == body.request_id))
+                if (original is None or original.store_id != auth.store_id or original.role != 'user'
+                        or original.content != body.content or original.thinking is not body.thinking):
+                    raise _runtime_error(409, run_id, '原消息记录不完整，请刷新核对本次执行')
+                if run.status not in _RUNTIME_TERMINAL:
+                    raise _runtime_error(503, run_id, '本次执行尚未结束，请按原执行编号继续查看')
+                reply = reader.scalar(select(AssistantMessage).where(
+                    AssistantMessage.session_id == auth.session_id,
+                    AssistantMessage.request_id == body.request_id + ':reply'))
+                if reply is not None and (reply.store_id != auth.store_id or reply.role != 'assistant'
+                                           or reply.thinking is not body.thinking):
+                    raise _runtime_error(409, run_id, '本次执行的回复记录不一致，请刷新核对')
+                if run.status == 'succeeded' and reply is None:
+                    raise _runtime_error(503, run_id, '本次执行缺少已保存的最终回复，请刷新核对')
+                state, code = run.status, run.error_code
+                text = _text(reply.content) if reply is not None else None
+                session = service.session_view(reader, auth, auth.session_id)
+            _guard(db, auth)
+            return state, code, text, session
+        except SQLAlchemyError:
+            _guard(db, auth)
+            raise _runtime_error(503, run_id, '暂时无法读取已保存的执行结果，请按原执行编号重查') from None
+
+
+def _runtime_failure(run_id, status, code):
+    if status == 'cancelled':
+        return _runtime_error(409, run_id, '本次执行已停止，请核对已有卡片；原业务没有被撤销', status=status)
+    return _runtime_error(503 if code == 'runtime_unavailable' else 409, run_id,
+                          '本次执行未完成，请核对已保存的内容和卡片，不要重复办理', status=status)
+
+
+async def _close_subscription(subscription):
+    if subscription is not None:
+        await subscription.aclose()
+
+
+async def runtime_message(db, request, user, session_id, request_id, content, thinking):
+    """Bounded legacy wait for the same persisted Run; never execute its work."""
+    from .assistant_runtime_api import _capture, accept_run, open_event_stream
+    from .assistant_runtime_schemas import RunCreate
+    auth = _capture(db, request, user, session_id)
+    body = RunCreate(request_id=request_id, content=content, thinking=thinking)
+    run = await accept_run(db, request, auth, session_id, body)
+    subscription = None
+    try:
+        _runtime_guard(auth)
+        async with asyncio.timeout(_RUNTIME_WAIT_SECONDS):
+            subscription = await open_event_stream(db, request, auth, run.id, after_seq=0)
+            async for _ in subscription:
+                if await request.is_disconnected():
+                    raise _runtime_error(499, run.id,
+                        '连接已断开，执行记录仍保留；请按原执行编号重新查看')
+        state, code, _, session = _runtime_result(auth, run.id, body)
+        if state != 'succeeded':
+            raise _runtime_failure(run.id, state, code)
+        _runtime_guard(auth)
+        return session
+    except TimeoutError:
+        _runtime_guard(auth)
+        raise _runtime_error(504, run.id,
+            '本次等待已结束，执行记录仍保留；请按原执行编号刷新查看，重发须使用原发送编号') from None
+    except HTTPException as exc:
+        if type(exc.detail) is dict and exc.detail.get('run_id') == run.id:
+            raise
+        # Keep a fixed explanation; no cached response or arbitrary native
+        # exception body is exposed after a permission/subscription failure.
+        raise _runtime_error(exc.status_code, run.id,
+            '当前无法继续查看本次执行，请重新登录或刷新后按原执行编号核对') from None
+    except Exception:
+        raise _runtime_error(503, run.id,
+            '暂时无法继续等待本次执行，请按原执行编号刷新核对已保存的结果') from None
+    finally:
+        await _close_subscription(subscription)
+
+
+async def runtime_streaming_response(db, request, user, session_id, request_id, content, thinking):
+    """Adapt durable events to the legacy delta-only client without repetition.
+
+    Run progress is a revisable full snapshot. The old client cannot replace
+    text, so it receives processing status and then this Run's saved final reply
+    exactly once. Disconnect only closes these iterators, never the actual Run.
+    """
+    from .assistant_runtime_api import _capture, accept_run, open_event_stream
+    from .assistant_runtime_schemas import RunCreate
+    auth = _capture(db, request, user, session_id)
+    body = RunCreate(request_id=request_id, content=content, thinking=thinking)
+    run = await accept_run(db, request, auth, session_id, body)
+    try:
+        _runtime_guard(auth)
+        # The awaitable performs initial permission/cursor checks before headers.
+        subscription = await open_event_stream(db, request, auth, run.id, after_seq=0)
+    except HTTPException as exc:
+        raise _runtime_error(exc.status_code, run.id,
+            '当前无法订阅本次执行，请重新登录或刷新后按原执行编号核对') from None
+    except Exception:
+        raise _runtime_error(503, run.id,
+            '暂时无法订阅本次执行，请按原执行编号刷新核对已保存的结果') from None
+    closed = False
+
+    async def stop():
+        nonlocal closed
+        if not closed:
+            await _close_subscription(subscription)
+            closed = True
+
+    def frame(kind, value):
+        return 'event: ' + kind + '\ndata: ' + json.dumps(value, ensure_ascii=False) + '\n\n'
+
+    async def events():
+        try:
+            _runtime_guard(auth)
+            yield frame('status', {'phase': 'tool', 'round': 0, 'run_id': run.id})
+            async with asyncio.timeout(_RUNTIME_WAIT_SECONDS):
+                async for event in subscription:
+                    if await request.is_disconnected():
+                        return
+                    if event is None:
+                        _runtime_guard(auth)
+                        yield ': heartbeat\n\n'
+                    elif event.type in {'run.started', 'tool.finished', 'proposal.prepared', 'plan.updated'}:
+                        _runtime_guard(auth)
+                        yield frame('status', {'phase': 'tool', 'round': 0, 'run_id': run.id})
+                    # run.progress is intentionally not converted into deltas.
+                    # A terminal event is not the saved final AssistantMessage.
+            state, code, text, session = _runtime_result(auth, run.id, body)
+            if state != 'succeeded':
+                error = _runtime_failure(run.id, state, code)
+                _runtime_guard(auth)
+                yield frame('error', error.detail)
+            elif text:
+                _runtime_guard(auth)
+                yield frame('delta', {'text': text, 'run_id': run.id})
+            _runtime_guard(auth)
+            yield frame('done', {'session': session, 'run_id': run.id})
+        except asyncio.CancelledError:
+            raise
+        except TimeoutError:
+            yield frame('error', {'message': '本次等待已结束，请按原执行编号刷新查看；执行不会因断流取消',
+                                  'run_id': run.id, 'status_code': 504})
+        except HTTPException as exc:
+            # No done/session frame follows an expired identity or read error.
+            message = (exc.detail.get('message') if type(exc.detail) is dict
+                       and exc.detail.get('run_id') == run.id else
+                       '当前无法继续查看本次执行，请重新登录或刷新后按原执行编号核对')
+            yield frame('error', {'message': message, 'run_id': run.id, 'status_code': exc.status_code})
+        except Exception:
+            yield frame('error', {'message': '回复订阅中断，请按原执行编号刷新核对已保存的结果',
+                                  'run_id': run.id, 'status_code': 503})
+        finally:
+            await stop()
+
+    class ManagedRuntimeStream(StreamingResponse):
+        async def __call__(self, scope, receive, send):
+            try:
+                await super().__call__(scope, receive, send)
+            finally:
+                # ASGI 2.4 may stop at send(OSError) with the generator suspended
+                # at a yield. Close it explicitly, without a queue cancellation.
+                await self.body_iterator.aclose()
+                await stop()
+
+    return ManagedRuntimeStream(events(), media_type='text/event-stream',
+        headers={'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no'})
