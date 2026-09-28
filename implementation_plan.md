@@ -2,7 +2,7 @@
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
-**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
+**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
 
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
@@ -79,8 +79,8 @@
 | CP-11 | M5.1—M5.3 | REST/SSE兼容、授权事项投影 | implementation_released | docs/implementation-checkpoints/CP-11-v1.md | 用户R4及持续范围授权；真实REST/SSE、旧聊天兼容、授权工作台与本人跟进控制已源码审阅，AST/UTF-8核对完成；原运行验收待DeepSeek，继续M5.4—M5.6至CP-12 |
 | CP-12 | M5.4—M5.6 | 通知隐私、MCP互斥、worker退出 | implementation_released | docs/implementation-checkpoints/M5-5-review-v1.md；M5-6-review-v1.md；M5-4-review-v1.md | 集中测试阶段实测：M5.5（7+20）与 M5.6（13+40）在指纹 `fce97834…` 上 passed；M1.4 ORM/迁移一致性 6 项 passed；修复 5 处 MCP 缺陷与 worker 双启动。M5.4 仅源码审阅、进程级/真实环境项未覆盖，故不记 released；继续 M5.7—M5.8 至 CP-13 |
 | CP-13 | M5.7—M5.8 | Windows/Linux启动定义与回退 | implementation_released | docs/implementation-checkpoints/M5-7-review-v1.md；M5-8-review-v1.md | 集中测试阶段实测：M5.7（7+16）与 M5.8（7+17）在新指纹上 passed；嵌入顺序、显式 profile、同库同镜像校验、无密钥样例均实测；真实 Windows 预览实例与真实 Linux 部署仍属 M8.7/M8.8，故不记 released；继续 M6.1—M6.8（CP-14—CP-16） |
-| CP-14 | M6.1—M6.3 | 客户端归并、恢复、真实事项工作台 | implementation_released | docs/implementation-checkpoints/M6-1-review-v1.md；M6-2-review-v1.md；M6-3-review-v1.md | 集中测试阶段实测：M6.1（15+7）、M6.2（9+7）、M6.3（10+6）在同一批指纹上 passed；M6.3 后前端回归 6 项 diagnostic_passed；M6.1 的取消/清理边界随 M6.2 接线同步移动并复跑。仅放行后续编码，不表示测试全部通过或功能启用；继续 M6.4—M6.8（CP-15） |
-| CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | not_ready | — | — |
+| CP-14 | M6.1—M6.4 | 客户端归并、恢复、事项工作台、默认入口 | implementation_released | docs/implementation-checkpoints/M6-1-review-v1.md；M6-2-review-v1.md；M6-3-review-v1.md；M6-4-review-v1.md | 集中测试阶段实测：M6.1（15+7）、M6.2（9+7）、M6.3（10+6）、M6.4（6+6）在同一批指纹上 passed；每次前端改动后同指纹回归（workboard/r3/ux/workspaces/oneclick）diagnostic_passed；M6.1 的取消/清理边界随 M6.2 接线同步移动并复跑。仅放行后续编码，不表示测试全部通过或功能启用；继续 M6.5—M6.8（CP-15） |
+| CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | in_progress | docs/implementation-checkpoints/M6-4-review-v1.md | M6.4 已 implemented 并实测（6+6）；M6.5/M6.6 未开始，故不记 implementation_released |
 | CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | not_ready | — | — |
 | CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | not_ready | — | — |
 | CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | not_ready | — | — |
@@ -2544,11 +2544,13 @@ runner 向 Node 注入 `HUAKANGOS_TEST_SOURCE_ROOT` 和 `HUAKANGOS_TEST_OUTPUT`�
 
 ## M6.4：默认进入助手，同时保持原人工导航与深链接
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测）
 
 **全局顺序前置**：M6.3 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：Node 行为 + 接线/回归实测通过；真实浏览器落地与深链接刷新属 M8.4。
+
+**执行记录**：2026-09-28 在 `web/app.js` 新增唯一判定 `assistantDefaultRoute({store,features})`（`store==='all'`→`analytics/overview`；`features.home===true`→`business-assistant`；否则 `work`）及 `assistantFeatures()`/`loadAssistantFeatures()`/`bootDefaultRoute()`；`boot()` 保持鉴权与首次改密门禁最优先，随后仅在没有有效 hash 时读取 `/workspace` 决定默认页；门店切换与失败恢复、`hashchange` 空 hash 分支全部改用同一判定，删除分散的 `location.hash.slice(1)||'work'`；读取失败或开关缺失时降级回原工作台，登录不因模型/开关失败而失败。导航顺序改为业务助手、我的工作、快捷操作，其余原入口与角色条件保留。欢迎页改为 `businessAssistantWelcomeExamples()`：取自发布 `workflow-guides.json` 与 `UX_COMMON_WORKFLOWS` 的交集、按 `canEnter` 与岗位过滤、最多 4 个；只读岗位与集团汇总只给 `query_status` 查询示例；目录不可用时退回 4 条只读查询示例；点击只预填草稿（不建会话/不发模型）。未新增助手 hash 语法，原路由与需求映射未删。外部套件 `V/tests/frontend/test_m6_4.cjs`（6 项）+ `V/tests/runtime/test_m6_4.py`（6 项），run `20260928T111826Z-e49f524fa7` passed；同指纹 M6.1/M6.2/M6.3 与前端 6 项检查全部 passed。详见 `docs/implementation-checkpoints/M6-4-review-v1.md`。源码指纹 `52bfeaf425f59001580c3a5f8a35822b23794598abe11bffd347eabba2ba8137`。
 
 
 **目标**：新助手成为默认工作台；有效业务深链接、首次改密、汇总只读与人工路径保持原语义。

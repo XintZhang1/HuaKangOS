@@ -249,11 +249,41 @@ function businessAssistantNextStep(){
  const receipt=current.receipt?`<p class="ba-receipt" role="status">${E(current.receipt)}</p>`:'';
  return `<div class="ba-nextstep"><div>${receipt}<strong>${E(title)}</strong><span>${E(text)}</span></div><button type="button" ${action==='continue'&&busy?'disabled':''} class="primary" ${refreshPlan?'data-baw-action="refresh"':`data-ba-action="${action}"`}>${E(label)}</button></div>`;
 }
+// M6.4：欢迎示例最多四个，来自发布流程目录与岗位常用流程的交集，按真实可进入权限过滤；
+// readonly 岗位与集团汇总只给查询示例；点击只预填草稿，不创建会话、不发模型。
+function businessAssistantReadonlyRole(role){return ['auditor','readonly','statistics','finance_view','group_view'].includes(String(role||''));}
+function businessAssistantWelcomeFallback(){
+ return [['查我的待办','查一下现在需要我处理的原单待办和任务，只读取并说明。'],
+         ['查客户资料','按客户姓名查一下他的车辆、接待、订单记录，只读取并说明。'],
+         ['这项业务怎么办','说明这项业务当前还需要哪些资料和步骤，只读取不提交。'],
+         ['查合同和收款','查一下这个客户的合同、收款与发票状态，只读取并说明。']];
+}
+async function businessAssistantWelcomeExamples(){
+ const current=businessAssistantState,role=String(state.user?.role||''),store=String(state.store||'');
+ if(Array.isArray(current.welcomeExamples))return current.welcomeExamples;
+ const order=(typeof UX_COMMON_WORKFLOWS==='object'&&UX_COMMON_WORKFLOWS)
+   ?(UX_COMMON_WORKFLOWS[role]||UX_COMMON_WORKFLOWS.default||[]):[];
+ const rank=id=>{const index=order.indexOf(id);return index<0?order.length:index;};
+ let picked=[];
+ try{
+  const response=await fetch('/static/workflow-guides.json',{credentials:'same-origin'});
+  const data=response&&response.ok?await response.json():null;
+  const items=Array.isArray(data&&data.workflows)?data.workflows:[];
+  const guide=globalThis.WorkflowGuides;
+  const readonly=businessAssistantReadonlyRole(role)||store==='all';
+  picked=items.filter(item=>{
+    if(!item||typeof item.id!=='string'||!item.assistant||!item.assistant.prompt)return false;
+    if(readonly&&item.assistant.intent&&item.assistant.intent!=='query_status')return false;
+    if(!guide||typeof guide.canEnter!=='function')return true;
+    try{return guide.canEnter(item,role,store);}catch(error){return false;}
+  }).sort((a,b)=>rank(a.id)-rank(b.id)).slice(0,4).map(item=>[String(item.title||item.id),String(guide&&guide.assistantPrompt?guide.assistantPrompt(item):item.assistant.prompt)]);
+ }catch(error){picked=[];}
+ current.welcomeExamples=picked.length?picked:businessAssistantWelcomeFallback().slice(0,4);
+ return current.welcomeExamples;
+}
 function businessAssistantMessages(){
  const session=businessAssistantState.session,stream=businessAssistantState.stream;
- if(!session?.messages?.length&&!stream)return `<div class="ba-welcome"><h2>今天需要办什么？</h2><div class="ba-suggestions">${[
-  ['建立车型目录','帮我建立本店车型目录，缺少哪些资料请逐项问我。'],['登记客户接待','帮我登记一次售前接待。'],['安排客户回访','帮我安排客户回访。'],['办理物资采购','帮我办理一次物资采购。'],['开维修工单','帮我开一张维修工单。']
- ].map(([label,prompt])=>`<button type="button" data-ba-action="suggestion" data-prompt="${E(prompt)}" ${businessAssistantState.busy?'disabled':''}>${E(label)}</button>`).join('')}</div></div>`;
+ if(!session?.messages?.length&&!stream)return `<div class="ba-welcome"><h2>今天需要办什么？</h2><div class="ba-suggestions">${businessAssistantWelcomeExamples().map(([label,prompt])=>`<button type="button" data-ba-action="suggestion" data-prompt="${E(prompt)}" ${businessAssistantState.busy?'disabled':''}>${E(label)}</button>`).join('')}</div></div>`;
  const messages=[...(session?.messages||[])];
  if(stream){if(!messages.some(message=>message.role==='user'&&message.request_id===stream.request_id))messages.push({role:'user',content:stream.content});if(stream.text)messages.push({role:'assistant',content:stream.text});}
  return messages.filter(message=>['user','assistant'].includes(message.role)).map(message=>`<article class="ba-message ba-${message.role}"><div class="ba-message-name">${message.role==='user'?'我':'业务助手'}</div><div class="ba-text">${message.role==='user'&&typeof businessAssistantFileMessage==='function'?businessAssistantFileMessage(message.content)||E(message.content):E(message.content)}</div>${businessAssistantLinks(message.links)}</article>`).join('');
@@ -302,7 +332,7 @@ async function businessAssistantPage(){
  if(state.store==='all')return heading('业务助手')+storeNotice();
  if(businessAssistantState.context!==businessAssistantContext()){clearBusinessAssistantSession();businessAssistantState.context=businessAssistantContext();}
  const current=businessAssistantState;if(current.busy)return businessAssistantHTML();const generation=++current.generation;
- businessAssistantWorkspaceModule()?.load?.();
+ businessAssistantWorkspaceModule()?.load?.();businessAssistantWelcomeExamples();
  const [status,sessions]=await Promise.all([businessAssistantRequest('/status'),businessAssistantRequest('/sessions')]);
  if(!businessAssistantCurrent(current,generation))return '';
  current.status=status;current.sessions=sessions.items||[];
