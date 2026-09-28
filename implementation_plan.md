@@ -87,7 +87,7 @@
 | CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | implementation_released | docs/implementation-checkpoints/M7-3-1-review-v1.md；M7-3-2-review-v1.md；M7-3-3-review-v1.md | M7.3.1（9 项）、M7.3.2（9 项）、M7.3.3（10 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.3.4（CP-20） |
 | CP-20 | M7.3.4—M7.3.5 | 理赔核赔、真实进出厂 | implementation_released | docs/implementation-checkpoints/M7-3-4-review-v1.md；M7-3-5-review-v1.md | M7.3.4（claim_order，8 项）与 M7.3.5（gate_visit，8 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.4.1（CP-21） |
 | CP-21 | M7.4.1—M7.4.3 | 精品销售、套餐核销、零售集团 | implementation_released | docs/implementation-checkpoints/M7-4-1-review-v1.md；M7-4-2-review-v1.md；M7-4-3-review-v1.md | M7.4.1（9 项）、M7.4.2（9 项）、M7.4.3（7 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.5.1（CP-22） |
-| CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | in_progress | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md | M7.5.1（8 项）与 M7.5.2（7 项）已 implemented 并实测通过；M7.5.3 未开始，故不记 implementation_released |
+| CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | in_progress | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md | M7.5.1（8 项）与 M7.5.2（8 项）已 implemented 并实测通过；M7.5.3 未开始，故不记 implementation_released |
 | CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | not_ready | — | — |
 | CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | not_ready | — | — |
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益单位 | not_ready | — | — |
@@ -3178,7 +3178,7 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.4.3 零售集团与门店规则
 
-**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
+**状态**：implemented（2026-09-28 实现并完成外部实测；8 项通过）
 
 **全局顺序前置**：M7.4.2 done。
 
@@ -3204,7 +3204,7 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.5.2 物资采购预付
 
-**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
+**状态**：implemented（2026-09-28 实现并完成外部实测；8 项通过）
 
 **全局顺序前置**：M7.5.1 done。
 
