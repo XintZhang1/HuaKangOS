@@ -39,6 +39,8 @@ from .retail_group_payment import (GROUP_ACTION, GROUP_ACTIONS, GROUP_CATALOG,
                                   GROUP_FACTS, GROUP_READ, RetailGroupPaymentAdapter)
 from .material_procurement import (PROC_ACTION, PROC_ACTIONS, PROC_CREATE,
                                   PROC_FACTS, PROC_READ, MaterialProcurementAdapter)
+from .procurement_prepayment import (PREPAY_ACTION, PREPAY_ACTIONS, PREPAY_FACTS,
+                                    PREPAY_READ, ProcurementPrepaymentAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -71,7 +73,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'GROUP_ACTION', 'GROUP_ACTIONS', 'GROUP_CATALOG', 'GROUP_FACTS', 'GROUP_READ',
            'RetailGroupPaymentAdapter',
            'PROC_ACTION', 'PROC_ACTIONS', 'PROC_CREATE', 'PROC_FACTS', 'PROC_READ',
-           'MaterialProcurementAdapter']
+           'MaterialProcurementAdapter',
+           'PREPAY_ACTION', 'PREPAY_ACTIONS', 'PREPAY_FACTS', 'PREPAY_READ',
+           'ProcurementPrepaymentAdapter']
 
 
 def register_adapters(registry):
@@ -85,6 +89,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.5.2：物资采购预付（procurement_prepayment）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='procurement_prepayment', factory=ProcurementPrepaymentAdapter, object_types=('case',),
+        operation_ids=(PREPAY_READ, PREPAY_ACTION),
+        fact_keys=PREPAY_FACTS,
+        fallback_object_types=(),
     ))
     # M7.5.1：物资采购、预付与仓储（material_procurement）静态注册。
     registry.register(DomainAdapterSpec(
