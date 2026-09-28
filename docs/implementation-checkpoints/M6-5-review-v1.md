@@ -41,4 +41,13 @@
 
 - 真实浏览器里未完成原表单的提示插入、焦点恢复、IME 与第二次点击行为：属 M8.4 浏览器验收。
 - 通知入口（M6.7）尚未实现，`guardHandoff` 已就绪但该入口尚未接入。
-- 原待办/moduleCard/快捷操作/流程文章上的“交给助手”按钮：本轮接入侧栏项、流程入口与 new/session 守卫；其余入口的按钮属 M6.5 剩余 UI 面，按下一轮补齐（未登记为已通过）。
+- 原待办/moduleCard/快捷操作/流程文章上的“交给助手”按钮已全部接入（PATCH-M6-5-02/03），原单页用 object:case:<id>、原待办用 	ask:<id>、模块/快捷/流程用 workflow:<id>；真实浏览器点击与跳转行为仍属 M8.4。
+
+
+## 6. 按钮面补充实测（PATCH-M6-5-02/03）
+
+运行 20260928T113349Z-2759ae4801（M6.5 passed，源码指纹 25948e6c…）与 20260928T114222Z-194a7124f7…20260928T114346Z-ac198c7e30（M6.1—M6.5 全通过，指纹 3aa35ae3922d4bf32485f6bb1a42a95f6bdb2a5159e8a905916c7bf084982509）：
+
+- Node 合同增至 13 项：新增“共用按钮只渲染合法引用”“ref 解析与 requestHandoff 同一套判定”（非法 ref 一律不渲染按钮）。
+- 接线断言增至 8 项：四个原页面入口都通过共用 helper 取按钮、页面模块不得自己拼 data-baws-ref、点击后回到助手页（草稿已预填、仍未发送）。
+- 实测发现并修复的问题：页面模块 moduleworkspaces.js/usinessux.js 若直接引用 pp.js 里的 helper，在离线单文件加载时会 ReferenceError；已改为各模块自带薄封装（拿不到共用实现就不渲染按钮）。前端 6 项检查（ux/workspaces/workboard/r3/oneclick）在同指纹上 diagnostic_passed（20260928T114018Z-735a977395）。

@@ -63,6 +63,12 @@ const UX_COMMON_WORKFLOWS = Object.freeze({
 // must not turn a follow-up request into a new document. Both native entrances
 // remain explicit; only an unambiguous common "new business" tile leads with a form.
 const UX_CREATE_FIRST = new Set(['wf-reception','wf-reservation-contract','wf-repair-intake','wf-vehicle-purchase','wf-material-purchase','wf-insurance-order','wf-sale-addon','wf-agency-service','wf-vehicle-other-income','wf-vehicle-catalog-one-form','wf-customer-profile']);
+// M6.5：交给助手按钮。页面模块可能被单独加载（离线检查），拿不到共用实现就不渲染按钮。
+function uxHandoffButton(ref,label){
+ const workspace=globalThis.AssistantWorkspace;
+ if(!workspace||typeof workspace.handoffButton!=='function')return '';
+ return workspace.handoffButton({ref:ref,label:label});
+}
 function uxStartEntry(item,options,role,store){
  const allowed=WorkflowGuides.canEnter(item,role,store),form=WORKFLOW_QUICK_FORMS[item.id];
  const direct=allowed&&form&&store!=='all';
@@ -193,7 +199,7 @@ function bindBusinessStart(){
   document.getElementById('ux-start-results').innerHTML=shown.map(item=>{
    const {allowed:enter,form,direct,preferNew}=uxStartEntry(item,businessUX,state.user.role,state.store);
    const primary=preferNew?'start-form':'start-page',secondary=preferNew?'start-page':'start-form';
-   return `<article class="ux-start-card"><div><span class="ux-context">${E((item.requirements?.[0]?.module||item.category).replace(/模块$/,''))}</span><h3>${E(uxEntryTitle(item))}</h3></div><div class="ux-start-card-actions"><button type="button" class="primary" data-ux-action="${primary}" data-id="${E(item.id)}" ${enter?'':'disabled'}>${E(preferNew?form.label:uxEntryOpenLabel(item))}</button>${direct?`<button type="button" data-ux-action="${secondary}" data-id="${E(item.id)}">${E(preferNew?uxEntryOpenLabel(item):form.label)}</button>`:''}<a href="#workflows/${E(item.id)}">操作指引</a></div>${!enter?`<p class="ux-muted">${E((item.entry.roles||[]).map(r=>roleNames[r]||r).join('、'))}的入口${state.store==='all'&&item.entry.mode==='write'?'；请先选择门店':''}</p>`:''}</article>`;
+   return `<article class="ux-start-card"><div><span class="ux-context">${E((item.requirements?.[0]?.module||item.category).replace(/模块$/,''))}</span><h3>${E(uxEntryTitle(item))}</h3></div>${uxHandoffButton('workflow:'+item.id,item.title)}<div class="ux-start-card-actions"><button type="button" class="primary" data-ux-action="${primary}" data-id="${E(item.id)}" ${enter?'':'disabled'}>${E(preferNew?form.label:uxEntryOpenLabel(item))}</button>${direct?`<button type="button" data-ux-action="${secondary}" data-id="${E(item.id)}">${E(preferNew?uxEntryOpenLabel(item):form.label)}</button>`:''}<a href="#workflows/${E(item.id)}">操作指引</a></div>${!enter?`<p class="ux-muted">${E((item.entry.roles||[]).map(r=>roleNames[r]||r).join('、'))}的入口${state.store==='all'&&item.entry.mode==='write'?'；请先选择门店':''}</p>`:''}</article>`;
   }).join('');
  };
  input.addEventListener('input',event=>{businessUX.startQuery=input.value;if(!event.isComposing)paint();});input.addEventListener('compositionend',()=>{businessUX.startQuery=input.value;paint();});

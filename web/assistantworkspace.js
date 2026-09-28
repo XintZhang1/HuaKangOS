@@ -378,6 +378,33 @@
     return { ok: true, entry_context: state.handoff.entry_context };
   }
 
+  function parseRef(ref) {
+    const parts = String(ref || '').split(':');
+    if (parts[0] === 'task' && parts.length === 2 && /^[0-9]+$/.test(parts[1])) {
+      return { source_type: 'task', task_id: Number(parts[1]) };
+    }
+    if (parts[0] === 'object' && parts.length === 3 && parts[1] && parts[2]) {
+      return { source_type: 'object', object_ref: { type: parts[1],
+        id: /^[0-9]+$/.test(parts[2]) ? Number(parts[2]) : parts[2] } };
+    }
+    if (parts[0] === 'workflow' && parts.length === 2 && parts[1]) {
+      return { source_type: 'workflow', workflow_id: parts[1] };
+    }
+    return null;
+  }
+
+  // 任何原页面都能用同一个按钮进入交接；拿不到合法引用就不渲染按钮。
+  function handoffButton(options) {
+    const settings = options || {};
+    if (!parseRef(settings.ref)) return '';
+    const classes = settings.className ? String(settings.className) : 'ba-handoff-button';
+    return '<button type="button" class="' + escapeText(classes) + '" data-baws-action="handoff"'
+      + ' data-baws-ref="' + escapeText(String(settings.ref)) + '"'
+      + (settings.label ? ' data-baws-label="' + escapeText(String(settings.label)) + '"' : '')
+      + (settings.disabled ? ' disabled' : '') + '>'
+      + escapeText(settings.text || '交给助手') + '</button>';
+  }
+
   function handoffLabel() { return state.handoffLabel || ''; }
 
   async function openItem(key) {
@@ -447,6 +474,18 @@
     }
     if (action === 'drawer-close') { closeDrawer(); return; }
     if (action === 'handoff') {
+      // 原页面按钮带 data-baws-ref；侧栏项用 data-key 查当前投影。
+      if (target.dataset.bawsRef) {
+        const label = target.dataset.bawsLabel || '';
+        const result = requestHandoff({ reference: parseRef(target.dataset.bawsRef),
+          intent: 'prepare_action', label: label || undefined });
+        if (!result.ok && typeof toast === 'function') toast(result.reason, true);
+        if (result.ok && typeof go === 'function' && globalThis.state
+            && globalThis.state.route !== 'business-assistant') {
+          go('business-assistant');   // 交接成功后回到助手页：草稿已预填，仍未发送
+        }
+        return;
+      }
       const item = findItem(target.dataset.key) || state.selected;
       if (!item) return;
       // M6.5：所有入口走同一个 requestHandoff；拿不到真实引用时只提示回原页面办理。
@@ -501,6 +540,7 @@
     load: load, mount: mount, renderSidebar: renderSidebar, openItem: openItem,
     patchCurrent: patchCurrent, disposeContext: disposeContext,
     requestHandoff: requestHandoff, guardHandoff: guardHandoff,
+    handoffButton: handoffButton, parseRef: parseRef,
     pendingHandoff: pendingHandoff, clearHandoff: clearHandoff, handoffLabel: handoffLabel,
     rememberUi: rememberUi, restoreUi: restoreUi, clearUi: clearUi,
     snapshot: function () {

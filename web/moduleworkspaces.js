@@ -95,6 +95,12 @@ function moduleCardGroups(items,role,store){
  for(const item of items){const key=item.entry.route+'|'+WorkflowGuides.canEnter(item,role,store);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);}
  return [...groups.values()];
 }
+// M6.5：交给助手按钮。页面模块可能被单独加载（离线检查），拿不到共用实现就不渲染按钮。
+function muxHandoffButton(ref,label){
+ const workspace=globalThis.AssistantWorkspace;
+ if(!workspace||typeof workspace.handoffButton!=='function')return '';
+ return workspace.handoffButton({ref:ref,label:label});
+}
 function moduleCard(item,spec,related=[item]){
  const allowed=WorkflowGuides.canEnter(item,state.user.role,state.store);
  const title=uxEntryTitle(item,related.length>1);
@@ -102,7 +108,7 @@ function moduleCard(item,spec,related=[item]){
  // No default creation for follow-ups. New forms are explicitly labelled and
  // used only by the existing reviewed quick-form registry, after another click.
  const create=allowed&&state.store!=='all'&&newItem;
- return `<article class="mux-card"><h3>${E(title)}</h3><div class="row"><button type="button" class="primary" data-mux-open="${E(item.id)}" data-area="${spec.key}" ${allowed?'':'disabled'}>${E(uxEntryOpenLabel(item))}</button>${create?`<button type="button" data-mux-form="${E(newItem.id)}" data-area="${spec.key}">${E(newForm.label)}</button>`:''}</div><details class="mux-requirements"><summary>操作指引</summary><p>${E([...new Set(related.flatMap(w=>(w.requirements||[]).map(r=>r.title)))].join('、'))}</p>${related.map(w=>`<p><a href="#workflows/${E(w.id)}">${E(w.title)}</a></p>`).join('')}</details>${!allowed?`<p class="mux-role">${state.store==='all'&&item.entry.mode==='write'?'请先选择具体门店。':'此入口由 '+E((item.entry.roles||[]).map(r=>roleNames[r]||r).join('、'))+' 办理。'}</p>`:''}</article>`;
+ return `<article class="mux-card"><h3>${E(title)}</h3><div class="row"><button type="button" class="primary" data-mux-open="${E(item.id)}" data-area="${spec.key}" ${allowed?'':'disabled'}>${E(uxEntryOpenLabel(item))}</button>${muxHandoffButton('workflow:'+item.id,item.title)}${create?`<button type="button" data-mux-form="${E(newItem.id)}" data-area="${spec.key}">${E(newForm.label)}</button>`:''}</div><details class="mux-requirements"><summary>操作指引</summary><p>${E([...new Set(related.flatMap(w=>(w.requirements||[]).map(r=>r.title)))].join('、'))}</p>${related.map(w=>`<p><a href="#workflows/${E(w.id)}">${E(w.title)}</a></p>`).join('')}</details>${!allowed?`<p class="mux-role">${state.store==='all'&&item.entry.mode==='write'?'请先选择具体门店。':'此入口由 '+E((item.entry.roles||[]).map(r=>roleNames[r]||r).join('、'))+' 办理。'}</p>`:''}</article>`;
 }
 function bindModuleWorkspace(){
  const root=document.querySelector('[data-module-workspace]');if(!root||!workflowCatalogue)return;
