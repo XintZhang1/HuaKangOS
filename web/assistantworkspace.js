@@ -30,7 +30,8 @@
     return { features: null, counts: null, groups: [], cursors: {}, loading: false,
       error: '', selected: null, serial: 0, mounted: false, bound: false, context: '',
       error: '', selected: null, serial: 0, mounted: false, bound: false, context: '',
-      drawer: false, notice: '', host: null, toggle: null, handoff: null, handoffLabel: '', handoffPrompt: '' };
+      drawer: false, notice: '', host: null, toggle: null, handoff: null, handoffLabel: '', handoffPrompt: '',
+      plan: null, planError: '', planLoading: false, planSerial: 0, followupPending: '', revokeArmed: false };
   }
   let state = fresh();
 
@@ -175,6 +176,7 @@
   }
   function planHTML() {
     const item = state.selected, parts = [];
+    parts.push(planHeaderHTML());
     if (!item) parts.push('<p class="ba-current-hint">左侧选一项待办，或直接在下面说要办的事；助手只读真实数据，不会自动提交。</p>');
     else {
       parts.push('<p class="ba-current-status">' + escapeText(item.status_label || item.status || '') + '</p>');
@@ -405,6 +407,143 @@
       + escapeText(settings.text || '交给助手') + '</button>';
   }
 
+  // ---- M6.6 持续跟进：只读 PlanView、只在员工明确点击时提交一次动作；不做本地授权判定。----
+  const PLAN_STATUS_TEXT = { active: '进行中', paused: '已暂停', completed: '已完成', cancelled: '已取消' };
+  const GRANT_STATUS_TEXT = { active: '持续跟进中', paused: '已暂停跟进', revoked: '已结束跟进' };
+  const FOLLOWUP_LABELS = { enable: '开启此事项持续跟进', pause: '暂停跟进', resume: '恢复跟进', revoke: '结束这件事' };
+
+  function planStatusText(status) { return PLAN_STATUS_TEXT[status] || '状态待核对'; }
+  function grantStatusText(grant) {
+    if (!grant || !grant.status) return '尚未开启持续跟进';
+    return GRANT_STATUS_TEXT[grant.status] || '跟进状态待核对';
+  }
+  function followupAllowed(action) {
+    const plan = state.plan;
+    if (!plan || !Array.isArray(plan.allowed_actions)) return false;
+    const features = state.features || {};
+    if (features.followup !== true) return false;   // 开关关闭：只显示状态，不给可操作按钮
+    return plan.allowed_actions.includes(action);
+  }
+
+  async function loadPlan(planId) {
+    const serial = (state.planSerial || 0) + 1;
+    state.planSerial = serial; state.planLoading = true; state.planError = '';
+    if (!planId) { state.plan = null; state.planLoading = false; patchCurrent(); return null; }
+    let view;
+    try {
+      view = await businessAssistantRequest('/plans/' + encodeURIComponent(String(planId)));
+    } catch (error) {
+      if (state.planSerial !== serial) return null;
+      state.planLoading = false;
+      state.plan = null;
+      state.planError = (error && error.message) || '读取事项进度失败，请稍后重试。';
+      patchCurrent();
+      return null;
+    }
+    if (state.planSerial !== serial) return null;
+    state.plan = view || null;
+    state.planLoading = false;
+    state.revokeArmed = false;
+    patchCurrent();
+    return state.plan;
+  }
+
+  // 只提交当前 plan.id 与当前 version；不重放、不自造版本、不改本地授权快照。
+  async function setFollowup(action) {
+    const plan = state.plan;
+    if (!plan || !plan.id) return { ok: false, reason: '还没有可跟进的事项，请先选一件事项。' };
+    if (!FOLLOWUP_LABELS[action]) return { ok: false, reason: '不支持的跟进操作。' };
+    if (!followupAllowed(action)) return { ok: false, reason: '当前事项不允许这个操作，请刷新后核对。' };
+    if (action === 'revoke' && state.revokeArmed !== true) {
+      state.revokeArmed = true;          // 二次确认：明确说明不取消原业务
+      patchCurrent();
+      return { ok: false, reason: '再点一次“结束这件事”确认；已生成的卡片和已提交的原业务都不会被取消。', needsConfirm: true };
+    }
+    const version = plan.version;
+    if (!Number.isSafeInteger(version)) return { ok: false, reason: '事项版本未知，请刷新后重试。' };
+    state.followupPending = action;
+    patchCurrent();
+    try {
+      const updated = await businessAssistantRequest(
+        '/plans/' + encodeURIComponent(String(plan.id)) + '/followup',
+        { method: 'POST', body: { action: action, expected_version: version } });
+      if (state.plan && state.plan.id === plan.id) {
+        state.plan = Object.assign({}, state.plan, updated || {});
+        state.planError = '';
+      }
+      state.revokeArmed = false;
+      return { ok: true, plan: updated };
+    } catch (error) {
+      const status = error && error.status;
+      if (status === 409) {
+        // 版本冲突：不重放动作，读回当前 Plan 让员工重新核对；提示在读回之后仍然可见。
+        const changed = '事项已经变化（可能被其他同事或另一台设备更新），已重新读取；请核对目标与权限后再决定。';
+        await loadPlan(plan.id);
+        state.planError = changed;
+        patchCurrent();
+        return { ok: false, reason: changed };
+      } else if (status === 403 || status === 404) {
+        state.plan = null;
+        state.planError = status === 403
+          ? '当前账号或门店已没有这件事项的权限，写控制已收起。原业务仍可在原页面办理。'
+          : '这件事项已不存在或不可读，写控制已收起。';
+      } else {
+        state.planError = (error && error.message) || '跟进操作没有完成，请稍后重试。';
+      }
+      patchCurrent();
+      return { ok: false, reason: state.planError };
+    } finally {
+      state.followupPending = '';
+      patchCurrent();
+    }
+  }
+
+  function planHeaderHTML() {
+    const plan = state.plan, features = state.features || {};
+    if (state.planLoading && !plan) return '<p class="ba-plan-hint">正在读取这件事的进度…</p>';
+    const lines = [];
+    if (state.planError) lines.push('<p class="ba-plan-error" role="alert">' + escapeText(state.planError) + '</p>');
+    if (!plan) {
+      lines.push('<p class="ba-plan-hint">' + escapeText(state.planError
+        ? '原业务入口仍可用；需要助手跟进时请重新打开这件事。'
+        : '这件事还没有持续跟进。开启后，助手只在授权范围内查询和准备，实际办理仍需你确认。') + '</p>');
+      return lines.join('');
+    }
+    lines.push('<p class="ba-plan-goal">目标：' + escapeText(plan.goal || '当前事项') + ' · '
+      + escapeText(planStatusText(plan.status)) + '</p>');
+    const grant = plan.grant || {};
+    lines.push('<p class="ba-plan-grant">' + escapeText(grantStatusText(grant))
+      + (grant.stop_reason ? '（' + escapeText(grant.stop_reason) + '）' : '') + '</p>');
+    const waiting = (plan.steps || []).filter((step) => step && step.wait_reason);
+    if (waiting.length) {
+      lines.push('<ul class="ba-plan-waits">' + waiting.slice(0, 3).map((step) => '<li>'
+        + escapeText(step.title || '步骤') + '：' + escapeText(step.wait_reason) + '</li>').join('') + '</ul>');
+    }
+    if (features.followup !== true) {
+      lines.push('<p class="ba-plan-hint">当前版本未开启持续跟进开关，只显示已有状态。</p>');
+      return lines.join('');
+    }
+    if (!grant.enabled && followupAllowed('enable')) {
+      // 开启前把范围讲清楚：目标、门店、本人、只查询与准备、退出后继续、暂停与结束入口。
+      lines.push('<div class="ba-plan-scope"><p><strong>开启前请确认范围</strong></p><ul>'
+        + '<li>目标：' + escapeText(plan.goal || '当前事项') + '</li>'
+        + '<li>门店：' + escapeText(String((globalThis.state && globalThis.state.store) || '')) + '（只按当前门店权限）</li>'
+        + '<li>以你本人身份查询和准备，不替你做业务提交</li>'
+        + '<li>实际办理仍需你在卡片上确认</li>'
+        + '<li>退出登录后仍会继续查询和准备，直到你暂停或结束</li>'
+        + '<li>随时可以暂停跟进或结束这件事</li></ul></div>');
+    }
+    const buttons = ['enable', 'resume', 'pause', 'revoke'].filter(followupAllowed).map((action) => {
+      const label = action === 'revoke' && state.revokeArmed ? '确认结束这件事' : FOLLOWUP_LABELS[action];
+      const busy = state.followupPending === action ? ' disabled' : '';
+      return '<button type="button" class="ba-plan-action' + (action === 'revoke' ? ' danger' : '')
+        + '" data-baws-action="followup" data-baws-followup="' + action + '"' + busy + '>'
+        + escapeText(label) + '</button>';
+    });
+    if (buttons.length) lines.push('<div class="row ba-plan-actions">' + buttons.join('') + '</div>');
+    return lines.join('');
+  }
+
   function handoffLabel() { return state.handoffLabel || ''; }
 
   async function openItem(key) {
@@ -421,7 +560,9 @@
     state.selected = item;
     renderSidebarInto();
     patchCurrent();
-    if (item.kind === 'native_task') return true;   // 查看原任务不创建会话、不调用模型
+    if (item.kind === 'native_task') { state.plan = null; patchCurrent(); return true; }   // 查看原任务不创建会话、不调用模型
+    if (item.plan_id) await loadPlan(item.plan_id);
+    else { state.plan = null; }
     if (item.session_id && typeof businessAssistantChooseSession === 'function') {
       const page = current();
       if (!page || !page.session || page.session.id !== item.session_id) {
@@ -473,6 +614,11 @@
       return;
     }
     if (action === 'drawer-close') { closeDrawer(); return; }
+    if (action === 'followup') {
+      const result = await setFollowup(String(target.dataset.bawsFollowup || ''));
+      if (!result.ok && typeof toast === 'function') toast(result.reason, true);
+      return;
+    }
     if (action === 'handoff') {
       // 原页面按钮带 data-baws-ref；侧栏项用 data-key 查当前投影。
       if (target.dataset.bawsRef) {
@@ -531,7 +677,9 @@
       document.removeEventListener('keydown', onKeydown);
     }
     closeDrawer();
-    clearUi();          // 切店/退出清空整个内存编辑态与待交接内容
+    clearUi();
+    // 退出/切店只清前端：绝不在这里调用 followup pause/revoke。
+    state.plan = null; state.planError = ''; state.planSerial = 0; state.followupPending = ''; state.revokeArmed = false;          // 切店/退出清空整个内存编辑态与待交接内容
     state = fresh();
     return true;
   }
@@ -541,6 +689,8 @@
     patchCurrent: patchCurrent, disposeContext: disposeContext,
     requestHandoff: requestHandoff, guardHandoff: guardHandoff,
     handoffButton: handoffButton, parseRef: parseRef,
+    loadPlan: loadPlan, setFollowup: setFollowup, planStatusText: planStatusText,
+    grantStatusText: grantStatusText, followupAllowed: followupAllowed,
     pendingHandoff: pendingHandoff, clearHandoff: clearHandoff, handoffLabel: handoffLabel,
     rememberUi: rememberUi, restoreUi: restoreUi, clearUi: clearUi,
     snapshot: function () {
@@ -549,6 +699,9 @@
         counts: state.counts, error: state.error, loading: state.loading,
         selected: state.selected ? state.selected.key : null, drawer: state.drawer,
         handoff: state.handoff ? state.handoff.entry_context : null,
+        plan: state.plan ? { id: state.plan.id, status: state.plan.status, version: state.plan.version,
+          grant: (state.plan.grant && state.plan.grant.status) || null, revokeArmed: state.revokeArmed } : null,
+        planError: state.planError || '',
         handoffLabel: state.handoffLabel || '', uiSessions: uiBySession.size };
     },
   };

@@ -36,3 +36,13 @@
  #ba-current-plan{padding:0 12px 8px}
  .ba-current-flow .ba-cards{border-left:0;border-top:1px solid #e8edf3}
 }
+
+/* M6.6 持续跟进头部：只追加助手事项内的样式 */
+.ba-plan-goal{font-weight:600;margin:6px 0 2px}
+.ba-plan-grant,.ba-plan-hint{margin:2px 0;color:#5b6b7c;font-size:13px}
+.ba-plan-error{margin:4px 0;color:#b3261e;font-size:13px}
+.ba-plan-waits{margin:4px 0 4px 18px;color:#5b6b7c;font-size:13px}
+.ba-plan-scope{margin:6px 0;padding:8px 10px;border:1px solid #e5eaf1;border-radius:9px;background:#f8fafc;font-size:13px}
+.ba-plan-scope ul{margin:4px 0 0 18px}
+.ba-plan-actions{margin:6px 0}
+.ba-plan-action.danger{border-color:#b3261e;color:#b3261e}

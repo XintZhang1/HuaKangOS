@@ -22,12 +22,20 @@ function businessAssistantWorkHTML(){
  const steps=plan?.steps||[],visible=steps.slice(0,2),rest=steps.slice(2);
  return `<section class="ba-workboard" aria-label="办理进度"><div class="spread"><strong>办理进度</strong><button type="button" data-baw-action="refresh" ${current.workLoading||current.busy?'disabled':''}>${current.workLoading?'正在核对…':'刷新进度'}</button></div>${selector}${plan?`<h3>${E(plan.goal)}</h3><ol>${visible.map(stepHTML).join('')}</ol>${rest.length?`<details><summary>其余 ${rest.length} 个步骤</summary><ol start="3">${rest.map(stepHTML).join('')}</ol></details>`:''}`:'<p>正在读取计划与原单状态。</p>'}${current.workError?`<p role="alert" class="ba-work-error">${E(current.workError)} 已有办理结果不变，请不要重复提交。</p>`:''}${data?.next_case_page?'<p>部分原单未在本页刷新；请打开对应原单查看实时进度。</p>':''}</section>`;
 }
+// 计划投影由 AssistantWorkspace 读取；离线单独加载该模块时退化为空操作。
+function bawLoadPlan(planId){
+ const workspace=globalThis.AssistantWorkspace;
+ if(!workspace||typeof workspace.loadPlan!=='function')return null;
+ return workspace.loadPlan(planId);
+}
 function paintBusinessAssistantWork(){
  if(state.route!=='business-assistant'||businessAssistantState.context!==businessAssistantContext())return;
  const host=document.getElementById('business-assistant-workboard');
  if(host)host.innerHTML=businessAssistantWorkHTML();
 }
 async function businessAssistantRefreshWork(current=businessAssistantState,generation=current.generation,planId=null){
+ // M6.6：确认/取消卡、切换计划后只重新读取；是否继续准备由服务器按 active Grant 决定，UI 不自动重试。
+ if(planId)bawLoadPlan(planId);
  if(!current.session||!businessAssistantAlive(current,generation))return;
  if(!current.session.work_plans?.length){current.workboard=null;current.workError='';paintBusinessAssistantWork();return;}
  const sid=current.session.id,serial=(current.workSerial||0)+1;

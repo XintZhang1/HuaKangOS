@@ -2,7 +2,7 @@
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
-**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 11+6，核心），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
+**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 13+8）、M6.6（持续跟进与生命周期控制 12+7），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
 
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
@@ -80,7 +80,7 @@
 | CP-12 | M5.4—M5.6 | 通知隐私、MCP互斥、worker退出 | implementation_released | docs/implementation-checkpoints/M5-5-review-v1.md；M5-6-review-v1.md；M5-4-review-v1.md | 集中测试阶段实测：M5.5（7+20）与 M5.6（13+40）在指纹 `fce97834…` 上 passed；M1.4 ORM/迁移一致性 6 项 passed；修复 5 处 MCP 缺陷与 worker 双启动。M5.4 仅源码审阅、进程级/真实环境项未覆盖，故不记 released；继续 M5.7—M5.8 至 CP-13 |
 | CP-13 | M5.7—M5.8 | Windows/Linux启动定义与回退 | implementation_released | docs/implementation-checkpoints/M5-7-review-v1.md；M5-8-review-v1.md | 集中测试阶段实测：M5.7（7+16）与 M5.8（7+17）在新指纹上 passed；嵌入顺序、显式 profile、同库同镜像校验、无密钥样例均实测；真实 Windows 预览实例与真实 Linux 部署仍属 M8.7/M8.8，故不记 released；继续 M6.1—M6.8（CP-14—CP-16） |
 | CP-14 | M6.1—M6.4 | 客户端归并、恢复、事项工作台、默认入口 | implementation_released | docs/implementation-checkpoints/M6-1-review-v1.md；M6-2-review-v1.md；M6-3-review-v1.md；M6-4-review-v1.md | 集中测试阶段实测：M6.1（15+7）、M6.2（9+7）、M6.3（10+6）、M6.4（6+6）在同一批指纹上 passed；每次前端改动后同指纹回归（workboard/r3/ux/workspaces/oneclick）diagnostic_passed；M6.1 的取消/清理边界随 M6.2 接线同步移动并复跑。仅放行后续编码，不表示测试全部通过或功能启用；继续 M6.5—M6.8（CP-15） |
-| CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | in_progress | docs/implementation-checkpoints/M6-4-review-v1.md；M6-5-review-v1.md | M6.4 已 implemented 并实测（6+6）；M6.5 已 implemented 并实测（13+8，含四个原页面按钮面），但 CP-15 还含未开始的 M6.6，故记 in_progress |
+| CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | implementation_released | docs/implementation-checkpoints/M6-4-review-v1.md；M6-5-review-v1.md；M6-6-review-v1.md | M6.4（6+6）、M6.5（13+8）、M6.6（12+7）均已 implemented 并实测通过，退出后 worker 继续与真实浏览器反馈留待 M8.1/M8.4；仅放行后续编码，继续 M6.7—M6.8（CP-16） |
 | CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | not_ready | — | — |
 | CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | not_ready | — | — |
 | CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | not_ready | — | — |
@@ -2635,11 +2635,13 @@ runner 向 Node 注入 `HUAKANGOS_TEST_SOURCE_ROOT` 和 `HUAKANGOS_TEST_OUTPUT`�
 
 ## M6.6：每件事的持续跟进与生命周期控制
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测）
 
 **全局顺序前置**：M6.5 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：Plan 投影、显式生命周期动作、冲突/权限/失败分支实测通过；退出后 worker 继续与真实浏览器反馈属 M8.1/M8.4。
+
+**执行记录**：2026-09-28 在 `web/assistantworkspace.js` 新增 `loadPlan(planId)`（只读 `GET /plans/{id}`）、`setFollowup(action)`（`POST /plans/{id}/followup`，只提交当前 `plan.id` 与当前 `expected_version`）、`planHeaderHTML()` 与 `planStatusText/grantStatusText/followupAllowed`：事项头部显示目标、固定中文状态（进行中/已暂停/已完成/已取消、尚未开启/持续跟进中/已暂停跟进/已结束跟进）、`grant.stop_reason` 与前三条等待原因；enable 前显示六要素范围说明（目标、门店、本人身份只查询与准备、实际办理需确认、退出后继续、可暂停或结束），默认无预选勾；pause 保留卡并以返回 PlanView 为准；revoke 文案「结束这件事」需二次确认且明确不取消原业务，从不发送 `completed`；409 不重放并读回当前计划（提示在读回后仍可见），403/404 收起写控制并提示原页面仍可办理；`features.followup` 关闭时只显示状态不渲染按钮。`web/businessassistantwork.js`：确认/取消卡与切换计划只触发 `bawLoadPlan(planId)` 重新读取，离线单独加载时退化为空操作；`web/assistantworkspace.css` 仅追加 `.ba-plan-*`。实测发现并修复“409 提示被随后的成功读回清空”一处产品缺陷，并把 M6.3 的导出合同改为集合包含式以免后续里程碑扩充导出面误伤。外部套件 `V/tests/frontend/test_m6_6.cjs`（12 项）+ `V/tests/runtime/test_m6_6.py`（7 项），run `20260928T115324Z-7f746aa3fb` passed；同指纹 M6.1—M6.5 与前端 6 项回归全部 passed。详见 `docs/implementation-checkpoints/M6-6-review-v1.md`。源码指纹 `ac19fbc8d8a1d5df54ba920bc312a61bca5d043cb357d49e7e346791358e5ff3`。
 
 
 **目标**：员工明确授权当前事项，能看见何时等待自己/同事/事实，并正确暂停、恢复或结束委托。
