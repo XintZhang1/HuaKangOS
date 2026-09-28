@@ -35,6 +35,8 @@ from .retail_order import (RETAIL_ACTION, RETAIL_ACTIONS, RETAIL_CREATE, RETAIL_
 from .retail_bundle import (BUNDLE_FACTS, BUNDLE_PREVIEW, BUNDLE_RULE_CREATE,
                            BUNDLE_RULES, BUNDLE_SALE_CREATE, RULE_OBJECT_TYPE,
                            SALE_OBJECT_TYPE, RetailBundleAdapter)
+from .retail_group_payment import (GROUP_ACTION, GROUP_ACTIONS, GROUP_CATALOG,
+                                  GROUP_FACTS, GROUP_READ, RetailGroupPaymentAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -63,7 +65,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'RETAIL_ACTION', 'RETAIL_ACTIONS', 'RETAIL_CREATE', 'RETAIL_FACTS', 'RETAIL_READ',
            'RetailOrderAdapter',
            'BUNDLE_FACTS', 'BUNDLE_PREVIEW', 'BUNDLE_RULE_CREATE', 'BUNDLE_RULES',
-           'BUNDLE_SALE_CREATE', 'RULE_OBJECT_TYPE', 'SALE_OBJECT_TYPE', 'RetailBundleAdapter']
+           'BUNDLE_SALE_CREATE', 'RULE_OBJECT_TYPE', 'SALE_OBJECT_TYPE', 'RetailBundleAdapter',
+           'GROUP_ACTION', 'GROUP_ACTIONS', 'GROUP_CATALOG', 'GROUP_FACTS', 'GROUP_READ',
+           'RetailGroupPaymentAdapter']
 
 
 def register_adapters(registry):
@@ -77,6 +81,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.4.3：零售集团与门店规则（retail_group_payment）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='retail_group_payment', factory=RetailGroupPaymentAdapter, object_types=('case',),
+        operation_ids=(GROUP_READ, GROUP_CATALOG, GROUP_ACTION),
+        fact_keys=GROUP_FACTS,
+        fallback_object_types=(),
     ))
     # M7.4.2：精品套餐核销与安装（retail_bundle）静态注册。
     # 规则对象走预览 GET；销售对象只经 POST 结果绑定（无已评审/已发现的详情读取路径）。

@@ -86,7 +86,7 @@
 | CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | implementation_released | docs/implementation-checkpoints/M7-2-1-review-v1.md；M7-2-2-review-v1.md；M7-2-3-review-v2.md | M7.2.1（9 项）、M7.2.2（9 项）、M7.2.3（9 项）均已 implemented 并实测通过，同指纹回归通过；M7.2.3 先前错报的能力缺口已撤回（JSON 目录不是读取白名单，GET 由活跃路由发现并受原过滤与调用时授权）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.3.1（CP-19） |
 | CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | implementation_released | docs/implementation-checkpoints/M7-3-1-review-v1.md；M7-3-2-review-v1.md；M7-3-3-review-v1.md | M7.3.1（9 项）、M7.3.2（9 项）、M7.3.3（10 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.3.4（CP-20） |
 | CP-20 | M7.3.4—M7.3.5 | 理赔核赔、真实进出厂 | implementation_released | docs/implementation-checkpoints/M7-3-4-review-v1.md；M7-3-5-review-v1.md | M7.3.4（claim_order，8 项）与 M7.3.5（gate_visit，8 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.4.1（CP-21） |
-| CP-21 | M7.4.1—M7.4.3 | 精品销售、套餐核销、零售集团 | in_progress | docs/implementation-checkpoints/M7-4-1-review-v1.md；M7-4-2-review-v1.md | M7.4.1（retail_order，9 项）与 M7.4.2（retail_bundle，9 项）已 implemented 并实测通过；M7.4.3 未开始，故不记 implementation_released |
+| CP-21 | M7.4.1—M7.4.3 | 精品销售、套餐核销、零售集团 | implementation_released | docs/implementation-checkpoints/M7-4-1-review-v1.md；M7-4-2-review-v1.md；M7-4-3-review-v1.md | M7.4.1（9 项）、M7.4.2（9 项）、M7.4.3（7 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.5.1（CP-22） |
 | CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | not_ready | — | — |
 | CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | not_ready | — | — |
 | CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | not_ready | — | — |
@@ -3176,48 +3176,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/retail_bundle.py`（`RetailBundleAdapter`，`object_types=('retail_bundle_rule', 'retail_bundle_sale')`：规则快照单次只读 `GET /api/retail-bundles/rules/{key}/preview`（`sets=1` 只读求值），冻结组件缺失即 502；事实 `retail_bundle.rule_snapshot_readable`（真实规则 + 冻结组件/分摊完整）只用于规则；`retail_bundle.sale_linked` 需要原套餐销售详情核对派生 retail Case，而**该读取路径既未在 reviewed catalog 也未被活跃路由发现**（只有 `POST /api/retail-bundles/sales`），故销售对象**不编造读取路径**：`read_snapshot` 返回 503 并给原页面入口（套件断言零读取），事实返回未知；`extract_result` 对销售绑定其**派生 retail Case**、对规则返回规则引用；`read_receipt` 走规则版本族摘要并保持冻结 `request_id`），`__init__.py` 显式注册且 `fallback_object_types=()`。实测修正：套件把"不适用对象类型"误当形状错误（与合同"不适用类型返回 unknown"冲突），按合同修正断言，产品代码未放宽带宽。外部套件 `$ValidationRoot/tests/runtime_domains/test_retail_bundle.py`（9 项），run `20260928T133417Z-862fad401d` passed。详见 `docs/implementation-checkpoints/M7-4-2-review-v1.md`。源码指纹 `a94a84a4d03cf866c6f11abbe89bc001c2285629679a32571f4ed3438197c107`。**遗留**：销售侧核销/安装事实需评审补一条销售详情只读路径后方可验证。下一项 M7.4.3。
 
-### M7.4.3 精品集团混合支付
+### M7.4.3 零售集团与门店规则
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.4.2 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `retail_group_payment` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/retail_group_api.py`、`app/retail_group_service.py`、`app/retail_group_models.py`、`app/retail_group_rules.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/retail_group_payment.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_retail_group_payment.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/retail-group/orders/{case_id} 和 /catalog；authorize/reserve/capture/release/restore/reassign 见 service:481。
-
-**注册合同**：object_type=case（原 RetailOrder.id；混合支付事实来自 RetailGroupPlan）；adapter=`app/assistant_runtime_domains/retail_group_payment.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`retail_group.reservation_recorded`：本单原 RetailGroupReservation；`retail_group.capture_recorded`：本单原 RetailGroupCapture；`retail_group.restore_recorded`：本单原 RetailGroupRestore。分别保留 tender/unit/原履约引用，只证明实际一笔占用/核销/恢复，不证明整单现金到账。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：现金、本金、权益的各自授权/占用/核销/恢复来源；实际履约绑定原精品单。
-3. 接统一只读回执 resolver：GroupReceipt；retail_group_ action 摘要含 case_id/version/values。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：占用不等于核销，恢复不等于现金退款；原权益不足、门店不适用、原履约尚未完成正确等待；不得自选平级店代办。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_retail_group_payment.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.4.3
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/retail_group_payment.py`（`RetailGroupPaymentAdapter`，`object_types=('case',)`：快照单次只读 `GET /api/retail-group/orders/{case_id}`，ID 不一致或缺原集团方案 502（不补默认值），动作可用性一律 `unknown`；`extract_result` 覆盖集团支付族动作 operation（只读目录不属结果 operation）；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `retail_group.reservation_recorded`（原 `RetailGroupReservation`，tender 带 `reservation_version`）、`retail_group.capture_recorded`（原 `RetailGroupCapture`，tender 状态 `captured`）、`retail_group.restore_recorded`（原 `RetailGroupRestore`，按原恢复读法状态 `released`）——**分别只证明实际一笔占用/核销/恢复，不证明整单现金到账**；明细岗位不可见时一律未知），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原状态机。外部套件 `$ValidationRoot/tests/runtime_domains/test_retail_group_payment.py`（7 项），run `20260928T133541Z-d2be66e157` passed；同指纹 M7.4.2 回归通过。详见 `docs/implementation-checkpoints/M7-4-3-review-v1.md`。源码指纹 `2b209aa9974d7cf309647e1f5f3573c3a5846f70f27ff0dc205bf340db442499`。下一项 M7.5.1。
 
 ## M7.5 物资采购与仓储
 
