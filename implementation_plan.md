@@ -2401,11 +2401,13 @@ runner 向 Node 注入 `HUAKANGOS_TEST_SOURCE_ROOT` 和 `HUAKANGOS_TEST_OUTPUT`�
 
 ## M6.1：只增加 Run REST/SSE 客户端和纯状态归并
 
-**状态**：todo
+**状态**：implemented（2026-09-28 由 Codex 侧实现并完成外部实测）
 
-**全局顺序前置**：M5.8 done。
+**全局顺序前置**：M5.8 done（CP-13 已放行后续编码）。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：Node 合同 + 接线/路由形状实测通过；真实浏览器同源与 SSE 连接头属 M8.4。
+
+**执行记录**：2026-09-28 新增 `web/assistantruntime.js`（IIFE，唯一出口 `globalThis.AssistantRuntime`：submitRun/getRun/subscribeRun/cancelRun/disposeContext/snapshot），`web/index.html` 按 M6 约定在 businessassistantfiles.js 之后、workflowactions.js 之前加 defer 标签；未改 `web/businessassistant.js`、确认路径、后端接口或迁移。外部套件 `V/tests/frontend/test_m6_1.cjs` 15 项（经已评审 `tests/m02_node_adapter.py` 事件级证据）+ `V/tests/runtime/test_m6_1.py` 7 项，run `20260928T092523Z-1ef70a74e0` passed。实测确认：重复/乱序/缺口事件的 seq 处理与 after_seq 补读、display 按 revision 替换、1/2/5/15 秒退避、后台暂停与回前台立即重读、终态读回一次 session 后关闭订阅、unsubscribe/dispose 零服务器调用、409/401/403/404 分类、切店迟到事件不应用也不推进序号、真实服务器接受该路由形状。实测发现并修复 3 处客户端缺陷（statusFailure 不抛出、陈旧上下文推进序号、退避不收敛）。详见 `docs/implementation-checkpoints/M6-1-review-v1.md`。源码指纹 `ee2752b6bad230d227b4c95cd6d4fedf42da38e3c466690fabc79442851ee2d1`。
 
 
 **目标**：建立可重连、可丢弃旧上下文、无业务副作用的浏览器 Runtime 客户端；本项不替换员工现用发送按钮。
