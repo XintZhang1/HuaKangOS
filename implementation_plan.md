@@ -2,7 +2,7 @@
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
-**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5、M5.6、M5.7、M5.8 已完成实现/审阅与外部实测（含 7 处真实缺陷修复）并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。已完成实测：M1.4（ORM/迁移一致性）、M5.5（MCP 工具入口）、M5.6（worker）、M5.7（预览嵌入）、M5.8（部署定义）。下一步进入 M6.1（Run REST/SSE 客户端与纯状态归并）。四个功能开关默认关闭。
+**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）与 M6.2（发送/恢复/显式停止接入持久 Run 9+7），两者在同一指纹 `ad4d6464…` 上 passed，CP-14 记 `in_progress`。下一步 M6.3（真实事项侧栏与两列工作台）。四个功能开关默认关闭。
 
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
@@ -79,7 +79,7 @@
 | CP-11 | M5.1—M5.3 | REST/SSE兼容、授权事项投影 | implementation_released | docs/implementation-checkpoints/CP-11-v1.md | 用户R4及持续范围授权；真实REST/SSE、旧聊天兼容、授权工作台与本人跟进控制已源码审阅，AST/UTF-8核对完成；原运行验收待DeepSeek，继续M5.4—M5.6至CP-12 |
 | CP-12 | M5.4—M5.6 | 通知隐私、MCP互斥、worker退出 | implementation_released | docs/implementation-checkpoints/M5-5-review-v1.md；M5-6-review-v1.md；M5-4-review-v1.md | 集中测试阶段实测：M5.5（7+20）与 M5.6（13+40）在指纹 `fce97834…` 上 passed；M1.4 ORM/迁移一致性 6 项 passed；修复 5 处 MCP 缺陷与 worker 双启动。M5.4 仅源码审阅、进程级/真实环境项未覆盖，故不记 released；继续 M5.7—M5.8 至 CP-13 |
 | CP-13 | M5.7—M5.8 | Windows/Linux启动定义与回退 | implementation_released | docs/implementation-checkpoints/M5-7-review-v1.md；M5-8-review-v1.md | 集中测试阶段实测：M5.7（7+16）与 M5.8（7+17）在新指纹上 passed；嵌入顺序、显式 profile、同库同镜像校验、无密钥样例均实测；真实 Windows 预览实例与真实 Linux 部署仍属 M8.7/M8.8，故不记 released；继续 M6.1—M6.8（CP-14—CP-16） |
-| CP-14 | M6.1—M6.3 | 客户端归并、恢复、真实事项工作台 | not_ready | — | — |
+| CP-14 | M6.1—M6.3 | 客户端归并、恢复、真实事项工作台 | in_progress | docs/implementation-checkpoints/M6-1-review-v1.md；M6-2-review-v1.md | 集中测试阶段实测：M6.1（15+7）与 M6.2（9+7）在同一指纹 `ad4d6464…` 上 passed；M6.1 的取消/清理边界随 M6.2 接线同步移动并复跑；M6.3 未开始，故不记 implementation_released |
 | CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | not_ready | — | — |
 | CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | not_ready | — | — |
 | CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | not_ready | — | — |
@@ -337,6 +337,13 @@ py -3.13 -m venv "$V/.venv"
 - 测试合同对齐：`PATCH-CP-00B-08`（假网关 body_schema/refusal_metadata/permission_hint/规范操作号、信封 request_id、M2.2 真实拒绝提示、`last_request.run_id`、403 归类、R3 脚本化工具调用补 `type=function`、月结定义 21→现行 22、行指纹按原列集合比较）。
 - 复验（同指纹 `46c3960e85c2e98fc41cdb9c0366341c5b60987cb10d1f88cbc0d6589bea4ff6`）：`b05-business-02` 161/0（`20260928T090316Z-f2eeac2f7b`）、`b05-business-03` 114/0（`20260928T083034Z-2b3ba7a4bc`）、`b04-check_assistant_r3` 与 `b05-business-09/10/13` 诊断全通过（`20260928T090849Z-7ca79b4be4`）。
 - 唯一未通过组仍为含符号链接 skip 的 `b05-business-11`；该断言需真实可创建符号链接的环境，属既有环境缺口，不改为通过。整轮复跑与最终登记见后续 CP-00B 记录。
+
+**集中测试基线复跑（2026-09-28，最终）**：run `20260928T092636Z-3bff5089f3`，源码指纹 `3b3e4ba71ecbf684f3107cfb756faba0a065942c955fa95331558efcae3565f3`。41 条命令全部实际执行：
+- `baseline_pytest` 22 条：**2780 passed / 0 failed / 1 skipped**（含 M0.2 自带的 657 项合同套件与 21 组业务回归）。
+- `python_script` 18 条（含 5 项 Node 前端检查、目录/工作流/清单/迁移等脚本）：全部 successful。
+- `baseline_collect` 1 条：完整清单通过。
+- 唯一 `complete=false` 的是 `b05-business-11`（104 passed / 0 failed / 1 skipped），skip 仍是当前环境无法创建文件符号链接的既有缺口，未改为通过。
+与 2026-09-27 基线（3336 passed / 0 failed / 1 skipped）相比：同一批命令口径下失败清零，新增 M1.4/M5.5—M5.8 等外部套件；M6.1/M6.2 另按各自 milestone 单独留证。
 
 **当前阻塞与恢复**：原 `tests/test_private_files.py::test_symlink_file_and_root_rejected` 因创建链接进入 OSError/skip 分支，文件读取和目录根拒绝断言未执行。本轮没有具体 Windows 错误码，不把此前探测 WinError 1314 写成本轮观测。须具备真实文件及目录符号链接创建条件后由统一 runner 复验；不能以硬链接/目录联接、删除断言、跳过或延期产品缺陷替代。之前关于系统条件的用户选择仍待答复，未改系统设置。CP-00B 不放行，M0.3/Runtime 未开始，真实模型调用 0。BASE-001 按已 released 的 CP-00A-v3 和本轮原节点通过回填 resolved，保留外部 before/history，不改旧 run 哈希。状态/报告回填在审计之后，不宣称回填后的整树字节仍等于冻结快照。
 
@@ -2445,11 +2452,13 @@ runner 向 Node 注入 `HUAKANGOS_TEST_SOURCE_ROOT` 和 `HUAKANGOS_TEST_OUTPUT`�
 
 ## M6.2：将发送、恢复和显式停止接入持久 Run
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测）
 
-**全局顺序前置**：M6.1 done。
+**全局顺序前置**：M6.1 done（CP-14 已放行后续编码）。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：Node 行为 + 接线/边界实测通过；真实浏览器双击发送/断线刷新/窄屏布局属 M6.3/M8.4。
+
+**执行记录**：2026-09-28 改 `web/businessassistant.js`：新增 `businessAssistantSendRuntime()`、`businessAssistantSendLegacy()`（原流式逻辑原样保留）、`businessAssistantRuntimeFeatures()`、`businessAssistantWatchRuntimeRun()`、`businessAssistantResumeRuntimeRun()`、`businessAssistantReleaseRuntime()`、`businessAssistantStopButtonHTML()`、`businessAssistantRunText()`；`businessAssistantSend()` 按 `/workspace` 投影的 `features.runtime` 分派，读取失败不得改走另一入口重发；只在员工发送时创建 session，`retry={session_id,request_id,content,thinking}` 保留同一提交标识，202 后用 RunView.id 订阅；只清除与已提交内容完全一致的输入；`businessAssistantWorking()` 在运行期间按服务端事件显示进度（局部发送结束不等于 Run 结束）；停止按钮仅在 `allowed_actions` 含 cancel 时显示"停止本次准备"，点击按当前版本 `cancelRun`，409 只刷新不重放、不删卡；离开页面/退出/换店只关闭订阅并 `disposeContext()`（注释已更新，不 cancel、不 revoke）。未改原确认/批量/卡片有效期/后端/迁移/模型合同。外部套件 `V/tests/frontend/test_m6_2.cjs`（9 项）+ `V/tests/runtime/test_m6_2.py`（7 项），run `20260928T105949Z-6203423841` passed；同指纹复跑 M6.1（`20260928T105921Z-9b6ab23df4`）passed，其"只有客户端自己可取消/清理"边界随本项移动（允许助手工件页发起显式停止）。详见 `docs/implementation-checkpoints/M6-2-review-v1.md`。源码指纹 `ad4d64645b5375f0c1d3aaeb61c569ebff1f85713adba3b08ebe9f6dc720387a`。
 
 
 **目标**：员工发言产生一个可恢复 Run，关闭页面不会等于取消；明确“停止本次准备”才调用取消接口。

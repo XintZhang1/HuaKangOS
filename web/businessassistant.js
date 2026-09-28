@@ -2,7 +2,7 @@
 // The assistant proposes existing business commands. This page never executes
 // model-produced JavaScript, HTML, URLs or arbitrary HTTP requests.
 let businessAssistantState;
-function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null,cards:{},folded:{},panelFolded:false,answers:{},lastAction:null,queueFilter:'pending',activeCardId:null,historyOpen:false,mobilePane:'chat',receipt:null,workboard:null,workPlanId:null,workError:'',workLoading:false,workSerial:0};}
+function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null,cards:{},folded:{},panelFolded:false,answers:{},lastAction:null,queueFilter:'pending',activeCardId:null,historyOpen:false,mobilePane:'chat',receipt:null,workboard:null,workPlanId:null,workError:'',workLoading:false,workSerial:0,runtimeFeatures:null,runId:null,runView:null,runSubscription:null,runStop:''};}
 function businessAssistantAnswers(id){const key=String(id);if(!businessAssistantState.answers[key])businessAssistantState.answers[key]={};return businessAssistantState.answers[key];}
 function businessAssistantCardQuestions(proposal){
  const questions=Array.isArray(proposal?.questions)?proposal.questions:[];
@@ -21,10 +21,19 @@ function businessAssistantCardQuestions(proposal){
 }
 businessAssistantState=freshBusinessAssistantState();
 function businessAssistantContext(){return `${storeContextVersion}:${state.user?.id||''}:${state.store||''}`;}
+// 退出登录/换门店只清浏览器状态：不调用 cancel、不撤销 Grant、不删除卡片。
+// 即时 Run 是否继续由服务端按当前会话与权限决定；持续跟进授权在退出后仍按原合同继续。
+function businessAssistantReleaseRuntime(){
+ const current=businessAssistantState;
+ if(current?.runSubscription){try{current.runSubscription();}catch{}current.runSubscription=null;}
+ if(typeof globalThis.AssistantRuntime?.disposeContext==='function')globalThis.AssistantRuntime.disposeContext();
+ if(current){current.runId=null;current.runView=null;current.runStop='';}
+}
 function clearBusinessAssistantSession(){
  if(typeof clearWorkflowContext==='function')clearWorkflowContext();
  const previous=businessAssistantState;
  for(const controller of previous.controllers)controller.abort();
+ businessAssistantReleaseRuntime();
  businessAssistantState=freshBusinessAssistantState();businessAssistantState.generation=previous.generation+1;
 }
 function leaveBusinessAssistantView(){
@@ -251,6 +260,10 @@ function businessAssistantWorking(){
  const current=businessAssistantState;
  if(current.busy){const round=Number(current.stream?.round)||0;const text=({thinking:'正在思考…',responding:'正在回复…',tool:'正在准备表单…'})[current.stream?.phase]||'正在处理…';
   return `<p class="ba-working" role="status">${text}${round>1?`（第 ${round} 轮，一轮准备好的卡片会在本轮结束时一起列出）`:''}</p>`;}
+ // 局部发送结束不等于 Run 结束：运行期间按服务端事件显示进度，只有服务端终态才收尾。
+ if(current.runId){const phase=({thinking:'正在思考…',responding:'正在回复…',tool:'正在准备表单…'})[current.stream?.phase]||'正在处理…';
+  return `<p class="ba-working" role="status">${current.stream?.text?E(current.stream.text):phase}</p>`;}
+ if(current.runStop)return `<p class="ba-working" role="status">${E(current.runStop)}</p>`;
  return current.session?.busy?'<p class="ba-working">这段对话正在处理，请稍后刷新。</p>':'';
 }
 function paintBusinessAssistantStream(){
@@ -260,7 +273,7 @@ function paintBusinessAssistantStream(){
 }
 function businessAssistantCompose(){
  const current=businessAssistantState,ready=current.status?.ready&&!current.session?.busy&&!current.needsRefresh,disabled=current.busy||!ready;
- return `<form class="ba-compose" id="business-assistant-form"><label class="ba-input-label" for="business-assistant-input">说说要办的事</label><textarea id="business-assistant-input" name="message" rows="3" maxlength="${Number(current.status?.limits?.max_message_chars)||6000}" placeholder="例如：给张先生安排明天下午的回访" ${current.busy||current.retry?'readonly':''}>${E(current.draft)}</textarea><div class="ba-compose-bottom"><div class="row ba-compose-tools"><button type="button" data-baf-action="open" ${current.busy||current.retry?"disabled":""}>从文件填表</button><button type="button" class="ba-thinking-toggle" data-ba-action="thinking" role="switch" aria-checked="${current.thinking}" ${current.busy||current.retry?'disabled':''}>思考：${current.thinking?'开':'关'}</button><span class="ba-keyboard">Enter 发送 · Shift + Enter 换行</span></div><div class="row">${current.busy?'<button type="button" data-ba-action="stop">停止等待</button>':''}<button type="submit" class="primary" ${disabled||!current.draft.trim()?'disabled':''}>${current.busy?'处理中…':current.retry?'重试':'发送'}</button></div></div></form>`;
+ return `<form class="ba-compose" id="business-assistant-form"><label class="ba-input-label" for="business-assistant-input">说说要办的事</label><textarea id="business-assistant-input" name="message" rows="3" maxlength="${Number(current.status?.limits?.max_message_chars)||6000}" placeholder="例如：给张先生安排明天下午的回访" ${current.busy||current.retry?'readonly':''}>${E(current.draft)}</textarea><div class="ba-compose-bottom"><div class="row ba-compose-tools"><button type="button" data-baf-action="open" ${current.busy||current.retry?"disabled":""}>从文件填表</button><button type="button" class="ba-thinking-toggle" data-ba-action="thinking" role="switch" aria-checked="${current.thinking}" ${current.busy||current.retry?'disabled':''}>思考：${current.thinking?'开':'关'}</button><span class="ba-keyboard">Enter 发送 · Shift + Enter 换行</span></div><div class="row">${businessAssistantStopButtonHTML()}<button type="submit" class="primary" ${disabled||!current.draft.trim()?'disabled':''}>${current.busy?'处理中…':current.retry?'重试':'发送'}</button></div></div></form>`;
 }
 function businessAssistantChat(){
  const current=businessAssistantState;
@@ -315,6 +328,8 @@ function businessAssistantRememberSession(session){
  else if(newest&&newest!==previous.work_plans?.[0]?.id){businessAssistantState.workboard=null;businessAssistantState.workPlanId=newest;businessAssistantState.workError='';businessAssistantState.workSerial++;}
  businessAssistantState.session=session;
  businessAssistantState.sessions=[session,...businessAssistantState.sessions.filter(item=>item.id!==session.id)];
+ // 刷新/重开后按服务器记录的 last_request.run_id 恢复；null 表示没有可恢复引用，不按消息位置猜。
+ businessAssistantResumeRuntimeRun();
 }
 async function businessAssistantTask(work){
  const current=businessAssistantState;if(current.busy)return;
@@ -322,9 +337,78 @@ async function businessAssistantTask(work){
  try{await work(current,generation);}catch(error){if(businessAssistantAlive(current,generation)){if(error.assistantSession){businessAssistantRememberSession(error.assistantSession);current.stream=null;}current.needsRefresh=true;current.error=error.name==='AbortError'?'已停止等待。请刷新对话核对结果，再继续办理。':error.message;}}
  finally{if(businessAssistantAlive(current,generation)){if(typeof businessAssistantRefreshWork==='function')await businessAssistantRefreshWork(current,generation);if(!businessAssistantAlive(current,generation))return;const finished=current.busy;current.busy=false;paintBusinessAssistant();if(finished&&state.route!=='business-assistant'&&!current.error)toast('业务助手已处理完这一轮，回到助手页可以看结果。');}}
 }
+async function businessAssistantRuntimeFeatures(){
+ const current=businessAssistantState;
+ if(current.runtimeFeatures)return current.runtimeFeatures;
+ try{const view=await businessAssistantRequest('/workspace');current.runtimeFeatures=view?.features||{};}
+ catch(error){current.runtimeFeatures=null;}  // 读取失败绝不能改走另一个入口重发同一句话
+ return current.runtimeFeatures;
+}
+// succeeded 的固定中文展示：只表示"本次准备已完成"，不代表业务已办理完成。
+function businessAssistantRunText(status){return status==='succeeded'?'本次准备已完成':status==='cancelled'?'本次准备已停止':'本次准备未完成，请核对后继续。';}
+function businessAssistantStopButtonHTML(){
+ const current=businessAssistantState;
+ const canCancel=current.runId&&Array.isArray(current.runView?.allowed_actions)&&current.runView.allowed_actions.includes('cancel');
+ if(canCancel)return '<button type="button" data-ba-action="stop">停止本次准备</button>';
+ return current.busy&&!current.runId?'<button type="button" data-ba-action="stop">停止等待</button>':'';
+}
+function businessAssistantWatchRuntimeRun(runId){
+ const runtime=globalThis.AssistantRuntime,current=businessAssistantState;
+ if(!runtime||!runId||current.runId===runId&&current.runSubscription)return;
+ if(current.runSubscription){try{current.runSubscription();}catch{}current.runSubscription=null;}
+ current.runId=String(runId);current.runStop='';
+ current.runSubscription=runtime.subscribeRun(current.runId,event=>{
+  if(!businessAssistantAlive(current,current.generation))return;
+  if(event.type!=='view')return;
+  current.runView=event.view;
+  const display=event.view?.display;
+  if(display&&typeof display.text==='string'&&display.text&&Number.isSafeInteger(display.revision)){
+   current.stream={request_id:current.retry?.request_id||'',content:current.retry?.content||'',text:display.text,phase:display.phase||'responding',round:0};
+  }
+  if(event.session)businessAssistantRememberSession(event.session);
+  const status=event.view?.status;
+  if(['succeeded','failed','cancelled'].includes(status)){
+   current.runStop=businessAssistantRunText(status);current.stream=null;current.retry=null;
+   if(current.runSubscription){try{current.runSubscription();}catch{}current.runSubscription=null;}
+   current.runId=null;
+  }
+  paintBusinessAssistant();
+ });
+}
+async function businessAssistantResumeRuntimeRun(){
+ const current=businessAssistantState;
+ const runId=current.session?.last_request?.run_id;
+ if(!runId||current.runId===String(runId)||!globalThis.AssistantRuntime)return;
+ if(typeof businessAssistantRequest!=='function')return;
+ const features=await businessAssistantRuntimeFeatures();
+ if(!features?.runtime||!businessAssistantAlive(current,current.generation))return;
+ businessAssistantWatchRuntimeRun(runId);
+}
+async function businessAssistantSendRuntime(text){
+ if(!globalThis.AssistantRuntime?.submitRun)throw new Error('本页执行客户端未就绪，请刷新后重试。');
+ await businessAssistantTask(async(current,generation)=>{
+  if(!current.session){const session=await businessAssistantRequest('/sessions',{method:'POST',body:{}});if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);}
+  if(!current.retry||current.retry.session_id!==current.session.id)current.retry={session_id:current.session.id,request_id:requestKey(),content:text,thinking:current.thinking};
+  const request=current.retry;current.thinking=request.thinking;current.draft=request.content;
+  current.stream={request_id:request.request_id,content:request.content,text:'',phase:request.thinking?'thinking':'responding',round:0};paintBusinessAssistant();
+  let view;
+  try{view=await globalThis.AssistantRuntime.submitRun(current.session.id,{request_id:request.request_id,content:request.content,thinking:request.thinking});}
+  catch(error){current.stream=null;throw error;}  // 结果未知时保留同一 request_id 的提交记录供重试
+  if(!businessAssistantCurrent(current,generation))return;
+  current.runView=view;current.runStop='';
+  if(current.draft.trim()===request.content.trim())current.draft='';  // 只清与已提交内容完全一致的输入
+  paintBusinessAssistant();
+  businessAssistantWatchRuntimeRun(view.id);
+ });
+}
 async function businessAssistantSend(){
  const text=businessAssistantState.draft.trim();if(!text||!businessAssistantState.status?.ready||businessAssistantState.session?.busy||businessAssistantState.needsRefresh)return;
  businessAssistantState.lastAction=null;
+ const features=await businessAssistantRuntimeFeatures();
+ if(features?.runtime)return businessAssistantSendRuntime(text);
+ return businessAssistantSendLegacy(text);
+}
+async function businessAssistantSendLegacy(text){
  await businessAssistantTask(async(current,generation)=>{
   if(!current.session){const session=await businessAssistantRequest('/sessions',{method:'POST',body:{}});if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);}
   if(!current.retry||current.retry.session_id!==current.session.id)current.retry={session_id:current.session.id,request_id:requestKey(),content:text,thinking:current.thinking};
@@ -469,7 +553,21 @@ document.addEventListener('click',async event=>{
  const element=event.target.closest('[data-ba-action]');if(!element||element.disabled||state.route!=='business-assistant')return;
  const action=element.dataset.baAction,current=businessAssistantState;
  try{
-  if(action==='stop'){for(const controller of current.controllers)controller.abort();return;}
+  if(action==='stop'){
+   if(current.runId){
+    const runtime=globalThis.AssistantRuntime,version=current.runView?.version;
+    if(!runtime?.cancelRun||!Number.isSafeInteger(version)){toast('请先刷新执行状态，再停止本次准备。',true);return;}
+    current.runStop='正在停止…';paintBusinessAssistant();
+    try{await runtime.cancelRun(current.runId,version);}
+    catch(error){
+     if(error?.status===409){current.error='执行状态已变化，请核对后重试。';try{await runtime.getRun(current.runId);}catch{}}
+     else current.error=error?.message||'停止未完成，请稍后重试。';
+     paintBusinessAssistant();
+    }
+    return;
+   }
+   for(const controller of current.controllers)controller.abort();return;
+  }
   if(action==='fill-missing'){const card=document.querySelector('#business-assistant-cards [data-proposal]');const input=[...(card?.querySelectorAll('[data-baq-key][required]')||[])].find(x=>!x.value.trim());if(input){input.scrollIntoView({block:'center',behavior:'instant'});input.focus({preventScroll:true});}return;}
   if(action==='history'){current.historyOpen=!current.historyOpen;paintBusinessAssistant();return;}
   if(action==='queue-filter'){current.queueFilter=element.dataset.filter;current.activeCardId=null;paintBusinessAssistantCards();return;}
