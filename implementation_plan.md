@@ -3404,48 +3404,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/visit_activity_report.py`（`VisitActivityReportAdapter`，`object_types=('report_query',)`：受控只读读取原语 `read_visit_report(principal, date_from, date_to, case_id)` 只经 `GET /api/visit-activity-reports`；**原 `/export/{key}` 未登记，只作说明常量、绝不被调用**；**原接口只有这三个筛选参数**（逐字核对签名），参数按形状校验后原样透传、**空参数不臆造筛选**；**`fact_keys=()`：不注册任何事实键，统计数字不生成接待、成交或结清事实**；`read_snapshot` 明确"冻结范围与期间由核心运行时提供"（503 + 零读取）；`extract_result` 恒空；写形状提交先按快照校验（GET → 422）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未注册任何写 operation。外部套件 `$ValidationRoot/tests/runtime_domains/test_visit_activity_report.py`（6 项），run `20260928T141041Z-caa5c83e3b` passed。详见 `docs/implementation-checkpoints/M7-9-5-review-v1.md`。源码指纹 `da31c73f92afb4541e6c1235f6135c773182924307bbd3a492a42f3fc1233c08`。下一项 M7.9.6。
 
-### M7.9.6 原经营汇总与日报查询
+### M7.9.6 经营报表与日报
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；5 项通过；**含两处边界如实登记**）
 
 **全局顺序前置**：M7.9.5 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：封闭域/被挡写入边界、唯一已评审只读、零事实键在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `management_report` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/main.py`、`app/reports.py`、`app/flow_analytics.py`、`app/business_assistant_gateway.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/management_report.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_management_report.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/dashboard、/api/reports、/api/reports/{report_id}、/api/flow/analytics；生成日报 POST 在 CLASSIFIED_BLOCKED_WRITES。
-
-**注册合同**：object_type=report_query（本人 WorkItem.id）；daily_report（原 DailyReport.id）；adapter=`app/assistant_runtime_domains/management_report.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`fact_keys=[]`；dashboard/analytics/list 使用 report_query，已有单份日报 GET 使用 daily_report。日报存在/生成时间不代表现金、库存或外部手续完成。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：日报版本/原期间/是否 provisional 与真实摘要；历史报表保持原定义。
-3. 接统一只读回执 resolver：仅 GET，read_receipt=unsupported；已存在 DailyReport 使用原 report_id。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：助手未配置仍可读授权结果；不给普通销售管理页面内容；查询日报不触发日报生成/外发 AI 合同。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_management_report.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.9.6
-```
-
-**勾选验收**：
-
-- [ ] 原查询结果/筛选/权限与原页面一致；没有生成业务卡、调用写接口或改变业务行。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 无原生版本返回 null，report_query 不被付款/实物完成条件接受。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/management_report.py`（`ManagementReportAdapter`，`object_types=('report_query','daily_report')`）。**经核对的三条事实**：① 计划点名的 `GET /api/dashboard`、`GET /api/reports`、`GET /api/reports/{report_id}` **均不在 reviewed catalog 内**（`dashboard`/`reports` 属原网关 `CLOSED_DOMAINS`，GET 亦被过滤），**没有已评审读取可用**；② 唯一可用已评审只读为 `GET /api/flow/analytics`，已实现为受控原语 `read_flow_analytics`；③ **日报生成写属 `CLASSIFIED_BLOCKED_WRITES`**（原清单 `POST /api/reports/generate`、`POST /api/reports/preview`），只登记边界、**绝不调用**（套件断言二者在清单内且不在目录内）。`report_query` 边界：冻结查询由核心提供（503 + 零读取）；`daily_report` 边界：无读取且写被挡（503 + 零读取）；**`fact_keys=()`：不注册任何事实键**；`extract_result` 恒空；被挡写入快照返回 `unsupported / read_only_report`、非法快照 422。**实测拦截与修复（如实保留）**：① 我先把被挡写入路由猜成 `/reports/daily`，读原清单后更正为 `/generate`＋`/preview`；② 一次补丁把字面换行写进安装脚本，`ast.parse` 立即拦截（未污染仓库）；③ 回执期望按真实契约修正（合法快照 → unsupported，非抛异常）；④ 5 项低于登记下限被 `below_registered_minimum` 拦截，按实际规模对齐（未虚增）。外部套件 `$ValidationRoot/tests/runtime_domains/test_management_report.py`（5 项），run `20260928T141435Z-73ca8ac3b9` passed。详见 `docs/implementation-checkpoints/M7-9-6-review-v1.md`。源码指纹 `c8b9a19fdda1d481cb10abe25bb6161d4fe79f363dea2bab842717348477caf3`。**待评审**：是否放开 dashboard/reports 与日报生成。下一项 M7.10.1。
 
 ## M7.10 跨店调拨、异常与原单授权
 
