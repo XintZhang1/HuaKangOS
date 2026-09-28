@@ -89,7 +89,7 @@
 | CP-21 | M7.4.1—M7.4.3 | 精品销售、套餐核销、零售集团 | implementation_released | docs/implementation-checkpoints/M7-4-1-review-v1.md；M7-4-2-review-v1.md；M7-4-3-review-v1.md | M7.4.1（9 项）、M7.4.2（9 项）、M7.4.3（7 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.5.1（CP-22） |
 | CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | implementation_released | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md；M7-5-3-review-v1.md | M7.5.1（8 项）、M7.5.2（8 项）、M7.5.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.6.1（CP-23） |
 | CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | implementation_released | docs/implementation-checkpoints/M7-6-1-review-v1.md；M7-6-2-review-v1.md；M7-6-3-review-v1.md | M7.6.1（9 项）、M7.6.2（9 项）、M7.6.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.1（CP-24） |
-| CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | not_ready | — | — |
+| CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | **计划内部不一致（待业主确认）** | — | 本表引用的 M7.6.4/M7.6.5 在计划正文中**没有对应条目**（正文 M7.6 组只有 M7.6.1—M7.6.3，其后直接为 M7.7.1）；按正文编号顺序继续实施 M7.7.1，不自行虚构缺失条目；此不一致由实施者如实登记，不擅自改动业主计划的分组意图 |
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益单位 | not_ready | — | — |
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | not_ready | — | — |
 | CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | not_ready | — | — |
