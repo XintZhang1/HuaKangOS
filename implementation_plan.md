@@ -3420,50 +3420,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 <a id="m7-10-1"></a>
 
-### M7.10.1 跨店物资调拨
+### M7.10.1 物资调拨
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；8 项通过）
 
 **全局顺序前置**：M7.9.6 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条流水事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `material_transfer` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/transfer_api.py`、`app/transfer_service.py`、`app/transfer_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/material_transfer.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_material_transfer.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/transfers/{key}；requested/approved/transit/completed/cancelled；dispatch/receive/return_ship/return_receive。
-
-**注册合同**：object_type=material_transfer（MaterialTransfer.id）；adapter=`app/assistant_runtime_domains/material_transfer.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`material_transfer.dispatch_recorded`：本单原 TransferMovement 的 dispatch 来源；`material_transfer.receive_recorded`：本单原 receive movement；`material_transfer.return_receive_recorded`：本单原 return_receive movement。保留 line_id/数量及双方店，至少一行记录不代表整批齐收。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：双方批准、每行实际发收/退运/退回、在途及来源数量。
-3. 接统一只读回执 resolver：TransferReceipt，transfer_service.execute；冻结请求内发起店与 actor。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：双方本店身份分别查询；部分签收保留每行未结；禁止改 store_id 或用源店权限代目的店签收。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_material_transfer.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.10.1
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-10-2"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/material_transfer.py`（`MaterialTransferAdapter`，`object_types=('material_transfer',)`：快照单次只读 `GET /api/transfers/{key}`，**key 即原 `MaterialTransfer.id`**，ID 不一致 502、**未登记状态 422**，动作可用性一律 `unknown`；`extract_result` 覆盖调拨族 operation（目的店读不绑定结果）；`read_receipt` 走 `TransferReceipt` 族并保持冻结 `request_id`；事实 `material_transfer.dispatch_recorded`/`receive_recorded`/`return_receive_recorded` 各自要求**可识别流水类型 + 行引用 `line_id` + 正数量**并保留**双方店**；缺行/缺数量/引用不完整一律未知，详情未提供流水时未知，**至少一行记录不代表整批齐收**），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原数量公式与 `store_id`。外部套件 `$ValidationRoot/tests/runtime_domains/test_material_transfer.py`（8 项），run `20260928T141606Z-dabed5535d` passed。详见 `docs/implementation-checkpoints/M7-10-1-review-v1.md`。源码指纹 `189eb61cfbaf4bd8295744452f47e543a735ee170c2f1daee56b274e8adc3bd9`。下一项 M7.10.2。
 
 ### M7.10.2 跨店整车调拨
 

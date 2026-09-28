@@ -89,6 +89,9 @@ from .visit_activity_report import (VISIT_FACTS, VISIT_OBJECT_TYPE, VISIT_PARAMS
                                   VISIT_READ, VisitActivityReportAdapter)
 from .management_report import (MGMT_ANALYTICS, MGMT_BLOCKED_WRITE, MGMT_DAILY_TYPE,
                                    MGMT_FACTS, MGMT_QUERY_TYPE, ManagementReportAdapter)
+from .material_transfer import (TRANSFER_ACTION, TRANSFER_ACTIONS, TRANSFER_CREATE,
+                                TRANSFER_DESTINATIONS, TRANSFER_FACTS, TRANSFER_OBJECT_TYPE,
+                                TRANSFER_READ, MaterialTransferAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -163,7 +166,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'VISIT_FACTS', 'VISIT_OBJECT_TYPE', 'VISIT_PARAMS', 'VISIT_READ',
            'VisitActivityReportAdapter',
            'MGMT_ANALYTICS', 'MGMT_BLOCKED_WRITE', 'MGMT_DAILY_TYPE', 'MGMT_FACTS',
-           'MGMT_QUERY_TYPE', 'ManagementReportAdapter']
+           'MGMT_QUERY_TYPE', 'ManagementReportAdapter',
+           'TRANSFER_ACTION', 'TRANSFER_ACTIONS', 'TRANSFER_CREATE', 'TRANSFER_DESTINATIONS',
+           'TRANSFER_FACTS', 'TRANSFER_OBJECT_TYPE', 'TRANSFER_READ', 'MaterialTransferAdapter']
 
 
 def register_adapters(registry):
@@ -177,6 +182,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.10.1：物资调拨（material_transfer）静态注册；key 即原 MaterialTransfer.id。
+    registry.register(DomainAdapterSpec(
+        name='material_transfer', factory=MaterialTransferAdapter,
+        object_types=(TRANSFER_OBJECT_TYPE,),
+        operation_ids=(TRANSFER_READ, TRANSFER_CREATE, TRANSFER_ACTION),
+        fact_keys=TRANSFER_FACTS,
+        fallback_object_types=(),
     ))
     # M7.9.6：经营报表与日报（management_report）静态注册。
     # dashboard/reports 属封闭域、无已评审读取；日报生成是被挡写入 → 只登记唯一已评审只读。
