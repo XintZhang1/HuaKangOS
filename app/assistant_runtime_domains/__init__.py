@@ -83,6 +83,8 @@ from .stock_period_report import (PERIOD_FACTS, PERIOD_OBJECT_TYPE, PERIOD_PARAM
 from .repair_material_report import (MATERIAL_FACTS, MATERIAL_OBJECT_TYPE,
                                     MATERIAL_PARAMS, MATERIAL_READ,
                                     RepairMaterialReportAdapter)
+from .material_value_report import (VALUE_FACTS, VALUE_OBJECT_TYPE, VALUE_PARAMS,
+                                   VALUE_READ, MaterialValueReportAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -151,7 +153,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'PERIOD_FACTS', 'PERIOD_OBJECT_TYPE', 'PERIOD_PARAMS', 'PERIOD_READ',
            'StockPeriodReportAdapter',
            'MATERIAL_FACTS', 'MATERIAL_OBJECT_TYPE', 'MATERIAL_PARAMS', 'MATERIAL_READ',
-           'RepairMaterialReportAdapter']
+           'RepairMaterialReportAdapter',
+           'VALUE_FACTS', 'VALUE_OBJECT_TYPE', 'VALUE_PARAMS', 'VALUE_READ',
+           'MaterialValueReportAdapter']
 
 
 def register_adapters(registry):
@@ -165,6 +169,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.9.4：物资价值统计（material_value_report）静态注册；只读聚合，不注册任何事实键。
+    registry.register(DomainAdapterSpec(
+        name='material_value_report', factory=MaterialValueReportAdapter,
+        object_types=(VALUE_OBJECT_TYPE,),
+        operation_ids=(VALUE_READ,),
+        fact_keys=(),
+        fallback_object_types=(),
     ))
     # M7.9.3：维修领退料统计（repair_material_report）静态注册；只读统计，不注册任何事实键。
     registry.register(DomainAdapterSpec(
