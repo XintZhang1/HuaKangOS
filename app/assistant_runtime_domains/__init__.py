@@ -119,6 +119,9 @@ from .insurance_order import (INS_ACTION, INS_ACTIONS, INS_CREATE, INS_FACTS,
                                 INS_OBJECT_TYPE, INS_READ, InsuranceOrderAdapter)
 from .addon_order import (ADDON_ACTION, ADDON_ACTIONS, ADDON_CREATE, ADDON_FACTS,
                             ADDON_OBJECT_TYPE, ADDON_READ, AddonOrderAdapter)
+from .service_order import (SVC_ACTION, SVC_ACTIONS, SVC_CREATE, SVC_FACTS,
+                              SVC_INCOME_ITEMS, SVC_OBJECT_TYPE, SVC_PAYEES, SVC_READ,
+                              ServiceOrderAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -218,7 +221,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'INS_ACTION', 'INS_ACTIONS', 'INS_CREATE', 'INS_FACTS', 'INS_OBJECT_TYPE',
            'INS_READ', 'InsuranceOrderAdapter',
            'ADDON_ACTION', 'ADDON_ACTIONS', 'ADDON_CREATE', 'ADDON_FACTS',
-           'ADDON_OBJECT_TYPE', 'ADDON_READ', 'AddonOrderAdapter']
+           'ADDON_OBJECT_TYPE', 'ADDON_READ', 'AddonOrderAdapter',
+           'SVC_ACTION', 'SVC_ACTIONS', 'SVC_CREATE', 'SVC_FACTS', 'SVC_INCOME_ITEMS',
+           'SVC_OBJECT_TYPE', 'SVC_PAYEES', 'SVC_READ', 'ServiceOrderAdapter']
 
 
 def register_adapters(registry):
@@ -232,6 +237,15 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.12.3：代办与其他客户服务单（service_order）静态注册；key 即原 Case.id。
+    # income-items/payees 虽已评审但非本单作用域，本适配器不登记也不调用。
+    registry.register(DomainAdapterSpec(
+        name='service_order', factory=ServiceOrderAdapter,
+        object_types=(SVC_OBJECT_TYPE,),
+        operation_ids=(SVC_READ, SVC_CREATE, SVC_ACTION),
+        fact_keys=SVC_FACTS,
+        fallback_object_types=(),
     ))
     # M7.12.2：加装单（addon_order）静态注册；key 即原 Case.id（AddonOrder.id 与之相同）。
     registry.register(DomainAdapterSpec(

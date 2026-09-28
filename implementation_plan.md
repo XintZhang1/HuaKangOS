@@ -3554,46 +3554,13 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.12.3 代办及其他客户服务
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.12.2 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：Case.id 键、三条事实（提交、最新提交的外部批准、履约行）与回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `service_order` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/service_orders_api.py`、`app/service_orders_service.py`、`app/service_orders_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/service_order.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_service_order.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/service-orders/{case_id}；subtype=agency/other_income；quote/approve/authorize/submit/external_result/fulfill/receive/disburse/termination/refund。
-
-**注册合同**：object_type=case（ServiceOrder.id 与原 Case.id 相同）；adapter=`app/assistant_runtime_domains/service_order.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`service.submission_recorded`：本单原 ServiceSubmission；`service.external_approved`：原 ServiceExternalResult.outcome=approved 且对应当前原项目最新提交；`service.fulfillment_recorded`：本单原 ServiceFulfillment 及 line_key。至少一项履约不代表全部项目或款项完成。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：服务费/代收代付行、实际外部提交/结果、实际履约、原款代缴/退回与终止方案分别输出。
-3. 接统一只读回执 resolver：ServiceRequest/service_requests，沿 service_orders_service._execute 的原 operation/payload 摘要。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：外部 need_documents/rejected 不完结；代缴款不并入服务收入；实际办结与实际收款分别等待，未知退款不重放。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_service_order.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.12.3
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/service_order.py`（`ServiceOrderAdapter`，`object_types=('case',)`：**key 即原 `Case.id`**（`ServiceOrder.id` 与之相同），快照单次只读 `GET /api/service-orders/{case_id}`（`subtype=agency/other_income`），ID 不一致 502、动作可用性一律 `unknown`；事实字段名逐字取自原 `describe()` 投影：`service.submission_recorded`（`submissions[]` 的可识别原提交）、`service.external_approved`（**只认最新提交**（id 最大者）的结果为 `approved`；**旧提交的 approved 不能当当前项目结果**；`submission_id` 与最新提交不一致即未知）、`service.fulfillment_recorded`（`lines[]` 中 `fulfilled=true` **且带可识别 `line_key`**）；三条事实理由均声明**至少一项履约不代表全部项目或款项完成**；`extract_result` 只绑定本单族 operation；**`POST /api/service-orders/income-items` 与 `/payees` 虽已评审但非本单作用域，不登记也不调用**；回执族 **ServiceRequest** 使用**冻结的最终提交快照**、`request_id` 绝不重新生成、**无回执不得猜成功**），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原行净额/已付与代收代付口径。**实测拦截与修复（如实保留）**：① 套件夹具笔误（`native_reader` 传参）当场修掉；② 对源码字面键 `'tenders'`/`'plans'` 的断言过严（原实现是变量赋值），改为断言 `tenders=[]`/`plans=[]`——产品代码未改。外部套件 `$ValidationRoot/tests/runtime_domains/test_service_order.py`（7 项），run `20260928T144109Z-1e2bcfe806` passed。详见 `docs/implementation-checkpoints/M7-12-3-review-v1.md`。源码指纹 `c98db01ad64bedea17d0770cf518a8e9c2ea0b0c915e1470bbc3ade9697f17ac`。**索引中最后一个 `###` 级实现项已完成：M7.1.1—M7.12.3 全部落盘并逐项实测；剩余 `todo` 均为 M8.x 验收/交接类条目（需真实浏览器/模型/PostgreSQL/Linux/故障演练/员工试用等环境条件，属集中测试阶段）。**
 
 ## 业务适配整体收口（不是额外实现任务）
 
