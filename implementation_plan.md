@@ -82,7 +82,7 @@
 | CP-14 | M6.1—M6.4 | 客户端归并、恢复、事项工作台、默认入口 | implementation_released | docs/implementation-checkpoints/M6-1-review-v1.md；M6-2-review-v1.md；M6-3-review-v1.md；M6-4-review-v1.md | 集中测试阶段实测：M6.1（15+7）、M6.2（9+7）、M6.3（10+6）、M6.4（6+6）在同一批指纹上 passed；每次前端改动后同指纹回归（workboard/r3/ux/workspaces/oneclick）diagnostic_passed；M6.1 的取消/清理边界随 M6.2 接线同步移动并复跑。仅放行后续编码，不表示测试全部通过或功能启用；继续 M6.5—M6.8（CP-15） |
 | CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | implementation_released | docs/implementation-checkpoints/M6-4-review-v1.md；M6-5-review-v1.md；M6-6-review-v1.md | M6.4（6+6）、M6.5（13+8）、M6.6（12+7）均已 implemented 并实测通过，退出后 worker 继续与真实浏览器反馈留待 M8.1/M8.4；仅放行后续编码，继续 M6.7—M6.8（CP-16） |
 | CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | implementation_released | docs/implementation-checkpoints/M6-7-review-v1.md；M6-8-review-v1.md | M6.7（11+9）与 M6.8（21 条命令全通过：M6.1—M6.8 Node 82 项 + 旧回归 67 项 + Python 61 项 + 语法/生成物检查）均已 implemented 并实测；真实浏览器、真实模型、PostgreSQL、员工试用仍属 M8.x，故不记 released；M6 章节收口，继续 M7.1.1（CP-17） |
-| CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | in_progress | docs/implementation-checkpoints/M7-1-1-review-v1.md | M7.1.1（lead 适配器）已 implemented 并实测 10 项通过，同指纹 M1.4/M0.1/M0.2.B 回归通过；M7.1.2/M7.1.3 未开始，故不记 implementation_released |
+| CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | in_progress | docs/implementation-checkpoints/M7-1-1-review-v1.md | M7.1.1（lead，10 项）与 M7.1.2（sales_order，9 项）已 implemented 并实测通过，同指纹回归通过；M7.1.3 未开始，故不记 implementation_released |
 | CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | not_ready | — | — |
 | CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | not_ready | — | — |
 | CP-20 | M7.3.4—M7.3.5 | 理赔核赔、真实进出厂 | not_ready | — | — |
@@ -2896,11 +2896,14 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.1.2 版本报价与车辆交付
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；9 项通过）
 
 **全局顺序前置**：M7.1.1 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/报价族回执在隔离夹具中通过；真实原库与真实模型属 M8.x。
+
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/sales_order.py`（`SalesOrderAdapter(FlowCaseAdapter)`，`kind='order'`、`flow_version=3`：`read_snapshot` 单次只读 `GET /api/sales-quotes/orders/{key}` 且收口 kind、`extract_result` 覆盖报价族 operation、`read_receipt` 走报价族回执并保持冻结 `request_id`；事实 `sales.active_quote_approved`/`sales.active_quote_consented`/`sales.delivery_recorded` 分别以原 review 决定与 resolution、`sales_consent_id`+`signed_file`、原交付事实键为准，缺证据即未知，报价批准不等于交付），并在 `__init__.py` 显式注册（`kind_versions=fact_kind_versions=(('case','order',3),)`、`fallback_object_types=()`）。实测发现并修复：跨店读取误判 502（改为 404 且不暴露旧快照）、快照要求原待办携带真实 `case_id`、未绑定回执族的夹具写错。外部套件 `$ValidationRoot/tests/runtime_domains/test_sales_order.py`（9 项），run `20260928T130043Z-76ef912e42` passed；同指纹 M7.1.1 仍通过。详见 `docs/implementation-checkpoints/M7-1-2-review-v1.md`。源码指纹 `e04c4efb5d90ceb5d22b98572e30bb053c91dbed1f2735aec6bed61e87bcfe40`。下一项 M7.1.3。
+
 
 
 **目标**：只完成 `sales_order` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
