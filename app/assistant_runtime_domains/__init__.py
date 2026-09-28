@@ -7,11 +7,16 @@ from .flow_case import FLOW_ACTION, FLOW_CREATE, FLOW_READ, FlowCaseAdapter
 from .lead import LEAD_ACTIONS, LEAD_FACTS, LEAD_KIND, LeadAdapter
 from .sales_order import (SALES_CREATE, SALES_FACTS, SALES_KIND, SALES_PROPOSE,
                           SALES_READ, SALES_VEHICLES, SalesOrderAdapter)
+from .aftercare import (AFTERCARE_ACTION, AFTERCARE_CREATE, AFTERCARE_FACTS,
+                        AFTERCARE_FLOW_VERSION, AFTERCARE_KIND, AFTERCARE_READ,
+                        AFTERCARE_SCENARIOS, AftercareAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
            'SALES_CREATE', 'SALES_FACTS', 'SALES_KIND', 'SALES_PROPOSE', 'SALES_READ',
-           'SALES_VEHICLES', 'SalesOrderAdapter']
+           'SALES_VEHICLES', 'SalesOrderAdapter',
+           'AFTERCARE_ACTION', 'AFTERCARE_CREATE', 'AFTERCARE_FACTS', 'AFTERCARE_FLOW_VERSION',
+           'AFTERCARE_KIND', 'AFTERCARE_READ', 'AFTERCARE_SCENARIOS', 'AftercareAdapter']
 
 
 def register_adapters(registry):
@@ -25,6 +30,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.1.3：退订退车及维修退款纠正（aftercare）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='aftercare', factory=AftercareAdapter, object_types=('case',),
+        operation_ids=(AFTERCARE_READ, AFTERCARE_CREATE, AFTERCARE_ACTION),
+        kind_versions=(('case', AFTERCARE_KIND, AFTERCARE_FLOW_VERSION),),
+        fact_kind_versions=(('case', AFTERCARE_KIND, AFTERCARE_FLOW_VERSION),),
+        fallback_object_types=(),
     ))
     # M7.1.2：版本报价与车辆交付（sales_order）静态注册。
     registry.register(DomainAdapterSpec(
