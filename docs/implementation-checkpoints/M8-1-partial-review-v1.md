@@ -60,6 +60,28 @@ run `20260928T144342Z-875dbfaa7d`，`phase_complete=true`，源码指纹 `9bebdc
 **均可**在既有 overlay 夹具上落地（新增用例放在同一 M8.1 套件内即可），无需另起运行环境；
 下一轮按此路径继续，不降低断言。
 
+## 2c. HTTP 路由清单与确认入口（本轮逐字核对）
+
+`app/assistant_runtime_api.py` 已注册的路由：`POST /sessions/{session_id}/runs`（202）、`GET /runs/{run_id}`、
+`POST /runs/{run_id}/cancel`、`GET /plans/{plan_id}`、`POST /plans/{plan_id}/followup`、`GET /workspace`、
+`GET /notifications`、`POST /notifications/{notification_id}/read`、
+`GET /sessions/{session_id}/proposals/{proposal_id}/execution-result`、`GET /runs/{run_id}/events`。
+
+**关键定位（本轮新增）**：运行时面**没有确认路由**；真正的业务确认入口在助手侧——
+`app/business_assistant_api.py` → **`POST /sessions/{session_id}/proposals/{proposal_id}/confirm`**
+（另一处 `master_api.py` 的 `/opening/{batch_id}/confirm` 属期初导入，与本项无关）。
+`execution-result` 只**读取**已冻结确认的执行结果。
+
+因此 DB/HTTP 级用例的落点已明确：
+
+1. **确认入口**：`POST /sessions/{session_id}/proposals/{proposal_id}/confirm`（重复提交即验证幂等与不重放）；
+2. **准备路径**：卡片/确认项由 `_work_key(scope, input_item_id)`（scope 需 `intent_version`）驱动写入
+   `RunItem(kind='confirmation')`；确认时 `freeze_confirmation` 冻结快照并要求 `created=True` 才发原请求；
+3. **夹具**：`isolated_database`（每个用例干净合成库）+ `client`/`login`（真实 HTTP 与已登录员工会话）；
+   模型侧一律用桩，禁真实联网。
+
+尚未落地，故本轮**不**登记任何新的通过项，也不把 M8.1 记为 done。
+
 ## 3. 本轮实测发现的真实事实（已纳入套件）
 
 - `_work_key` 的 scope 还要求 **`intent_version`**（首轮因缺该键直接 `KeyError`）→ 已写入夹具，
