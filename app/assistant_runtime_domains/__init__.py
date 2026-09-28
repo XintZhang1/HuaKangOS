@@ -105,6 +105,9 @@ from .vehicle_transport_exception import (VTE_ACTION, VTE_ACTIONS, VTE_CREATE,
                                           VehicleTransportExceptionAdapter)
 from .dossier_grant import (DG_ACTION, DG_ACTIONS, DG_CREATE, DG_FACTS,
                            DG_OBJECT_TYPE, DG_READ, DG_RECORD, DossierGrantAdapter)
+from .typed_master import (KIND_TO_TYPE, MASTER_CATALOG, MASTER_CREATE, MASTER_FACTS,
+                            MASTER_KINDS, MASTER_LIST, MASTER_LOOKUP, MASTER_OBJECT_TYPES,
+                            MASTER_UPDATE, TypedMasterAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -191,7 +194,10 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'VTE_ACTION', 'VTE_ACTIONS', 'VTE_CREATE', 'VTE_FACTS', 'VTE_OBJECT_TYPE',
            'VTE_READ', 'VehicleTransportExceptionAdapter',
            'DG_ACTION', 'DG_ACTIONS', 'DG_CREATE', 'DG_FACTS', 'DG_OBJECT_TYPE', 'DG_READ',
-           'DG_RECORD', 'DossierGrantAdapter']
+           'DG_RECORD', 'DossierGrantAdapter',
+           'KIND_TO_TYPE', 'MASTER_CATALOG', 'MASTER_CREATE', 'MASTER_FACTS', 'MASTER_KINDS',
+           'MASTER_LIST', 'MASTER_LOOKUP', 'MASTER_OBJECT_TYPES', 'MASTER_UPDATE',
+           'TypedMasterAdapter']
 
 
 def register_adapters(registry):
@@ -205,6 +211,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.11.1：类型化主数据（typed_master）静态注册；14 类固定字典映射，key 即原实体主键。
+    registry.register(DomainAdapterSpec(
+        name='typed_master', factory=TypedMasterAdapter,
+        object_types=MASTER_OBJECT_TYPES,
+        operation_ids=(MASTER_LIST, MASTER_CATALOG, MASTER_LOOKUP, MASTER_CREATE, MASTER_UPDATE),
+        fact_keys=MASTER_FACTS,
+        fallback_object_types=(),
     ))
     # M7.10.6：卷宗授权（dossier_grant）静态注册；key 即原 DossierGrant.id。
     registry.register(DomainAdapterSpec(

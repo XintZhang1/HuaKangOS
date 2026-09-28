@@ -3486,50 +3486,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 <a id="m7-11-1"></a>
 
-### M7.11.1 类型化基础资料
+### M7.11.1 类型化主数据
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；9 项通过；前置侦察见 `M7-11-1-recon-note.md`）
 
 **全局顺序前置**：M7.10.6 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：14 类固定映射、完整分页精确命中、active 三态、写结果绑定与回执边界在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `typed_master` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/master_api.py`、`app/master_data.py`、`app/master_models.py`、`app/business_assistant_gateway.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/typed_master.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_typed_master.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/masters/catalog、/api/masters/{kind}、/lookup/{kind}；写入只按原已评审 POST/PUT 与 CATALOG schema。
-
-**注册合同**：object_type=vehicle_brand、vehicle_series、supplier、insurer、warehouse、storage_location、material_brand、material_category、master_work_item、team、agency_project、vehicle_model、member_tier、item_profile（均为原 CATALOG 对应实体主键）；adapter=`app/assistant_runtime_domains/typed_master.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`master.record_exists`：原对应 kind 的授权详情/完整分页精确命中该 ID；`master.active`：同一原记录 active=true，缺字段为 unknown。类型与 kind 固定字典映射，原业务作业 WorkItem 映射为 master_work_item，不混为 Runtime WorkItem。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：客户/供应商/保险公司/车型/仓库/库位等明确 type+真实 ID/version；同名候选返回真实中文 label。
-3. 接统一只读回执 resolver：MasterReceipt；原 save_master 包装的 kind/create/update 摘要；不得用任意 ORM 表名查。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：保留真实停用守卫；缺必填关系先 needs_input，不建更多卡凑数；opening-import 和模板原始内容保持手工。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_typed_master.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.11.1
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-11-2"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/typed_master.py`（`TypedMasterAdapter`，`object_types` = 计划登记的 14 类：`vehicle_brand`/`vehicle_series`/`supplier`/`insurer`/`warehouse`/`storage_location`/`material_brand`/`material_category`/`master_work_item`/`team`/`agency_project`/`vehicle_model`/`member_tier`/`item_profile`，**固定字典映射到原 `CATALOG` 的 14 个 kind**（逐字核对 `master_data.py` 顶层键），**原业务作业 WorkItem 映射为 `master_work_item`、不混为 Runtime WorkItem**；读取只经 `GET /api/masters/{kind}` 按 `page` **完整分页**精确命中真实 ID；`master.record_exists` 仅在有分页信息确认翻完时判"不存在"，否则未知；`master.active` 只认命中记录的 `active` 字段、**缺字段为 unknown**；写入只走已评审 `POST /api/masters/{kind}` 与 `PUT /api/masters/{kind}/{record_id}` 并绑定结果；候选读（catalog/lookup）不绑定结果；**计划未为本项登记回执族**，写 operation 回执返回 `unsupported / receipt_family_not_registered`），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改 CATALOG schema 与角色。**实测发现并修复（真实产品缺陷）**：首轮"空页且无分页信息"被判成"记录不存在"，合同要求未知；已改为**只有分页信息确认翻完**才判定不存在。外部套件 `$ValidationRoot/tests/runtime_domains/test_typed_master.py`（9 项），run `20260928T142931Z-9eac096fd3` passed。详见 `docs/implementation-checkpoints/M7-11-1-review-v1.md`。源码指纹 `e2d715d19af90e7dbeb8a486368fab182dc248d175a6320197e726d05a47c0aa`。下一项 M7.11.2。
 
 ### M7.11.2 业务分类字典
 
