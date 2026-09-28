@@ -68,6 +68,9 @@ from .repair_package import (PACKAGE_ACTION, PACKAGE_ACTIONS, PACKAGE_CREATE,
                              PACKAGE_REFUND_ACTION, PACKAGE_RULES, RepairPackageAdapter)
 from .member_price import (PRICE_ACTION, PRICE_ACTIONS, PRICE_CANDIDATES, PRICE_CREATE,
                            PRICE_FACTS, PRICE_OBJECT_TYPE, PRICE_READ, MemberPriceAdapter)
+from .business_finance_order import (FINANCE_ACTION, FINANCE_ADVANCES, FINANCE_CREATE,
+                                    FINANCE_FACTS, FINANCE_READ, FINANCE_RECEIPTS,
+                                    FINANCE_SOURCES, BusinessFinanceOrderAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -124,7 +127,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'PACKAGE_MEMBER_PURCHASES', 'PACKAGE_OBJECT_TYPE', 'PACKAGE_ORDER_CAPTURE',
            'PACKAGE_ORDER_QUOTE', 'PACKAGE_REFUND_ACTION', 'PACKAGE_RULES', 'RepairPackageAdapter',
            'PRICE_ACTION', 'PRICE_ACTIONS', 'PRICE_CANDIDATES', 'PRICE_CREATE', 'PRICE_FACTS',
-           'PRICE_OBJECT_TYPE', 'PRICE_READ', 'MemberPriceAdapter']
+           'PRICE_OBJECT_TYPE', 'PRICE_READ', 'MemberPriceAdapter',
+           'FINANCE_ACTION', 'FINANCE_ADVANCES', 'FINANCE_CREATE', 'FINANCE_FACTS',
+           'FINANCE_READ', 'FINANCE_RECEIPTS', 'FINANCE_SOURCES', 'BusinessFinanceOrderAdapter']
 
 
 def register_adapters(registry):
@@ -138,6 +143,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.8.1：预收与结算（business_finance_order）静态注册；key 一律取原 Case.id。
+    registry.register(DomainAdapterSpec(
+        name='business_finance_order', factory=BusinessFinanceOrderAdapter, object_types=('case',),
+        operation_ids=(FINANCE_READ, FINANCE_CREATE, FINANCE_ACTION),
+        fact_keys=FINANCE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.7.6：会员价格规则（member_price）静态注册；key 即原 MemberPricingRule.id。
     registry.register(DomainAdapterSpec(
