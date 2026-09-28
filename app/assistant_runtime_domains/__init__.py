@@ -30,6 +30,8 @@ from .claim_order import (CLAIM_ACTION, CLAIM_ACTIONS, CLAIM_CREATE, CLAIM_FACTS
 from .gate_visit import (GATE_ACTION, GATE_ACTIONS, GATE_CORRECTION,
                         GATE_CORRECTION_ACTION, GATE_CREATE, GATE_DEPARTURE, GATE_FACTS,
                         GATE_OBJECT_TYPE, GATE_READ, GateVisitAdapter)
+from .retail_order import (RETAIL_ACTION, RETAIL_ACTIONS, RETAIL_CREATE, RETAIL_FACTS,
+                          RETAIL_READ, RetailOrderAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -54,7 +56,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'CLAIM_READ', 'ClaimOrderAdapter',
            'GATE_ACTION', 'GATE_ACTIONS', 'GATE_CORRECTION', 'GATE_CORRECTION_ACTION',
            'GATE_CREATE', 'GATE_DEPARTURE', 'GATE_FACTS', 'GATE_OBJECT_TYPE', 'GATE_READ',
-           'GateVisitAdapter']
+           'GateVisitAdapter',
+           'RETAIL_ACTION', 'RETAIL_ACTIONS', 'RETAIL_CREATE', 'RETAIL_FACTS', 'RETAIL_READ',
+           'RetailOrderAdapter']
 
 
 def register_adapters(registry):
@@ -68,6 +72,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.4.1：精品销售与套餐（retail_order）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='retail_order', factory=RetailOrderAdapter, object_types=('case',),
+        operation_ids=(RETAIL_READ, RETAIL_CREATE, RETAIL_ACTION),
+        fact_keys=RETAIL_FACTS,
+        fallback_object_types=(),
     ))
     # M7.3.5：维修出厂与真实进出厂时间（gate_visit）静态注册。
     registry.register(DomainAdapterSpec(
