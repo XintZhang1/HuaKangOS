@@ -3572,7 +3572,7 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
-**状态**：todo
+**状态**：in_progress（部分验收已通过：7 项，run `20260928T144342Z-875dbfaa7d`；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md；剩余：子进程故障注入、端到端零写入计数、批量无遗漏、撤权即停会话演练、结果级稳定性）
 
 **全局顺序前置**：M7.12.3 done。
 
