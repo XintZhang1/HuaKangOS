@@ -107,6 +107,27 @@ run `20260928T144342Z-875dbfaa7d`，`phase_complete=true`，源码指纹 `9bebdc
 - `_work_key` 的 scope 还要求 **`intent_version`**（首轮因缺该键直接 `KeyError`）→ 已写入夹具，
   并说明准备键的摘要输入是 `{plan_id|origin_request_id, step_key, input_item_id, intent_version}`。
 
+## 2e. DB 级冻结确认套件的推进与真实约束（第三轮，**尚未通过**）
+
+新套件 `tests/runtime_domains/test_m8_1_freeze_db.py`（5 项：首次冻结/重复点击、身份与访问版本门禁、
+双确认项冲突、已删除冻结点冲突、实现结构断言）在 `isolated_database` 干净库上运行。
+推进过程中被原模型**真实约束**逐层拦下（全部如实保留，未放宽断言）：
+
+| 轮次 | 真实错误 | 结论（已核对） |
+|---|---|---|
+| 1 | `NOT NULL constraint failed: business_assistant_proposals.label` | `label` 必填 |
+| 2 | `NOT NULL constraint failed: business_assistant_proposals.summary` | `summary` 必填 |
+| 3 | `CHECK constraint failed: ck_assistant_proposal_status` | 我自选的 `status='prepared'` **不是合法枚举** |
+| 4 | `FOREIGN KEY constraint failed` | `session_id` 外键确实被强制：必须先存在 `business_assistant_sessions` 行 |
+
+同时已核对的必需列（`AssistantProposal`）：`id`（显式主键）、`session_id`、`owner_id`、`owner_role`、
+`access_version`、`operation_id`、`label`、`summary`、`payload`、`digest`、`expires_at`，
+其余（`request_id`/`step_order`/`step_label`/`status`/`idempotent`/`created_at`/`version`）有默认值。
+
+**状态**：该套件**进行中且未登记**（登记仍指向已通过的 11 项 recovery 套件），
+以免把未通过内容混入 M8.1 的通过证据。下一步：先建 `AssistantSession` 行再建提案，随后复跑。
+
+
 ## 4. 状态登记
 
 `### M8.1` 登记为 **`in_progress`**（唯一在办项）：已具备可执行的部分证据，但上节 5 项未完成前不得 `done`。
