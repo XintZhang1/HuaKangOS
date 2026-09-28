@@ -2,7 +2,7 @@
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
-**当前工作**：集中测试阶段接手。M5.5、M5.6 已完成实测（含真实缺陷修复）并登记 `implemented`；CP-12 仍缺 M5.4 的实测复核与 M5.6 之外的进程级/真实环境项。下一步继续 M5.7 Windows 预览嵌入 worker，再 M5.8。已完成实测：M1.4（ORM/迁移一致性）、M5.5（MCP 工具入口）、M5.6（worker）。四个功能开关默认关闭。
+**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5、M5.6、M5.7、M5.8 已完成实现/审阅与外部实测（含 7 处真实缺陷修复）并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。已完成实测：M1.4（ORM/迁移一致性）、M5.5（MCP 工具入口）、M5.6（worker）、M5.7（预览嵌入）、M5.8（部署定义）。下一步进入 M6.1（Run REST/SSE 客户端与纯状态归并）。四个功能开关默认关闭。
 
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
@@ -78,7 +78,7 @@
 | CP-10 | M4.7—M4.9 | outbox、无变化零调用、未知结果 | implementation_released | docs/implementation-checkpoints/CP-10-v1.md | 用户R4及持续范围授权；真实源outbox、完整事实核查与去重、未知确认结果协调已源码审阅，AST/UTF-8核对完成；原运行验收待DeepSeek，继续M5.1—M5.3至CP-11 |
 | CP-11 | M5.1—M5.3 | REST/SSE兼容、授权事项投影 | implementation_released | docs/implementation-checkpoints/CP-11-v1.md | 用户R4及持续范围授权；真实REST/SSE、旧聊天兼容、授权工作台与本人跟进控制已源码审阅，AST/UTF-8核对完成；原运行验收待DeepSeek，继续M5.4—M5.6至CP-12 |
 | CP-12 | M5.4—M5.6 | 通知隐私、MCP互斥、worker退出 | implementation_released | docs/implementation-checkpoints/M5-5-review-v1.md；M5-6-review-v1.md；M5-4-review-v1.md | 集中测试阶段实测：M5.5（7+20）与 M5.6（13+40）在指纹 `fce97834…` 上 passed；M1.4 ORM/迁移一致性 6 项 passed；修复 5 处 MCP 缺陷与 worker 双启动。M5.4 仅源码审阅、进程级/真实环境项未覆盖，故不记 released；继续 M5.7—M5.8 至 CP-13 |
-| CP-13 | M5.7—M5.8 | Windows/Linux启动定义与回退 | not_ready | — | — |
+| CP-13 | M5.7—M5.8 | Windows/Linux启动定义与回退 | implementation_released | docs/implementation-checkpoints/M5-7-review-v1.md；M5-8-review-v1.md | 集中测试阶段实测：M5.7（7+16）与 M5.8（7+17）在新指纹上 passed；嵌入顺序、显式 profile、同库同镜像校验、无密钥样例均实测；真实 Windows 预览实例与真实 Linux 部署仍属 M8.7/M8.8，故不记 released；继续 M6.1—M6.8（CP-14—CP-16） |
 | CP-14 | M6.1—M6.3 | 客户端归并、恢复、真实事项工作台 | not_ready | — | — |
 | CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | not_ready | — | — |
 | CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | not_ready | — | — |
@@ -2165,11 +2165,11 @@ py -3.13 -m venv "$V/.venv"
 
 ## M5.7 Windows 预览嵌入同实例 worker
 
-**状态**：todo
+**状态**：implemented（2026-09-28 由 Codex 侧实现并完成外部实测）
 
 **全局顺序前置**：M5.6 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**执行记录**：2026-09-28 修改 `app/main.py`（新增 `_embedded_runtime_worker`/`_stop_embedded_runtime_worker`，lifespan 内按条件嵌入与停止，模块级单例）。外部套件 `V/tests/runtime/test_m5_7.py` 7 项 + 受影响原回归 `tests/test_local_preview.py` 16 项，run `20260928T062457Z-eb0d2c567c` passed。实现顺序固定为：`HUAKANGOS_LOCAL_PREVIEW` → Runtime 开关 → 预览根目录 → `marker_from_disk` 磁盘标记 → 之后才 import worker → 只读实例校验 → 一个 worker。实测确认：普通 Web 不嵌入；开关关闭不读标记不启动；标记先于 worker 导入（用会失败的替身证明未调用）；缺预览根明确拒绝；真实 lifespan 只启动一个并复用同一对象、关闭时 stop 一次；预览目录只允许 LOCALAPPDATA/huakangos 之下；Web 与 worker 的库标识/源码指纹一致且 health healthy。未改动 local_preview/preview_runtime/预览脚本（原实例守卫与源码身份校验已满足合同）。`tests/test_preview_runtime.py` 的两个子进程节点带 phase-B 专用夹具授权，只能在 M0.2.B 运行，本项不重复选取。详见 `docs/implementation-checkpoints/M5-7-review-v1.md`。未覆盖：真实 Windows 预览实例启动/退出/再启动、强杀后租约恢复。源码指纹 `94da7d7cc30bfd49d978714035bce690a7b93808e34f0a569508cc06254b8c01`。
 
 
 **目标**：预览Web开启新Runtime时自动使用相同配置的worker，关闭时正确结束。
@@ -2211,11 +2211,11 @@ py -3.13 -m venv "$V/.venv"
 
 ## M5.8 Linux worker 部署定义和开关回退
 
-**状态**：todo
+**状态**：implemented（2026-09-28 由 Codex 侧实现并完成外部静态实测）
 
 **全局顺序前置**：M5.7 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**执行记录**：2026-09-28 修改 `compose.yml` 新增显式 profile 的 `assistant-worker` 服务（同镜像/同 .env/同数据卷、`command: python -m app.assistant_worker`、`--health` 健康检查、`stop_grace_period: 90s`、不暴露端口），新增 `docs/assistant-runtime-operations.md`；未改 `Dockerfile` 与 `start.sh`，无产品代码改动。外部套件 `V/tests/runtime/test_m5_8.py` 7 项 + 受影响原回归 17 项，run `20260928T063142Z-43abd9857f` passed（未构建或启动任何容器）。实测确认：worker 显式 profile 才启动、命令不含 cli/init/migrate/start.sh/uvicorn、Scheduler 显式关闭、无 redis、Web 与 worker 的镜像/库/挂载/安全限制逐项一致、健康检查用 `--health`、运维文档覆盖四开关与备份/回退边界且无密钥样例。详见 `docs/implementation-checkpoints/M5-8-review-v1.md`。未覆盖（属 M8.8）：真实 Linux 构建/启停/healthcheck 轮询与恢复演练、真实 PostgreSQL、两实例并发。源码指纹 `9360f51e72d2d7c864473fb50d2ae65fd9f63a9805a2dce889be2adce3d9f9c2`。
 
 
 **目标**：交付使用同镜像、同明确数据库配置的独立worker定义。

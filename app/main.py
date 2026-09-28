@@ -34,6 +34,45 @@ from typing import get_args
 log = logging.getLogger(__name__)
 scheduler = ReportScheduler()
 USERNAME_PATTERN = re.compile(r'^[a-zA-Z0-9_.-]{3,40}$')
+# One embedded worker per process, and only for a verified local preview.
+_EMBEDDED_WORKER = None
+EMBEDDED_STOP_SECONDS = 20
+
+
+def _embedded_runtime_worker():
+    """Start the in-process Runtime worker for a verified local preview only.
+
+    The worker module (and with it the whole Runtime) is imported only after the
+    local preview configured this process and its on-disk marker is verified, so
+    a normal Web deployment never embeds a worker. The worker never prepares,
+    migrates or initializes the database: it refuses an unprepared instance.
+    """
+    global _EMBEDDED_WORKER
+    if os.environ.get('HUAKANGOS_LOCAL_PREVIEW') != '1':
+        return None
+    if not settings.assistant_runtime_enabled:
+        return None
+    if _EMBEDDED_WORKER is not None:
+        return _EMBEDDED_WORKER
+    from pathlib import Path
+    from .local_preview import marker_from_disk
+    root = os.environ.get('HUAKANGOS_PREVIEW_ROOT') or ''
+    if not root:
+        raise RuntimeError('本地预览缺少预览目录标记，不能嵌入 Runtime worker')
+    marker_from_disk(Path(root))
+    from .assistant_worker import Worker, verify_instance
+    verify_instance()
+    _EMBEDDED_WORKER = Worker(lease_owner='preview-embed').start()
+    log.info('Embedded assistant Runtime worker started for the local preview')
+    return _EMBEDDED_WORKER
+
+
+async def _stop_embedded_runtime_worker():
+    global _EMBEDDED_WORKER
+    worker, _EMBEDDED_WORKER = _EMBEDDED_WORKER, None
+    if worker is not None:
+        await worker.stop(timeout=EMBEDDED_STOP_SECONDS)
+        log.info('Embedded assistant Runtime worker stopped')
 
 
 @asynccontextmanager
@@ -42,7 +81,9 @@ async def lifespan(app):
     if not inspect(engine).has_table('users'):
         raise RuntimeError('数据库尚未初始化。请先运行 python -m app.cli init')
     scheduler.start()
+    _embedded_runtime_worker()
     yield
+    await _stop_embedded_runtime_worker()
     scheduler.stop()
 
 

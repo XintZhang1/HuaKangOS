@@ -20,6 +20,37 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+  # Same image, same .env and same data mount as the Web service: one database,
+  # one schema version. It never runs the Web entrypoint, so it never migrates or
+  # initializes accounts; an operator upgrades the authorized copy first.
+  # Explicit profile: a plain `docker compose up` never starts this service.
+  assistant-worker:
+    build: .
+    init: true
+    restart: unless-stopped
+    profiles: ["assistant-worker"]
+    env_file: .env
+    environment:
+      DATABASE_URL: sqlite:////app/data/dealer.db
+      SCHEDULER_ENABLED: "false"
+      SCHEDULER_MODE: "off"
+    command: ["python", "-m", "app.assistant_worker"]
+    volumes:
+      - dealer_data:/app/data
+      - dealer_backups:/app/backups
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # SIGTERM stops claiming immediately and lets the claimed Run reach its own
+    # safe boundary; a hard kill leaves an expired lease that CAS recovers.
+    stop_grace_period: 90s
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.assistant_worker", "--health"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
 volumes:
   dealer_data:
   dealer_backups:
