@@ -97,6 +97,9 @@ from .vehicle_transfer import (VT_ACTION, VT_ACTIONS, VT_CREATE, VT_DESTINATIONS
 from .transfer_exception import (EXC_ACTION, EXC_ACTIONS, EXC_CREATE, EXC_FACTS,
                                  EXC_OBJECT_TYPE, EXC_ORIGINS, EXC_READ,
                                  TransferExceptionAdapter)
+from .transfer_goods_recovery import (GR_ACTION, GR_ACTIONS, GR_CREATE, GR_FACTS,
+                                      GR_OBJECT_TYPE, GR_ORIGINS, GR_READ,
+                                      TransferGoodsRecoveryAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -177,7 +180,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'VT_ACTION', 'VT_ACTIONS', 'VT_CREATE', 'VT_DESTINATIONS', 'VT_FACTS',
            'VT_OBJECT_TYPE', 'VT_READ', 'VehicleTransferAdapter',
            'EXC_ACTION', 'EXC_ACTIONS', 'EXC_CREATE', 'EXC_FACTS', 'EXC_OBJECT_TYPE',
-           'EXC_ORIGINS', 'EXC_READ', 'TransferExceptionAdapter']
+           'EXC_ORIGINS', 'EXC_READ', 'TransferExceptionAdapter',
+           'GR_ACTION', 'GR_ACTIONS', 'GR_CREATE', 'GR_FACTS', 'GR_OBJECT_TYPE', 'GR_ORIGINS',
+           'GR_READ', 'TransferGoodsRecoveryAdapter']
 
 
 def register_adapters(registry):
@@ -191,6 +196,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.10.4：调拨货物找回（transfer_goods_recovery）静态注册；key 即原 GoodsRecovery.id。
+    registry.register(DomainAdapterSpec(
+        name='transfer_goods_recovery', factory=TransferGoodsRecoveryAdapter,
+        object_types=(GR_OBJECT_TYPE,),
+        operation_ids=(GR_READ, GR_CREATE, GR_ACTION),
+        fact_keys=GR_FACTS,
+        fallback_object_types=(),
     ))
     # M7.10.3：调拨差异处置（transfer_exception）静态注册；key 即原 TransferException.id。
     registry.register(DomainAdapterSpec(
