@@ -18,6 +18,8 @@ from .vehicle_operation import (OPERATION_ACTION, OPERATION_ACTIONS, OPERATION_C
                                OPERATION_KINDS, OPERATION_READ, VehicleOperationAdapter)
 from .vehicle_import_batch import (IMPORT_ACTION, IMPORT_ACTIONS, IMPORT_FACTS,
                                   IMPORT_OBJECT_TYPE, VehicleImportBatchAdapter)
+from .service_intake import (APPOINTMENT_OBJECT_TYPE, INTAKE_ACTION, INTAKE_ACTIONS,
+                            INTAKE_CREATE, INTAKE_FACTS, INTAKE_READ, ServiceIntakeAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -31,7 +33,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'OPERATION_FLOW_VERSION', 'OPERATION_KIND', 'OPERATION_KINDS', 'OPERATION_READ',
            'VehicleOperationAdapter',
            'IMPORT_ACTION', 'IMPORT_ACTIONS', 'IMPORT_FACTS', 'IMPORT_OBJECT_TYPE',
-           'VehicleImportBatchAdapter']
+           'VehicleImportBatchAdapter',
+           'APPOINTMENT_OBJECT_TYPE', 'INTAKE_ACTION', 'INTAKE_ACTIONS', 'INTAKE_CREATE',
+           'INTAKE_FACTS', 'INTAKE_READ', 'ServiceIntakeAdapter']
 
 
 def register_adapters(registry):
@@ -45,6 +49,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.3.1：维修预约与实际到店接待（service_intake）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='service_intake', factory=ServiceIntakeAdapter,
+        object_types=(APPOINTMENT_OBJECT_TYPE,),
+        operation_ids=(INTAKE_READ, INTAKE_CREATE, INTAKE_ACTION),
+        fact_keys=INTAKE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.2.3：整车批量导入批次（vehicle_import_batch）静态注册。
     # 只登记已评审的批次动作；原详情 GET 未在目录内，适配器按能力缺口明确拒绝。
