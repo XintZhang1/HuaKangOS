@@ -84,7 +84,7 @@
 | CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | implementation_released | docs/implementation-checkpoints/M6-7-review-v1.md；M6-8-review-v1.md | M6.7（11+9）与 M6.8（21 条命令全通过：M6.1—M6.8 Node 82 项 + 旧回归 67 项 + Python 61 项 + 语法/生成物检查）均已 implemented 并实测；真实浏览器、真实模型、PostgreSQL、员工试用仍属 M8.x，故不记 released；M6 章节收口，继续 M7.1.1（CP-17） |
 | CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | implementation_released | docs/implementation-checkpoints/M7-1-1-review-v1.md；M7-1-2-review-v1.md；M7-1-3-review-v1.md | M7.1.1（lead 10 项）、M7.1.2（sales_order 9 项）、M7.1.3（aftercare 9 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.2.1（CP-18） |
 | CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | implementation_released | docs/implementation-checkpoints/M7-2-1-review-v1.md；M7-2-2-review-v1.md；M7-2-3-review-v2.md | M7.2.1（9 项）、M7.2.2（9 项）、M7.2.3（9 项）均已 implemented 并实测通过，同指纹回归通过；M7.2.3 先前错报的能力缺口已撤回（JSON 目录不是读取白名单，GET 由活跃路由发现并受原过滤与调用时授权）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.3.1（CP-19） |
-| CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | in_progress | docs/implementation-checkpoints/M7-3-1-review-v1.md；M7-3-2-review-v1.md | M7.3.1（service_intake，9 项）与 M7.3.2（repair_order，9 项）已 implemented 并实测通过，同指纹回归通过；M7.3.3 未开始，故不记 implementation_released |
+| CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | implementation_released | docs/implementation-checkpoints/M7-3-1-review-v1.md；M7-3-2-review-v1.md；M7-3-3-review-v1.md | M7.3.1（9 项）、M7.3.2（9 项）、M7.3.3（10 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.3.4（CP-20） |
 | CP-20 | M7.3.4—M7.3.5 | 理赔核赔、真实进出厂 | not_ready | — | — |
 | CP-21 | M7.4.1—M7.4.3 | 精品及套餐、混合支付 | not_ready | — | — |
 | CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | not_ready | — | — |
@@ -3120,50 +3120,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/repair_order.py`（`RepairOrderAdapter`，`object_types=('case',)`：快照单次只读 `GET /api/repair-orders/{case_id}`，动作只保留原返回的岗位筛选名字且可用性一律 `unknown`；`extract_result` 覆盖维修族三条 operation；`read_receipt` 走 `repair_v3_` 前缀回执族并保持冻结 `request_id`；事实 `repair.current_quote_authorized`（当前报价=未取消版本中 revision 最大者，须有原授权事实，**已取消的高版本不得顶替**）、`repair.passed_quality_recorded`（必须当前报价对应的原 `RepairQuality.passed=true`，旧报价质检不算）、`repair.release_recorded`（必须原 `data.released_date` 与 `release_evidence_id` 同时存在；质检通过或收款完成都不能替代实际交车，字段不可见时返回未知）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原状态机。**实测发现并修复**：① 首轮 8 项低于登记下限被运行器如实拦截，补上"注册真的到达运行时注册表"的接线断言后为 9 项；② 该接线断言先后缺 `REPAIR_FACTS`/`REPAIR_READ` 导入（真实 NameError），补齐后通过。外部套件 `$ValidationRoot/tests/runtime_domains/test_repair_order.py`（9 项），run `20260928T132339Z-95f7d86681` passed；同指纹 M7.3.1 回归通过。详见 `docs/implementation-checkpoints/M7-3-2-review-v1.md`。源码指纹 `eda2ac9fb122bffad9d548579402e5deb24e8810afeb2b0092677893c7ed2137`。下一项 M7.3.3。
 
-### M7.3.3 原责任返修授权与新增自费
+### M7.3.3 维修领退料与返修
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；10 项通过）
 
 **全局顺序前置**：M7.3.2 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/授权族回执在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `rework_grant` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/rework_extension_api.py`、`app/rework_extension_service.py`、`app/rework_extension_models.py`、`app/service_intake_api.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/rework_grant.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_rework_grant.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/rework-extensions/grants/{key}；API:50 的 approve/reject/cancel/revoke；POST /requests 和 /orders/{key}/quote 沿原接口准备。
-
-**注册合同**：object_type=rework_source_grant（ReworkSourceGrant.id）；adapter=`app/assistant_runtime_domains/rework_grant.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`rework.approval_recorded`：该 grant 原 ReworkGrantDecision 为 approve；`rework.revocation_recorded`：该 grant 原 revoke 成功结果/撤销决定；`rework.extension_recorded`：原 ReworkExtension 确证本 grant 与承接维修单关系。批准历史不证明当前未撤销或尚有可用范围。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：真实来源工单、责任授权范围/摘要、接手店与申请结果；original_liability/customer_extra 分开。
-3. 接统一只读回执 resolver：rework_grant_receipts/ReworkGrantReceipt；派生接待命令仍按 IntakeReceipt 族分别解析。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：授权撤销/已被承接/超责任范围不复用旧授权；不共享发起人私聊；跨店仍经原目标门店授权。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_rework_grant.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.3.3
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-3-4"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/rework_grant.py`（`ReworkGrantAdapter`，`object_types=('rework_source_grant',)`：快照单次只读 `GET /api/rework-extensions/grants/{key}`，动作只保留原返回名字且可用性一律 `unknown`，跨店授权按原详情透传（不补默认门店、不改 `store_id`）；`extract_result` 覆盖授权族五条 operation；`read_receipt` 走 `ReworkGrantReceipt` 族（派生接待命令仍按 `IntakeReceipt`，不在本适配器范围）；事实 `rework.approval_recorded`（只有经 approve 决定才离开 pending/rejected，且明确"批准历史不证明当前未撤销或仍有可用范围"）、`rework.revocation_recorded`（状态确为 `revoked`）、`rework.extension_recorded`（**该详情不提供 ReworkExtension 承接关系，一律返回未知**，绝不用批准历史代替）；责任授权额度只投影原 `original_liability_limit_cents`，客户自费部分不推断），`__init__.py` 显式注册且 `fallback_object_types=()`。外部套件 `$ValidationRoot/tests/runtime_domains/test_rework_grant.py`（10 项），run `20260928T132534Z-b69cd96f4f` passed；同指纹 M7.3.2 回归通过。详见 `docs/implementation-checkpoints/M7-3-3-review-v1.md`。源码指纹 `71ecab9e9cce1353da696460c6d02e7968412fce159cbc9182d082c6026f6156`。下一项 M7.3.4。
 
 ### M7.3.4 理赔索赔与实际核赔
 

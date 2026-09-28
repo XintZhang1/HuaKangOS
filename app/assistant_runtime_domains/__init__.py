@@ -22,6 +22,9 @@ from .service_intake import (APPOINTMENT_OBJECT_TYPE, INTAKE_ACTION, INTAKE_ACTI
                             INTAKE_CREATE, INTAKE_FACTS, INTAKE_READ, ServiceIntakeAdapter)
 from .repair_order import (REPAIR_ACTION, REPAIR_ACTIONS, REPAIR_CREATE, REPAIR_FACTS,
                           REPAIR_READ, RepairOrderAdapter)
+from .rework_grant import (GRANT_ACTION, GRANT_ACTIONS, GRANT_CREATE, GRANT_FACTS,
+                          GRANT_OBJECT_TYPE, GRANT_QUOTE, GRANT_READ, GRANT_REQUEST,
+                          ReworkGrantAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -39,7 +42,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'APPOINTMENT_OBJECT_TYPE', 'INTAKE_ACTION', 'INTAKE_ACTIONS', 'INTAKE_CREATE',
            'INTAKE_FACTS', 'INTAKE_READ', 'ServiceIntakeAdapter',
            'REPAIR_ACTION', 'REPAIR_ACTIONS', 'REPAIR_CREATE', 'REPAIR_FACTS', 'REPAIR_READ',
-           'RepairOrderAdapter']
+           'RepairOrderAdapter',
+           'GRANT_ACTION', 'GRANT_ACTIONS', 'GRANT_CREATE', 'GRANT_FACTS', 'GRANT_OBJECT_TYPE',
+           'GRANT_QUOTE', 'GRANT_READ', 'GRANT_REQUEST', 'ReworkGrantAdapter']
 
 
 def register_adapters(registry):
@@ -53,6 +58,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.3.3：维修领退料与返修（rework_grant）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='rework_grant', factory=ReworkGrantAdapter,
+        object_types=(GRANT_OBJECT_TYPE,),
+        operation_ids=(GRANT_READ, GRANT_CREATE, GRANT_ACTION, GRANT_REQUEST, GRANT_QUOTE),
+        fact_keys=GRANT_FACTS,
+        fallback_object_types=(),
     ))
     # M7.3.2：维修工单接车与施工进度（repair_order）静态注册。
     registry.register(DomainAdapterSpec(
