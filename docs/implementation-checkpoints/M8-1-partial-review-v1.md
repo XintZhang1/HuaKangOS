@@ -16,7 +16,28 @@ run `20260928T144342Z-875dbfaa7d`，`phase_complete=true`，源码指纹 `9bebdc
 | ① 确认前不得发原请求 | 源码逐字断言：`freeze_confirmation` 文档串要求"a new item together with Proposal.status=executing **before sending the native request**"，且"an existing item is never rewritten"、"created=False does not authorize" |
 | ③ 旧租约不得覆盖新状态 | 真实读取签名：`_state_event(db, run, previous_status, *, clock)` 的 `previous_status` **无默认值**，并转交 `_append_queue_transition(previous_status=…)`；文档串要求跃迁"already made in this same transaction"；通知分支（`assistant_notifications_enabled`）**不得再改业务状态** |
 
-## 2. 尚未完成、因此 M8.1 不得登记 done 的部分（如实登记）
+## 1b. 第二轮新增：真实子进程注入证据（本轮）
+
+同一套件扩充到 **11 项**，新增 4 项全部在**独立子进程**中执行（run `20260928T144440Z-08c209b393`，
+`phase_complete=true`，源码指纹 `a92bcb275e99dab0446621c2cc974926bd8a202c0fe2ec24f9f935d2cd3901ba`）：
+
+| 断言 | 子进程证据 |
+|---|---|
+| ⑤ 结果级稳定性（跨进程） | 两个**独立子进程**各自计算 40 个输入项的 `_work_key`，键序列**逐字节相同**（此前只验证同进程纯函数级） |
+| ② 批量无遗漏 + 隔离 | 子进程内同一 scope 的 1..25 项得到 **25 个互不相同**的键；换 `plan_id` 的另一 scope 与前者**交集为 0**（不复用准备键） |
+| ④ 模型协议异常 | 子进程内把 `'{"a": 1'`、`'not-json'`、`'[]'`、`'null'` 四类畸形工具参数交给 `assistant_runtime_registry._parse_arguments`，**没有任何一类被接受**（全部抛错） |
+| ① 中断注入 | 子进程在打印一个键后 `SystemExit(3)`：**退出码非零**（不伪装成功），且输出中 `prepare:` 仅出现 1 次（**中断前内容不被重放或补写**） |
+
+## 2. 仍然未完成、因此 M8.1 不登记 done 的部分（更新后）
+
+1. **重复事件注入**：向真实事件/发件箱层注入重复投递（需完整 DB 夹具），验证幂等与不重复准备；
+2. **端到端零写入计数**："确认前原业务写入 0、资金/库存等重复事实 0"需完整 DB 与原业务夹具逐笔计数；
+3. **批量部分失败即暂停**：真实批量（多行、某行失败即暂停、不跨组）在队列层的核对；
+4. **撤权即停**：会话级演练（含 `access_signals.emit_user_access_changed`/`emit_store_access_changed` 路径），
+   验证撤权后不继续也不泄露结果；
+5. **延迟注入**：慢响应/超时下的状态与"未知结果不自动重试"行为。
+
+## 2. 尚未完成
 
 1. **独立子进程故障注入**：中断、延迟、重复事件、模型协议异常四类注入（清单"允许"范围）尚未实现；
 2. **端到端零写入计数**："确认前原业务写入 0、资金/库存等重复事实 0"需完整 DB 与原业务夹具逐笔计数；
