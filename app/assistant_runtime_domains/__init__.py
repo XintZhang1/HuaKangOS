@@ -59,6 +59,9 @@ from .group_principal import (MEMBER_ACTION, MEMBER_COMMANDS, MEMBER_FACTS,
 from .group_benefit import (BENEFIT_ACTION, BENEFIT_FACTS, BENEFIT_KINDS,
                             BENEFIT_MEMBERS, BENEFIT_OBJECT_TYPE, BENEFIT_RULES,
                             GroupBenefitAdapter)
+from .recharge_bundle import (RECHARGE_ACTION, RECHARGE_ACTIONS, RECHARGE_CREATE,
+                              RECHARGE_FACTS, RECHARGE_PURCHASES, RECHARGE_PURPOSES,
+                              RECHARGE_READ, RechargeBundleAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -108,7 +111,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'MEMBER_ACTION', 'MEMBER_COMMANDS', 'MEMBER_FACTS', 'MEMBER_OBJECT_TYPE',
            'MEMBER_READ', 'GroupPrincipalAdapter',
            'BENEFIT_ACTION', 'BENEFIT_FACTS', 'BENEFIT_KINDS', 'BENEFIT_MEMBERS',
-           'BENEFIT_OBJECT_TYPE', 'BENEFIT_RULES', 'GroupBenefitAdapter']
+           'BENEFIT_OBJECT_TYPE', 'BENEFIT_RULES', 'GroupBenefitAdapter',
+           'RECHARGE_ACTION', 'RECHARGE_ACTIONS', 'RECHARGE_CREATE', 'RECHARGE_FACTS',
+           'RECHARGE_PURCHASES', 'RECHARGE_PURPOSES', 'RECHARGE_READ', 'RechargeBundleAdapter']
 
 
 def register_adapters(registry):
@@ -122,6 +127,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.7.4：组合退回与履约（recharge_bundle）静态注册；key 一律取原 Case.id。
+    registry.register(DomainAdapterSpec(
+        name='recharge_bundle', factory=RechargeBundleAdapter, object_types=('case',),
+        operation_ids=(RECHARGE_READ, RECHARGE_CREATE, RECHARGE_ACTION),
+        fact_keys=RECHARGE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.7.3：集团权益（group_benefit）静态注册。
     # 权益读取按客户维度（必填 customer_id），与登记的 member 维度不一致：
