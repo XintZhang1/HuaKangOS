@@ -3100,7 +3100,7 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 pp/assistant_runtime_domains/vehicle_import_batch.py（VehicleImportBatchAdapter，object_types=('vehicle_import_batch',)：只登记已评审的 POST /api/vehicle-imports/batches/{batch_id}/actions/{action}；
 ead_snapshot 按 common contract 第 4 条**明确报告能力缺口**并给原页面入口，不调用未登记读取；三条事实键一律 satisfied=None，不把 status=reviewed/confirmed 文字当证据；extract_result 返回 ehicle_import_batch 引用；
-ead_receipt 走 VehicleImportRequest 族并保持冻结快照），__init__.py 显式注册且 allback_object_types=()。**能力缺口**：原生证据 GET /api/vehicle-imports/batches/{batch_id} 不在 pp/business_assistant_capabilities.json 的 reviewed catalog 内（该目录本领域只有批次动作 POST），按合同不得扩大目录或不登记读取，故本项**不记 implemented**；需评审补齐该 GET 或提供等价已评审只读路径后方可继续验收。外部套件 $ValidationRoot/tests/runtime_domains/test_vehicle_import_batch.py（8 项），run 20260928T131239Z-b7c08e3893 passed；同指纹 M7.2.2 回归通过。详见 docs/implementation-checkpoints/M7-2-3-review-v1.md。源码指纹 d68dfb7b4aa781865557efce3ece0357d7599ffe5ecca085380c9c567ab41443。
+ead_receipt 走 VehicleImportRequest 族并保持冻结快照），__init__.py 显式注册且 allback_object_types=()。**能力缺口**：原生证据 GET /api/vehicle-imports/batches/{batch_id} 不在 pp/business_assistant_capabilities.json 的 reviewed catalog 内（该目录本领域只有批次动作 POST），按合同不得扩大目录或不登记读取，故本项**不记 implemented**；需评审补齐该 GET 或提供等价已评审只读路径后方可继续验收。 缺口报告（含阻塞的验收清单与两种可评审解决方式）见 docs/implementation-checkpoints/M7-2-3-capability-gap.md；按计划串行规则，M7.3.1 依赖本项，其原生证据已在目录内，缺口补齐后即可继续。外部套件 $ValidationRoot/tests/runtime_domains/test_vehicle_import_batch.py（8 项），run 20260928T131239Z-b7c08e3893 passed；同指纹 M7.2.2 回归通过。详见 docs/implementation-checkpoints/M7-2-3-review-v1.md。源码指纹 d68dfb7b4aa781865557efce3ece0357d7599ffe5ecca085380c9c567ab41443。
 
 
 **目标**：只完成 `vehicle_import_batch` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
