@@ -72,7 +72,8 @@ async function careActionDialog(action){
     }
    }
   }
-  await api(careAPI+`/cases/${row.id}/actions/${action}`,{method:'POST',body:{request_id,version:row.version,values}});closeModal();await render();toast('办理记录已保存');
+  await api(careAPI+`/cases/${row.id}/actions/${action}`,{method:'POST',body:{request_id,version:row.version,values}});
+  closeModal();await render();toast('办理记录已保存');
  });
 }
 

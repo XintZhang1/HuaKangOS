@@ -55,5 +55,24 @@
     "database_migrations_added": 0,
     "real_model_calls": 0,
     "evidence_directory": "E:/HuaKangOS-ui-validation-20260927"
+  },
+  "bugfix_0927_codex": {
+    "date": "2026-09-27",
+    "base_commit": "0688118",
+    "branch": "0927_bugfix",
+    "report": "docs/0927_bugfix-Codex修复与复测.md",
+    "test_directory": "E:/HuaKangOS-fullflow-tests-20260927/codex-fixes",
+    "reconciliation_definition": 22,
+    "cash_definition": 7,
+    "database_migrations_added": 0,
+    "browser_regression_run": false,
+    "real_model_calls": 0,
+    "production_accepted": false,
+    "assistant_extended_regression": {
+      "passed": 113,
+      "failed": 10,
+      "all_10_failures_reproduced_on_base": true
+    },
+    "remaining_business_boundary": "Ordinary repair materials cannot be physically returned after settlement without a separately defined controlled correction workflow."
   }
 }

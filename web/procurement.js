@@ -53,7 +53,8 @@ async function procurementAction(key,returnId){
   if(request)Object.assign(extra,{funds_request_id:request.id,funds_version:request.version});
   if(key==='prepay_request')fields.push(F('amount','申请金额（元）','money'),F('valid_until','付款申请有效至','date'));
   if(key!=='prepay_pay')fields.push(F('reason','本次依据或原因','textarea'));
-  if(['prepay_request','prepay_approve','prepay_reject','prepay_pay'].includes(key))fields.push(F('evidence_id',key==='prepay_pay'?'本单实际收付款凭据':'本单真实合同或财务凭据','file'));
+  if(['prepay_request','prepay_approve','prepay_reject','prepay_pay'].includes(key))fields.push({...F('evidence_id',key==='prepay_pay'?'本单实际收付款凭据':'本单真实合同或财务凭据','file'),
+   file_category:key==='prepay_pay'?'receipt':'procurement_contract'});
   if(key==='prepay_pay'){
    fields.push(F('amount','本次实际付款（元）','money'),F('account_id','实际付款账户','account'),F('reference','银行流水号或现金凭证号'),F('confirmed','本人已核对实际付款及原始凭据','bool'));
    initial.amount=money(request.unpaid_cents).replaceAll(',','');initial.confirmed=false;
@@ -73,7 +74,8 @@ async function procurementAction(key,returnId){
  if(key.startsWith('return_')){const r=row.returns.find(r=>r.id===returnId);Object.assign(extra,{return_id:r.id,return_version:r.version});}
  if(['pay','refund'].includes(key)){fields.push(F('amount','本次实际金额（元）','money'),F('account_id','实际资金账户','account'),F('reference','银行流水号或凭证号'));initial.amount=money(key==='pay'?row.totals.payable_cents:row.totals.supplier_refund_due_cents).replaceAll(',','');}
  if(key==='refund')fields.push({...F('original_payment_id','退回哪笔付款','select',true,procurementRefundOptions(row)),searchable:true});
- if(['pay','refund','return_dispatch'].includes(key))fields.push(F('evidence_id','本单实际凭据','file'));
+ if(['pay','refund','return_dispatch'].includes(key))fields.push({...F('evidence_id','本单实际凭据','file'),
+   file_category:['pay','refund'].includes(key)?'receipt':'evidence'});
  await formDialog(procurementNames[key],fields,initial,v=>{const values={...v,...extra};if(v.amount!==undefined){values.amount_cents=purchaseScaled(v.amount,2);delete values.amount;}if(v.original_payment_id)values.original_payment_id=Number(v.original_payment_id);return send(values);},{caseId:row.id,notice:['pay','refund'].includes(key)?'请核对真实到账凭据；系统不会自动发起银行转账。':key==='return_dispatch'?'仅在原批次实物已经发出并有交接凭据时确认。新单按原采购额冲减应付，按实际库存均价扣减库存，差额单独留账。':'确认后保留经办人与原始申请，不覆盖历史。'});
 }
 document.addEventListener('click',async event=>{const el=event.target.closest('[data-act]');if(!el?.dataset.act.startsWith('procurement-'))return;try{const act=el.dataset.act;if(act==='procurement-new')await procurementNew();else if(act==='procurement-action')await procurementAction(el.dataset.key,Number(el.dataset.id));else if(act==='procurement-add-line'){$('#purchase-lines').insertAdjacentHTML('beforeend',state.purchaseLineHtml);}else if(act==='procurement-remove-line'){if(document.querySelectorAll('[data-purchase-line]').length<=1)throw new Error('采购至少需要一行物资。');el.closest('[data-purchase-line]').remove();}else if(act==='procurement-export'){const blob=await api('/api/procurement/payables/export',{raw:true});const url=URL.createObjectURL(await blob.blob());const a=document.createElement('a');a.href=url;a.download='huakangos-供应商对账.csv';a.click();URL.revokeObjectURL(url);}}catch(error){toast(error.message,true);}});

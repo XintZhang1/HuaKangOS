@@ -12,8 +12,8 @@ function vtReason(){return '<label class="wide">本人核实的事实及依据<t
 function vtProof(financial=false){const kinds=financial?['receipt','procurement_contract']:['evidence','inspection','authorization'];const files=(state.row?.files||[]).filter(f=>!f.generated&&f.security?.can_use&&kinds.includes(f.category));return `<label class="wide">本店原单${financial?'财务协议／原款':'实车核对'}凭据<select name="evidence_id" required>${vtOptions(files,f=>f.name+' · '+f.label)}</select></label><p class="fieldhelp">只列出本单检查可用的实际上传文件。没有合适凭据时请先关闭窗口，在本页上传；不会自动引用对店文件或生成草稿。</p>`;}
 function vtConfirmed(label){return `<label class="checkrow wide"><input type="checkbox" name="confirmed" required>${E(label)}</label>`;}
 function vtVin(){return '<label class="wide">现场逐位核对 VIN<input name="vin" required minlength="17" maxlength="17" pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{17}" autocomplete="off" placeholder="请输入现场实际核对的17位VIN"></label>';}
-function vtAmount(name,label){return `<label>${E(label)}（元）<input type="text" inputmode="decimal" name="${name}" required pattern="(?:0|[1-9][0-9]*)(?:[.][0-9]{1,2})?" autocomplete="off"></label>`;}
-function vtFen(value){if(String(value).trim()==='0'||/^0\.0{1,2}$/.test(String(value).trim()))return 0;return groupFen(value);}
+function vtAmount(name,label){return `<label>${E(label)}（元）<input type="text" inputmode="decimal" name="${name}" required autocomplete="off"></label>`;}
+function vtFen(value){return moneyFen(value,{label:'金额',allowZero:true});}
 function vtForm(body,label){return `<form><div class="formgrid">${body}</div><div class="formerror" role="alert"></div><div class="modalfoot"><button type="submit" class="primary">${E(label)}</button></div></form>`;}
 function vtFile(id){return id?b('downloadfile','本店凭据',`data-id="${id}"`):'对店凭据由对店保管';}
 async function vehicleTransportPage(id){

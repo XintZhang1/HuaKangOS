@@ -3,6 +3,7 @@ import asyncio
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 import hashlib
 import hmac
 import json
@@ -113,6 +114,108 @@ def status():
     return {'enabled':c.enabled,'ready':ready,'model':c.model,'provider':c.provider,'synthetic':c.synthetic,
             'message':'可以开始办理业务' if ready else '业务助手尚未连接，请联系管理员配置',
             'limits':{'max_message_chars':MAX_MESSAGE,'proposal_minutes':PROPOSAL_MINUTES}}
+
+
+MONEY_TEXT=re.compile(r'^-?\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?$|^-?\d+(?:\.\d{1,2})?$')
+TABLE_CAP=40            # 每张表最多检查的列数（表头 + 金额合计）
+TABLE_INDEX_CAP=240     # 报表目录最多列出的表数：build_analytics 实测 154 张表，留出余量
+TABLE_SCAN_CAP=2000     # 目录遍历的总节点预算，避免病态大对象；正常报表远低于此
+
+
+def _money_number(text):
+    if not isinstance(text,str):return None
+    value=text.strip().replace(',','')
+    if not MONEY_TEXT.match(text.strip()):return None
+    try:return Decimal(value)
+    except (InvalidOperation,ValueError):return None
+
+
+def read_result_tally(result):
+    """把只读工具结果里的权威数字整理成一条系统提示，避免模型自己口算汇总。
+
+    只处理“带表头 + 行”的报表结构：给出真实行数与各金额列合计。
+    模型逐行列对却算错合计、或把行数说反，都会因此被纠正。
+    """
+    if not isinstance(result,dict):return ''
+    lines=[]
+    for table in _iter_report_tables(result):
+        headers=table.get('headers');rows=table.get('rows')
+        title=safe_text(table.get('title') or '明细',60)
+        entry=['表「%s」真实行数 %d' % (title,len(rows))]
+        for index,header in enumerate(headers[:TABLE_CAP]):
+            total=None;counted=0
+            for row in rows:
+                values=row.get('values') if isinstance(row,dict) else None
+                if not isinstance(values,list) or index>=len(values):break
+                number=_money_number(values[index])
+                if number is None:break
+                total=(total or Decimal(0))+number;counted+=1
+            else:
+                if total is not None and counted==len(rows) and '（元）' in str(header):
+                    entry.append('%s 合计 %s' % (safe_text(header,30),format(total,'.2f')))
+        lines.append('；'.join(entry))
+        if len(lines)>=6:break
+    if not lines:return ''
+    return ('系统统计（以下数字由系统按本次工具返回的完整结果计算，不是抽样）：'
+            + '；'.join(lines)
+            + '。向员工汇总时请直接引用这些数字，不要自己相加、估算或改写；'
+              '若需要别的口径，请再调用工具查询，不要用手头明细凑数。')
+
+
+def _iter_report_tables(node,depth=0,budget=None):
+    """在只读结果里找报表结构：带 headers + rows 的字典（允许 tables/data 等一层包装）。
+
+    逐层不再按前 40 个键截断：analytics 实测 154 张表都在同一个 tables 字典里，
+    截断会让后面的表静默消失（合计与目录都会漏）。改用总节点预算控制遍历代价。
+    """
+    if budget is None:budget=[TABLE_SCAN_CAP]
+    if depth>4 or not isinstance(node,dict) or budget[0]<=0:return
+    headers=node.get('headers');rows=node.get('rows')
+    if isinstance(headers,list) and headers and isinstance(rows,list) and rows:
+        yield node
+        return
+    for value in node.values():
+        budget[0]-=1
+        if budget[0]<=0:return
+        yield from _iter_report_tables(value,depth+1,budget)
+
+
+def report_table_index(result):
+    """把过大的报表结果压成“表名 + 行数 + 金额合计”目录，供模型按表再查一次。"""
+    index=[];cut=False
+    for key,table in _iter_report_tables_keyed(result):
+        if len(index)>=TABLE_INDEX_CAP:cut=True;break
+        rows=table.get('rows') or []
+        headers=table.get('headers') or []
+        entry={'table':key,'title':safe_text(table.get('title') or key,40),'rows':len(rows)}
+        for position,header in enumerate(headers[:TABLE_CAP]):
+            total=None;counted=0
+            for row in rows:
+                values=row.get('values') if isinstance(row,dict) else None
+                if not isinstance(values,list) or position>=len(values):break
+                number=_money_number(values[position])
+                if number is None:break
+                total=(total or Decimal(0))+number;counted+=1
+            else:
+                if total is not None and counted==len(rows) and '（元）' in str(header):
+                    entry.setdefault('totals',{})[safe_text(header,30)]=format(total,'.2f')
+        index.append(entry)
+    if cut:index.append({'table':'_truncated','title':'表较多，仅列出前 %d 张，请按业务类型缩小查询' % TABLE_INDEX_CAP,'rows':0})
+    return index
+
+
+def _iter_report_tables_keyed(node,key='',depth=0,budget=None):
+    """与 _iter_report_tables 同样的遍历，但带表名；同样不按前 40 个键截断（见上）。"""
+    if budget is None:budget=[TABLE_SCAN_CAP]
+    if depth>4 or not isinstance(node,dict) or budget[0]<=0:return
+    headers=node.get('headers');rows=node.get('rows')
+    if isinstance(headers,list) and headers and isinstance(rows,list):
+        yield key,node
+        return
+    for name,value in node.items():
+        budget[0]-=1
+        if budget[0]<=0:return
+        yield from _iter_report_tables_keyed(value,str(name),depth+1,budget)
 
 
 def safe_text(value, maximum=6000):
@@ -1205,7 +1308,7 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
              '并指出哪些独立事项已经可办、哪些依赖前一步确认或同事处理。不要编结果，也不要再调用工具。')
     try:
         async with asyncio.timeout(turn_timeout):
-            call_count=0;wrapped=False;corrected=False;truncation_replanned=False;tally=None
+            call_count=0;wrapped=False;corrected=False;truncation_replanned=False;tally=None;result_tally=None
             turn_started=utcnow()
             for round_index in range(max_rounds):
                 # A role change can revoke a session while the previous model/tool
@@ -1296,10 +1399,30 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                     except (ValueError,KeyError,TypeError):
                         result={'status':422,'error':'操作参数格式有误，请重新检查字段'}
                         record_issue(db,user,session_id,'model','助手生成的操作参数格式有误',synthetic=config.synthetic)
-                    encoded=json.dumps(scrub(result),ensure_ascii=False)
+                    cleaned=scrub(result)
+                    encoded=json.dumps(cleaned,ensure_ascii=False)
                     if len(encoded)>36000:
-                        encoded=json.dumps({'truncated':True,'message':'结果较多，请指定领域、资料类型或业务编号进一步查询'},ensure_ascii=False)
+                        # 2026-09-27 报表实测：整包 analytics 一定超过本上限，模型只看到"结果较多"，
+                        # 于是回答"读不到"或改用别的口径自己算（合计与页面不符）。这里改成返回**报表目录**
+                        # （表名、行数、金额合计）：模型据此用 tables 参数只取需要的那张表，即可拿到全量数字。
+                        index=report_table_index(result)
+                        if index:
+                            encoded=json.dumps({'truncated':True,
+                                'message':'结果较多，本次只返回报表目录。请用 tables 参数只查询需要的表名（逗号分隔）。',
+                                'tables':index},ensure_ascii=False)
+                        else:
+                            encoded=json.dumps({'truncated':True,'message':'结果较多，请指定领域、资料类型或业务编号进一步查询'},ensure_ascii=False)
                     messages.append({'role':'tool','tool_call_id':call.get('id',''),'content':encoded})
+                    # 2026-09-27 报表实测：模型逐行列对了 5 张订单，却把合计写成 733,800 / 直接成本 702,000
+                    # （正确 735,200 / 662,500），而它自己列的明细相加正好等于正确值；同一会话里对"交付 0 条"
+                    # 也报了与页面相反的结论。金额合计只有系统算得准，所以像卡数一样把权威数字作为一条系统
+                    # 消息放进上下文（原地更新），要求模型引用而不是自己口算。
+                    summary_line=read_result_tally(result)
+                    if summary_line:
+                        if result_tally is None:
+                            result_tally={'role':'system','content':summary_line};messages.append(result_tally)
+                        else:
+                            result_tally['content']=summary_line
                     db.commit()
                 # 2026-09-25 整表实测：模型准备的卡是对的（50 张），但结尾汇总自己数成"共 44 张"、
                 # "23 行缺字段"（实际 17 行）——员工看到的文字和待确认卡数量对不上。卡数只有系统知道，

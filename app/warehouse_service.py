@@ -52,6 +52,7 @@ def get_case(db,user,key):
     return row,one(db,Document,key)
 def task(db,user,row,key):assert_task(db,user,row,key)
 def close(db,user,row,state='completed'):
+    # Successful handlers finish the task they performed before cancelling leftovers.
     row.state=state;row.completed_date=today();flow.close_tasks(db,row,user)
 def digest(action,v):return flow.request_digest(action,json.loads(json.dumps(v,default=str)))
 def conflict(db,e):
@@ -292,7 +293,7 @@ def _act(db,user,row,doc,item,action,v):
             value=portion(item.inventory_value_cents,abs(delta),item.quantity_milli) if delta<0 else (item.unit_cost_cents*delta*2+1000)//2000
             if delta>0 and not item.quantity_milli:raise HTTPException(409,'零库存盘盈缺少可靠成本，请保留观察并先办理有来源价值的其他入库，不能猜测成本')
             post(db,user,row,item,delta,value if delta>0 else -value,'wh_count',doc.source_location_id)
-        close(db,user,row);return
+        flow.finish_task(db,row,'wh_count_review',user);close(db,user,row);return
     if action=='execute':
         task(db,user,row,'wh_execute');evidence(db,user,row,v['evidence_id']);qty=doc.quantity_milli*(-1 if op in OUT else 1)
         if op in RETURNS:
@@ -304,7 +305,7 @@ def _act(db,user,row,doc,item,action,v):
         elif op=='other_in':value=db.scalar(select(Approval.value_cents).where(Approval.case_id==row.id))
         else:value=portion(item.inventory_value_cents,abs(qty),item.quantity_milli)
         post(db,user,row,item,qty,value if qty>0 else -value,PURPOSES[op],doc.source_location_id if qty<0 else doc.destination_location_id,doc.original_move_id)
-        release(db,user,row,doc);close(db,user,row);return
+        release(db,user,row,doc);flow.finish_task(db,row,'wh_execute',user);close(db,user,row);return
     if action=='dispatch':
         task(db,user,row,'wh_execute');evidence(db,user,row,v['evidence_id'])
         from .inventory_availability import assert_can_issue
@@ -319,7 +320,8 @@ def _act(db,user,row,doc,item,action,v):
         if qty>transit.quantity_milli:raise HTTPException(409,'数量超过本次尚在途数量')
         dest=stock.assert_bin(db,item.id,doc.destination_location_id if action=='accept' else doc.source_location_id,0)
         stock.rebalance(db,user,row,item,{transit.id:-qty,dest.id:qty},'local_accept' if action=='accept' else 'local_return')
-        if not transit.quantity_milli:close(db,user,row)
+        if not transit.quantity_milli:
+            flow.finish_task(db,row,'wh_accept' if action=='accept' else 'wh_transit_return',user);close(db,user,row)
         return
     raise HTTPException(404,'仓储动作不存在')
 

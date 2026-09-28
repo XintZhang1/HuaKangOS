@@ -12,7 +12,7 @@ from .security import get_user,require_full,ROLES
 from .models import User,Store,Vehicle,Sale,AuditLog
 from .tenancy import single_store,accessible_stores
 from .services import plain,audit
-from .flow_models import Case,Task,Customer,FlowEvent,PaymentLink,Account,Item,StockMove,Member,MemberEntry,Reference,DocTemplate,FileAsset,VehicleHold
+from .flow_models import Case,Task,Customer,FlowEvent,RequestReceipt,PaymentLink,Account,Item,StockMove,Member,MemberEntry,Reference,DocTemplate,FileAsset,VehicleHold
 from .flow_specs import SPECS,STATES,MODULES,TERMINAL,parse_fields,f,flow_spec,CURRENT_FLOW_VERSION
 from . import flow_engine as eng
 from .flow_navigation import case_entry_route
@@ -170,12 +170,26 @@ def case_detail(case_id:int,db=Depends(get_db),user=Depends(get_user)):
 
 @router.post('/cases/{case_id}/actions/{action}')
 def act(case_id:int,action:str,body:ActionInput,db=Depends(get_db),user=Depends(get_user)):
-    single_store(db);digest=eng.request_digest(f'{case_id}:{action}',body.model_dump(exclude={'request_id'}))
-    old=eng.prior_request(db,user,body.request_id,digest)
-    if old:return describe_case(db,user,old)
+    sid=single_store(db);digest=eng.request_digest(f'{case_id}:{action}',body.model_dump(exclude={'request_id'}))
+    receipt=db.scalar(select(RequestReceipt).where(RequestReceipt.store_id==sid,RequestReceipt.request_key==body.request_id))
+    if receipt:
+        if receipt.actor_id!=user.id or receipt.digest!=digest or receipt.case_id!=case_id:
+            raise HTTPException(409,'此操作编号已用于不同内容，请刷新页面后重试')
+        old=eng.scoped_get(db,Case,receipt.case_id)
+        if old is None:raise HTTPException(404,'业务不存在或当前账号不可查看')
+        # The actor may lose read access by completing this very action. Its
+        # receipt proves success, but never grants access to later case data.
+        if not eng.can_read(db,user,old):return {'id':receipt.case_id,'can_view':False}
+        return {**describe_case(db,user,old),'can_view':True}
     row=eng.get_case(db,user,case_id)
     eng.process_action(db,user,row,action,body.values,body.version);eng.save_receipt(db,user,body.request_id,digest,row)
-    db.commit();return describe_case(db,user,row)
+    db.commit()
+    # Finishing an assigned task can legitimately end this employee's read
+    # scope. Report the successful action without telling the UI to reopen it,
+    # and without shipping case data the actor may no longer read: this is the
+    # same minimal receipt the replay path above returns.
+    if not eng.can_read(db,user,row):return {'id':row.id,'can_view':False}
+    return {**describe_case(db,user,row),'can_view':True}
 
 
 @router.post('/cases/{case_id}/documents')
@@ -388,10 +402,34 @@ def edit_master(kind:str,record_id:int,body:MasterInput,db=Depends(get_db),user=
 
 
 @router.get('/analytics')
-def analytics(date_from:date|None=None,date_to:date|None=None,db=Depends(get_db),user=Depends(get_user)):
+def analytics(date_from:date|None=None,date_to:date|None=None,tables:str|None=Query(None,max_length=400),db=Depends(get_db),user=Depends(get_user)):
     require_full(user)
     from .flow_analytics import build_analytics
-    return build_analytics(db,user,date_from,date_to)
+    data=build_analytics(db,user,date_from,date_to)
+    return select_tables(data,tables)
+
+
+def select_tables(data,tables):
+    """按需只返回指定的报表，避免整包结果被助手侧的长度上限截断。
+
+    tables 用逗号分隔报表键（见 /analytics/export 的 dataset）。不传时保持整包返回，
+    页面行为不变；传了但键不存在则明确报错，而不是静默返回空表。
+    """
+    if not tables:return data
+    wanted=[name.strip() for name in tables.split(',') if name.strip()]
+    if not wanted or len(wanted)>12:raise HTTPException(422,'报表筛选一次最多查询十二张表')
+    known=data.get('tables',{})
+    missing=[name for name in wanted if name not in known]
+    if missing:
+        # 报错时把可用表名一并给出，调用方（含业务助手）不必猜键名。
+        raise HTTPException(422,'报表不存在：'+'、'.join(missing[:6])
+                            +'；可用报表：'+'、'.join(list(known)[:40]))
+    selected={name:known[name] for name in wanted}
+    charts=[chart for chart in data.get('charts',[]) if chart.get('table') in selected]
+    result=dict(data);result['tables']=selected;result['charts']=charts
+    result['selected_tables']=wanted
+    result['notice']='本次只返回所选报表；需要其它报表请再次查询对应表名。'
+    return result
 
 
 @router.get('/analytics/export')

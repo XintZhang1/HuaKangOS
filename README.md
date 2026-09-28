@@ -12,6 +12,7 @@ Python 3.11–3.13。Windows 双击 `start-preview.cmd`，按提示打开本地�
 
 ## 保留的维护入口
 
+- [0927_bugfix 修复及 DeepSeek 复测交接](docs/0927_bugfix-Codex修复与复测.md)
 - [业务助手交接](docs/业务助手交接.md)
 - [R4 实现与验收边界](docs/R4-B1-实现与验收说明.md)
 - [本地 MCP 接入](docs/R4-B1-MCP接入说明.md)

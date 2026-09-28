@@ -47,7 +47,8 @@ async function invoiceAction(key){
  if(key==='submit')fields.push(F('reference','实际外部申请编号或办理凭证号'));
  if(key==='record')fields.push(F('invoice_number','实际票号'),F('issued_on','实际开票日期','date'),F('amount','实际票面金额（元）','money'));
  if(key==='difference')fields.push(F('external_number','待核对外部票号或申请号','text',false),F('observed_amount','外部待核对金额（元，可空）','money_zero',false));
- if(!['cancel','reject'].includes(key))fields.push(F('evidence_id',key==='record'?'本单发票类别文件':'本单实际办理凭据','file'));
+ if(!['cancel','reject'].includes(key))fields.push({...F('evidence_id',key==='record'?'本单发票类别文件':'本单实际办理凭据','file'),
+   file_category:key==='record'?'invoice':'evidence'});
  fields.push(F('reason','本人办理结果或核对依据','textarea'));
  await formDialog(invoiceNames[key],fields,{issued_on:state.catalog.today,amount:(r.amount_cents/100).toFixed(2)},async v=>{
   const values={...v};if(key==='record'){values.amount_cents=groupFen(v.amount);delete values.amount;}

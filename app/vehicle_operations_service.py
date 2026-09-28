@@ -457,6 +457,9 @@ def release_undispatched_order_hold(db,user,source_order,aftercare_case,evidence
     from .aftercare_models import AftercareApplication
     if not db.scalar(select(AftercareApplication.id).where(AftercareApplication.case_id==aftercare_case.id)):
         raise HTTPException(409,'未发车占用只能随售后纠正实际生效同事务释放')
+    # 2026-09-27 实测：读保管/占用事实（current_custody、VehicleHold）也走调拨保护守卫，
+    # 原先把权威上下文只开在写分支，正常路径一进来就被 403“调拨协调记录须通过授权调拨服务办理”
+    # 打断。这里把读取与写入放进同一个上下文，保证售后纠正的实际生效不依赖调用顺序。
     with authority(db,user,READ|{'sales','reception'}):
         if source_order.data.get('dispatched_at'):raise HTTPException(409,'已实际出库车辆须实退验收，不可直接释放原单占用')
         existing=db.scalar(select(HoldRelease).where(HoldRelease.source_case_id==source_order.id))
@@ -473,3 +476,6 @@ def release_undispatched_order_hold(db,user,source_order,aftercare_case,evidence
         car.updated_at=utcnow()
         db.add(HoldRelease(source_case_id=source_order.id,aftercare_case_id=aftercare_case.id,vehicle_id=car.id,evidence_id=evidence_id,
             actor_id=user.id,business_date=today(),reason='原销售未发车，按已批准且客户同意的生效终止释放未交付占用'));db.delete(hold)
+        # 保管记录在上下文内被改动，但真正落库可能发生在退出上下文之后（后续查询触发 autoflush），
+        # 那时守卫已恢复，flush 会再抛 403。这里在仍持有权威的当下把改动落库。
+        db.flush()

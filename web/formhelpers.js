@@ -8,11 +8,16 @@ function beginInlineFileUpload(root){
  const lock={controls};inlineFileUploads.set(scope,lock);for(const control of controls.keys())control.disabled=true;
  return ()=>{if(inlineFileUploads.get(scope)!==lock)return;inlineFileUploads.delete(scope);for(const [control,disabled]of controls)if(control.isConnected)control.disabled=disabled;};
 }
-function inlineFileControls(caseId,kind='file'){
- return `<div class="inline-file-tools" data-file-case="${E(caseId)}" data-file-kind="${E(kind)}">${b('inline-file-open','上传文件')}<div data-inline-file-panel class="inline-upload" hidden></div><div data-inline-file-status role="status"></div></div>`;
+function inlineFileControls(caseId,kind='file',requirement=''){
+ return `<div class="inline-file-tools" data-file-case="${E(caseId)}" data-file-kind="${E(kind)}" data-file-requirement="${E(requirement)}">${b('inline-file-open','上传文件')}<div data-inline-file-panel class="inline-upload" hidden></div><div data-inline-file-status role="status"></div></div>`;
 }
-function caseFilePickerHTML(name,caseId,files=[]){
- return `<div data-file-picker><select name="${E(name)}" required data-search-select><option value="">选择或上传文件</option>${files.filter(f=>!f.generated&&f.security?.can_use).map(f=>`<option value="${f.id}">${E(f.name)} · ${E(f.label)}</option>`).join('')}</select>${inlineFileControls(caseId)}</div>`;
+function caseFilePickerHTML(name,caseId,files=[],requirement=''){
+ // requirement 为动作真正接受的类别（逗号分隔）。已上传的不符类别不再作为候选，
+ // 但仍保留“上传文件”入口，员工可在本弹窗内补传正确类别，不必关表单重来。
+ const keys=(requirement||'').split(',').map(x=>x.trim()).filter(Boolean);
+ const usable=keys.length?files.filter(f=>keys.includes(f.category)):files;
+ const hint=keys.length?`<p class="fieldhelp">本步需要“${keys.map(key=>state.catalog?.upload_categories?.[key]||labels[key]||key).join('、')}”类别的凭据；不符类别的原件不会出现在这里，可在本窗口直接上传。</p>`:'';
+ return `<div data-file-picker><select name="${E(name)}" required data-search-select><option value="">选择或上传文件</option>${usable.filter(f=>!f.generated&&f.security?.can_use).map(f=>`<option value="${f.id}">${E(f.name)} · ${E(f.label)}</option>`).join('')}</select>${inlineFileControls(caseId,'file',requirement)}${hint}</div>`;
 }
 function inlineUploadCategories(kind){
  const role=state.user.role;
@@ -26,11 +31,17 @@ async function openInlineFile(button){
  requireInlineFileIdle(root);
  const row=await api('/api/flow/cases/'+root.dataset.fileCase);requireStoreContext(context);if(!root.isConnected)return;requireInlineFileIdle(root);
  const categories=inlineUploadCategories(root.dataset.fileKind),files=row.files.filter(f=>f.generated&&f.security?.can_use);
- panel.innerHTML=`<div>文件用途<select data-inline-category aria-label="文件用途">${categories.map(([key,label])=>`<option value="${E(key)}">${E(label)}</option>`).join('')}</select></div><div data-inline-source-wrap hidden>对应合同或交接单<select data-inline-source aria-label="对应合同或交接单"></select></div><input type="file" data-inline-file aria-label="选择上传文件" accept=".pdf,.jpg,.jpeg,.png,.docx,.txt"><div class="row">${b('inline-file-upload','上传并选用','','primary')}${b('inline-file-dismiss','收起')}</div>`;
+ // 本动作真正接受的类别（服务端 action.fields[].file_category）。之前一律默认“业务凭据”，
+ // 需要“客户授权/收退款凭据”的动作按默认值提交必被 422 拒。这里按需要预选并就地说明。
+ const required=(root.dataset.fileRequirement||'').split(',').map(x=>x.trim()).filter(Boolean);
+ const usable=required.length?categories.filter(([key])=>required.includes(key)):categories;
+ const options=usable.length?usable:categories;
+ const hint=required.length?`<p class="fieldhelp">本步需要上传“${options.map(([,label])=>label).join('、')}”类别的凭据。</p>`:'';
+ panel.innerHTML=`<div>文件用途<select data-inline-category aria-label="文件用途">${options.map(([key,label])=>`<option value="${E(key)}">${E(label)}</option>`).join('')}</select></div><div data-inline-source-wrap hidden>对应合同或交接单<select data-inline-source aria-label="对应合同或交接单"></select></div><input type="file" data-inline-file aria-label="选择上传文件" accept=".pdf,.jpg,.jpeg,.png,.docx,.txt">${hint}<div class="row">${b('inline-file-upload','上传并选用','','primary')}${b('inline-file-dismiss','收起')}</div>`;
  panel.hidden=false;
  const category=panel.querySelector('[data-inline-category]'),source=panel.querySelector('[data-inline-source]');
- const preferred=root.dataset.fileKind==='signed_file'?'signed_contract':root.dataset.fileKind==='handover_file'?'signed_handover':'evidence';
- if(categories.some(([key])=>key===preferred))category.value=preferred;
+ const preferred=required[0]||(root.dataset.fileKind==='signed_file'?'signed_contract':root.dataset.fileKind==='handover_file'?'signed_handover':'evidence');
+ if(options.some(([key])=>key===preferred))category.value=preferred;
  const update=()=>{const signed=category.value.startsWith('signed_');panel.querySelector('[data-inline-source-wrap]').hidden=!signed;source.innerHTML='<option value="">请选择对应版本</option>'+files.filter(f=>f.category===(category.value==='signed_contract'?'contract':'handover')).map(f=>`<option value="${f.id}">${E(f.name)} · ${time(f.created_at)}</option>`).join('');};
  category.onchange=update;update();
 }

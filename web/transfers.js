@@ -27,7 +27,7 @@ async function transferNew(){
  d.addEventListener('click',e=>{if(e.target.closest('[data-act=transfer-remove-line]')&&d.querySelectorAll('.transfer-input-line').length>1)e.target.closest('.transfer-input-line').remove();},{signal:(()=>{const c=new AbortController();d.addEventListener('close',()=>c.abort(),{once:true});return c.signal;})()});
 }
 async function transferAction(key){
- const r=transferContext,request_id=requestKey();const basic=[F('reason','本次确认说明','textarea')];if(!['approve','reject_request','cancel'].includes(key))basic.unshift(F('evidence_id','本单实际交接凭据','file'));
+ const r=transferContext,request_id=requestKey();const basic=[F('reason','本次确认说明','textarea')];if(!['approve','reject_request','cancel'].includes(key))basic.unshift({...F('evidence_id','本单实际交接凭据','file'),file_category:'evidence'});
  let extra='';let targets=[];
  if(key==='receive'){
   const lookup=await api('/api/flow/lookup/item'),items=lookup.items||lookup;

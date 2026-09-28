@@ -10,6 +10,11 @@ Object.assign(reconciliationSources,{"vehicle_transport_exceptions": "原整车�
 const reconcileLabels={issue:'记录本条差异',resolve:'记录差异处理结果',submit:'提交独立店长复核',seal:'复核封存',recalculate:'重算为新版本',reopen:'注明原因并复开',pay:'确认本店实际付款',receive:'确认本店实际到账',difference:'记录未到账或其他差异',cancel:'撤销未付款申请',reject:'拒绝未付款申请'};
 const reconcileFinance=()=>canWrite()&&['admin','finance'].includes(state.user.role);
 const reconcileManager=()=>canWrite()&&['admin','manager'].includes(state.user.role);
+function reconciliationCashBasis(r){
+ const excluded=new Set(r.summary.excluded_cash_ids||[]),omitted=(r.manifest||[]).filter(x=>x.source==='cash_entries'&&(excluded.has(x.source_id)||x.data.category==='transfer'));
+ const amounts={in:0,out:0};for(const x of omitted)amounts[x.data.direction]+=x.data.amount_cents;
+ return `<p>现金摘要按本版本完整来源 CSV 中的 cash_entries（实际现金）分别汇总收入与支出，排除已被纠正的原登记、仅用于账务纠正的冲正条目及内部转账。原登记和冲正仍保留在完整来源中备查；收款关联、会员本金、权益、库存和往来不重复计入现金。这里是实际收付口径，预收本金实际到账仍计入收入，不等同经营收入或利润。</p>${omitted.length?`<details><summary>查看本版本现金摘要排除明细：收入 ${money(amounts.in)} 元，支出 ${money(amounts.out)} 元</summary>${table(['来源条目','方向','排除金额（元）','原因'],omitted.map(x=>[E(x.key),x.data.direction==='in'?'收入':'支出',money(x.data.amount_cents),x.data.category==='transfer'?'内部转账':'原登记已纠正或仅作账务冲正']))}</details>`:''}`;
+}
 async function reconciliationPage(id){
  if(state.store==='all')return heading('业务对账与月结')+storeNotice();
  if(!id){const d=await api('/api/reconciliation/batches');return heading('业务对账与月结','',(reconcileFinance()?b('reconcile-new','新建期间对账','','primary'):'')+b('open','店间实际清算','data-route="clearing"'))+table(['期间／版本','状态','操作'],d.items.map(r=>[`${r.start} 至 ${r.end} · 版本${r.revision}`,E({draft:'财务对账中',review:'待店长封存',sealed:'已封存',superseded:'已有重算版本'}[r.status]),b('open','查看来源与差异',`data-route="reconciliation/${r.id}"`)]));}
@@ -22,10 +27,12 @@ async function reconciliationPage(id){
  if(r.definition_version>=10)html+='<div class="notice">自第 10 版起保留精品原批次与逐件付款分摊。C 为抵扣面额、P 为原发行对价、S 为内部结算；原关联按生成时点冻结，实际现金仍只取原现金账。不同来源表的金额不能相加。</div>';
  if(r.definition_version>=11)html+='<div class="notice">自第 11 版起保留本店原退运查找、独立复核、实际结束结果及再次找到关联。它们采用生成时点口径，不增加第二笔损失、库存或现金。</div>';
  if(r.definition_version>=12)html+='<div class="notice">自第12版起保留本店原整车差异、双方独立复核、原损失、实际找回、原赔付与原款关联。实车观察不等于入库，目标不等于现金；各来源表不得合并相加。</div>';
+ if(r.definition_version>=22)html+='<div class="notice">本批对账凭据用于证明核对及独立复核，保留在本批原单，不再作为业务来源重复纳入；业务原单的附件仍参与来源核对。</div>';
+ else if(r.source_changed&&r.definition_version>=4)html+='<div class="notice">本批沿用历史来源范围，对账凭据的私有附件也会影响来源。请明确重算新版本后继续；历史版本及其冻结来源保持原样。</div>';
  if(r.definition_version===1)html+='<div class="notice">本批次沿用历史核对范围，不含新增的库位、续会及专用发票明细。需要扩展核对时，请保留原版并重算或复开新版本。</div>';
  if(r.source_changed)html+='<div class="notice">账目已变化，请重新计算后提交。已封存的请联系店长重开。</div>';
  if(r.successor_id)html+=panel('后继版本',b('open','打开最新后继',`data-route="reconciliation/${r.successor_id}"`));
- html+=panel('核对要点',`<p>期间真实收入 ${money(r.summary.period_cash_in_cents)} 元，期间真实支出 ${money(r.summary.period_cash_out_cents)} 元。当前未收款 ${money(r.summary.current_receivable_cents)} 元。</p><p>本金、权益、库存和往来各自核对，不能与现金直接相加。处理差异须先在原业务完成必要纠正，再重算本期来源；备注不会替代真实账务。</p>${b('reconcile-action','下载本版本完整来源 CSV','data-key="export"')}`);
+ html+=panel('核对要点',`<p>期间真实收入 ${money(r.summary.period_cash_in_cents)} 元，期间真实支出 ${money(r.summary.period_cash_out_cents)} 元。当前未收款 ${money(r.summary.current_receivable_cents)} 元。</p>${reconciliationCashBasis(r)}<p>处理差异须先在原业务完成必要纠正，再重算本期来源；备注不会替代真实账务。</p>${b('reconcile-action','下载本版本完整来源 CSV','data-key="export"')}`);
  if(r.definition_version>=10)html+=panel('原单位待恢复负债（冻结时点）',table(['原单／原单位','种类／原有效期','C 面额 / P 对价 / S 结算（元）','可办理状态'],(r.summary.retail_group_pending_original_units||[]).map(x=>[b('open','查看原精品单',`data-route="retail/${x.case_id}"`)+` · 原单位${x.unit_id}`,E({principal:'本金',bonus:'赠金',coupon:'券',package:'套餐'}[x.kind]||x.kind)+` · ${E(x.original_expires_on||'不适用')}`,`${money(x.credit_cents)} / ${money(x.consideration_cents)} / ${money(x.settlement_cents)}`,x.restorable?'已具备原路恢复条件；恢复后仍用原有效期':'待后续实际退回凑齐原单位；当前不可消费、无需重复催办'])));
  html+=panel('逐项差异',table(['原条目／差异','依据与处理','操作'],r.issues.map(i=>[`${E(reconciliationSources[i.line_key.split(':')[0]]||'来源')} #${E(i.line_key.split(':')[1])}<br>${money(i.difference_cents)} 元`,`${E(i.reason)}<br>${i.status==='resolved'?E(i.resolution):'待核对处理'}`,i.status==='open'&&reconcileFinance()&&r.status==='draft'?b('reconcile-action','记录处理凭据',`data-key="resolve" data-id="${i.id}"`):E(i.status==='resolved'?'已记录处理结果':'待处理')])));
  const sources=r.manifest.slice(0,200);
@@ -39,7 +46,7 @@ async function reconciliationCreate(){
 }
 async function reconciliationAction(key,id,lineKey){
  const r=state.reconciliation;if(key==='export')return download('/api/reconciliation/batches/'+r.id+'/export','huakangos-业务对账.csv');const fields=[];if(key==='issue')fields.push(F('difference','待核对差额（元，正负或0）','text'));
- if(['issue','resolve','seal'].includes(key))fields.push(F('evidence_id','本批核对／处理凭据','file'));
+ if(['issue','resolve','seal'].includes(key))fields.push({...F('evidence_id','本批核对／处理凭据','file'),file_category:'evidence'});
  fields.push(F('reason',key==='resolve'?'实际核对及处理结果':'办理依据与原因','textarea'));
  const request_id=requestKey();await formDialog(reconcileLabels[key],fields,{},async v=>{
   const values={reason:v.reason};if(v.evidence_id)values.evidence_id=v.evidence_id;
@@ -63,6 +70,7 @@ async function clearingCreate(kind,id){
 }
 async function clearingAction(key){
  const r=state.clearing,fields=[];if(['pay','receive'].includes(key))fields.push(F('account_id','本店实际账户','account'),F('reference','本店真实银行流水／凭证号'));
- if(['pay','receive','difference'].includes(key))fields.push(F('evidence_id','本店原清算单凭据','file'));fields.push(F('reason','实际办理事实与原因','textarea'));
+ if(['pay','receive','difference'].includes(key))fields.push({...F('evidence_id','本店原清算单凭据','file'),
+   file_category:['pay','receive'].includes(key)?'receipt':'evidence'});fields.push(F('reason','实际办理事实与原因','textarea'));
  const request_id=requestKey();await formDialog(reconcileLabels[key],fields,{},v=>api(`/api/reconciliation/clearing/${r.id}/actions/${key}`,{method:'POST',body:{request_id,version:r.version,case_version:r.case_version,values:v}}),{caseId:r.case_id,notice:`本次固定金额 ${money(r.amount_cents)} 元。仅在真实银行或现金事实发生后登记；系统不会自动转账。`});
 }

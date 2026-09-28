@@ -30,6 +30,8 @@ LABELS={'approve':'批准整车采购与逐行价格','reject':'拒绝整车采�
     'request_funds':'申请采购付款','cancel_funds':'取消未付请款余量','pay':'登记实际采购付款','refund':'登记原款实际退回',
     'ship':'核对供应商逐VIN发运','receive':'逐VIN实际验收入库','return_request':'申请整车退回','return_approve':'批准整车退回',
     'return_cancel':'撤销未发出退车','return_dispatch':'确认实车退回供应商'}
+# 请款、付款与原款退回属于资金事实；后勤岗位不得用业务/检测凭据顶替。
+PROCUREMENT_FINANCIAL_CATEGORIES=('receipt','invoice','signed_contract','procurement_contract')
 
 
 def rows(db,model,**kw):return list(db.scalars(select(model).filter_by(**kw).order_by(*model.__table__.primary_key.columns)))
@@ -44,10 +46,10 @@ def get_order(db,user,key):
     return row,one(db,Order,key)
 def evidence(db,user,row,key,financial=False):
     asset=flow.file_exists(db,row,key)
-    if not can_file(user,row,asset):raise HTTPException(403,'当前岗位不能使用此类凭据')
+    if not can_file(user,row,asset):raise HTTPException(403,flow.category_requirement_message(asset.category,None,role=user.role))
     if asset.generated:raise HTTPException(422,'请使用实际业务凭据，系统模板不能证明实际收款或交接')
-    if financial and asset.category not in {'receipt','invoice','signed_contract','procurement_contract'}:
-        raise HTTPException(422,'价格及资金凭据请归入收退款凭据、发票或合同签回；不要向库管暴露资金资料')
+    if financial and asset.category not in PROCUREMENT_FINANCIAL_CATEGORIES:
+        raise HTTPException(422,flow.category_requirement_message(asset.category,PROCUREMENT_FINANCIAL_CATEGORIES))
     return asset
 
 
