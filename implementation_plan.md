@@ -3092,56 +3092,13 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.2.3 整车批量导入后的审阅与逐行恢复
 
-**状态**：in_progress（能力缺口：批次详情读取未纳入 reviewed catalog）
+**状态**：implemented（2026-09-28 实现并完成外部实测；9 项通过）
 
 **全局顺序前置**：M7.2.2 done。
 
-**验证状态**：适配器骨架、注册范围、缺口处理与回执合同已实测（8 项通过）；逐行恢复与行级事实因能力缺口无法验证。
+**验证状态**：目录规则、快照、三条事实、回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-**执行记录**：2026-09-28 新增 pp/assistant_runtime_domains/vehicle_import_batch.py（VehicleImportBatchAdapter，object_types=('vehicle_import_batch',)：只登记已评审的 POST /api/vehicle-imports/batches/{batch_id}/actions/{action}；
-ead_snapshot 按 common contract 第 4 条**明确报告能力缺口**并给原页面入口，不调用未登记读取；三条事实键一律 satisfied=None，不把 status=reviewed/confirmed 文字当证据；extract_result 返回 ehicle_import_batch 引用；
-ead_receipt 走 VehicleImportRequest 族并保持冻结快照），__init__.py 显式注册且 allback_object_types=()。**能力缺口**：原生证据 GET /api/vehicle-imports/batches/{batch_id} 不在 pp/business_assistant_capabilities.json 的 reviewed catalog 内（该目录本领域只有批次动作 POST），按合同不得扩大目录或不登记读取，故本项**不记 implemented**；需评审补齐该 GET 或提供等价已评审只读路径后方可继续验收。 缺口报告（含阻塞的验收清单与两种可评审解决方式）见 docs/implementation-checkpoints/M7-2-3-capability-gap.md；按计划串行规则，M7.3.1 依赖本项，其原生证据已在目录内，缺口补齐后即可继续。外部套件 $ValidationRoot/tests/runtime_domains/test_vehicle_import_batch.py（8 项），run 20260928T131239Z-b7c08e3893 passed；同指纹 M7.2.2 回归通过。详见 docs/implementation-checkpoints/M7-2-3-review-v1.md。源码指纹 d68dfb7b4aa781865557efce3ece0357d7599ffe5ecca085380c9c567ab41443。
-
-
-**目标**：只完成 `vehicle_import_batch` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/vehicle_imports_api.py`、`app/vehicle_imports_service.py`、`app/vehicle_imports_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/vehicle_import_batch.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_vehicle_import_batch.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/vehicle-imports/batches/{batch_id}；API:84 的 trial/review/confirm/cancel/reassign；文件上传仍在原页面。
-
-**注册合同**：object_type=vehicle_import_batch（VehicleImportBatch.id）；adapter=`app/assistant_runtime_domains/vehicle_import_batch.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`vehicle_import.reviewed`：原详情 status=reviewed；`vehicle_import.confirmed`：原详情 status=confirmed；`vehicle_import.all_rows_result_recorded`：原 row_count 与完整 rows 一致、每个稳定 row.id 均有该 batch.kind 对应 funds_request_id/shipment_id/receipt_id 的真实 result，任何分页或缺行即 unknown。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：已上传批次、来源摘要、稳定行号/VIN、每行 funds/ship/receive 的真实结果引用；只能续办已存在批次。
-3. 接统一只读回执 resolver：VehicleImportRequest/vehicle_import_requests，vehicle_imports_service 的 Request 回执及原摘要；批次 receipt_id 仍只指业务事实。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：原上传 POST 是封闭面，返回原页面入口；缺行/重复 VIN/过期 case_version 每行说明；批量中断只补未完成 WorkItem。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_vehicle_import_batch.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.2.3
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-## M7.3 维修接待、施工、返修与理赔
-
-本组只作目录，下列小项才是可领取、实施和打勾的任务。
-
-<a id="m7-3-1"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/vehicle_import_batch.py`（`VehicleImportBatchAdapter`，`object_types=('vehicle_import_batch',)`：快照只读 `GET /api/vehicle-imports/batches/{batch_id}`（**实测 `business_assistant_gateway._operations()`：写操作须在 reviewed catalog 内，GET 由活跃路由发现并受 domain/closed/denied/body 过滤与调用时授权**），动作走已评审 `POST /api/vehicle-imports/batches/{batch_id}/actions/{action}`；事实 `vehicle_import.reviewed`/`vehicle_import.confirmed` 按原 `status`（已审阅不等于已确认），`vehicle_import.all_rows_result_recorded` 要求 `len(rows)==row_count` 且每行按 kind 有真实 `funds_request_id`/`shipment_id`/`receipt_id`，缺行、重复行标识、未登记类别、缺结果字段一律 unknown；回执走 `VehicleImportRequest` 族并保持冻结 `request_id`），`__init__.py` 显式注册且 `fallback_object_types=()`。**实测发现并修复**：① 我先前误把 JSON 目录当作读取白名单、错报"能力缺口"，实测原网关目录规则后撤回（撤回说明见 `docs/implementation-checkpoints/M7-2-3-capability-gap.md`）；② 批次对象不是 Case，父类 `snapshot_from_record` 按 `case` 校验引用导致 422，改为直接投影统一快照 DTO，动作可用性一律 `unknown`；③ 首轮 8 项低于登记下限被运行器如实拦截，现为 9 项。外部套件 `$ValidationRoot/tests/runtime_domains/test_vehicle_import_batch.py`（9 项），run `20260928T131640Z-e250f94ef3` passed；同指纹 M7.2.2、M7.2.1 回归通过。详见 `docs/implementation-checkpoints/M7-2-3-review-v2.md`。源码指纹 `46229e32526130166d92e4ba72828d3053f0c33f8c3774206c9bc7adc7ef9bcd`。**遗留**：文件上传仍是原封闭面；批次动作的准备/确认链路属集中测试阶段。下一项 M7.3.1。
 
 ### M7.3.1 维修预约与实际到店接待
 
