@@ -3572,7 +3572,7 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
-**状态**：in_progress（部分验收已通过：7 项，run `20260928T144342Z-875dbfaa7d`；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md；剩余：子进程故障注入、端到端零写入计数、批量无遗漏、撤权即停会话演练、结果级稳定性）
+**状态**：in_progress（两条登记命令同时通过：m81-fault-and-recovery-acceptance 11 项 + m81-freeze-confirmation-db 5 项 = 16 项，run `20260928T145607Z-0c77ba9145`，phase_complete=true；已覆盖清单 ①②④⑤：确定性准备键与跨进程稳定、批量无遗漏、冻结防篡改与不换号重放、schema 级唯一约束；**仍未完成**：③ 旧租约/撤权即停的会话级演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md）
 
 **全局顺序前置**：M7.12.3 done。
 

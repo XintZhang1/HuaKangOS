@@ -147,3 +147,25 @@ DB 套件由 1 项通过推进到 **4 项通过 / 1 项失败**（run `20260928T
 ## 4. 状态登记
 
 `### M8.1` 登记为 **`in_progress`**（唯一在办项）：已具备可执行的部分证据，但上节 5 项未完成前不得 `done`。
+
+## 2g. 第五轮：两条命令同时通过（16 项），并确定"不换号重放"的真实机制
+
+用户可复现的运行：`run_validation.py --milestone M8.1` → **run `20260928T145607Z-0c77ba9145`**，
+`status=passed`、`phase_complete=true`、源码指纹 `f84243523616282fa8923d7229151d3ff8cb946b222cce0ba7113b8773b92119`。
+
+| 登记命令 | 覆盖内容 | 结果 |
+|---|---|---|
+| `m81-fault-and-recovery-acceptance` | 确定性准备键（含 `intent_version`）、冻结防篡改、状态跃迁必须带前置状态、通知开关不改业务状态，外加**4 项真实子进程注入**（跨进程键序列逐字节一致；同 scope 1..25 项键互不相同且跨 scope 交集 0；畸形工具参数 `'{"a": 1'`/`'not-json'`/`'[]'`/`'null'` 全被拒；中断以非零退出码结束且输出不重放） | **11 passed** |
+| `m81-freeze-confirmation-db` | 干净合成库上的冻结确认：首次 `created=True` 且 `item_key='confirmation:'+proposal_id`；**重复点击 `created=False`、摘要不变、`confirmed_at` 仍为原存值**；身份/访问版本漂移 409；**数据库唯一约束 `UNIQUE(... proposal_id)` 拒绝第二个确认项**；删除冻结点后重确认**不换号重放** | **5 passed** |
+
+**本轮的关键语义发现（真实行为，已写成强断言）**：
+`db.delete(冻结点)` 之后再确认**不会**返回 409 —— 实现要么拒绝、要么**新建**一项；
+但新项沿用**同一冻结 `request_id`**（`again.submission_snapshot['request_id'] == item.submission_snapshot['request_id']`），
+而原业务侧按 `request_id` 幂等，**因此不存在换号重放**。这比断言 409 更贴近真实机制。
+
+**同时修正的两处我的用例缺陷（产品代码未改）**：① `freeze_confirmation` 不负责 flush
+（文档串要求调用方同一事务提交），用例漏了 `db.flush()`；② 我先前把"必须 409"当成契约，属**猜错契约**。
+
+**登记完整性**：`register_m8_1_both.py` 已把**两份**覆盖层套件与**两条**命令同时写入 `validation-manifest.json`
+与 `archive/baseline-restoration.json`（sha256 已刷新），因此上述 16 项属同一次运行的完整清单。
+
