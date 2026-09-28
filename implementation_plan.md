@@ -88,7 +88,7 @@
 | CP-20 | M7.3.4—M7.3.5 | 理赔核赔、真实进出厂 | implementation_released | docs/implementation-checkpoints/M7-3-4-review-v1.md；M7-3-5-review-v1.md | M7.3.4（claim_order，8 项）与 M7.3.5（gate_visit，8 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.4.1（CP-21） |
 | CP-21 | M7.4.1—M7.4.3 | 精品销售、套餐核销、零售集团 | implementation_released | docs/implementation-checkpoints/M7-4-1-review-v1.md；M7-4-2-review-v1.md；M7-4-3-review-v1.md | M7.4.1（9 项）、M7.4.2（9 项）、M7.4.3（7 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.5.1（CP-22） |
 | CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | implementation_released | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md；M7-5-3-review-v1.md | M7.5.1（8 项）、M7.5.2（8 项）、M7.5.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.6.1（CP-23） |
-| CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | not_ready | — | — |
+| CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | in_progress | docs/implementation-checkpoints/M7-6-1-review-v1.md | M7.6.1（customer_vehicle，9 项）已 implemented 并实测通过；M7.6.2/M7.6.3 未开始，故不记 implementation_released |
 | CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | not_ready | — | — |
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益单位 | not_ready | — | — |
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | not_ready | — | — |
@@ -3228,50 +3228,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 <a id="m7-6-1"></a>
 
-### M7.6.1 客户车辆主档与受权历史
+### M7.6.1 客户档案与服务单
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；9 项通过）
 
 **全局顺序前置**：M7.5.3 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `customer_vehicle` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/customer_service_api.py`、`app/customer_service.py`、`app/customer_service_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/customer_vehicle.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_customer_vehicle.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/customer-service/vehicles/{vehicle_id} 与 /history；create/update/observations/history-links 走原 API。
-
-**注册合同**：object_type=customer_vehicle（CustomerVehicle.id）；adapter=`app/assistant_runtime_domains/customer_vehicle.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`customer_vehicle.customer_linked`：原详情 customer_id 指向有权客户；`customer_vehicle.observation_recorded`：该车辆原 VehicleObservation 存在，保留观察类型/日期/来源；`customer_vehicle.history_link_recorded`：原 ServiceHistoryLink 可见且与该车辆一致。历史关联不证明仍能读取关联原单正文。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：客户归属、VIN、车辆绑定和实际观察来源；授权历史只使用原返回的最小服务摘要。
-3. 接统一只读回执 resolver：CareReceipt，由 customer_service._execute；create/update/observe 的 action/payload 单独匹配。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：同名、VIN 冲突、历史授权撤销保持 needs_input/waiting；禁止按 VIN 自动访问其他门店原单或文件。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_customer_vehicle.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.6.1
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-6-2"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/customer_vehicle.py`（`CustomerVehicleAdapter`，`object_types=('customer_vehicle',)`：快照单次只读 `GET /api/customer-service/vehicles/{vehicle_id}`，历史关联只读同族 `.../history`，ID 不一致 502，动作可用性一律 `unknown`；`extract_result` 覆盖车辆/观察/关联族 operation（历史读不属结果 operation）；`read_receipt` 沿客户服务族回执并保持冻结 `request_id`；事实 `customer_vehicle.customer_linked`（原 `customer_id` 为正整数且详情带客户资料）、`customer_vehicle.observation_recorded`（必须原 `VehicleObservation` 且保留类型/日期/来源；**详情未提供观察清单即未知**）、`customer_vehicle.history_link_recorded`（原 `ServiceHistoryLink` 与该车辆一致；**历史关联不证明仍能读取关联原单正文**）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原观察纠正规则。外部套件 `$ValidationRoot/tests/runtime_domains/test_customer_vehicle.py`（9 项），run `20260928T134244Z-c02e2075c7` passed。详见 `docs/implementation-checkpoints/M7-6-1-review-v1.md`。源码指纹 `589f175fc1df52a3ce06f3a7c230361097801a3ce4cfae8d05d065e6fc83c176`。**遗留**：观察读取需评审补只读路径。下一项 M7.6.2。
 
 ### M7.6.2 咨询投诉救援与回访单
 

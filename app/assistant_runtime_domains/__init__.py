@@ -43,6 +43,9 @@ from .procurement_prepayment import (PREPAY_ACTION, PREPAY_ACTIONS, PREPAY_FACTS
                                     PREPAY_READ, ProcurementPrepaymentAdapter)
 from .warehouse_document import (WH_COMMAND, WH_CREATE, WH_FACTS, WH_OPERATIONS,
                                 WH_READ, WarehouseDocumentAdapter)
+from .customer_vehicle import (VEHICLE_CREATE, VEHICLE_FACTS, VEHICLE_HISTORY,
+                               VEHICLE_HISTORY_LINK, VEHICLE_OBJECT_TYPE, VEHICLE_OBSERVATION,
+                               VEHICLE_READ, CustomerVehicleAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -79,7 +82,10 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'PREPAY_ACTION', 'PREPAY_ACTIONS', 'PREPAY_FACTS', 'PREPAY_READ',
            'ProcurementPrepaymentAdapter',
            'WH_COMMAND', 'WH_CREATE', 'WH_FACTS', 'WH_OPERATIONS', 'WH_READ',
-           'WarehouseDocumentAdapter']
+           'WarehouseDocumentAdapter',
+           'VEHICLE_CREATE', 'VEHICLE_FACTS', 'VEHICLE_HISTORY', 'VEHICLE_HISTORY_LINK',
+           'VEHICLE_OBJECT_TYPE', 'VEHICLE_OBSERVATION', 'VEHICLE_READ',
+           'CustomerVehicleAdapter']
 
 
 def register_adapters(registry):
@@ -93,6 +99,15 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.6.1：客户档案与服务单（customer_vehicle）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='customer_vehicle', factory=CustomerVehicleAdapter,
+        object_types=(VEHICLE_OBJECT_TYPE,),
+        operation_ids=(VEHICLE_READ, VEHICLE_HISTORY, VEHICLE_CREATE, VEHICLE_OBSERVATION,
+                       VEHICLE_HISTORY_LINK),
+        fact_keys=VEHICLE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.5.3：仓储单据（warehouse_document）静态注册。
     registry.register(DomainAdapterSpec(
