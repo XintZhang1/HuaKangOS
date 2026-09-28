@@ -1,39 +1,26 @@
-# M7.2.3 能力缺口报告（供评审补齐；不扩大 reviewed catalog）
+# M7.2.3 能力缺口报告（已撤回：原判断有误）
 
-日期：2026-09-28　里程碑：M7.2.3（整车批量导入后的审阅与逐行恢复）
-当前状态：**in_progress**（未记 implemented；未伪造通过）
-源码指纹：`d68dfb7b4aa781865557efce3ece0357d7599ffe5ecca085380c9c567ab41443`
+日期：2026-09-28（同日撤回）　里程碑：M7.2.3
+结论：**本报告先前的"能力缺口"结论作废**，M7.2.3 已按真实目录规则实现并通过实测。
 
-## 1. 缺口是什么
+## 1. 原判断与错在哪
 
-| 项 | 值 |
-|---|---|
-| 计划要求的原生证据 | `GET /api/vehicle-imports/batches/{batch_id}` |
-| 是否在原路由中 | **是**（`app/vehicle_imports_api.py` 存在该路由） |
-| 是否在 reviewed catalog 中 | **否**（`app/business_assistant_capabilities.json` 的 `operations` 在本领域只有 `POST /api/vehicle-imports/batches/{batch_id}/actions/{action}`） |
-| 合同依据 | 共同合同第 4 条："M0 在隔离源码镜像中扫描实际 FastAPI 路由注册及 `app/business_assistant_capabilities.json`，按原 `_operations()` 规则登记可用目录……列表中未登记或运行时不存在的 operation 明确拒绝并报告能力缺口，不让模型猜 ID，**不扩大 reviewed catalog**" |
+- 原判断：`GET /api/vehicle-imports/batches/{batch_id}` 不在 `app/business_assistant_capabilities.json` 的 `operations` 里，故按合同不得读取，记能力缺口。
+- **错误**：把 JSON 目录当成了读取白名单。实测原网关 `app/business_assistant_gateway._operations()`：
+  ```python
+  if method=='GET':
+      if route.body_field: continue
+  elif op_id not in reviewed: continue     # 只有写操作要求已评审
+  ```
+  即 **写操作须在 reviewed catalog 内；GET 由活跃路由发现**，并仍受 `DOMAINS`/`CLOSED_DOMAINS`/`DENIED`/body 过滤与调用时授权——与 M7 共同合同第 4 条原文一致。
+- 实测证据：在隔离镜像内执行 `_operations()`，`GET /api/vehicle-imports/batches/{batch_id}` 返回 `discovered: True`，同族 GET（catalog、orders/{case_id}/batches、orders/{case_id}/manifest）同样在列；本领域写操作仅 `POST .../actions/{action}`，它在 JSON 目录内。
 
-因此 `VehicleImportBatchAdapter.read_snapshot()` 按合同返回 503 并给出原页面入口，三条事实键一律 `satisfied=None`；套件断言"未发起任何读取"（`captured == []`）。
+## 2. 更正后的实现与证据
 
-## 2. 缺口阻塞了本项哪些验收
+- `VehicleImportBatchAdapter.read_snapshot` 使用该 GET（单次，`path_args={'batch_id': …}`），`fact_snapshot` 按原 `status` 判 `reviewed`/`confirmed`，按 `row_count` + 完整 `rows[]` 逐行结果判 `all_rows_result_recorded`（缺行、重复行标识、未登记类别、缺结果字段一律 unknown），`read_receipt` 只对已评审写操作开放。
+- 外部套件 `V/tests/runtime_domains/test_vehicle_import_batch.py`：**9 项通过**，run `20260928T131640Z-e250f94ef3`，源码指纹 `46229e32526130166d92e4ba72828d3053f0c33f8c3774206c9bc7adc7ef9bcd`；同指纹 M7.2.2、M7.2.1 回归通过。
+- 同步修复的真实缺陷：批次对象不是 Case，父类 `snapshot_from_record` 会按 `case` 校验引用（实测 422）；现由本适配器直接投影统一快照 DTO，动作可用性一律 `unknown`（原批次只返回岗位筛选的动作名，不当作已验证可用）。
 
-| 无法完成的验收 | 原因 |
-|---|---|
-| "读取→准备→员工点击原确认→重读事实"闭环 | 没有已评审的批次详情读取，无法建立 `BusinessObjectSnapshot` |
-| `vehicle_import.reviewed` / `vehicle_import.confirmed` | 状态必须来自原详情；不得用模型文字或前端路由 |
-| `vehicle_import.all_rows_result_recorded` | 需要 `row_count` 与完整 `rows[]` 的逐行 `result`（funds_request_id / shipment_id / receipt_id），且任何分页或缺行必须判 unknown |
-| 批量中断后"只补未完成 WorkItem" | 需要逐行结果才能确定哪些行已完成 |
+## 3. 教训（写入本项记录）
 
-已完成且不再依赖该缺口的验收：目录范围与注册显式性、缺口处理、引用类型收口、`extract_result` 返回 `vehicle_import_batch` 引用、回执保持冻结 `request_id`、五个原动作名与原 API 一致（外部套件 8 项，run `20260928T131239Z-b7c08e3893` passed）。
-
-## 3. 两种可评审的解决方式（任一即可，需评审确认）
-
-1. **把该 GET 纳入 reviewed catalog**：在 `app/business_assistant_capabilities.json` 增加 `GET /api/vehicle-imports/batches/{batch_id}`，并确认它沿用原岗位/门店过滤与分页语义；纳入后 M7.2.3 的 `read_snapshot` 与三条事实即可按现有合同实现（本适配器已按该路径预留 `UNREGISTERED_DETAIL_READ` 常量与缺口分支，补齐只需替换该分支并加实测）。
-2. **提供等价的已评审只读路径**：例如在既有已登记面中暴露批次详情（含 `row_count`、逐行稳定 `row.id` 与 `result`），并明确分页规则；适配器据此实现，不改原 API 响应、不新增自动确认。
-
-## 4. 主张与边界
-
-- 不扩大 reviewed catalog、不调用未登记 GET、不让模型猜批次 ID。
-- 文件上传仍是原封闭面，助手只返回原页面入口。
-- 在缺口补齐前，M7.2.3 保持 `in_progress`；CP-18 保持 `in_progress`，不记 `implementation_released`。
-- 依赖提醒：按计划的串行规则，M7.3.1（service_intake）依赖 M7.2.3；其原生证据（`GET /api/service-intake/appointments/{key}` 等）**已在目录内**，缺口补齐后即可继续，无需再等其它外部条件。
+读取可用性的唯一判据是**原网关的运行时目录规则**，不是 JSON 目录文件；判断能力缺口前必须实测 `_operations()`，避免把"未在 JSON 里"误当成"未获准"。
