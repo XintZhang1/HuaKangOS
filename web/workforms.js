@@ -2,6 +2,26 @@
 // Form assistance only. No autosave, browser storage, guessed facts, default
 // evidence, hidden transaction, or change to the original submit callback.
 const workFormStates=new WeakMap();
+// M6.5：未完成原表单不跳转、不覆盖。提交中直接拒绝；只有员工明确放弃才关表单并执行一次交接。
+function workFormRequestHandoff(dialog,onDiscard){
+ const form=dialog.querySelector('form'),ui=form&&workFormStates.get(form);
+ if(!form||!ui)return false;
+ if(form.dataset.submitting==='true'){toast('正在提交，请先核对本次返回结果，不要重复办理。',true);return false;}
+ let prompt=dialog.querySelector('.wfx-handoff');
+ if(prompt){prompt.querySelector('button').focus();return false;}   // 第二次点击不覆盖第一次待决定意图
+ const last=ui.lastControl;
+ prompt=document.createElement('div');prompt.className='wfx-handoff';prompt.setAttribute('role','alert');
+ prompt.innerHTML='<strong>原表单还有没提交的填写内容</strong><div class="row"><button type="button" class="primary" data-wfh-keep>继续填写</button><button type="button" data-wfh-discard>放弃后打开助手</button></div>';
+ prompt.querySelector('[data-wfh-keep]').addEventListener('click',()=>{prompt.remove();if(last&&last.focus)last.focus();});
+ prompt.querySelector('[data-wfh-discard]').addEventListener('click',()=>{
+  ui.dirty=false;ui.handoff=null;prompt.remove();
+  if(typeof closeModal==='function')closeModal();
+  if(typeof onDiscard==='function')onDiscard();   // 回调自己再校验一次 contextEpoch
+ });
+ form.appendChild(prompt);
+ prompt.querySelector('button').focus();
+ return true;
+}
 function workFormLabel(control){
  const label=control.labels?.[0]||control.closest('label');
  if(label){const copy=label.cloneNode(true);copy.querySelectorAll('input,select,textarea,button,.fieldhelp,.lookup-options,.inline-file-tools,details').forEach(n=>n.remove());return copy.textContent.replace(/\s*\*\s*$/,'').trim()||control.getAttribute('aria-label')||'此项';}

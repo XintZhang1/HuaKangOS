@@ -2,7 +2,7 @@
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
-**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
+**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 11+6，核心），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
 
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
@@ -80,7 +80,7 @@
 | CP-12 | M5.4—M5.6 | 通知隐私、MCP互斥、worker退出 | implementation_released | docs/implementation-checkpoints/M5-5-review-v1.md；M5-6-review-v1.md；M5-4-review-v1.md | 集中测试阶段实测：M5.5（7+20）与 M5.6（13+40）在指纹 `fce97834…` 上 passed；M1.4 ORM/迁移一致性 6 项 passed；修复 5 处 MCP 缺陷与 worker 双启动。M5.4 仅源码审阅、进程级/真实环境项未覆盖，故不记 released；继续 M5.7—M5.8 至 CP-13 |
 | CP-13 | M5.7—M5.8 | Windows/Linux启动定义与回退 | implementation_released | docs/implementation-checkpoints/M5-7-review-v1.md；M5-8-review-v1.md | 集中测试阶段实测：M5.7（7+16）与 M5.8（7+17）在新指纹上 passed；嵌入顺序、显式 profile、同库同镜像校验、无密钥样例均实测；真实 Windows 预览实例与真实 Linux 部署仍属 M8.7/M8.8，故不记 released；继续 M6.1—M6.8（CP-14—CP-16） |
 | CP-14 | M6.1—M6.4 | 客户端归并、恢复、事项工作台、默认入口 | implementation_released | docs/implementation-checkpoints/M6-1-review-v1.md；M6-2-review-v1.md；M6-3-review-v1.md；M6-4-review-v1.md | 集中测试阶段实测：M6.1（15+7）、M6.2（9+7）、M6.3（10+6）、M6.4（6+6）在同一批指纹上 passed；每次前端改动后同指纹回归（workboard/r3/ux/workspaces/oneclick）diagnostic_passed；M6.1 的取消/清理边界随 M6.2 接线同步移动并复跑。仅放行后续编码，不表示测试全部通过或功能启用；继续 M6.5—M6.8（CP-15） |
-| CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | in_progress | docs/implementation-checkpoints/M6-4-review-v1.md | M6.4 已 implemented 并实测（6+6）；M6.5/M6.6 未开始，故不记 implementation_released |
+| CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | in_progress | docs/implementation-checkpoints/M6-4-review-v1.md；M6-5-review-v1.md | M6.4 已 implemented 并实测（6+6）；M6.5 核心交接入口/守卫/内存态已实施并实测（11+6），但“交给助手”按钮面与通知入口未补齐，故按计划记 in_progress 而非 implementation_released；M6.6 未开始 |
 | CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | not_ready | — | — |
 | CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | not_ready | — | — |
 | CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | not_ready | — | — |
@@ -2589,11 +2589,13 @@ runner 向 Node 注入 `HUAKANGOS_TEST_SOURCE_ROOT` 和 `HUAKANGOS_TEST_OUTPUT`�
 
 ## M6.5：统一交接守卫与原单/任务/流程“交给助手”入口
 
-**状态**：todo
+**状态**：in_progress（核心已实现并实测；原待办/moduleCard/快捷操作/流程文章的按钮面尚未补齐）
 
 **全局顺序前置**：M6.4 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：核心交接入口与守卫实测通过；按钮面与真实浏览器行为待补（M6.5 剩余 + M8.4）。
+
+**执行记录**：2026-09-28 在 `web/assistantworkspace.js` 新增唯一交接入口 `requestHandoff({entry_context|reference+intent,prompt?,contextEpoch?,returnRoute?,keepCurrent?})` 及 `guardHandoff/pendingHandoff/clearHandoff/handoffLabel/buildEntryContext/routeValid`，并新增仅内存的编辑态 `uiBySession`（`rememberUi/restoreUi/clearUi`，含草稿/答案/选卡/过滤/计划/文件选择，临时键 `new`，切店退出清空）。`web/businessassistant.js`：`new`/`session` 入口改走 `businessAssistantSwitchMatter()`（统一守卫 + “留在当前事项 / 保留当前事项并打开”）、新增 `businessAssistantNewMatter()` 与 `businessAssistantHandoffBar()`，发送时把 `entry_context` 放进 Run 提交体并在服务器接收后清除标签。`web/workforms.js` 新增 `workFormRequestHandoff(dialog,onDiscard)`（提交中拒绝、单实例提示、只有明确放弃才关表单并交接一次）。`web/workflowguides.js` 的 `applyWorkflowAssistantIntent()` 不再直接 `session=null`，改为薄包装调用交接入口并携带 `workflow_id`。实测发现并修复 3 处前端缺陷：`report_query` 引用类型/ID 种类未按服务器合同区分、`returnRoute` 未做字符串校验、二次交接被自家守卫误拦（未改动的预填草稿应允许改交接目标）。外部套件 `V/tests/frontend/test_m6_5.cjs`（11 项）+ `V/tests/runtime/test_m6_5.py`（6 项），run `20260928T112532Z-571cad4490` passed；同指纹 M6.1—M6.4 与前端 6 项回归全部 passed。剩余：原待办/moduleCard/快捷操作/流程文章上的“交给助手”按钮面与通知入口（M6.7）。详见 `docs/implementation-checkpoints/M6-5-review-v1.md`。源码指纹 `81e6abc74ead15aaafbf4cf0a85c2b401e3a2a4b78c77cefeae867873e784802`。
 
 
 **目标**：所有业务入口带真实引用进入助手，不覆盖草稿、卡片答案和未完成原表单，不隐式取消运行。

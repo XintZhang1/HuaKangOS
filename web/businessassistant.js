@@ -2,7 +2,7 @@
 // The assistant proposes existing business commands. This page never executes
 // model-produced JavaScript, HTML, URLs or arbitrary HTTP requests.
 let businessAssistantState;
-function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null,cards:{},folded:{},panelFolded:false,answers:{},lastAction:null,queueFilter:'pending',activeCardId:null,historyOpen:false,mobilePane:'chat',receipt:null,workboard:null,workPlanId:null,workError:'',workLoading:false,workSerial:0,runtimeFeatures:null,runId:null,runView:null,runSubscription:null,runStop:''};}
+function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null,cards:{},folded:{},panelFolded:false,answers:{},lastAction:null,queueFilter:'pending',activeCardId:null,historyOpen:false,mobilePane:'chat',receipt:null,workboard:null,workPlanId:null,workError:'',workLoading:false,workSerial:0,runtimeFeatures:null,runId:null,runView:null,runSubscription:null,runStop:'',handoffChoice:null,switchIntent:null};}
 function businessAssistantWorkspaceModule(){return globalThis.AssistantWorkspace||null;}
 function businessAssistantAnswers(id){const key=String(id);if(!businessAssistantState.answers[key])businessAssistantState.answers[key]={};return businessAssistantState.answers[key];}
 function businessAssistantCardQuestions(proposal){
@@ -303,7 +303,34 @@ function paintBusinessAssistantStream(){
  const transcript=$('#business-assistant-messages');if(!transcript)return;const follow=transcript.scrollHeight-transcript.scrollTop-transcript.clientHeight<100;
  transcript.innerHTML=businessAssistantMessages()+businessAssistantWorking();if(follow)transcript.scrollTop=transcript.scrollHeight;
 }
-function businessAssistantCompose(){
+function businessAssistantHandoffBar(){
+ const module=businessAssistantWorkspaceModule(),current=businessAssistantState;
+ const label=module?.handoffLabel?.()||'';
+ if(current.handoffChoice){
+  return `<div class="ba-handoff-choice" role="alert"><p>${E(current.handoffChoice.reason)}</p><div class="row"><button type="button" data-ba-action="handoff-stay">留在当前事项</button><button type="button" class="primary" data-ba-action="handoff-open">保留当前事项并打开</button></div></div>`;
+ }
+ if(!label)return '';
+ return `<p class="ba-handoff-label" role="status">本次交接：${E(label)} <button type="button" class="link" data-ba-action="handoff-clear">取消交接</button></p>`;
+}
+// M6.5：唯一交接/切换守卫。草稿或未确认重试停留原事项；待确认卡或运行中给出明确二选一。
+async function businessAssistantSwitchMatter(intent){
+ const module=businessAssistantWorkspaceModule(),guard=module?.guardHandoff?.()||{ok:true};
+ if(guard.ok)return true;
+ if(guard.choice==='stay-or-open'){
+  businessAssistantState.switchIntent=intent;businessAssistantState.handoffChoice={reason:guard.reason};
+  paintBusinessAssistant();
+  return false;
+ }
+ toast(guard.reason,true);
+ return false;
+}
+async function businessAssistantNewMatter(){
+ const current=businessAssistantState;
+ current.session=null;current.workboard=null;current.workPlanId=null;current.workError='';current.workSerial++;current.error='';current.needsRefresh=false;current.retry=null;current.stream=null;current.thinking=false;current.tab='chat';current.historyOpen=false;current.activeCardId=null;current.queueFilter='pending';current.receipt=null;current.mobilePane='chat';current.handoffChoice=null;current.switchIntent=null;
+ businessAssistantWorkspaceModule()?.clearHandoff?.();
+ paintBusinessAssistant({focus:true});
+}
+async function businessAssistantCompose(){
  const current=businessAssistantState,ready=current.status?.ready&&!current.session?.busy&&!current.needsRefresh,disabled=current.busy||!ready;
  return `<form class="ba-compose" id="business-assistant-form"><label class="ba-input-label" for="business-assistant-input">说说要办的事</label><textarea id="business-assistant-input" name="message" rows="3" maxlength="${Number(current.status?.limits?.max_message_chars)||6000}" placeholder="例如：给张先生安排明天下午的回访" ${current.busy||current.retry?'readonly':''}>${E(current.draft)}</textarea><div class="ba-compose-bottom"><div class="row ba-compose-tools"><button type="button" data-baf-action="open" ${current.busy||current.retry?"disabled":""}>从文件填表</button><button type="button" class="ba-thinking-toggle" data-ba-action="thinking" role="switch" aria-checked="${current.thinking}" ${current.busy||current.retry?'disabled':''}>思考：${current.thinking?'开':'关'}</button><span class="ba-keyboard">Enter 发送 · Shift + Enter 换行</span></div><div class="row">${businessAssistantStopButtonHTML()}<button type="submit" class="primary" ${disabled||!current.draft.trim()?'disabled':''}>${current.busy?'处理中…':current.retry?'重试':'发送'}</button></div></div></form>`;
 }
@@ -318,7 +345,7 @@ function businessAssistantWorkspace(){
  // M6.3：事项栏 + 当前事项两列；当前事项内固定为标题、计划、消息流、确认卡、输入区。
  return `<div class="ba-pane-tabs" aria-label="切换对话与办理事项"><button type="button" data-baws-action="drawer" aria-expanded="false" aria-controls="ba-sidebar-root">我的事项</button><button type="button" data-ba-action="pane-chat" aria-pressed="${current.mobilePane!=='cards'}">对话</button><button type="button" data-ba-action="pane-cards" aria-pressed="${current.mobilePane==='cards'}">办理事项 ${q.buckets.pending.length+q.buckets.attention.length}</button></div>`
   +`<div class="ba-runtime-workspace" data-pane="${E(current.mobilePane)}"><div class="ba-side-host" id="ba-sidebar-root" aria-label="我的事项">${sidebar}</div><div class="ba-side-mask" data-baws-action="drawer-close"></div>`
-  +`<section class="ba-current" id="ba-current"><h2 id="ba-current-heading">${E(current.session?.title||'新对话')}</h2><div id="ba-current-plan"></div><div class="ba-current-flow${hasCards?'':' no-cards'}">${businessAssistantChat()}${businessAssistantCardsPanel()}</div></section></div>`;
+  +`<section class="ba-current" id="ba-current"><h2 id="ba-current-heading">${E(current.session?.title||'新对话')}</h2><div id="ba-current-plan"></div><div class="ba-current-flow${hasCards?'':' no-cards'}">${businessAssistantHandoffBar()}${businessAssistantChat()}${businessAssistantCardsPanel()}</div></section></div>`;
 }
 function businessAssistantIssues(){
  const categories={input:'资料填写',rule:'业务限制',system:'操作问题',model:'助手理解',unsupported:'尚不支持'};
@@ -430,11 +457,16 @@ async function businessAssistantSendRuntime(text){
   const request=current.retry;current.thinking=request.thinking;current.draft=request.content;
   current.stream={request_id:request.request_id,content:request.content,text:'',phase:request.thinking?'thinking':'responding',round:0};paintBusinessAssistant();
   let view;
-  try{view=await globalThis.AssistantRuntime.submitRun(current.session.id,{request_id:request.request_id,content:request.content,thinking:request.thinking});}
+  const handoff=businessAssistantWorkspaceModule()?.pendingHandoff?.()||null;
+  // M6.5：只有员工真的发送才把 entry_context 交给服务器；服务器仍重新读取全部事实。
+  const payload={request_id:request.request_id,content:request.content,thinking:request.thinking};
+  if(handoff&&handoff.entry_context)payload.entry_context=handoff.entry_context;
+  try{view=await globalThis.AssistantRuntime.submitRun(current.session.id,payload);}
   catch(error){current.stream=null;throw error;}  // 结果未知时保留同一 request_id 的提交记录供重试
   if(!businessAssistantCurrent(current,generation))return;
   current.runView=view;current.runStop='';
   if(current.draft.trim()===request.content.trim())current.draft='';  // 只清与已提交内容完全一致的输入
+  if(handoff)businessAssistantWorkspaceModule()?.clearHandoff?.();   // 已随本次发送提交，标签清掉
   paintBusinessAssistant();
   businessAssistantWatchRuntimeRun(view.id);
  });
@@ -616,19 +648,32 @@ document.addEventListener('click',async event=>{
   }
   if(current.busy)return;
   if(action==='new'){
-   if(current.draft.trim()||current.retry){toast('请先发送或自行清空当前输入，再开始新对话。',true);return;}
+   if(!(await businessAssistantSwitchMatter({kind:'new'})))return;
    current.session=null;current.workboard=null;current.workPlanId=null;current.workError='';current.workSerial++;current.error='';current.needsRefresh=false;current.retry=null;current.stream=null;current.thinking=false;current.tab='chat';current.historyOpen=false;current.activeCardId=null;current.queueFilter='pending';current.receipt=null;current.mobilePane='chat';paintBusinessAssistant({focus:true});
   }
   else if(action==='thinking'){if(!current.retry){current.thinking=!current.thinking;paintBusinessAssistant();}}
   else if(action==='suggestion'){if(!current.retry&&!current.draft.trim()){current.draft=element.dataset.prompt||'';paintBusinessAssistant({focus:true});}else toast('输入框中已有内容，请先处理当前草稿。',true);}
   else if(action==='chat'){current.tab='chat';paintBusinessAssistant();}
-  else if(action==='session'||action==='issue-session')await businessAssistantChooseSession(element.dataset.id);
+  else if(action==='session'||action==='issue-session'){
+    if(action==='session'&&!(await businessAssistantSwitchMatter({kind:'session',id:element.dataset.id})))return;
+    await businessAssistantChooseSession(element.dataset.id);
+   }
   else if(action==='confirm'||action==='cancel-proposal')await businessAssistantDecide(element.dataset.id,action==='confirm');
   else if(action==='card-confirm-all'||action==='card-cancel-all')await businessAssistantDecideAll(element.dataset.key,action==='card-confirm-all');
   else if(action==='continue')await businessAssistantContinue();
   else if(action==='refresh'){current.error='';await render();}
   else if(action==='issues')await businessAssistantTask(async(previous,generation)=>{const data=await businessAssistantRequest('/issues');if(!businessAssistantAlive(previous,generation))return;previous.issues=data.items||[];previous.tab='issues';});
   else if(action==='report')await businessAssistantReport();
+  else if(action==='handoff-clear'){businessAssistantWorkspaceModule()?.clearHandoff?.();current.handoffChoice=null;paintBusinessAssistant();}
+  else if(action==='handoff-stay'){current.handoffChoice=null;paintBusinessAssistant();}
+  else if(action==='handoff-open'){
+   const intent=current.switchIntent||{};current.handoffChoice=null;
+   const guard=businessAssistantWorkspaceModule()?.guardHandoff?.();
+   if(guard&&guard.ok===false&&guard.choice==='stay-or-open')businessAssistantWorkspaceModule()?.rememberUi?.();
+   if(intent.kind==='new')await businessAssistantNewMatter();
+   else if(intent.kind==='session'&&intent.id)await businessAssistantChooseSession(intent.id);
+   current.switchIntent=null;paintBusinessAssistant();
+  }
   else if(action==='export-issues')await download('/api/business-assistant/issues/export','业务助手问题清单.json');
  }catch(error){if(current===businessAssistantState&&current.context===businessAssistantContext()){current.error=error.message;paintBusinessAssistant();toast(error.message,true);}}
 });

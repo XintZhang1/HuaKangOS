@@ -111,12 +111,21 @@ async function workflowAsk(id){
  if(businessAssistantState.context!==businessAssistantContext()){clearBusinessAssistantSession();businessAssistantState.context=businessAssistantContext();}
  if(businessAssistantState.busy||businessAssistantState.session?.busy){toast('助手正在处理，请完成后再开始新流程。',true);return;}
  if(businessAssistantState.draft.trim()){toast('对话中还有未发送内容，请先发送或清空，再开始新流程。',true);workflowNavigate('business-assistant');return;}
- workflowAssistantIntent={context,prompt:WorkflowGuides.assistantPrompt(item)};workflowNavigate('business-assistant');
+ workflowAssistantIntent={context,prompt:WorkflowGuides.assistantPrompt(item),workflowId:item.id};workflowNavigate('business-assistant');
 }
 function applyWorkflowAssistantIntent(){
  const intent=workflowAssistantIntent;workflowAssistantIntent=null;if(!intent||intent.context!==workflowContext())return;
  const current=businessAssistantState;if(current.busy||current.session?.busy||current.draft.trim())return;
- current.session=null;current.retry=null;current.needsRefresh=false;current.error='';current.tab='chat';current.draft=intent.prompt;
+ // M6.5：不再直接清空会话；交给唯一交接入口，只预填并登记 entry_context。
+ const workspace=globalThis.AssistantWorkspace;
+ current.tab='chat';current.error='';current.needsRefresh=false;current.retry=null;
+ if(workspace&&typeof workspace.requestHandoff==='function'&&intent.workflowId){
+  const result=workspace.requestHandoff({reference:{source_type:'workflow',workflow_id:intent.workflowId},
+   intent:'prepare_action',prompt:intent.prompt,contextEpoch:intent.context,returnRoute:'workflows'});
+  if(!result.ok)toast(result.reason,true);
+  return;
+ }
+ current.draft=intent.prompt;   // 交接入口不可用时退化为只预填草稿
 }
 // A dialog restores focus to its opener on close. Focus alone must not reopen it.
 document.addEventListener('input',event=>{if(event.target.id==='workflow-top-search'&&!event.isComposing)openWorkflowSearch(event.target.value);});
