@@ -332,6 +332,12 @@ py -3.13 -m venv "$V/.venv"
 
 **PATCH-05 完整复验记录（最新，2026-09-28）**：strict `20260927T163115Z-f97fd5d948` 18/18；第三诊断 `20260927T163202Z-1d7da6404c` 60/60、退出 0。随后新完整 B `20260927T163618Z-574f417642` 全部 41 命令实际执行，2781 pytest＝原 2124＋新增 657，实际 2780 passed / 0 failed / 1 skipped；其它 556 passed，合计 **3336 passed / 0 failed / 1 skipped**。原 36 失败节点本轮 setup/call/teardown 全部 passed；无 missing/extra/duplicate/not_run/非终态/超时。原 session 63205 自然退出 1、验证进程 0；40 命令 complete，唯一未通过组是含符号链接 skip 的第十一业务组。strict 五指纹与全部输入/依赖检查一致，独立核对 2915 文件哈希无差异。完整报告及哈希见 CP-00B-v5，旧失败、原件与历次诊断保留。
 
+**集中测试首轮完整 B（2026-09-28，合并 origin/main 后）**：run `20260928T064850Z-ed840e406e`，41 条命令全部实际执行，**2741 passed / 39 failed / 1 skipped**，7 条命令不完整（其中 1 条为符号链接 skip）。逐条归因后 38 项为过时测试合同/测试替身、2 项为产品缺陷：
+- 产品修复：`registry_for_config` 缺配置时回退旧目录（M3.1 记录）；`resolve_preparation` 不再照抄模型自带的 request_id（M2.1 记录）。
+- 测试合同对齐：`PATCH-CP-00B-08`（假网关 body_schema/refusal_metadata/permission_hint/规范操作号、信封 request_id、M2.2 真实拒绝提示、`last_request.run_id`、403 归类、R3 脚本化工具调用补 `type=function`、月结定义 21→现行 22、行指纹按原列集合比较）。
+- 复验（同指纹 `46c3960e85c2e98fc41cdb9c0366341c5b60987cb10d1f88cbc0d6589bea4ff6`）：`b05-business-02` 161/0（`20260928T090316Z-f2eeac2f7b`）、`b05-business-03` 114/0（`20260928T083034Z-2b3ba7a4bc`）、`b04-check_assistant_r3` 与 `b05-business-09/10/13` 诊断全通过（`20260928T090849Z-7ca79b4be4`）。
+- 唯一未通过组仍为含符号链接 skip 的 `b05-business-11`；该断言需真实可创建符号链接的环境，属既有环境缺口，不改为通过。整轮复跑与最终登记见后续 CP-00B 记录。
+
 **当前阻塞与恢复**：原 `tests/test_private_files.py::test_symlink_file_and_root_rejected` 因创建链接进入 OSError/skip 分支，文件读取和目录根拒绝断言未执行。本轮没有具体 Windows 错误码，不把此前探测 WinError 1314 写成本轮观测。须具备真实文件及目录符号链接创建条件后由统一 runner 复验；不能以硬链接/目录联接、删除断言、跳过或延期产品缺陷替代。之前关于系统条件的用户选择仍待答复，未改系统设置。CP-00B 不放行，M0.3/Runtime 未开始，真实模型调用 0。BASE-001 按已 released 的 CP-00A-v3 和本轮原节点通过回填 resolved，保留外部 before/history，不改旧 run 哈希。状态/报告回填在审计之后，不宣称回填后的整树字节仍等于冻结快照。
 
 **以下为历史时点记录**：其中“最新/当前/下一步”等原文只表示当时状态，以以上最新完整复验与阻塞记录为准。
@@ -856,6 +862,8 @@ py -3.13 -m venv "$V/.venv"
 
 **执行记录**：实现日期=2026-09-28；gateway.validate_operation删除内部UUID生成，只深拷贝规范化/原schema校验；prepare_proposal仅在原body schema声明request_id且缺key时为body副本生成一次，探测及最终补填重验沿用同值，已有非法/空值不替换，无幂等字段不加号。检索全部三个校验调用点，单张/批量/typed准备均经此入口；forms原保护字段和严格金额数量转换未改。独立审阅发现历史probed卡可能缺号，已在pending复用时明确409要求取消重建，不静默修改旧payload/digest或在确认时补号。AST解析退出0；未导入app或执行测试。SHA256：gateway=`ad6113585321f707851ec98ae20d0185f3f0056c0116bfd12b42befe17f68be8`；service=`5a6ca3e013e5346c97730219d22861699aae6cc4d3af440a0b07de4274b90e77`。多次校验不变、探测值不落库、历史缺号卡、非幂等操作和原严格字段回归均待DeepSeek；原请求号是接口允许的文本键，不擅自收窄为UUID格式。无编码阻塞。
 
+**集中测试补充（2026-09-28）**：完整基线复跑发现"模型自带 request_id 时服务端照抄"与《请求号只生成一次》冲突，并使冻结确认（`SubmissionSnapshot` 要求 body 的 request_id 与冻结值一致）在确认时 409。已改为只按 schema 判定 `generate_request_id`：模型/员工自带值先被零值探测键替换、落库前丢弃，准备落库时由服务端生成唯一提交标识；纯校验层确认时不换键。复验见 PATCH-CP-00B-08 §1-P2 与 run `20260928T090316Z-f2eeac2f7b`（`tests/test_business_assistant.py` 161 项全通过）。
+
 
 **目标**：消除补填及确认再次校验时重生成原业务request_id的风险。
 
@@ -1145,6 +1153,8 @@ py -3.13 -m venv "$V/.venv"
 **全局顺序前置**：M2.6 done。
 
 **执行记录**：编码日期=2026-09-28；新增app/assistant_runtime_registry.py，service仅工具目录/分派及完整调用预校验接线。静态登记原11个legacy+7个business工具，保留原名称、schema、顺序及profile；read/prepare/plan分类不改变MCP annotation或原API能力。完整列表在任何handler前拒绝未知工具、重复ID、截断/重复JSON键及顶层额外参数；MCP单次调用不要求model call ID。legacy只保留原顶层/批量行信封校验，questions及原字段仍按原逐行边界，business仍使用原Pydantic校验。DomainRegistry只有静态容器；受控GET注入仍需M3.4真实身份transport。两方代码审阅无阻断；AST/UTF-8检查正常（无U+FFFD），静态目录18项覆盖一致；最初静态字面量提取因TOOLS使用tool(...)失败，已改为只读AST参数提取，不运行应用。源码SHA256：registry=e059495085db1b92eef34ba884e7971cdb7b6cdcf3f877b119fda69ce8dd116d；service=1a0b1f98244a32ed235b95109b847b2ac97844e91967e34fcbf7bcc34ea1ca0e。测试=deferred_to_deepseek，命令/退出码不适用；待验证全量目录/schema等价、整组非法调用零前序执行、200边界、旧questions/逐行失败、MCP、重复注册和原GET动态权限。未导入app、访问数据库或调用模型。
+
+**集中测试补充（2026-09-28）**：完整基线复跑发现 `registry_for_config(config)` 在历史调用点传 `config=None` 时抛 `AttributeError`（两条原回归因此失败）。已按 M3.1 之前的单一目录语义回退：缺配置时取 `legacy` 而不可能是 `business_v1`，既不误开业务工具面也消除崩溃路径。另：整表预校验被拒时必须在同一轮把拒绝结果作为工具消息交回模型（`business_assistant_service.py`），否则 M3.1 之前"逐调用返回 422 工具结果"的原契约被打断——该修复见 PATCH-M5-5-02 §3。复验：`tests/test_business_assistant_scope.py`、`tests/test_business_assistant_guides.py` 全通过（run `20260928T090316Z-f2eeac2f7b`）。
 
 
 **目标**：让工具目录和执行分派共享一份已有权限及操作元数据。

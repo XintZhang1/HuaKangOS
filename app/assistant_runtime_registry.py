@@ -244,8 +244,11 @@ def _registry_for_profile(profile):
 
 def registry_for_config(config):
     # Only this static profile affects the catalogue; credentials/config objects
-    # never become cache keys or persist in registry closures.
-    return _registry_for_profile('business_v1' if config.tool_profile == 'business_v1' else 'legacy')
+    # never become cache keys or persist in registry closures. A missing config
+    # keeps the pre-M3.1 single catalogue (legacy) and never opens the business
+    # tool surface by accident.
+    profile = getattr(config, 'tool_profile', 'legacy')
+    return _registry_for_profile('business_v1' if profile == 'business_v1' else 'legacy')
 
 
 async def dispatch(db, request, user, thread_id, name, args, config, *, resolve_only=False):

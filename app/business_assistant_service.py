@@ -524,7 +524,9 @@ def resolve_preparation(db,user,session_id,args,*,question_fields=None):
     path_args=args.get('path_args') or {};query=args.get('query') or {};body=deepcopy(args.get('body') or {})
     declared=gateway.inspect_operation(operation_id)
     properties=(declared.get('body_schema') or {}).get('properties') or {}
-    generate_request_id=isinstance(body,dict) and 'request_id' in properties and 'request_id' not in body
+    # M2.1 请求号只生成一次：只要这个操作在 schema 里暴露 request_id，它就是服务端事实。
+    # 模型或员工自带的那个值在这里就被丢弃、绝不出现在卡片里，准备落库时再生成真正的提交标识。
+    generate_request_id=isinstance(body,dict) and 'request_id' in properties
     validation_body=deepcopy(body)
     if generate_request_id:validation_body['request_id']='00000000-0000-0000-0000-000000000000'
     questions=sanitize_questions(args.get('questions'))
