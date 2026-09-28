@@ -37,6 +37,8 @@ from .retail_bundle import (BUNDLE_FACTS, BUNDLE_PREVIEW, BUNDLE_RULE_CREATE,
                            SALE_OBJECT_TYPE, RetailBundleAdapter)
 from .retail_group_payment import (GROUP_ACTION, GROUP_ACTIONS, GROUP_CATALOG,
                                   GROUP_FACTS, GROUP_READ, RetailGroupPaymentAdapter)
+from .material_procurement import (PROC_ACTION, PROC_ACTIONS, PROC_CREATE,
+                                  PROC_FACTS, PROC_READ, MaterialProcurementAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -67,7 +69,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'BUNDLE_FACTS', 'BUNDLE_PREVIEW', 'BUNDLE_RULE_CREATE', 'BUNDLE_RULES',
            'BUNDLE_SALE_CREATE', 'RULE_OBJECT_TYPE', 'SALE_OBJECT_TYPE', 'RetailBundleAdapter',
            'GROUP_ACTION', 'GROUP_ACTIONS', 'GROUP_CATALOG', 'GROUP_FACTS', 'GROUP_READ',
-           'RetailGroupPaymentAdapter']
+           'RetailGroupPaymentAdapter',
+           'PROC_ACTION', 'PROC_ACTIONS', 'PROC_CREATE', 'PROC_FACTS', 'PROC_READ',
+           'MaterialProcurementAdapter']
 
 
 def register_adapters(registry):
@@ -81,6 +85,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.5.1：物资采购、预付与仓储（material_procurement）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='material_procurement', factory=MaterialProcurementAdapter, object_types=('case',),
+        operation_ids=(PROC_READ, PROC_CREATE, PROC_ACTION),
+        fact_keys=PROC_FACTS,
+        fallback_object_types=(),
     ))
     # M7.4.3：零售集团与门店规则（retail_group_payment）静态注册。
     registry.register(DomainAdapterSpec(
