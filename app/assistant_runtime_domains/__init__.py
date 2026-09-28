@@ -32,6 +32,9 @@ from .gate_visit import (GATE_ACTION, GATE_ACTIONS, GATE_CORRECTION,
                         GATE_OBJECT_TYPE, GATE_READ, GateVisitAdapter)
 from .retail_order import (RETAIL_ACTION, RETAIL_ACTIONS, RETAIL_CREATE, RETAIL_FACTS,
                           RETAIL_READ, RetailOrderAdapter)
+from .retail_bundle import (BUNDLE_FACTS, BUNDLE_PREVIEW, BUNDLE_RULE_CREATE,
+                           BUNDLE_RULES, BUNDLE_SALE_CREATE, RULE_OBJECT_TYPE,
+                           SALE_OBJECT_TYPE, RetailBundleAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -58,7 +61,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'GATE_CREATE', 'GATE_DEPARTURE', 'GATE_FACTS', 'GATE_OBJECT_TYPE', 'GATE_READ',
            'GateVisitAdapter',
            'RETAIL_ACTION', 'RETAIL_ACTIONS', 'RETAIL_CREATE', 'RETAIL_FACTS', 'RETAIL_READ',
-           'RetailOrderAdapter']
+           'RetailOrderAdapter',
+           'BUNDLE_FACTS', 'BUNDLE_PREVIEW', 'BUNDLE_RULE_CREATE', 'BUNDLE_RULES',
+           'BUNDLE_SALE_CREATE', 'RULE_OBJECT_TYPE', 'SALE_OBJECT_TYPE', 'RetailBundleAdapter']
 
 
 def register_adapters(registry):
@@ -72,6 +77,15 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.4.2：精品套餐核销与安装（retail_bundle）静态注册。
+    # 规则对象走预览 GET；销售对象只经 POST 结果绑定（无已评审/已发现的详情读取路径）。
+    registry.register(DomainAdapterSpec(
+        name='retail_bundle', factory=RetailBundleAdapter,
+        object_types=(RULE_OBJECT_TYPE, SALE_OBJECT_TYPE),
+        operation_ids=(BUNDLE_RULES, BUNDLE_PREVIEW, BUNDLE_RULE_CREATE, BUNDLE_SALE_CREATE),
+        fact_keys=BUNDLE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.4.1：精品销售与套餐（retail_order）静态注册。
     registry.register(DomainAdapterSpec(
