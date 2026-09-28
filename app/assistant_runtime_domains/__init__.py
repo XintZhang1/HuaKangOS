@@ -92,6 +92,8 @@ from .management_report import (MGMT_ANALYTICS, MGMT_BLOCKED_WRITE, MGMT_DAILY_T
 from .material_transfer import (TRANSFER_ACTION, TRANSFER_ACTIONS, TRANSFER_CREATE,
                                 TRANSFER_DESTINATIONS, TRANSFER_FACTS, TRANSFER_OBJECT_TYPE,
                                 TRANSFER_READ, MaterialTransferAdapter)
+from .vehicle_transfer import (VT_ACTION, VT_ACTIONS, VT_CREATE, VT_DESTINATIONS,
+                               VT_FACTS, VT_OBJECT_TYPE, VT_READ, VehicleTransferAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -168,7 +170,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'MGMT_ANALYTICS', 'MGMT_BLOCKED_WRITE', 'MGMT_DAILY_TYPE', 'MGMT_FACTS',
            'MGMT_QUERY_TYPE', 'ManagementReportAdapter',
            'TRANSFER_ACTION', 'TRANSFER_ACTIONS', 'TRANSFER_CREATE', 'TRANSFER_DESTINATIONS',
-           'TRANSFER_FACTS', 'TRANSFER_OBJECT_TYPE', 'TRANSFER_READ', 'MaterialTransferAdapter']
+           'TRANSFER_FACTS', 'TRANSFER_OBJECT_TYPE', 'TRANSFER_READ', 'MaterialTransferAdapter',
+           'VT_ACTION', 'VT_ACTIONS', 'VT_CREATE', 'VT_DESTINATIONS', 'VT_FACTS',
+           'VT_OBJECT_TYPE', 'VT_READ', 'VehicleTransferAdapter']
 
 
 def register_adapters(registry):
@@ -182,6 +186,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.10.2：整车调拨（vehicle_transfer）静态注册；key 即原 VehicleTransfer.id。
+    registry.register(DomainAdapterSpec(
+        name='vehicle_transfer', factory=VehicleTransferAdapter,
+        object_types=(VT_OBJECT_TYPE,),
+        operation_ids=(VT_READ, VT_CREATE, VT_ACTION),
+        fact_keys=VT_FACTS,
+        fallback_object_types=(),
     ))
     # M7.10.1：物资调拨（material_transfer）静态注册；key 即原 MaterialTransfer.id。
     registry.register(DomainAdapterSpec(
