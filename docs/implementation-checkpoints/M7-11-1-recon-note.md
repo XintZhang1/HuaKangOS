@@ -26,21 +26,44 @@
 `material_brand`、`material_category`、`master_work_item`、`team`、`agency_project`、
 `vehicle_model`、`member_tier`、`item_profile`。
 
-## 3. 尚未核对、因此**未登记**的部分（缺口，不得猜写）
+## 3. 补齐核对（本轮第二次读取，缺口已全部确认）
 
-- `agency_project`、`vehicle_model`、`member_tier`、`item_profile` 四类的**原 kind 字符串未核对**：
-  初次提取 `CATALOG` 顶层键时正则未命中（`master_data.py` 的字典排版与假设不符），
-  也未在本次预算内逐字确认这四类是否确实存在于 `CATALOG`、以及它们的单复数命名。
-- `master.active` 事实要求"同一原记录 `active=true`，**缺字段为 unknown**"；
-  `master.record_exists` 要求"原对应 kind 的授权详情/**完整分页**精确命中该 ID"——
-  因此实现前必须确认原列表接口的**分页语义与命中方式**（是否返回 `items`、是否有 `total`/游标）。
+`CATALOG` 的真实排版是 `'<kind>':(<Model>, <Input>, '<中文名>', <ROLE>, [<fields>])`（此前正则按 `{` 匹配故未命中）。
+按正确格式提取，**顶层 kind 恰为 14 个**，与计划注册合同的 14 类一一对应：
+
+| 计划 object_type | 原 kind | 中文名（CATALOG） |
+|---|---|---|
+| `vehicle_brand` | `vehicle_brands` | 车辆品牌 |
+| `vehicle_series` | `vehicle_series` | 车辆车系 |
+| `supplier` | `suppliers` | 供应商 |
+| `insurer` | `insurers` | 保险公司 |
+| `warehouse` | `warehouses` | 仓库 |
+| `storage_location` | `locations` | 库位 |
+| `material_brand` | `material_brands` | 物资品牌 |
+| `material_category` | `material_categories` | 物资分类 |
+| `master_work_item` | `work_items` | 作业项目 |
+| `team` | `teams` | 班组 |
+| `agency_project` | `agency_projects` | 代办项目 |
+| `vehicle_model` | `vehicle_models` | 车型 |
+| `member_tier` | `member_tiers` | 会员等级 |
+| `item_profile` | `item_profiles` | 物资档案 |
+
+原接口签名（已核对）：`list_master(kind, q=Query('',max_length=100), active: bool|None=None,
+fuel_type: str|None=None, min_seats: int|None=Query(ge=1,le=60), max_price_cents: int|None=Query(ge=0),
+page: int=Query(1,ge=1), db, user)`；
+`lookup(kind, q=Query('',max_length=100), selected_id: int|None=Query(gt=0), db, user)`。
+
+由此确定的实现口径：
+- `master.record_exists`：在**原对应 kind 的列表**中按 `page` 翻页直至命中或翻完（**完整分页**），
+  按真实 ID 精确命中才算存在；
+- `master.active`：只认命中记录的 `active` **字段**；**记录缺该字段时为 unknown**，
+  不以 `active` 过滤参数反推。
 
 ## 4. 结论与下一步（不虚构完成）
 
 - 本项**未实现、未注册、未实测**；计划中 `### M7.11.1` 不登记为 `implemented`。
-- 下一步（下一轮第一件事）：逐字读取 `app/master_data.py` 的 `CATALOG` 顶层键与 `app/master_api.py`
-  的列表返回结构，确认 14 类 kind 与分页字段，然后按本仓库既有适配器范式实现
-  `app/assistant_runtime_domains/typed_master.py`（固定字典映射、不混 Runtime WorkItem）、
-  注册 14 个对象类型，并补外部套件 `$ValidationRoot/tests/runtime_domains/test_typed_master.py`。
-- 边界不变：**原业务作业 WorkItem 映射为 `master_work_item`，不混为 Runtime WorkItem**；
-  写入只走已评审 POST/PUT 与 CATALOG schema。
+- 下一轮第一步：按上表实现 `app/assistant_runtime_domains/typed_master.py`（**固定字典映射**、
+  原业务作业 WorkItem 映射为 `master_work_item`、**不混为 Runtime WorkItem**），在
+  `app/assistant_runtime_domains/__init__.py` 显式注册 14 个对象类型（`fallback_object_types=()`）；
+  写入只走已评审 `POST /api/masters/{kind}` 与 `PUT /api/masters/{kind}/{record_id}`，
+  并补外部套件 `$ValidationRoot/tests/runtime_domains/test_typed_master.py`。
