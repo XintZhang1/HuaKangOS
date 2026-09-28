@@ -25,6 +25,8 @@ from .repair_order import (REPAIR_ACTION, REPAIR_ACTIONS, REPAIR_CREATE, REPAIR_
 from .rework_grant import (GRANT_ACTION, GRANT_ACTIONS, GRANT_CREATE, GRANT_FACTS,
                           GRANT_OBJECT_TYPE, GRANT_QUOTE, GRANT_READ, GRANT_REQUEST,
                           ReworkGrantAdapter)
+from .claim_order import (CLAIM_ACTION, CLAIM_ACTIONS, CLAIM_CREATE, CLAIM_FACTS,
+                         CLAIM_OPTIONS, CLAIM_READ, ClaimOrderAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -44,7 +46,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'REPAIR_ACTION', 'REPAIR_ACTIONS', 'REPAIR_CREATE', 'REPAIR_FACTS', 'REPAIR_READ',
            'RepairOrderAdapter',
            'GRANT_ACTION', 'GRANT_ACTIONS', 'GRANT_CREATE', 'GRANT_FACTS', 'GRANT_OBJECT_TYPE',
-           'GRANT_QUOTE', 'GRANT_READ', 'GRANT_REQUEST', 'ReworkGrantAdapter']
+           'GRANT_QUOTE', 'GRANT_READ', 'GRANT_REQUEST', 'ReworkGrantAdapter',
+           'CLAIM_ACTION', 'CLAIM_ACTIONS', 'CLAIM_CREATE', 'CLAIM_FACTS', 'CLAIM_OPTIONS',
+           'CLAIM_READ', 'ClaimOrderAdapter']
 
 
 def register_adapters(registry):
@@ -58,6 +62,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.3.4：理赔核赔受理（claim_order）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='claim_order', factory=ClaimOrderAdapter, object_types=('case',),
+        operation_ids=(CLAIM_READ, CLAIM_OPTIONS, CLAIM_CREATE, CLAIM_ACTION),
+        fact_keys=CLAIM_FACTS,
+        fallback_object_types=(),
     ))
     # M7.3.3：维修领退料与返修（rework_grant）静态注册。
     registry.register(DomainAdapterSpec(
