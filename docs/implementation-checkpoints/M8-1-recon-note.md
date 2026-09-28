@@ -35,6 +35,20 @@
 | ④ 业务成功但通知失败仍为成功 / 未知写入不重放 | `assistant_runtime_events.py`（`_append`、`_append_queue_transition`、`_committed`）、`assistant_runtime_outbox.py`（`emit_wake_event`、`DispatchResult`、`PollResult`） |
 | ⑤ 故障重复执行结果稳定 | 全套件需**确定性**：固定时钟/固定 uuid/固定摘要输入，重复运行得到同一断言结果 |
 
+## 3b. 本轮已逐字确认的两处关键机制（供断言落点）
+
+- **准备键是确定性摘要**：`assistant_runtime_runner._work_key(scope, input_item_id)`
+  = `'prepare:' + _digest({**anchor, 'input_item_id': input_item_id, ...})`，其中 `anchor` 取
+  `{plan_id, step_key}`（无计划时取 `origin_request_id`）。
+  → 直接支撑断言 ②（**同一稳定 WorkItem 至多一个有效准备版本**：同一 scope + 同一输入项得到同一键）
+  与断言 ⑤（**重复执行结果稳定**：键为纯函数，不含随机或时钟输入）。
+- **队列状态跃迁是带前置状态的事务内追加**：`assistant_runtime_queue._state_event(db, run, previous_status, *, clock)`
+  文档串为 “Append only a queue transition **already made in this same transaction**”，内部转
+  `assistant_runtime_events._append_queue_transition(..., previous_status=previous_status, ...)`，
+  并在 `settings.assistant_notifications_enabled` 为真时另行处理通知。
+  → 直接支撑断言 ③（**旧租约不得覆盖新状态**：跃迁必须携带并匹配前置状态）与断言 ④
+  （**通知与业务成功解耦**：通知开关只影响通知，不改变已提交的业务状态）。
+
 ## 4. 下一步（下一轮第一步，不虚构完成）
 
 1. 精读 `assistant_runtime_queue.py` 的 RunHandle/租约/状态跃迁与 `assistant_runtime_runner.py` 的
