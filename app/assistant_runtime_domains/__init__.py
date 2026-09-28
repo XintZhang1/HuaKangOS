@@ -78,6 +78,8 @@ from .reconciliation_batch import (BATCH_ACTION, BATCH_CLEARING, BATCH_CREATE, B
                                    ReconciliationBatchAdapter)
 from .inventory_report import (REPORT_FACTS, REPORT_OBJECT_TYPE, REPORT_OPTIONS,
                                REPORT_READ, InventoryReportAdapter)
+from .stock_period_report import (PERIOD_FACTS, PERIOD_OBJECT_TYPE, PERIOD_PARAMS,
+                                  PERIOD_READ, StockPeriodReportAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -142,7 +144,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'BATCH_ACTION', 'BATCH_CLEARING', 'BATCH_CREATE', 'BATCH_FACTS', 'BATCH_OBJECT_TYPE',
            'BATCH_ORIGINS', 'BATCH_READ', 'ReconciliationBatchAdapter',
            'REPORT_FACTS', 'REPORT_OBJECT_TYPE', 'REPORT_OPTIONS', 'REPORT_READ',
-           'InventoryReportAdapter']
+           'InventoryReportAdapter',
+           'PERIOD_FACTS', 'PERIOD_OBJECT_TYPE', 'PERIOD_PARAMS', 'PERIOD_READ',
+           'StockPeriodReportAdapter']
 
 
 def register_adapters(registry):
@@ -156,6 +160,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.9.2：库存期间报表（stock_period_report）静态注册；只读报表，不注册任何事实键。
+    registry.register(DomainAdapterSpec(
+        name='stock_period_report', factory=StockPeriodReportAdapter,
+        object_types=(PERIOD_OBJECT_TYPE,),
+        operation_ids=(PERIOD_READ,),
+        fact_keys=(),
+        fallback_object_types=(),
     ))
     # M7.9.1：库存报表查询（inventory_report）静态注册；只读报表，不注册任何事实键。
     registry.register(DomainAdapterSpec(
