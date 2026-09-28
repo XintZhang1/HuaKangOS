@@ -87,6 +87,8 @@ from .material_value_report import (VALUE_FACTS, VALUE_OBJECT_TYPE, VALUE_PARAMS
                                    VALUE_READ, MaterialValueReportAdapter)
 from .visit_activity_report import (VISIT_FACTS, VISIT_OBJECT_TYPE, VISIT_PARAMS,
                                   VISIT_READ, VisitActivityReportAdapter)
+from .management_report import (MGMT_ANALYTICS, MGMT_BLOCKED_WRITE, MGMT_DAILY_TYPE,
+                                   MGMT_FACTS, MGMT_QUERY_TYPE, ManagementReportAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -159,7 +161,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'VALUE_FACTS', 'VALUE_OBJECT_TYPE', 'VALUE_PARAMS', 'VALUE_READ',
            'MaterialValueReportAdapter',
            'VISIT_FACTS', 'VISIT_OBJECT_TYPE', 'VISIT_PARAMS', 'VISIT_READ',
-           'VisitActivityReportAdapter']
+           'VisitActivityReportAdapter',
+           'MGMT_ANALYTICS', 'MGMT_BLOCKED_WRITE', 'MGMT_DAILY_TYPE', 'MGMT_FACTS',
+           'MGMT_QUERY_TYPE', 'ManagementReportAdapter']
 
 
 def register_adapters(registry):
@@ -173,6 +177,15 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.9.6：经营报表与日报（management_report）静态注册。
+    # dashboard/reports 属封闭域、无已评审读取；日报生成是被挡写入 → 只登记唯一已评审只读。
+    registry.register(DomainAdapterSpec(
+        name='management_report', factory=ManagementReportAdapter,
+        object_types=(MGMT_QUERY_TYPE, MGMT_DAILY_TYPE),
+        operation_ids=(MGMT_ANALYTICS,),
+        fact_keys=(),
+        fallback_object_types=(),
     ))
     # M7.9.5：到店活动统计（visit_activity_report）静态注册；只读统计，不注册任何事实键。
     registry.register(DomainAdapterSpec(
