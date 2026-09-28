@@ -94,6 +94,10 @@ class AssistantWorkPlan(StoreScoped, Base):
     """An employee goal and its references, never a replacement business state machine."""
     __tablename__ = 'business_assistant_work_plans'
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    # h52j 已在已发布实例上建立 stores.id 外键；ORM 必须描述同一个物理约束
+    # （PATCH-M1-2-01），否则 metadata 夹具与真实实例的约束不一致。
+    store_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey('stores.id'), nullable=False, default=1, index=True)
     session_id: Mapped[str] = mapped_column(ForeignKey('business_assistant_sessions.id'), index=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
     request_id: Mapped[str] = mapped_column(String(100))

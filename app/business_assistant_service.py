@@ -1373,7 +1373,14 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                 # Validate the whole complete list before the first handler.
                 # A later truncated/duplicate/unknown call cannot follow an
                 # already persisted earlier preparation from this same list.
-                validated_calls=registry_for_config(config).validate_calls(calls)
+                validated_calls=None;refusal=None
+                try:
+                    validated_calls=registry_for_config(config).validate_calls(calls)
+                except HTTPException as exc:
+                    # The list still executes nothing (no partial preparation),
+                    # but the refused calls must reach the model as tool results
+                    # instead of ending the whole turn without any answer to fix.
+                    refusal=exc
                 # 2026-09-25 业主："为什么要设置回复上限啊，赶紧删掉！"——一次回复里提多少个准备调用
                 # 就执行多少个（原来只执行前 12 个、其余回"未执行"）。HARD_TOOLS 只是畸形回复兜底。
                 assistant_reply={'role':'assistant','content':text or None,'tool_calls':calls}
@@ -1382,6 +1389,17 @@ async def _conversation(db,request,user,session_id,request_id,content,thinking,e
                     if not isinstance(reason,str):raise ModelBudget('思考回复格式有误，已停止处理')
                     assistant_reply['reasoning_content']=reason
                 messages.append(assistant_reply)
+                if refusal is not None:
+                    detail=safe_text(refusal.detail,600)
+                    record_issue(db,user,session_id,'model' if refusal.status_code==422 else 'system',
+                                 '助手操作未完成：'+detail,'',refusal.status_code,config.synthetic)
+                    for call in calls:
+                        encoded=json.dumps(scrub({'status':refusal.status_code,'error':detail}),ensure_ascii=False)
+                        messages.append({'role':'tool',
+                                         'tool_call_id':call.get('id','') if isinstance(call,dict) else '',
+                                         'content':encoded})
+                    db.commit()
+                    continue
                 for call,intent in zip(calls,validated_calls):
                     call_count+=1
                     if call_count>call_budget:raise ModelBudget('本次实际工具调用达到%d次上限' % call_budget)

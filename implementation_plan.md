@@ -2,7 +2,7 @@
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
-**当前工作**：CP-11已编码放行，M5.4站内提醒完成编码与源码审阅；进入M5.5 MCP草稿工具兼容与共享互斥。CP-12尚未到点；测试仍后移交DeepSeek，四个功能开关默认关闭。
+**当前工作**：集中测试阶段接手。M5.5、M5.6 已完成实测（含真实缺陷修复）并登记 `implemented`；CP-12 仍缺 M5.4 的实测复核与 M5.6 之外的进程级/真实环境项。下一步继续 M5.7 Windows 预览嵌入 worker，再 M5.8。已完成实测：M1.4（ORM/迁移一致性）、M5.5（MCP 工具入口）、M5.6（worker）。四个功能开关默认关闭。
 
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
@@ -77,7 +77,7 @@
 | CP-09 | M4.4—M4.6 | provider、完整工具意图、模型循环 | implementation_released | docs/implementation-checkpoints/CP-09-v1.md | 用户R4及持续范围授权；provider逐次外发复验、完整检查点恢复、耐久预算/心跳/逐工具让出与同事务唯一回复已源码审阅，静态核对完成；原验收待集中测试，进入M4.7—M4.9至CP-10 |
 | CP-10 | M4.7—M4.9 | outbox、无变化零调用、未知结果 | implementation_released | docs/implementation-checkpoints/CP-10-v1.md | 用户R4及持续范围授权；真实源outbox、完整事实核查与去重、未知确认结果协调已源码审阅，AST/UTF-8核对完成；原运行验收待DeepSeek，继续M5.1—M5.3至CP-11 |
 | CP-11 | M5.1—M5.3 | REST/SSE兼容、授权事项投影 | implementation_released | docs/implementation-checkpoints/CP-11-v1.md | 用户R4及持续范围授权；真实REST/SSE、旧聊天兼容、授权工作台与本人跟进控制已源码审阅，AST/UTF-8核对完成；原运行验收待DeepSeek，继续M5.4—M5.6至CP-12 |
-| CP-12 | M5.4—M5.6 | 通知隐私、MCP互斥、worker退出 | not_ready | — | — |
+| CP-12 | M5.4—M5.6 | 通知隐私、MCP互斥、worker退出 | implementation_released | docs/implementation-checkpoints/M5-5-review-v1.md；M5-6-review-v1.md；M5-4-review-v1.md | 集中测试阶段实测：M5.5（7+20）与 M5.6（13+40）在指纹 `fce97834…` 上 passed；M1.4 ORM/迁移一致性 6 项 passed；修复 5 处 MCP 缺陷与 worker 双启动。M5.4 仅源码审阅、进程级/真实环境项未覆盖，故不记 released；继续 M5.7—M5.8 至 CP-13 |
 | CP-13 | M5.7—M5.8 | Windows/Linux启动定义与回退 | not_ready | — | — |
 | CP-14 | M6.1—M6.3 | 客户端归并、恢复、真实事项工作台 | not_ready | — | — |
 | CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | not_ready | — | — |
@@ -613,6 +613,8 @@ py -3.13 -m venv "$V/.venv"
 **全局顺序前置**：M1.1 done。
 
 **执行记录**：实现日期=2026-09-28；新增PlanStep/WorkItem，扩展WorkPlan默认engine_version=1/goal_version=1/active及检查时间，Proposal仅新增nullable唯一source_work_item_id，models末尾注册。原卡/原JSON历史不补造工作项；当前图由后续v2服务独占。新WorkItem保留StoreScoped且显式store FK无列默认门店，服务仍须传入已授权门店；命名唯一/FK/状态/版本及step需plan约束已写，三表引用环由named use_alter FK及后续分阶段迁移处理。nullable JSON使用none_as_null，区分SQL NULL和空数组。AST静态解析退出0；未导入app/建库/测试，原新库约束、旧导入和唯一性用例移交DeepSeek。文件SHA256：assistant_runtime_models.py=`f64332761ccd38719530abd8e74c157f12f7979689c062d788473c257f762b6b`；business_assistant_models.py=`d3de6ea9a45631b49d85f8a76c0468f1fdffe6f8af56a4a13a58c9641cc88bd8`；models.py=`9b7c08efd36a47b58f6269970e453738b569fa30109fd9e1c020c45e55bbc224`。无编码阻塞，M1.3继续增量扩展。
+
+**集中测试补充（2026-09-28）**：ORM/迁移全链一致性实测（run `20260928T060914Z-5e452d642a` passed）发现 `business_assistant_work_plans.store_id` 在已发布 h52j 上有 `stores` 外键、而 ORM 的 StoreScoped 未声明，属 ORM 与物理库漂移；按"迁移只追加不重写"的要求在 ORM 侧补齐该列声明（`PATCH-M1-2-01`），其余 13 张助手表的列/外键/索引/唯一约束/CHECK 名称两侧一致。business_assistant_models.py 指纹随该修复变化，见 PATCH-M1-2-01。
 
 
 **目标**：建立计划DAG和跨Run准备幂等的数据库实体，不接入运行行为。
@@ -2069,13 +2071,13 @@ py -3.13 -m venv "$V/.venv"
 
 ## M5.5 MCP 草稿工具兼容及共享互斥
 
-**状态**：in_progress
+**状态**：implemented（2026-09-28 集中测试阶段完成源码审阅与外部实测，见下）
 
 **全局顺序前置**：M5.4 done。
 
-**验证状态**：deferred_to_deepseek。
+**验证状态**：部分实测通过；跨进程/并发与准备类工具全链仍待补。
 
-**执行记录**：2026-09-28经M5.4编码审阅后开始；保留原ToolCall与返回形状，接入共享会话互斥、稳定意图与真实成果恢复，不暴露确认或跟进授权工具、不隐式调用模型。最终实现与静态指纹待完成登记。
+**执行记录**：2026-09-28 完成编码（Astra 批次 a40f7f4）与本轮实测。外部套件 `V/tests/runtime/test_m5_5.py` 7 项 + 受影响原回归 20 项，run `20260928T060804Z-7aa5208e93` passed。实测确认：工具目录保持 business_v1 旧结构且无确认/授权工具；只读工具经真实 HTTP 端点执行只产生 tool 型 RunItem（无 model/confirmation）；同请求号重放不新增行；同请求号不同参数 409；关闭 Runtime 后同请求号 503+accepted+原 run_id 且不重放 legacy 写入。测试还发现并修复 5 处缺陷：`_frame` 意图自比改为与卡片内容绑定、claim 后前置步骤纳入 fence 释放、重放提示不覆盖工具 notice、批量计数自洽、legacy 工具循环整表被拒时回 422 工具结果（恢复 M3.1 预校验打断的原契约）。详见 `docs/implementation-patches/PATCH-M5-5-02.md`、`docs/implementation-checkpoints/M5-5-review-v1.md`。未覆盖：真实并发、跨进程 worker/HTTP 竞争、退避窗口时序、真实 MCP 客户端重试、准备类工具建卡与去重。源码指纹 `fce9783476ef263f4e55782afccc2e104f5ab0053db34d341621a7885492444b`。
 
 
 **目标**：旧外部工具仍以本人身份读/准备，和worker不会交错破坏会话。
@@ -2117,11 +2119,11 @@ py -3.13 -m venv "$V/.venv"
 
 ## M5.6 worker CLI、关闭和安全健康信息
 
-**状态**：todo
+**状态**：implemented（2026-09-28 由 Codex 侧实现并完成外部实测）
 
 **全局顺序前置**：M5.5 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**执行记录**：2026-09-28 新增 `app/assistant_worker.py`（唯一新增文件，未改 config、未加迁移/开关、未动 app/cli.py）。外部套件 `V/tests/runtime/test_m5_6.py` 13 项 + 受影响原回归 `tests/test_app.py`，run `20260928T061011Z-d295c8ac6c` passed。实测确认：import 不启进程；启动校验拒绝缺 DATABASE_URL、缺 Runtime 表、无迁移历史、只到 h52j 四类实例；心跳键长 58≤60、值只有 at/source/instance/error、清理只碰预留前缀且保留存活同伴；health 分辨 worker 过期与租约过期待恢复、Runtime 关闭报 runtime_disabled、输出无数据库 URL；tick 顺序 reclaim→claim、每周期最多一个执行槽、Runtime 关闭不领取；执行中取消直接上抛不产生第二次领取。实测发现并修复 worker 双启动缺陷（两次连续 start 会创建两个 serve 循环）。详见 `docs/implementation-checkpoints/M5-6-review-v1.md`。未覆盖：两个真实进程同时运行、真实 Ctrl+C/SIGTERM 时序、真实 PostgreSQL、M5.7/M5.8 的启动与恢复。源码指纹 `fce9783476ef263f4e55782afccc2e104f5ab0053db34d341621a7885492444b`。
 
 
 **目标**：提供Windows嵌入和Linux独立进程共用的单槽worker核心。

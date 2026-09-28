@@ -20,10 +20,43 @@ from .business_assistant_models import AssistantIssue, AssistantProposal, Assist
 _PARENT = 'mcp:call'
 _BATCH = {'prepare_operations', 'prepare_business_batch'}
 _ROW_KEYS = {'id', 'position', 'input', 'outcome'}
+_INTENT_KEYS = {'schema_version', 'operation_id', 'path_args', 'query', 'body', 'questions',
+                'question_fields', 'generate_request_id', 'intent_digest'}
 
 
 def _conflict():
     raise HTTPException(409, '原工具请求或成果来源已变化，请核对原请求')
+
+
+def _intent_matches_card(card, work):
+    """Prove the stored preparation intent still describes this card's content.
+
+    A reused legacy-content card has no MCP manifest, so its row input cannot be
+    re-resolved inside this read-only frame check. What must hold is that the
+    WorkItem's own immutable intent is self-consistent and agrees with the card's
+    stored payload and questions; only the server-generated request identifier
+    may be absent from the intent (the same rule ``build_proposal`` applies).
+    """
+    from .assistant_runtime_runner import _intent_digest
+    values = work.validated_intent
+    if type(values) is not dict or set(values) != _INTENT_KEYS:
+        return False
+    body = deepcopy(values)
+    if body.pop('intent_digest') != _intent_digest(body):
+        return False
+    if (type(values['generate_request_id']) is not bool
+            or values['operation_id'] != work.operation_id or card.operation_id != work.operation_id):
+        return False
+    payload = {key: deepcopy(values[key]) for key in ('path_args', 'query', 'body')}
+    current = deepcopy(card.payload)
+    if values['generate_request_id']:
+        for value in (payload, current):
+            if isinstance(value.get('body'), dict):
+                value['body'].pop('request_id', None)
+    if current != payload:
+        return False
+    return (service.preparation_question_intent(card.questions or [])
+            == service.preparation_question_intent(values['questions']))
 
 
 def is_mcp_run(run):
@@ -141,7 +174,7 @@ def _parent_outcome(db, run, item, data, spec):
 def _frame(db, run):
     """Validate complete original inputs and every immutable result binding."""
     from .assistant_runtime_registry import _registry_for_profile
-    from .assistant_runtime_runner import _manifest_data, _manifest_key, _work_key, _same_intent
+    from .assistant_runtime_runner import _manifest_data, _manifest_key, _work_key
     if not is_mcp_run(run):
         _conflict()
     thread = db.scalar(select(AssistantSession).where(AssistantSession.id == run.session_id,
@@ -213,7 +246,7 @@ def _frame(db, run):
         work = _owned(db, run, WorkItem, card.source_work_item_id) if card.source_work_item_id else None
         if work is not None and (work.item_kind != 'prepare' or work.operation_id != card.operation_id):
             _conflict()
-        if work is not None and not _same_intent(work.validated_intent, work.validated_intent):
+        if work is not None and not _intent_matches_card(card, work):
             _conflict()
         if outcome['manifest_id'] is None:
             if outcome['input_item_id'] is not None:
@@ -603,7 +636,11 @@ async def _project(db, principal, run_id, config, client_factory):
                 revalidate_principal(db, principal)
                 result = {'status': exc.status_code, 'error': '原卡关联记录当前无法核对，请打开原请求重查'}
         elif outcome['kind'] == 'error':
-            result = {'status': outcome['status'], 'error': '本行未生成卡片，请核对资料或原业务条件'}
+            # A row can fail because its own facts/conditions are wrong or
+            # because the session already holds the maximum number of pending
+            # cards; the projection must not blame only the employee's input.
+            result = {'status': outcome['status'],
+                'error': '本行没有生成卡片：请核对本行资料或原业务条件；若提示待确认卡已达上限，请先处理原卡后用同一请求号继续'}
         else:
             try:
                 db.rollback()
@@ -655,9 +692,13 @@ async def _project(db, principal, run_id, config, client_factory):
     if name == 'prepare_business_batch':
         return {'status': 200, 'input_count': len(results), 'unique_prepared': len(seen), 'items': output,
             'notice': '逐项真实结果；失败/未选来源的行没有草稿。确认仍由员工在原页面执行。'}
-    pending = {value['id'] for value in output if value.get('id') and value.get('status') == 'pending'}
-    return {'items': output, 'requested': len(results), 'prepared_or_reused': len(pending),
-        'rejected': sum(value.get('status') != 'pending' for value in output),
+    # A replayed row may reference a card the employee has already settled;
+    # every row with a real card counts as prepared-or-reused, and only rows
+    # that produced no card are rejected, so the two counts always sum to the
+    # requested row count.
+    cards = [value for value in output if value.get('id')]
+    return {'items': output, 'requested': len(results), 'prepared_or_reused': len(cards),
+        'rejected': len(output) - len(cards),
         'notice': '按输入序号逐项核对；只生成或复用待确认卡，未执行业务。失败项没有生成卡，不代表其他项回滚。'}
 
 
@@ -679,20 +720,25 @@ async def _execute_mcp(db, principal, config=None, *, clock=None, client_factory
     from .assistant_runtime_registry import registry_for_config
     from .assistant_runtime_runner import _RunHeartbeat, runtime_read_tool
     from .assistant_runtime_queue import release
-    service.require_preparation_read_phase(db)
-    revalidate_principal(db, principal, clock=clock)
-    if principal.run_id is None:
-        _conflict()
-    clock, config = clock or principal._clock, _config(config)
-    run, item, data, _ = _load(db, principal)
-    if run.status != 'running':
-        _conflict()
-    spec = registry_for_config(config).spec(data['name'])
-    db.rollback()
-    heartbeat = _RunHeartbeat(db, principal, clock)
-    heartbeat.start()
+    clock = clock or principal._clock
+    heartbeat = None
     released = closed = False
     try:
+        # Every step after the claim is inside this fence: a rejected read phase,
+        # lost authority, malformed frame or unavailable heartbeat must never
+        # leave the claimed Run running until its lease expires.
+        config = _config(config)
+        service.require_preparation_read_phase(db)
+        revalidate_principal(db, principal, clock=clock)
+        if principal.run_id is None:
+            _conflict()
+        run, item, data, _ = _load(db, principal)
+        if run.status != 'running':
+            _conflict()
+        spec = registry_for_config(config).spec(data['name'])
+        db.rollback()
+        heartbeat = _RunHeartbeat(db, principal, clock)
+        heartbeat.start()
         _start(db, principal, clock)
         run, item, data, _ = _load(db, principal)
         complete = item.status in {'succeeded', 'failed'}
@@ -761,7 +807,8 @@ async def _execute_mcp(db, principal, config=None, *, clock=None, client_factory
             raise view_error
         return service.scrub(result)
     except BaseException as exc:
-        heartbeat.stop()
+        if heartbeat is not None:
+            heartbeat.stop()
         db.rollback()
         if not released:
             try:
@@ -785,7 +832,7 @@ async def _execute_mcp(db, principal, config=None, *, clock=None, client_factory
         raise
     finally:
         db.rollback()
-        if not closed:
+        if heartbeat is not None and not closed:
             await heartbeat.close()
 
 
@@ -808,5 +855,10 @@ async def replay_mcp(db, request, user, sid, run_id, config=None):
     db.rollback()
     _guard(db, auth)
     if partial and isinstance(result, dict):
-        result = {**result, 'notice': '原请求未全部完成；以下仅是原清单的真实结果，请核对未完成行。'}
+        notice = '原请求未全部完成；以下仅是原清单的真实结果，请核对未完成行。'
+        existing = result.get('notice')
+        # The tool's own notice carries its real partial-failure semantics; a
+        # replay adds to it instead of replacing it.
+        result = {**result, 'notice': f'{existing} {notice}' if isinstance(existing, str) and existing
+                  else notice}
     return service.scrub(result)
