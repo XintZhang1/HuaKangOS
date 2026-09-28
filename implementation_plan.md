@@ -3092,11 +3092,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.2.3 整车批量导入后的审阅与逐行恢复
 
-**状态**：todo
+**状态**：in_progress（能力缺口：批次详情读取未纳入 reviewed catalog）
 
 **全局顺序前置**：M7.2.2 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：适配器骨架、注册范围、缺口处理与回执合同已实测（8 项通过）；逐行恢复与行级事实因能力缺口无法验证。
+
+**执行记录**：2026-09-28 新增 pp/assistant_runtime_domains/vehicle_import_batch.py（VehicleImportBatchAdapter，object_types=('vehicle_import_batch',)：只登记已评审的 POST /api/vehicle-imports/batches/{batch_id}/actions/{action}；
+ead_snapshot 按 common contract 第 4 条**明确报告能力缺口**并给原页面入口，不调用未登记读取；三条事实键一律 satisfied=None，不把 status=reviewed/confirmed 文字当证据；extract_result 返回 ehicle_import_batch 引用；
+ead_receipt 走 VehicleImportRequest 族并保持冻结快照），__init__.py 显式注册且 allback_object_types=()。**能力缺口**：原生证据 GET /api/vehicle-imports/batches/{batch_id} 不在 pp/business_assistant_capabilities.json 的 reviewed catalog 内（该目录本领域只有批次动作 POST），按合同不得扩大目录或不登记读取，故本项**不记 implemented**；需评审补齐该 GET 或提供等价已评审只读路径后方可继续验收。外部套件 $ValidationRoot/tests/runtime_domains/test_vehicle_import_batch.py（8 项），run 20260928T131239Z-b7c08e3893 passed；同指纹 M7.2.2 回归通过。详见 docs/implementation-checkpoints/M7-2-3-review-v1.md。源码指纹 d68dfb7b4aa781865557efce3ece0357d7599ffe5ecca085380c9c567ab41443。
 
 
 **目标**：只完成 `vehicle_import_batch` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
