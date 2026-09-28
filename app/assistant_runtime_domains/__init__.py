@@ -48,6 +48,9 @@ from .customer_vehicle import (VEHICLE_CREATE, VEHICLE_FACTS, VEHICLE_HISTORY,
                                VEHICLE_READ, CustomerVehicleAdapter)
 from .customer_care import (CARE_ACTION, CARE_ACTIONS, CARE_CREATE, CARE_FACTS,
                             CARE_OBJECT_TYPE, CARE_READ, CARE_SUBTYPES, CustomerCareAdapter)
+from .care_reminder import (REMINDER_FACTS, REMINDER_GENERATE, REMINDER_KINDS,
+                            REMINDER_OBJECT_TYPE, REMINDER_RULE_SAVE, REMINDER_RULES,
+                            CareReminderAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -89,7 +92,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'VEHICLE_OBJECT_TYPE', 'VEHICLE_OBSERVATION', 'VEHICLE_READ',
            'CustomerVehicleAdapter',
            'CARE_ACTION', 'CARE_ACTIONS', 'CARE_CREATE', 'CARE_FACTS', 'CARE_OBJECT_TYPE',
-           'CARE_READ', 'CARE_SUBTYPES', 'CustomerCareAdapter']
+           'CARE_READ', 'CARE_SUBTYPES', 'CustomerCareAdapter',
+           'REMINDER_FACTS', 'REMINDER_GENERATE', 'REMINDER_KINDS', 'REMINDER_OBJECT_TYPE',
+           'REMINDER_RULE_SAVE', 'REMINDER_RULES', 'CareReminderAdapter']
 
 
 def register_adapters(registry):
@@ -103,6 +108,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.6.3：客户提醒来源（care_reminder）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='care_reminder', factory=CareReminderAdapter,
+        object_types=(REMINDER_OBJECT_TYPE,),
+        operation_ids=(REMINDER_RULES, REMINDER_RULE_SAVE, REMINDER_GENERATE),
+        fact_keys=REMINDER_FACTS,
+        fallback_object_types=(),
     ))
     # M7.6.2：客户关怀服务单（customer_care）静态注册。
     registry.register(DomainAdapterSpec(

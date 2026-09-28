@@ -88,7 +88,7 @@
 | CP-20 | M7.3.4—M7.3.5 | 理赔核赔、真实进出厂 | implementation_released | docs/implementation-checkpoints/M7-3-4-review-v1.md；M7-3-5-review-v1.md | M7.3.4（claim_order，8 项）与 M7.3.5（gate_visit，8 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.4.1（CP-21） |
 | CP-21 | M7.4.1—M7.4.3 | 精品销售、套餐核销、零售集团 | implementation_released | docs/implementation-checkpoints/M7-4-1-review-v1.md；M7-4-2-review-v1.md；M7-4-3-review-v1.md | M7.4.1（9 项）、M7.4.2（9 项）、M7.4.3（7 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.5.1（CP-22） |
 | CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | implementation_released | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md；M7-5-3-review-v1.md | M7.5.1（8 项）、M7.5.2（8 项）、M7.5.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.6.1（CP-23） |
-| CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | in_progress | docs/implementation-checkpoints/M7-6-1-review-v1.md；M7-6-2-review-v1.md | M7.6.1（9 项）与 M7.6.2（9 项）已 implemented 并实测通过；M7.6.3 未开始，故不记 implementation_released |
+| CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | implementation_released | docs/implementation-checkpoints/M7-6-1-review-v1.md；M7-6-2-review-v1.md；M7-6-3-review-v1.md | M7.6.1（9 项）、M7.6.2（9 项）、M7.6.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.1（CP-24） |
 | CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | not_ready | — | — |
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益单位 | not_ready | — | — |
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | not_ready | — | — |
@@ -3248,138 +3248,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/customer_care.py`（`CustomerCareAdapter`，`object_types=('care_case',)`：快照单次只读 `GET /api/customer-service/cases/{case_id}`，ID 不一致或未登记 subtype 一律 502，动作可用性一律 `unknown`；`extract_result` 覆盖关怀族 operation（创建响应取 `case` 键）；`read_receipt` 走 `CareReceipt` 族并保持冻结 `request_id`；事实 `care.followup_recorded`（原 `CareRecord` 可识别为 followup；**联系不到/拒绝联系保留原 contact_result，不冒充成功联系**）、`care.handoff_recorded`（原 handoff 记录**且**有可读负责人）、`care.closed`（原状态确为 `closed`）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原提醒规则。外部套件 `$ValidationRoot/tests/runtime_domains/test_customer_care.py`（9 项），run `20260928T134415Z-01d36b4163` passed。详见 `docs/implementation-checkpoints/M7-6-2-review-v1.md`。源码指纹 `a880c46be8eb7a42afbb943bdba43d567555404122c1972691e94f3bfd87204d`。下一项 M7.6.3。
 
-### M7.6.3 客户提醒规则与到期来源
+### M7.6.3 客户提醒来源
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.6.2 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/两条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `care_reminder` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/customer_service_api.py`、`app/customer_service.py`、`app/observation_corrections_service.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/care_reminder.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_care_reminder.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/customer-service/reminders/rules；原 reminders/generate 是业务写接口，后台仅准备其卡；原规则 kind=first_service/maintenance/warranty/renewal。
-
-**注册合同**：object_type=reminder_rule（ReminderRule.id）；adapter=`app/assistant_runtime_domains/care_reminder.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`reminder.rule_active`：原 reminders/rules 精确匹配该 ID 且原 active=true；`reminder.generated_case_recorded`：原 generate 成功结果或原已生成记录明确带同规则、同车辆/周期与 care case 引用。原读法不暴露周期/来源关联时为 unknown，不从文字/日期自行断言已生成。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：已生效规则、原日期/里程依据与已生成 care case；到期时核对是否已存在相同周期真实任务。
-3. 接统一只读回执 resolver：CareReceipt 及 observation_corrections 原生成回执按各 operation 区分，禁止用规则 ID 充当请求号。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：到期只唤醒不等于实际联系；日期/里程被有据纠正后重算读取；同周期重复事件不得重复准备生成任务卡。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_care_reminder.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.6.3
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-6-4"></a>
-
-### M7.6.4 客户问卷版本与真实答卷
-
-**状态**：todo
-
-**全局顺序前置**：M7.6.3 done。
-
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
-
-
-**目标**：只完成 `questionnaire_version` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/customer_service_api.py`、`app/questionnaire_service.py`、`app/questionnaire_models.py`、`app/questionnaire_schema.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/questionnaire_version.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_questionnaire_version.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/customer-service/questionnaires/versions 与 /report；版本 propose/review 见 questionnaire_service:55-91，答卷沿原客户服务单。
-
-**注册合同**：object_type=questionnaire_version（QuestionnaireVersion.id）；adapter=`app/assistant_runtime_domains/questionnaire_version.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`questionnaire.approved`：本版本原 QuestionnaireReview 的批准决定存在；`questionnaire.answer_recorded`：原 report/答卷记录明确关联该版本及真实客户服务单。前者不代表答卷已填，报告只返聚合而不含可定位答卷证据时后一键为 unknown。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：冻结问卷版本及原答卷引用；版本批准和答卷完成分开。
-3. 接统一只读回执 resolver：CareReceipt，questionnaire_propose/questionnaire_review 各自原 payload。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：旧答卷仍引用旧版；缺答案进入 needs_input，不能模型自动作答；自批拒绝不是可申请升权。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_questionnaire_version.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.6.4
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-6-5"></a>
-
-### M7.6.5 车辆日期里程观察纠正
-
-**状态**：todo
-
-**全局顺序前置**：M7.6.4 done。
-
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
-
-
-**目标**：只完成 `observation_correction` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/observation_corrections_api.py`、`app/observation_corrections_service.py`、`app/observation_corrections_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/observation_correction.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_observation_correction.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/observation-corrections/cases/{case_id} 与 /vehicles/{vehicle_id}；operation replace/retract，submit/approve/reject/cancel 见 service:195。
-
-**注册合同**：object_type=observation_correction（ObservationCorrection.id）；adapter=`app/assistant_runtime_domains/observation_correction.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`correction.approval_recorded`：本单原 approve 成功结果/CorrectionEvent；`correction.effect_recorded`：本单原 CorrectionEffect；`correction.reminder_replacement_recorded`：原 ReminderReplacement 明确引用本纠正及被替换提醒。批准不证明保险/维修已经办理。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：原观察、纠正批准、effective basis 与关联提醒依据；更正追加，不覆盖原观察。
-3. 接统一只读回执 resolver：CorrectionReceipt/observation_correction_receipts，沿 _execute。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：原依据变化、自批、缺凭据不续办；approved 只证明纠正生效，不代表保险/维修已完成；旧提醒以新读依据判断。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_observation_correction.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.6.5
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/care_reminder.py`（`CareReminderAdapter`，`object_types=('reminder_rule',)`：快照只读 `GET /api/customer-service/reminders/rules`，**集合读取按真实 ID 精确匹配**（同名不同 ID 不匹配，找不到即 404），未登记 kind 502，动作可用性一律 `unknown`；`extract_result` 覆盖规则保存与生成写接口（清单读不绑定结果）；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `reminder.rule_active`（原 `active=true` 且 ID 精确匹配）、`reminder.generated_case_recorded`（**原读法不暴露周期/来源与已生成案件关联时一律未知，不从文字/日期自行断言已生成**）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未调用原生成写接口。外部套件 `$ValidationRoot/tests/runtime_domains/test_care_reminder.py`（7 项），run `20260928T134539Z-db53035e2c` passed。详见 `docs/implementation-checkpoints/M7-6-3-review-v1.md`。源码指纹 `68e6089bbfa2eaba873ffe4ef4dd38ca720e5b1c5d6378bac9b1f1c4972dde97`。**遗留**：已生成关联需评审补只读路径。下一项 M7.7.1。
 
 ## M7.7 会员、本金、权益与套餐
 
