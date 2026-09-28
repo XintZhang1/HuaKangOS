@@ -100,6 +100,9 @@ from .transfer_exception import (EXC_ACTION, EXC_ACTIONS, EXC_CREATE, EXC_FACTS,
 from .transfer_goods_recovery import (GR_ACTION, GR_ACTIONS, GR_CREATE, GR_FACTS,
                                       GR_OBJECT_TYPE, GR_ORIGINS, GR_READ,
                                       TransferGoodsRecoveryAdapter)
+from .vehicle_transport_exception import (VTE_ACTION, VTE_ACTIONS, VTE_CREATE,
+                                          VTE_FACTS, VTE_OBJECT_TYPE, VTE_READ,
+                                          VehicleTransportExceptionAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -182,7 +185,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'EXC_ACTION', 'EXC_ACTIONS', 'EXC_CREATE', 'EXC_FACTS', 'EXC_OBJECT_TYPE',
            'EXC_ORIGINS', 'EXC_READ', 'TransferExceptionAdapter',
            'GR_ACTION', 'GR_ACTIONS', 'GR_CREATE', 'GR_FACTS', 'GR_OBJECT_TYPE', 'GR_ORIGINS',
-           'GR_READ', 'TransferGoodsRecoveryAdapter']
+           'GR_READ', 'TransferGoodsRecoveryAdapter',
+           'VTE_ACTION', 'VTE_ACTIONS', 'VTE_CREATE', 'VTE_FACTS', 'VTE_OBJECT_TYPE',
+           'VTE_READ', 'VehicleTransportExceptionAdapter']
 
 
 def register_adapters(registry):
@@ -196,6 +201,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.10.5：整车运输异常（vehicle_transport_exception）静态注册；key 即原异常案 id。
+    registry.register(DomainAdapterSpec(
+        name='vehicle_transport_exception', factory=VehicleTransportExceptionAdapter,
+        object_types=(VTE_OBJECT_TYPE,),
+        operation_ids=(VTE_READ, VTE_CREATE, VTE_ACTION),
+        fact_keys=VTE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.10.4：调拨货物找回（transfer_goods_recovery）静态注册；key 即原 GoodsRecovery.id。
     registry.register(DomainAdapterSpec(

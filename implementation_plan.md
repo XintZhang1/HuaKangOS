@@ -3460,50 +3460,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/transfer_goods_recovery.py`（`TransferGoodsRecoveryAdapter`，`object_types=('goods_recovery',)`：快照单次只读 `GET /api/transfer-goods-recoveries/{key}`，**key 即原 `GoodsRecovery.id`**，ID 不一致 502、**缺原调拨单引用 502**，动作可用性一律 `unknown`；`extract_result` 覆盖找回族 operation（来源读不绑定结果）；`read_receipt` 走 `GoodsReceipt` 族并保持冻结 `request_id`；事实 `goods_recovery.match_recorded`（原 match 与 `GoodsFact` 明确原损失匹配）、`goods_recovery.receipt_recorded`（原 receive 与实物接收 `GoodsFact`）、`goods_recovery.restore_posted`（原 restore 与 `GoodsPosting`）——都带边界声明：**unlocated 不等于已找回、找到/收到不能替代损失恢复过账或赔付退回**；明细未提供一律未知），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原数量与负担公式。**实测发现并修复（真实产品缺陷）**：首轮"详情未提供事实明细（键存在但值为 null）"被判成"已提供"而返回 False，合同要求未知；已改为**只有 list/dict 才算提供**。外部套件 `$ValidationRoot/tests/runtime_domains/test_transfer_goods_recovery.py`（8 项），run `20260928T142154Z-7c6541d030` passed。详见 `docs/implementation-checkpoints/M7-10-4-review-v1.md`。源码指纹 `38d3b91418f455d0e9e4dbe0c1d14d3a8778ab281968a8e668692da343bc57fd`。下一项 M7.10.5。
 
-### M7.10.5 整车运输异常与原车找回
+### M7.10.5 整车运输异常
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；8 项通过）
 
 **全局顺序前置**：M7.10.4 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `vehicle_transport_exception` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/vehicle_transport_api.py`、`app/vehicle_transport_service.py`、`app/vehicle_transport_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/vehicle_transport_exception.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_vehicle_transport_exception.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/vehicle-transport-exceptions/{key}；observe/observe_found、plan_resume/plan_found、dispose/post_loss/found_receive/found_unavailable。
-
-**注册合同**：object_type=vehicle_transport_exception（VehicleTransportException.id）；adapter=`app/assistant_runtime_domains/vehicle_transport_exception.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`vehicle_transport.loss_posted`：本案原 VehicleTransportLoss；`vehicle_transport.found_received`：本案原 VehicleTransportFoundReceipt 且原 VIN 一致；`vehicle_transport.found_unavailable_recorded`：本案原 VehicleTransportFoundUnavailable。计划找回不满足实际找到/接收键。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：真实原 VIN、异常观察、双方方案/审查、原损失与原车找回验收。
-3. 接统一只读回执 resolver：VehicleTransportReceipt，vehicle_transport_service.execute 的 action+values；FoundReceipt 仅找回业务事实。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：VIN 不匹配不得换车冒名；失而复得仍走原保管/验收；无实际找到事实不准备 found_receive。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_vehicle_transport_exception.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.10.5
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-10-6"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/vehicle_transport_exception.py`（`VehicleTransportExceptionAdapter`，`object_types=('vehicle_transport_exception',)`：快照单次只读 `GET /api/vehicle-transport-exceptions/{key}`，**key 即原异常案 id**，ID 不一致 502、**缺原运输单引用 502**，动作可用性一律 `unknown`；`extract_result` 覆盖异常族 operation；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `vehicle_transport.loss_posted`（原 `VehicleTransportLoss`；过账不改变原实物状态）、`vehicle_transport.found_received`（原 `VehicleTransportFoundReceipt` **且 VIN 一致**；缺 VIN 或不一致即未知）、`vehicle_transport.found_unavailable_recorded`（原 `VehicleTransportFoundUnavailable`；不构成找回完成）——**计划找回不满足实际找到/接收键**，只有计划时三条均为未知；容器键为 `null` 视为未提供），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原损失与结算公式。**实测发现并修复（真实产品缺陷）**：首轮"只有计划"时返回 False 而合同要求未知；已改为 `_unknown` 并保留规则说明。外部套件 `$ValidationRoot/tests/runtime_domains/test_vehicle_transport_exception.py`（8 项），run `20260928T142422Z-e5b4d3eca8` passed。详见 `docs/implementation-checkpoints/M7-10-5-review-v1.md`。源码指纹 `37c8822b57b2a02ee7cc66b12c3d8026dd3b75c58b6bf5983e9af86c416fa33a`。下一项 M7.10.6。
 
 ### M7.10.6 跨店原单档案授权
 
