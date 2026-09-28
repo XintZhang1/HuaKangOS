@@ -229,6 +229,26 @@ def _committed(db, run_id, factory=None):
 待补：`Run` 的 `status`/`trigger_kind`/`auth_kind` 合法取值（存在 CHECK 约束的可能），
 按真实模型默认值构造后即可落地上述 3–5 条断言。
 
+### 2j.2 `Run` 的真实 CHECK 约束（第九轮实测拦下的三条，逐字记录）
+
+尝试直接拼装 `Run` 行写租约用例时，被数据库逐层拦下（**每次都如实保留，未放宽**）：
+
+| 约束名 | 真实内容 |
+|---|---|
+| `ck_assistant_run_trigger_kind` | `trigger_kind IN ('user','signal','manual')` —— 我最初写的 `'card'` **非法** |
+| `ck_assistant_run_status` | `status IN ('queued','running','succeeded','failed','cancelled')` |
+| `ck_assistant_run_auth_kind` | `auth_kind IN ('login','grant')`，且**登录态必须** `login_session_ref IS NOT NULL AND grant_id IS NULL`（授权态反之） |
+| `ck_assistant_run_login_ref`（最后暴露） | `login_session_ref` **不能是任意字符串**，须与**真实登录会话的哈希**对应 |
+
+**结论**：`Run` 不能凭字段拼装 —— 它必须由**真实登录会话**派生（这正是"租约身份可核验"的设计意图）。
+因此租约用例的正确前置是：用 `client`/`login` 夹具建立真实登录会话 → 取该会话的哈希作 `login_session_ref`
+→ 再按 §2j/§2j.1 的五步断言。在此之前**不登记**该命令、不改断言。
+
+**状态恢复记录（自愈，本轮如实保留）**：第三条命令登记后仍红 → 守护脚本自动移除命令并删除覆盖层文件；
+随后运行被 `VALIDATION_REJECTED:FileNotFoundError` 拒绝，原因是 `archive/baseline-restoration.json`
+的 `overlay_additions` 仍列着已删文件；清理后（92 → 91）复跑 **`status=passed`、`phase_complete=true`**
+（run `20260928T150808Z-6a8d6b5f1b`，两条命令 11 + 19 = 30 项全绿）。
+
 ## 4. 状态登记
 
 `### M8.1` 登记为 **`in_progress`**（唯一在办项）：已具备可执行的部分证据，但上节 5 项未完成前不得 `done`。
