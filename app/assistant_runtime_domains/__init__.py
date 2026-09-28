@@ -66,6 +66,8 @@ from .repair_package import (PACKAGE_ACTION, PACKAGE_ACTIONS, PACKAGE_CREATE,
                              PACKAGE_FACTS, PACKAGE_MEMBER_PURCHASES, PACKAGE_OBJECT_TYPE,
                              PACKAGE_ORDER_CAPTURE, PACKAGE_ORDER_QUOTE,
                              PACKAGE_REFUND_ACTION, PACKAGE_RULES, RepairPackageAdapter)
+from .member_price import (PRICE_ACTION, PRICE_ACTIONS, PRICE_CANDIDATES, PRICE_CREATE,
+                           PRICE_FACTS, PRICE_OBJECT_TYPE, PRICE_READ, MemberPriceAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -120,7 +122,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'RECHARGE_PURCHASES', 'RECHARGE_PURPOSES', 'RECHARGE_READ', 'RechargeBundleAdapter',
            'PACKAGE_ACTION', 'PACKAGE_ACTIONS', 'PACKAGE_CREATE', 'PACKAGE_FACTS',
            'PACKAGE_MEMBER_PURCHASES', 'PACKAGE_OBJECT_TYPE', 'PACKAGE_ORDER_CAPTURE',
-           'PACKAGE_ORDER_QUOTE', 'PACKAGE_REFUND_ACTION', 'PACKAGE_RULES', 'RepairPackageAdapter']
+           'PACKAGE_ORDER_QUOTE', 'PACKAGE_REFUND_ACTION', 'PACKAGE_RULES', 'RepairPackageAdapter',
+           'PRICE_ACTION', 'PRICE_ACTIONS', 'PRICE_CANDIDATES', 'PRICE_CREATE', 'PRICE_FACTS',
+           'PRICE_OBJECT_TYPE', 'PRICE_READ', 'MemberPriceAdapter']
 
 
 def register_adapters(registry):
@@ -134,6 +138,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.7.6：会员价格规则（member_price）静态注册；key 即原 MemberPricingRule.id。
+    registry.register(DomainAdapterSpec(
+        name='member_price', factory=MemberPriceAdapter,
+        object_types=(PRICE_OBJECT_TYPE,),
+        operation_ids=(PRICE_READ, PRICE_CANDIDATES, PRICE_CREATE, PRICE_ACTION),
+        fact_keys=PRICE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.7.5：维修套餐（repair_package）静态注册。
     # 已评审读取按会员维度（members/{key}/purchases），与 package_purchase 维度不一致：
