@@ -73,6 +73,9 @@ from .business_finance_order import (FINANCE_ACTION, FINANCE_ADVANCES, FINANCE_C
                                     FINANCE_SOURCES, BusinessFinanceOrderAdapter)
 from .invoice import (INVOICE_ACTION, INVOICE_ACTIONS, INVOICE_CREATE, INVOICE_FACTS,
                       INVOICE_READ, INVOICE_SOURCE, INVOICE_SOURCES, InvoiceAdapter)
+from .reconciliation_batch import (BATCH_ACTION, BATCH_CLEARING, BATCH_CREATE, BATCH_FACTS,
+                                   BATCH_OBJECT_TYPE, BATCH_ORIGINS, BATCH_READ,
+                                   ReconciliationBatchAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -133,7 +136,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'FINANCE_ACTION', 'FINANCE_ADVANCES', 'FINANCE_CREATE', 'FINANCE_FACTS',
            'FINANCE_READ', 'FINANCE_RECEIPTS', 'FINANCE_SOURCES', 'BusinessFinanceOrderAdapter',
            'INVOICE_ACTION', 'INVOICE_ACTIONS', 'INVOICE_CREATE', 'INVOICE_FACTS', 'INVOICE_READ',
-           'INVOICE_SOURCE', 'INVOICE_SOURCES', 'InvoiceAdapter']
+           'INVOICE_SOURCE', 'INVOICE_SOURCES', 'InvoiceAdapter',
+           'BATCH_ACTION', 'BATCH_CLEARING', 'BATCH_CREATE', 'BATCH_FACTS', 'BATCH_OBJECT_TYPE',
+           'BATCH_ORIGINS', 'BATCH_READ', 'ReconciliationBatchAdapter']
 
 
 def register_adapters(registry):
@@ -147,6 +152,15 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.8.3：月结冻结（reconciliation_batch）静态注册；key 即原 ReconciliationBatch.id。
+    # 只读批次读取 + 已评审的 create 与批次动作。
+    registry.register(DomainAdapterSpec(
+        name='reconciliation_batch', factory=ReconciliationBatchAdapter,
+        object_types=(BATCH_OBJECT_TYPE,),
+        operation_ids=(BATCH_READ, BATCH_CREATE, BATCH_ACTION),
+        fact_keys=BATCH_FACTS,
+        fallback_object_types=(),
     ))
     # M7.8.2：发票（invoice）静态注册；InvoiceApplication.id 与原 Case.id 相同。
     registry.register(DomainAdapterSpec(

@@ -92,7 +92,7 @@
 | CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | **计划内部不一致（待业主确认）** | — | 本表引用的 M7.6.4/M7.6.5 在计划正文中**没有对应条目**（正文 M7.6 组只有 M7.6.1—M7.6.3，其后直接为 M7.7.1）；按正文编号顺序继续实施 M7.7.1，不自行虚构缺失条目；此不一致由实施者如实登记，不擅自改动业主计划的分组意图 |
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益 | implementation_released | docs/implementation-checkpoints/M7-7-1-review-v1.md；M7-7-2-review-v1.md；M7-7-3-review-v1.md | M7.7.1（8 项）、M7.7.2（9 项）、M7.7.3（6 项）均已落盘并实测通过；**M7.7.3 权益快照/事实因 member↔customer 维度不匹配待评审补齐**（已如实登记，未伪造）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.4（CP-26） |
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | implementation_released | docs/implementation-checkpoints/M7-7-4-review-v1.md；M7-7-5-review-v1.md；M7-7-6-review-v1.md | M7.7.4（8 项）、M7.7.5（6 项）、M7.7.6（9 项）均已落盘并实测通过；**M7.7.5 套餐事实因 purchase↔member 维度不匹配待评审补齐**（已如实登记）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.8.1（CP-27） |
-| CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | in_progress | docs/implementation-checkpoints/M7-8-1-review-v1.md；M7-8-2-review-v1.md | M7.8.1（7 项）与 M7.8.2（7 项）已 implemented 并实测通过；M7.8.3 未开始，故不记 implementation_released |
+| CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | implementation_released | docs/implementation-checkpoints/M7-8-1-review-v1.md；M7-8-2-review-v1.md；M7-8-3-review-v1.md | M7.8.1（7 项）、M7.8.2（7 项）、M7.8.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.9.1（CP-28） |
 | CP-28 | M7.8.4—M7.8.5 | 店间清算、其他收入 | not_ready | — | — |
 | CP-29 | M7.9.1—M7.9.3 | 库存仓储、期间入出存、维修领料 | not_ready | — | — |
 | CP-30 | M7.9.4—M7.9.6 | 收入成本、活动、汇总统计 | not_ready | — | — |
@@ -3344,144 +3344,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/invoice.py`（`InvoiceAdapter`，`object_types=('case',)`（`InvoiceApplication.id` 与原 Case.id 相同）：快照单次只读 `GET /api/invoices/orders/{key}`，**缺原来源单 502**（不补默认值），动作可用性一律 `unknown`；`extract_result` 覆盖发票族 operation（来源读不绑定结果）；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `invoice.submission_recorded`（原对外提交记录；**详情未提供即未知**，不据文字/日期断言；满足时明确"提交不等于开票成功"）、`invoice.result_recorded`（原 `InvoiceResult`；**failure/difference 仍是原结果但不代表发票已开具**）、`invoice.result_reviewed`（原 review_result 复核事实；未提供即未知；明确"复核不改变原开票结果本身"）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原余额公式。外部套件 `$ValidationRoot/tests/runtime_domains/test_invoice.py`（7 项），run `20260928T135748Z-2a3ce40540` passed。详见 `docs/implementation-checkpoints/M7-8-2-review-v1.md`。源码指纹 `306fb1da92501149609e4eb94d42c4e05c448c20a477eed3eef9d9714e92e267`。下一项 M7.8.3。
 
-### M7.8.3 期间对账与月结冻结
+### M7.8.3 月结冻结
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.8.2 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `reconciliation_batch` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/reconciliation_api.py`、`app/reconciliation_service.py`、`app/reconciliation_models.py`、`app/reconciliation_v21.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/reconciliation_batch.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_reconciliation_batch.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/reconciliation/batches/{key}；draft/review/sealed/superseded，issue/resolve/submit/reopen/recalculate 见 service:22,382-405。
-
-**注册合同**：object_type=reconciliation_batch（ReconciliationBatch.id）；adapter=`app/assistant_runtime_domains/reconciliation_batch.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`reconciliation.sealed`：原 ReconciliationBatch.status=sealed；`reconciliation.superseded`：原 status=superseded；`reconciliation.issue_recorded`：本批原 ReconciliationIssue。原 issue 存在不等于差异已解决，封存/重算关系必须保留 definition_version 与原批次引用。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：原期间、definition_version、来源集合与封存/重算版本；历史定义不改。
-3. 接统一只读回执 resolver：ReconciliationReceipt，execute 原 action+values 摘要。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：有差异未解决不能封存；sealed 先走原 reopen，不后台重算覆盖；月底日期只唤醒，未满足条件不自动封账。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_reconciliation_batch.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.8.3
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-8-4"></a>
-
-### M7.8.4 店间内部清算
-
-**状态**：todo
-
-**全局顺序前置**：M7.8.3 done。
-
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
-
-
-**目标**：只完成 `store_clearing` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/reconciliation_api.py`、`app/reconciliation_service.py`、`app/reconciliation_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/store_clearing.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_store_clearing.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/reconciliation/clearing/{key} 与 /origins；pay/receive/cancel/reject/difference；service:597-598 要求付款店先记付款、收款店后核到账。
-
-**注册合同**：object_type=clearing_order（ClearingOrder.id）；adapter=`app/assistant_runtime_domains/store_clearing.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`clearing.paid_recorded`：该原单付款店 pay 成功与原 ClearingCash 付款事实一致；`clearing.received_recorded`：该原单收款店 receive 成功与原到账事实一致；`clearing.difference_recorded`：原 difference 成功结果及本单差异记录。不能由源店付款推断目的店到账。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：原调拨/损失/找回 origin_kind、双方请求、原实际付款/到账事实分别输出。
-3. 接统一只读回执 resolver：ReconciliationReceipt，同批次与清算 operation 区分。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：不能用发起人身份代收款店完成 receive；付款成功不等于对方到账；集团汇总只读，不改 store_id。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_store_clearing.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.8.4
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-8-5"></a>
-
-### M7.8.5 厂家供应商整车其他收入
-
-**状态**：todo
-
-**全局顺序前置**：M7.8.4 done。
-
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
-
-
-**目标**：只完成 `vehicle_income` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/vehicle_income_api.py`、`app/vehicle_income_service.py`、`app/vehicle_income_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/vehicle_income.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_vehicle_income.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/vehicle-income/{key}、/source/{key}；propose/approve/reject/withdraw 及实际收退动作以 LABELS 原定义为准。
-
-**注册合同**：object_type=case（VehicleIncomeOrder.id 与原 Case.id 相同）；adapter=`app/assistant_runtime_domains/vehicle_income.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`vehicle_income.revision_approved`：本单当前 VehicleIncomeRevision 对应原 VehicleIncomeDecision 批准；`vehicle_income.cash_received`：本单原 VehicleIncomeCash.direction=in 且 original_id=null；`vehicle_income.cash_refunded`：本单原 VehicleIncomeCash.direction=out 且 original_id 指向原款。只投影原行，不按金额正负自行推断方向。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：原车辆/厂家来源、批准应收目标、实际收款与原超收退回引用；与客户购车款分开。
-3. 接统一只读回执 resolver：VehicleIncomeReceipt/vehicle_income_receipts，原 _execute action+values。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：应收目标批准不等于收款；成本/原单关系未知不猜；不得新建通用 flow 写接口替代本专用领域。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_vehicle_income.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.8.5
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-## M7.9 原统计与报表只读适配
-
-本组只作目录，下列小项才是可领取、实施和打勾的任务。
-
-<a id="m7-9-1"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/reconciliation_batch.py`（`ReconciliationBatchAdapter`，`object_types=('reconciliation_batch',)`：快照单次只读 `GET /api/reconciliation/batches/{key}`（**key 即原批次 id**），ID 不一致 502，动作可用性一律 `unknown`；`extract_result` 覆盖只读批次与写路径；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `reconciliation.sealed`（原 `status='sealed'`）、`reconciliation.superseded`（原状态被取代，理由带后继批次并明确**取代不冲销原差异记录**）、`reconciliation.issue_recorded`（原 `ReconciliationIssue`，理由给出条数与未解决条数并明确**issue 存在不等于差异已解决**）），`__init__.py` 显式注册（import/`__all__`/`operation_ids` 三处含 `POST /api/reconciliation/batches` 与批次动作）且 `fallback_object_types=()`。**实测发现并修复**：① 我据截断输出误判"无写 operation"，套件失败后按完整目录修正为登记真实写路径；② 一次补丁把字面 `\n` 写进源码，`ast.parse` 立即拦截、仓库未被污染，已还原；③ 首次安装的"已注册"跳过导致 spec 缺写 operation，已显式补齐；④ 直改覆盖层套件被 `VALIDATION_REJECTED:overlay_addition_changed` 拒绝（冻结机制按设计生效），重新登记哈希后通过。外部套件 `$ValidationRoot/tests/runtime_domains/test_reconciliation_batch.py`（7 项），run `20260928T140158Z-7bdbde8e27` passed。详见 `docs/implementation-checkpoints/M7-8-3-review-v1.md`。源码指纹 `7f77ae424f3698ad0a45a77d7a5447678b627eb33db2406597ac2c2c8117d9ea`。下一项 M7.9.1。
 
 ### M7.9.1 整车库存与仓储统计查询
 
