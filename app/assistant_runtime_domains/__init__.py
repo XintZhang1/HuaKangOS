@@ -13,6 +13,9 @@ from .aftercare import (AFTERCARE_ACTION, AFTERCARE_CREATE, AFTERCARE_FACTS,
 from .vehicle_purchase import (PURCHASE_ACTION, PURCHASE_ACTIONS, PURCHASE_CREATE,
                               PURCHASE_FACTS, PURCHASE_FLOW_VERSION, PURCHASE_KIND,
                               PURCHASE_READ, VehiclePurchaseAdapter)
+from .vehicle_operation import (OPERATION_ACTION, OPERATION_ACTIONS, OPERATION_CREATE,
+                               OPERATION_FACTS, OPERATION_FLOW_VERSION, OPERATION_KIND,
+                               OPERATION_KINDS, OPERATION_READ, VehicleOperationAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -21,7 +24,10 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'AFTERCARE_ACTION', 'AFTERCARE_CREATE', 'AFTERCARE_FACTS', 'AFTERCARE_FLOW_VERSION',
            'AFTERCARE_KIND', 'AFTERCARE_READ', 'AFTERCARE_SCENARIOS', 'AftercareAdapter',
            'PURCHASE_ACTION', 'PURCHASE_ACTIONS', 'PURCHASE_CREATE', 'PURCHASE_FACTS',
-           'PURCHASE_FLOW_VERSION', 'PURCHASE_KIND', 'PURCHASE_READ', 'VehiclePurchaseAdapter']
+           'PURCHASE_FLOW_VERSION', 'PURCHASE_KIND', 'PURCHASE_READ', 'VehiclePurchaseAdapter',
+           'OPERATION_ACTION', 'OPERATION_ACTIONS', 'OPERATION_CREATE', 'OPERATION_FACTS',
+           'OPERATION_FLOW_VERSION', 'OPERATION_KIND', 'OPERATION_KINDS', 'OPERATION_READ',
+           'VehicleOperationAdapter']
 
 
 def register_adapters(registry):
@@ -35,6 +41,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.2.2：整车库位及出退库作业（vehicle_operation）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='vehicle_operation', factory=VehicleOperationAdapter, object_types=('case',),
+        operation_ids=(OPERATION_READ, OPERATION_CREATE, OPERATION_ACTION),
+        kind_versions=(('case', OPERATION_KIND, OPERATION_FLOW_VERSION),),
+        fact_kind_versions=(('case', OPERATION_KIND, OPERATION_FLOW_VERSION),),
+        fallback_object_types=(),
     ))
     # M7.2.1：整车采购逐 VIN 进度（vehicle_purchase）静态注册。
     registry.register(DomainAdapterSpec(
