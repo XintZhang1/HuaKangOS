@@ -564,6 +564,7 @@
 
   async function loadNotifications(options) {
     const settings = options || {};
+    if (!notificationsOn() && !settings.force) return null;   // 未开启时连读取都不做
     const serial = (state.noticeSerial || 0) + 1;
     state.noticeSerial = serial; state.noticeLoading = true;
     const query = [];
@@ -605,6 +606,7 @@
 
   function startNotifications() {
     stopNotifications();
+    if (!notificationsOn()) return false;   // 未开启通知时不轮询
     if (typeof document === 'undefined' || !document.addEventListener) return false;
     document.addEventListener('visibilitychange', onVisibility);
     if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('focus', onVisibility);
@@ -644,7 +646,7 @@
 
   function invalidateNotifications() {
     // 既有运行事件只用来触发一次合并读取；不新增事件类型。
-    if (state.noticeLoading) return false;
+    if (!notificationsOn() || state.noticeLoading) return false;
     loadNotifications({ silent: true });
     return true;
   }
@@ -727,7 +729,13 @@
     return '核对未完成：' + ((view && view.reason) || '请稍后重试。');
   }
 
+  function notificationsOn() {
+    const features = state.features || {};
+    return features.notifications === true;
+  }
+
   function notificationPanelHTML() {
+    if (!notificationsOn()) return '';   // 开关关闭：隐藏通知交互，不改任何业务状态
     const unread = Number(state.noticeUnread || 0) || 0;
     const entry = '<button type="button" class="ba-notice-entry" data-baws-action="notices" aria-expanded="'
       + (state.noticeOpen ? 'true' : 'false') + '">通知' + (unread ? ' <span class="ba-notice-badge">' + unread + '</span>' : '') + '</button>';
@@ -908,6 +916,7 @@
     patchCurrent: patchCurrent, disposeContext: disposeContext,
     requestHandoff: requestHandoff, guardHandoff: guardHandoff,
     handoffButton: handoffButton, parseRef: parseRef,
+    notificationsOn: notificationsOn,
     loadNotifications: loadNotifications, startNotifications: startNotifications,
     stopNotifications: stopNotifications, invalidateNotifications: invalidateNotifications,
     openNotification: openNotification, checkReceipt: checkReceipt, receiptText: receiptText,
@@ -925,6 +934,7 @@
         plan: state.plan ? { id: state.plan.id, status: state.plan.status, version: state.plan.version,
           grant: (state.plan.grant && state.plan.grant.status) || null, revokeArmed: state.revokeArmed } : null,
         planError: state.planError || '',
+        notificationsOn: notificationsOn(),
         noticeUnread: Number(state.noticeUnread || 0) || 0,
         noticeIds: state.notices.map((item) => item && item.id).filter(Boolean),
         noticeCursor: state.noticeCursor, noticeOpen: state.noticeOpen,

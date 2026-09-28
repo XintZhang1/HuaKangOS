@@ -2,7 +2,7 @@
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
-**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 13+8）、M6.6（持续跟进与生命周期控制 12+7）、M6.7（通知/协作/回执核对 11+9），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
+**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 13+8）、M6.6（持续跟进与生命周期控制 12+7）、M6.7（通知/协作/回执核对 11+9）、M6.8（兼容/窄屏/开关收口 21 条命令），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
 
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
@@ -81,7 +81,7 @@
 | CP-13 | M5.7—M5.8 | Windows/Linux启动定义与回退 | implementation_released | docs/implementation-checkpoints/M5-7-review-v1.md；M5-8-review-v1.md | 集中测试阶段实测：M5.7（7+16）与 M5.8（7+17）在新指纹上 passed；嵌入顺序、显式 profile、同库同镜像校验、无密钥样例均实测；真实 Windows 预览实例与真实 Linux 部署仍属 M8.7/M8.8，故不记 released；继续 M6.1—M6.8（CP-14—CP-16） |
 | CP-14 | M6.1—M6.4 | 客户端归并、恢复、事项工作台、默认入口 | implementation_released | docs/implementation-checkpoints/M6-1-review-v1.md；M6-2-review-v1.md；M6-3-review-v1.md；M6-4-review-v1.md | 集中测试阶段实测：M6.1（15+7）、M6.2（9+7）、M6.3（10+6）、M6.4（6+6）在同一批指纹上 passed；每次前端改动后同指纹回归（workboard/r3/ux/workspaces/oneclick）diagnostic_passed；M6.1 的取消/清理边界随 M6.2 接线同步移动并复跑。仅放行后续编码，不表示测试全部通过或功能启用；继续 M6.5—M6.8（CP-15） |
 | CP-15 | M6.4—M6.6 | 默认入口、未发草稿、显式持续跟进 | implementation_released | docs/implementation-checkpoints/M6-4-review-v1.md；M6-5-review-v1.md；M6-6-review-v1.md | M6.4（6+6）、M6.5（13+8）、M6.6（12+7）均已 implemented 并实测通过，退出后 worker 继续与真实浏览器反馈留待 M8.1/M8.4；仅放行后续编码，继续 M6.7—M6.8（CP-16） |
-| CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | in_progress | docs/implementation-checkpoints/M6-7-review-v1.md | M6.7 已 implemented 并实测（11+9）；M6.8 未开始，故不记 implementation_released |
+| CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | implementation_released | docs/implementation-checkpoints/M6-7-review-v1.md；M6-8-review-v1.md | M6.7（11+9）与 M6.8（21 条命令全通过：M6.1—M6.8 Node 82 项 + 旧回归 67 项 + Python 61 项 + 语法/生成物检查）均已 implemented 并实测；真实浏览器、真实模型、PostgreSQL、员工试用仍属 M8.x，故不记 released；M6 章节收口，继续 M7.1.1（CP-17） |
 | CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | not_ready | — | — |
 | CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | not_ready | — | — |
 | CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | not_ready | — | — |
@@ -2726,11 +2726,14 @@ runner 向 Node 注入 `HUAKANGOS_TEST_SOURCE_ROOT` 和 `HUAKANGOS_TEST_OUTPUT`�
 
 ## M6.8：兼容回归、窄屏与关闭新功能的收口
 
-**状态**：todo
+**状态**：implemented（2026-09-28 收口完成，21 条命令全部通过）
 
 **全局顺序前置**：M6.7 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：M6.1—M6.8 两类套件 + 适用旧回归 + 语法检查 + 生成物检查全部通过；真实浏览器/真实模型/PostgreSQL/员工试用留 M8.1—M8.10。
+
+**执行记录**：2026-09-28 定点修复 `web/assistantworkspace.js` 的通知面开关（新增 `notificationsOn()`：`ASSISTANT_NOTIFICATIONS_ENABLED` 关闭或投影未到时隐藏入口、不轮询、不读取、事件也不再触发合并读取），未改其它行为。新增 M6.8 套件 `V/tests/frontend/test_m6_8.cjs`（6 项）与 `V/tests/runtime/test_m6_8.py`（10 项），并新增 runner 适配脚本 `scripts/check_m68_node_syntax.py`（10 个改动 JS 逐个 `node --check`）与 `scripts/check_m68_workflow_guides.py`（镜像内执行 `scripts/build_workflow_guides.py --check`），两者按 runner 契约写出完整 `command-result.json`。M6.8 runner 共 21 条命令：M6.1—M6.8 Node 套件 82 项、适用旧回归（check_ux/check_workspaces/check_assistant_workboard）67 项、M6.1—M6.8 Python 套件 61 项、语法检查 10 个文件、生成物检查 1 项，全部 complete。实测发现并修复：通知面未跟随自身开关（产品缺陷）、helper 未按 runner 契约写报告且误用不存在的环境变量、adapter 一次只接受一个已登记脚本、M6.7 套件需先读取投影。run `20260928T124459Z-6a0277b07c` passed。详见 `docs/implementation-checkpoints/M6-8-review-v1.md`。源码指纹 `2ca563d5433d0c84460d547ab25f35e361871b02c23deeab380ba70589feddb6`。**未完成（不得声称已验收）**：付费真实模型回归（M8.5/M8.6）、PostgreSQL 生产升级与恢复（M8.3）、真实 HTTP 浏览器交互（M8.4）、员工试用（M8.9）、Windows/Linux 实例（M8.7/M8.8）。
+
 
 
 **目标**：完成本阶段的兼容与交互验收，证实原人工业务不依赖新Runtime继续可用。此项以检查和定点修复为主，不扩展产品功能。
