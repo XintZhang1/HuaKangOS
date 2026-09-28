@@ -82,6 +82,26 @@ run `20260928T144342Z-875dbfaa7d`，`phase_complete=true`，源码指纹 `9bebdc
 
 尚未落地，故本轮**不**登记任何新的通过项，也不把 M8.1 记为 done。
 
+## 2d. `freeze_confirmation` 的重复点击语义（逐字核对，DB 用例的断言清单）
+
+签名：`freeze_confirmation(db, user, proposal, execution, confirmed_at) -> (item, created)`。逐条事实：
+
+1. **身份门禁**：`(proposal.owner_id, owner_role, access_version)` 必须等于
+   `(user.id, user.role, user.access_version)`，否则 `409 账号或岗位已变化`（撤权/换岗后不得继续）；
+2. **前置 WorkItem 校验**：若 `proposal.source_work_item_id` 非空，必须存在对应 `WorkItem`，且
+   `item_kind == 'prepare'`、`operation_id` 与提案一致、`(owner_id, store_id, session_id)` 三者全等，否则冲突；
+3. **至多一个确认项**：按 `RunItem(kind='confirmation', proposal_id=…)` 查询，并且把同事务内尚未 flush 的
+   `db.new` 也算进来；`len(existing) > 1` 直接冲突 —— 这正是「每个稳定 WorkItem 至多一个有效准备版本」的落点；
+4. **重复点击不产生新摘要**：命中已存在项时，用 **`stored.confirmed_at`**（而非本次点击时间）重建快照，
+   再 `hmac.compare_digest` 比对 `item.submission_digest`；一致则返回 `(item, False)`（**不授权重放**），
+   不一致直接冲突；
+5. **首次冻结**：`item_key = 'confirmation:' + proposal.id`（确定性键）、`attempt_no=1`、
+   `work_item_id = source_id`，快照为 `_snapshot(proposal, execution, confirmed_at)`，返回 `(item, True)`；
+6. 已存在项若在 `db.deleted` 中或 `work_item_id != source_id` → 冲突（**已冻结项不得被改写或挪用**）。
+
+→ 下一轮 DB 用例按 1–6 逐条断言（`isolated_database` 提供干净合成库；`user` 只需 `id/role/access_version`，
+`proposal` 与 `execution` 按模型构造）。本节只登记语义，**不**声称已通过。
+
 ## 3. 本轮实测发现的真实事实（已纳入套件）
 
 - `_work_key` 的 scope 还要求 **`intent_version`**（首轮因缺该键直接 `KeyError`）→ 已写入夹具，
