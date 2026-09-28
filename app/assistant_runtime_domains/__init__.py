@@ -62,6 +62,10 @@ from .group_benefit import (BENEFIT_ACTION, BENEFIT_FACTS, BENEFIT_KINDS,
 from .recharge_bundle import (RECHARGE_ACTION, RECHARGE_ACTIONS, RECHARGE_CREATE,
                               RECHARGE_FACTS, RECHARGE_PURCHASES, RECHARGE_PURPOSES,
                               RECHARGE_READ, RechargeBundleAdapter)
+from .repair_package import (PACKAGE_ACTION, PACKAGE_ACTIONS, PACKAGE_CREATE,
+                             PACKAGE_FACTS, PACKAGE_MEMBER_PURCHASES, PACKAGE_OBJECT_TYPE,
+                             PACKAGE_ORDER_CAPTURE, PACKAGE_ORDER_QUOTE,
+                             PACKAGE_REFUND_ACTION, PACKAGE_RULES, RepairPackageAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -113,7 +117,10 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'BENEFIT_ACTION', 'BENEFIT_FACTS', 'BENEFIT_KINDS', 'BENEFIT_MEMBERS',
            'BENEFIT_OBJECT_TYPE', 'BENEFIT_RULES', 'GroupBenefitAdapter',
            'RECHARGE_ACTION', 'RECHARGE_ACTIONS', 'RECHARGE_CREATE', 'RECHARGE_FACTS',
-           'RECHARGE_PURCHASES', 'RECHARGE_PURPOSES', 'RECHARGE_READ', 'RechargeBundleAdapter']
+           'RECHARGE_PURCHASES', 'RECHARGE_PURPOSES', 'RECHARGE_READ', 'RechargeBundleAdapter',
+           'PACKAGE_ACTION', 'PACKAGE_ACTIONS', 'PACKAGE_CREATE', 'PACKAGE_FACTS',
+           'PACKAGE_MEMBER_PURCHASES', 'PACKAGE_OBJECT_TYPE', 'PACKAGE_ORDER_CAPTURE',
+           'PACKAGE_ORDER_QUOTE', 'PACKAGE_REFUND_ACTION', 'PACKAGE_RULES', 'RepairPackageAdapter']
 
 
 def register_adapters(registry):
@@ -127,6 +134,17 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.7.5：维修套餐（repair_package）静态注册。
+    # 已评审读取按会员维度（members/{key}/purchases），与 package_purchase 维度不一致：
+    # 适配器只登记已评审 operation，不编造 purchase→member 映射，事实按合同返回未知。
+    registry.register(DomainAdapterSpec(
+        name='repair_package', factory=RepairPackageAdapter,
+        object_types=(PACKAGE_OBJECT_TYPE,),
+        operation_ids=(PACKAGE_MEMBER_PURCHASES, PACKAGE_RULES, PACKAGE_CREATE, PACKAGE_ORDER_CAPTURE,
+                       PACKAGE_ORDER_QUOTE, PACKAGE_ACTION, PACKAGE_REFUND_ACTION),
+        fact_keys=PACKAGE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.7.4：组合退回与履约（recharge_bundle）静态注册；key 一律取原 Case.id。
     registry.register(DomainAdapterSpec(
