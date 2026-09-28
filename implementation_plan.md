@@ -3496,50 +3496,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/typed_master.py`（`TypedMasterAdapter`，`object_types` = 计划登记的 14 类：`vehicle_brand`/`vehicle_series`/`supplier`/`insurer`/`warehouse`/`storage_location`/`material_brand`/`material_category`/`master_work_item`/`team`/`agency_project`/`vehicle_model`/`member_tier`/`item_profile`，**固定字典映射到原 `CATALOG` 的 14 个 kind**（逐字核对 `master_data.py` 顶层键），**原业务作业 WorkItem 映射为 `master_work_item`、不混为 Runtime WorkItem**；读取只经 `GET /api/masters/{kind}` 按 `page` **完整分页**精确命中真实 ID；`master.record_exists` 仅在有分页信息确认翻完时判"不存在"，否则未知；`master.active` 只认命中记录的 `active` 字段、**缺字段为 unknown**；写入只走已评审 `POST /api/masters/{kind}` 与 `PUT /api/masters/{kind}/{record_id}` 并绑定结果；候选读（catalog/lookup）不绑定结果；**计划未为本项登记回执族**，写 operation 回执返回 `unsupported / receipt_family_not_registered`），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改 CATALOG schema 与角色。**实测发现并修复（真实产品缺陷）**：首轮"空页且无分页信息"被判成"记录不存在"，合同要求未知；已改为**只有分页信息确认翻完**才判定不存在。外部套件 `$ValidationRoot/tests/runtime_domains/test_typed_master.py`（9 项），run `20260928T142931Z-9eac096fd3` passed。详见 `docs/implementation-checkpoints/M7-11-1-review-v1.md`。源码指纹 `e2d715d19af90e7dbeb8a486368fab182dc248d175a6320197e726d05a47c0aa`。下一项 M7.11.2。
 
-### M7.11.2 业务分类字典
+### M7.11.2 字典条目
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.11.1 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：核心提供 group 的边界、分组分页精确命中、active 事实与回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `dictionary_entry` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/dictionary_api.py`、`app/master_data.py`、`app/business_assistant_capabilities.json`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/dictionary_entry.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_dictionary_entry.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/dictionaries/catalog、/api/dictionaries/{group}；可准备写入仅以真实 router 和 reviewed capabilities 交集为准。
-
-**注册合同**：object_type=dictionary_entry（原 flow Reference.id；原 category 固定映射 dictionary group）；adapter=`app/assistant_runtime_domains/dictionary_entry.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`dictionary.record_exists`：原指定 group 授权列表精确命中 Reference.id；`dictionary.active`：该原记录 active=true。原条目字段为 name/detail/active，不把自然语言标签猜成业务 value/状态枚举。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：原 group、稳定 key/value/label 与有效性，不把显示中文换成原 API 枚举。
-3. 接统一只读回执 resolver：MasterReceipt；dictionary_api.save 复用 master_data._command，action=dictionary:<group>，payload 为 id/version/values。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：未知 group、更新版本冲突、非管理岗位拒绝保留；字典只维护名称说明和启停，不改变业务状态/岗位/计价规则。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_dictionary_entry.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.11.2
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-11-3"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/dictionary_entry.py`（`DictionaryEntryAdapter`，`object_types=('dictionary_entry',)`＝**原 `flow Reference.id`**：受控只读原语 `read_group(principal, group, q, page)` 只经 `GET /api/dictionaries/{group}`（另登记目录只读 `GET /api/dictionaries/catalog`），`read_entry` 在**指定 group 内按 page 完整翻页**（`page_size=100`、最多 50 页）精确命中真实 ID，**不满一页才算翻完**、未返回 `items` 或超窗口一律未知；**group 属核心提供的冻结输入**（原 category 固定映射），快照/事实在未提供时 503/未知且**零读取**，不猜 group、不跨组扫描；`dictionary.record_exists`/`dictionary.active` 只认原记录字段（缺 `active` 未知），**不把显示中文猜成业务 value 或状态枚举**（原字段只有 name/detail/active）；写入只走已评审 `POST`/`PUT` 并绑定结果；回执由已评审 resolver 绑定并保持冻结 `request_id`），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原枚举与权限。**实测拦截与修复（如实保留）**：① 套件字面签名断言改为路由装饰器 + 参数切片；② **真实产品缺陷：按截断签名误以为分组列表无分页**，实际带 `page`/`page_size`；已改为完整翻页并把"不满一页才算翻完，否则未知"写成显式断言（否则第 2 页后的条目会被误判为不存在）。外部套件 `$ValidationRoot/tests/runtime_domains/test_dictionary_entry.py`（7 项），run `20260928T143211Z-6b5cf8772c` passed。详见 `docs/implementation-checkpoints/M7-11-2-review-v1.md`。源码指纹 `39fae5e8daee3a06000b6f43d78f206e6164ba2c410d4b21854b9acbfe6dd74e`。下一项 M7.11.3。
 
 ### M7.11.3 系统管理的原授权查询与人工入口
 

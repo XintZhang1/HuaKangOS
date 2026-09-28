@@ -108,6 +108,8 @@ from .dossier_grant import (DG_ACTION, DG_ACTIONS, DG_CREATE, DG_FACTS,
 from .typed_master import (KIND_TO_TYPE, MASTER_CATALOG, MASTER_CREATE, MASTER_FACTS,
                             MASTER_KINDS, MASTER_LIST, MASTER_LOOKUP, MASTER_OBJECT_TYPES,
                             MASTER_UPDATE, TypedMasterAdapter)
+from .dictionary_entry import (DICT_CATALOG, DICT_CREATE, DICT_FACTS, DICT_LIST,
+                                 DICT_OBJECT_TYPE, DICT_UPDATE, DictionaryEntryAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -197,7 +199,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'DG_RECORD', 'DossierGrantAdapter',
            'KIND_TO_TYPE', 'MASTER_CATALOG', 'MASTER_CREATE', 'MASTER_FACTS', 'MASTER_KINDS',
            'MASTER_LIST', 'MASTER_LOOKUP', 'MASTER_OBJECT_TYPES', 'MASTER_UPDATE',
-           'TypedMasterAdapter']
+           'TypedMasterAdapter',
+           'DICT_CATALOG', 'DICT_CREATE', 'DICT_FACTS', 'DICT_LIST', 'DICT_OBJECT_TYPE',
+           'DICT_UPDATE', 'DictionaryEntryAdapter']
 
 
 def register_adapters(registry):
@@ -211,6 +215,15 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.11.2：字典条目（dictionary_entry）静态注册；object_type=原 flow Reference.id，
+    # group 属核心提供的冻结输入（适配器不猜 group、不跨组扫描）。
+    registry.register(DomainAdapterSpec(
+        name='dictionary_entry', factory=DictionaryEntryAdapter,
+        object_types=(DICT_OBJECT_TYPE,),
+        operation_ids=(DICT_LIST, DICT_CATALOG, DICT_CREATE, DICT_UPDATE),
+        fact_keys=DICT_FACTS,
+        fallback_object_types=(),
     ))
     # M7.11.1：类型化主数据（typed_master）静态注册；14 类固定字典映射，key 即原实体主键。
     registry.register(DomainAdapterSpec(
