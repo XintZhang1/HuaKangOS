@@ -3544,48 +3544,13 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.12.2 销售明细加装与原物资退回
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.12.1 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：Case.id 键、三条事实（安装需真实 dispatch_id、质检需对应实际安装、当前报价接受）与"单批合格不等于整版完成"在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `addon_order` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/addon_api.py`、`app/addon_service.py`、`app/addon_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/addon_order.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_addon_order.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/addon-orders/{key}；quote/approve/authorize/dispatch/install/quality/rectify/accept/receive/resolution/return_receive/refund 等见 service:23。
-
-**注册合同**：object_type=case（AddonOrder.id 与原 Case.id 相同）；adapter=`app/assistant_runtime_domains/addon_order.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`addon.installation_recorded`：本单原 AddonInstallation 关联真实 dispatch_id；`addon.passed_inspection_recorded`：本单原 AddonInspection.passed=true 且对应实际安装；`addon.current_quote_accepted`：当前报价有原 AddonAcceptance。单批合格不能冒充整版全部完成，处置变更后必须重读原事实。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：原销售版本、冻结加装行、领出安装/质检/客户接收、原款与拆回物资实际来源。
-3. 接统一只读回执 resolver：AddonReceipt，addon_service._execute。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：报价改变先重核关系；赠送成本承担保留原店；客户授权不等于实际安装；退回不可售物资不自动入可售库存。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_addon_order.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.12.2
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-12-3"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/addon_order.py`（`AddonOrderAdapter`，`object_types=('case',)`：**key 即原 `Case.id`**（`AddonOrder.id` 与之相同），快照单次只读 `GET /api/addon-orders/{key}`，ID 不一致 502、**`kind != 'addon'` 的响应 422**、动作可用性一律 `unknown`；事实字段名逐字取自原 `describe()` 投影：`addon.installation_recorded`（`installations[]` 需关联**真实 `dispatch_id`**）、`addon.passed_inspection_recorded`（`inspections[]` 中 `passed=true` **且 `installation_id` 确在 `installations` 内**；指向不存在的安装不算）、`addon.current_quote_accepted`（**当前报价**（`data.addon_quote_id`）在 `acceptances[]` 中有同 `quote_id` 条目；别的报价的接受记录不算）；三条事实理由均声明**单批合格不能冒充整版全部完成、处置变更后必须重读原事实**，且**每次事实读取都重新调用原详情（不缓存）**；`extract_result` 只绑定加装族写入；回执族 **AddonReceipt**（原 `addon_service._execute`）使用**冻结的最终提交快照**、`request_id` 绝不重新生成、**无回执不得猜成功**（未绑定即 `unsupported`）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原金额与角色可见性口径。外部套件 `$ValidationRoot/tests/runtime_domains/test_addon_order.py`（7 项），run `20260928T143916Z-6ae39360c0` passed。详见 `docs/implementation-checkpoints/M7-12-2-review-v1.md`。源码指纹 `32f960081d87f1154631f2c91bb6c0d36931543e61a639d127e7c39c1b1f805b`。下一项 M7.12.3。
 
 ### M7.12.3 代办及其他客户服务
 
