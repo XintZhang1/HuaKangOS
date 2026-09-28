@@ -46,6 +46,8 @@ from .warehouse_document import (WH_COMMAND, WH_CREATE, WH_FACTS, WH_OPERATIONS,
 from .customer_vehicle import (VEHICLE_CREATE, VEHICLE_FACTS, VEHICLE_HISTORY,
                                VEHICLE_HISTORY_LINK, VEHICLE_OBJECT_TYPE, VEHICLE_OBSERVATION,
                                VEHICLE_READ, CustomerVehicleAdapter)
+from .customer_care import (CARE_ACTION, CARE_ACTIONS, CARE_CREATE, CARE_FACTS,
+                            CARE_OBJECT_TYPE, CARE_READ, CARE_SUBTYPES, CustomerCareAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -85,7 +87,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'WarehouseDocumentAdapter',
            'VEHICLE_CREATE', 'VEHICLE_FACTS', 'VEHICLE_HISTORY', 'VEHICLE_HISTORY_LINK',
            'VEHICLE_OBJECT_TYPE', 'VEHICLE_OBSERVATION', 'VEHICLE_READ',
-           'CustomerVehicleAdapter']
+           'CustomerVehicleAdapter',
+           'CARE_ACTION', 'CARE_ACTIONS', 'CARE_CREATE', 'CARE_FACTS', 'CARE_OBJECT_TYPE',
+           'CARE_READ', 'CARE_SUBTYPES', 'CustomerCareAdapter']
 
 
 def register_adapters(registry):
@@ -99,6 +103,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.6.2：客户关怀服务单（customer_care）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='customer_care', factory=CustomerCareAdapter,
+        object_types=(CARE_OBJECT_TYPE,),
+        operation_ids=(CARE_READ, CARE_CREATE, CARE_ACTION),
+        fact_keys=CARE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.6.1：客户档案与服务单（customer_vehicle）静态注册。
     registry.register(DomainAdapterSpec(
