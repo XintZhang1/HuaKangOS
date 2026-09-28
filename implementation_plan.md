@@ -3516,48 +3516,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/system_readonly.py`（`SystemReadonlyAdapter`，`object_types=('report_query',)`：受控只读原语 `read_stores`（`GET /api/stores`）与 `read_parameter_catalog`（`GET /api/parameters/catalog`）——**经核对 catalog 内本域只有这两条只读**；计划点名的 `GET /api/users`、`GET /api/audit` **不在已评审 catalog 内**（原封闭面），适配器只在文档说明该边界、**绝不调用**（套件断言无该调用且只有唯一受控读取入口）；**原 `MANAGEMENT_READERS` 与 `CLOSED_DOMAINS` 仍是权威**，不代替岗位判断、不借用管理员身份；**`fact_keys=()`：查询权限配置不产生授权生效、密码变更或员工创建完成事实**（四条副作用型事实键逐一验证为未知且零读取）；快照为核心提供查询边界（503 + 零读取）；`extract_result` 恒空、无写 operation；只读提交按契约 422（GET 不属写回执族）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook。**实测拦截与修复（如实保留）**：① 套件的"源码不含字符串"断言与文档字符串冲突 → 改为断言"不存在该调用 + 唯一读取入口"；② GET 形状提交按契约先 422（套件原期望 unsupported）→ 与其它只读领域统一口径。外部套件 `$ValidationRoot/tests/runtime_domains/test_system_readonly.py`（5 项），run `20260928T143357Z-28c6ff6399` passed。详见 `docs/implementation-checkpoints/M7-11-3-review-v1.md`。源码指纹 `3b69b217f278aa112cd769f521ba3773be5a7c39004358be6a02fa6259ab3798`。**待评审**：是否放开用户/审计读取。下一项 M7.11.4。
 
-### M7.11.4 真实拒绝记录与评审申请跟踪
+### M7.11.4 评审升级申请
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.11.3 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：只准备边界、三条已评审 operation、三条事实的类型适用性与回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `escalation_request` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/escalation_api.py`、`app/escalation_service.py`、`app/escalation_models.py`、`app/business_assistant_gateway.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/escalation_request.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_escalation_request.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/escalations/refusals 与 /api/escalations；只准备 POST /api/escalations；claim/done/reject/cancel 是原人工处理动作。
-
-**注册合同**：object_type=escalation（Escalation.id）；refusal（Refusal.id）；adapter=`app/assistant_runtime_domains/escalation_request.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`escalation.request_recorded`：原授权列表精确匹配 Escalation.id 与服务器 refusal_id；`escalation.done`：原人工 done 动作及当前原申请状态吻合；`escalation.refusal_recorded`：原 /refusals 精确匹配 Refusal.id/classification。前两键仅适用 escalation，末键仅适用 refusal；评审 done 不满足业务成功或权限已授予。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：服务器真实 refusal_id/classification、当前店上级队列和本人申请状态；无单项 GET 时从已授权分页列表准确匹配。
-3. 接统一只读回执 resolver：原提交没有 request_id 保障，read_receipt=unsupported；未知提交保持 uncertain，不重复申请。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：自批禁止/状态冲突不包装权限不足；评审通过不改变权限或执行业务；不可代上级处理，回原页面。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_escalation_request.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.11.4
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 现有非幂等评审提交未知结果必须人工核对，测试明确不自动重提。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/escalation_request.py`（`EscalationRequestAdapter`，`object_types=('escalation','refusal')`：受控只读 `read_scope(scope)`（`GET /api/escalations`，`scope` 取原默认 mine 或 to_review）与 `read_refusals()`（`GET /api/escalations/refusals`）；写入**只准备** `POST /api/escalations` 并绑定结果；**原 `POST /api/escalations/{escalation_id}/actions/{action}`（claim/done/reject/cancel）存在但不在已评审目录内 → 助手绝不代办**（套件断言无该调用且 operation 恰为三条）；事实按类型适用：`escalation.request_recorded`（需原记录回带**服务器 refusal_id**）、`escalation.done`（需**原人工 done 动作与当前状态同时吻合**，理由始终含**评审 done 不满足业务成功或权限已授予**）仅适用 escalation，`escalation.refusal_recorded`（匹配 `Refusal.id`/`classification`）仅适用 refusal，**不适用类型一律未知**；未命中时理由点名已完整读取 mine 与 to_review 两个范围；命中即停不多读），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原评审流程与权限。外部套件 `$ValidationRoot/tests/runtime_domains/test_escalation_request.py`（7 项），run `20260928T143521Z-1b83c9e6e0` passed。详见 `docs/implementation-checkpoints/M7-11-4-review-v1.md`。源码指纹 `d7ca098e9da7e970e026100c8c235818cf0db875658e7459e9aa88a8b48ced6b`。**本组到此为计划索引中 M7.11 的最后一项**（正文无 M7.11.5 标题）。下一项：按索引进入后续分组。
 
 ## M7.12 保险、加装和代办专用服务
 
