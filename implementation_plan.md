@@ -84,7 +84,7 @@
 | CP-16 | M6.7—M6.8 | 提醒/核对、窄屏、关闭功能回退 | implementation_released | docs/implementation-checkpoints/M6-7-review-v1.md；M6-8-review-v1.md | M6.7（11+9）与 M6.8（21 条命令全通过：M6.1—M6.8 Node 82 项 + 旧回归 67 项 + Python 61 项 + 语法/生成物检查）均已 implemented 并实测；真实浏览器、真实模型、PostgreSQL、员工试用仍属 M8.x，故不记 released；M6 章节收口，继续 M7.1.1（CP-17） |
 | CP-17 | M7.1.1—M7.1.3 | 售前、交车、退订退车 | implementation_released | docs/implementation-checkpoints/M7-1-1-review-v1.md；M7-1-2-review-v1.md；M7-1-3-review-v1.md | M7.1.1（lead 10 项）、M7.1.2（sales_order 9 项）、M7.1.3（aftercare 9 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.2.1（CP-18） |
 | CP-18 | M7.2.1—M7.2.3 | 逐VIN采购、出退库、批量行 | implementation_released | docs/implementation-checkpoints/M7-2-1-review-v1.md；M7-2-2-review-v1.md；M7-2-3-review-v2.md | M7.2.1（9 项）、M7.2.2（9 项）、M7.2.3（9 项）均已 implemented 并实测通过，同指纹回归通过；M7.2.3 先前错报的能力缺口已撤回（JSON 目录不是读取白名单，GET 由活跃路由发现并受原过滤与调用时授权）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.3.1（CP-19） |
-| CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | in_progress | docs/implementation-checkpoints/M7-3-1-review-v1.md | M7.3.1（service_intake，9 项）已 implemented 并实测通过，同指纹 M7.2.3 回归通过；M7.3.2/M7.3.3 未开始，故不记 implementation_released |
+| CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | in_progress | docs/implementation-checkpoints/M7-3-1-review-v1.md；M7-3-2-review-v1.md | M7.3.1（service_intake，9 项）与 M7.3.2（repair_order，9 项）已 implemented 并实测通过，同指纹回归通过；M7.3.3 未开始，故不记 implementation_released |
 | CP-20 | M7.3.4—M7.3.5 | 理赔核赔、真实进出厂 | not_ready | — | — |
 | CP-21 | M7.4.1—M7.4.3 | 精品及套餐、混合支付 | not_ready | — | — |
 | CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | not_ready | — | — |
@@ -3110,50 +3110,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/service_intake.py`（`ServiceIntakeAdapter`，`object_types=('service_appointment',)`：快照单次只读 `GET /api/service-intake/appointments/{key}` 且不补默认车辆、`extract_result` 覆盖预约族三条 operation、`read_receipt` 走 `IntakeReceipt` 族并保持冻结 `request_id`；事实 `intake.arrival_recorded`（必须原 `ArrivalFact` 确证到店时间，**资源占用不等于实际到店**）、`intake.repair_converted`（必须与原维修单引用吻合）、`intake.cancelled`（重读状态为 `cancelled`，**`no_show` 不等于取消**）；原详情不返回动作可用性，故六个动作一律 `unknown`，由原 API 最终裁定），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未占用资源、未改原状态机。外部套件 `$ValidationRoot/tests/runtime_domains/test_service_intake.py`（9 项），run `20260928T131920Z-f1898bd604` passed；同指纹 M7.2.3 回归通过。详见 `docs/implementation-checkpoints/M7-3-1-review-v1.md`。源码指纹 `2df2c8248fa906d35ccfc1ee7a7a2f4540dc2aca37ba1f89ca07895d4e79bb1e`。下一项 M7.3.2。
 
-### M7.3.2 明细维修、领退料与结算
+### M7.3.2 维修工单接车与施工进度
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；9 项通过）
 
 **全局顺序前置**：M7.3.1 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/维修族回执在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `repair_order` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/repair_api.py`、`app/repair_service.py`、`app/repair_models.py`、`app/repair_material_analytics.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/repair_order.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_repair_order.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/repair-orders/{case_id}；repair_service.py:20-26 的 quote/price_approve/authorize/start/issue/return_material/finish/quality/allocate/receive/release。
-
-**注册合同**：object_type=case（原维修 Case.id）；adapter=`app/assistant_runtime_domains/repair_order.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`repair.current_quote_authorized`：原详情当前报价有客户授权事实；`repair.passed_quality_recorded`：当前报价对应的原 RepairQuality.passed=true；`repair.release_recorded`：原 release 成功并重读原 data.released_date/release_evidence_id。旧版质检、开始施工、收款中任一单项不能满足交车事实。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：当前报价和客户授权、原行 RepairStock/StockMove、质检、承担方分配与 RepairPayment；保持金额分/数量千分之一。
-3. 接统一只读回执 resolver：flow_request_receipts，repair_service._execute 对 operation/payload 的摘要。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：退料只能指原领料；施工完成不等于质检/付款/接车；不同承担方缺款独立等待；未知原成本保留 null。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_repair_order.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.3.2
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-3-3"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/repair_order.py`（`RepairOrderAdapter`，`object_types=('case',)`：快照单次只读 `GET /api/repair-orders/{case_id}`，动作只保留原返回的岗位筛选名字且可用性一律 `unknown`；`extract_result` 覆盖维修族三条 operation；`read_receipt` 走 `repair_v3_` 前缀回执族并保持冻结 `request_id`；事实 `repair.current_quote_authorized`（当前报价=未取消版本中 revision 最大者，须有原授权事实，**已取消的高版本不得顶替**）、`repair.passed_quality_recorded`（必须当前报价对应的原 `RepairQuality.passed=true`，旧报价质检不算）、`repair.release_recorded`（必须原 `data.released_date` 与 `release_evidence_id` 同时存在；质检通过或收款完成都不能替代实际交车，字段不可见时返回未知）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原状态机。**实测发现并修复**：① 首轮 8 项低于登记下限被运行器如实拦截，补上"注册真的到达运行时注册表"的接线断言后为 9 项；② 该接线断言先后缺 `REPAIR_FACTS`/`REPAIR_READ` 导入（真实 NameError），补齐后通过。外部套件 `$ValidationRoot/tests/runtime_domains/test_repair_order.py`（9 项），run `20260928T132339Z-95f7d86681` passed；同指纹 M7.3.1 回归通过。详见 `docs/implementation-checkpoints/M7-3-2-review-v1.md`。源码指纹 `eda2ac9fb122bffad9d548579402e5deb24e8810afeb2b0092677893c7ed2137`。下一项 M7.3.3。
 
 ### M7.3.3 原责任返修授权与新增自费
 

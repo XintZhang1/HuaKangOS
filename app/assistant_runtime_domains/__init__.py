@@ -20,6 +20,8 @@ from .vehicle_import_batch import (IMPORT_ACTION, IMPORT_ACTIONS, IMPORT_FACTS,
                                   IMPORT_OBJECT_TYPE, VehicleImportBatchAdapter)
 from .service_intake import (APPOINTMENT_OBJECT_TYPE, INTAKE_ACTION, INTAKE_ACTIONS,
                             INTAKE_CREATE, INTAKE_FACTS, INTAKE_READ, ServiceIntakeAdapter)
+from .repair_order import (REPAIR_ACTION, REPAIR_ACTIONS, REPAIR_CREATE, REPAIR_FACTS,
+                          REPAIR_READ, RepairOrderAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -35,7 +37,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'IMPORT_ACTION', 'IMPORT_ACTIONS', 'IMPORT_FACTS', 'IMPORT_OBJECT_TYPE',
            'VehicleImportBatchAdapter',
            'APPOINTMENT_OBJECT_TYPE', 'INTAKE_ACTION', 'INTAKE_ACTIONS', 'INTAKE_CREATE',
-           'INTAKE_FACTS', 'INTAKE_READ', 'ServiceIntakeAdapter']
+           'INTAKE_FACTS', 'INTAKE_READ', 'ServiceIntakeAdapter',
+           'REPAIR_ACTION', 'REPAIR_ACTIONS', 'REPAIR_CREATE', 'REPAIR_FACTS', 'REPAIR_READ',
+           'RepairOrderAdapter']
 
 
 def register_adapters(registry):
@@ -49,6 +53,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.3.2：维修工单接车与施工进度（repair_order）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='repair_order', factory=RepairOrderAdapter, object_types=('case',),
+        operation_ids=(REPAIR_READ, REPAIR_CREATE, REPAIR_ACTION),
+        fact_keys=REPAIR_FACTS,
+        fallback_object_types=(),
     ))
     # M7.3.1：维修预约与实际到店接待（service_intake）静态注册。
     registry.register(DomainAdapterSpec(
