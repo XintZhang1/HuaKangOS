@@ -103,6 +103,8 @@ from .transfer_goods_recovery import (GR_ACTION, GR_ACTIONS, GR_CREATE, GR_FACTS
 from .vehicle_transport_exception import (VTE_ACTION, VTE_ACTIONS, VTE_CREATE,
                                           VTE_FACTS, VTE_OBJECT_TYPE, VTE_READ,
                                           VehicleTransportExceptionAdapter)
+from .dossier_grant import (DG_ACTION, DG_ACTIONS, DG_CREATE, DG_FACTS,
+                           DG_OBJECT_TYPE, DG_READ, DG_RECORD, DossierGrantAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -187,7 +189,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'GR_ACTION', 'GR_ACTIONS', 'GR_CREATE', 'GR_FACTS', 'GR_OBJECT_TYPE', 'GR_ORIGINS',
            'GR_READ', 'TransferGoodsRecoveryAdapter',
            'VTE_ACTION', 'VTE_ACTIONS', 'VTE_CREATE', 'VTE_FACTS', 'VTE_OBJECT_TYPE',
-           'VTE_READ', 'VehicleTransportExceptionAdapter']
+           'VTE_READ', 'VehicleTransportExceptionAdapter',
+           'DG_ACTION', 'DG_ACTIONS', 'DG_CREATE', 'DG_FACTS', 'DG_OBJECT_TYPE', 'DG_READ',
+           'DG_RECORD', 'DossierGrantAdapter']
 
 
 def register_adapters(registry):
@@ -201,6 +205,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.10.6：卷宗授权（dossier_grant）静态注册；key 即原 DossierGrant.id。
+    registry.register(DomainAdapterSpec(
+        name='dossier_grant', factory=DossierGrantAdapter,
+        object_types=(DG_OBJECT_TYPE,),
+        operation_ids=(DG_READ, DG_RECORD, DG_CREATE, DG_ACTION),
+        fact_keys=DG_FACTS,
+        fallback_object_types=(),
     ))
     # M7.10.5：整车运输异常（vehicle_transport_exception）静态注册；key 即原异常案 id。
     registry.register(DomainAdapterSpec(

@@ -3470,48 +3470,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/vehicle_transport_exception.py`（`VehicleTransportExceptionAdapter`，`object_types=('vehicle_transport_exception',)`：快照单次只读 `GET /api/vehicle-transport-exceptions/{key}`，**key 即原异常案 id**，ID 不一致 502、**缺原运输单引用 502**，动作可用性一律 `unknown`；`extract_result` 覆盖异常族 operation；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `vehicle_transport.loss_posted`（原 `VehicleTransportLoss`；过账不改变原实物状态）、`vehicle_transport.found_received`（原 `VehicleTransportFoundReceipt` **且 VIN 一致**；缺 VIN 或不一致即未知）、`vehicle_transport.found_unavailable_recorded`（原 `VehicleTransportFoundUnavailable`；不构成找回完成）——**计划找回不满足实际找到/接收键**，只有计划时三条均为未知；容器键为 `null` 视为未提供），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原损失与结算公式。**实测发现并修复（真实产品缺陷）**：首轮"只有计划"时返回 False 而合同要求未知；已改为 `_unknown` 并保留规则说明。外部套件 `$ValidationRoot/tests/runtime_domains/test_vehicle_transport_exception.py`（8 项），run `20260928T142422Z-e5b4d3eca8` passed。详见 `docs/implementation-checkpoints/M7-10-5-review-v1.md`。源码指纹 `37c8822b57b2a02ee7cc66b12c3d8026dd3b75c58b6bf5983e9af86c416fa33a`。下一项 M7.10.6。
 
-### M7.10.6 跨店原单档案授权
+### M7.10.6 卷宗授权
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；8 项通过）
 
 **全局顺序前置**：M7.10.5 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实（含实测可读性）/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `dossier_grant` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/dossier_grant_api.py`、`app/dossier_grant_service.py`、`app/dossier_grant_models.py`、`app/dossier_grant_rules.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/dossier_grant.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_dossier_grant.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/dossier-grants/{grant_id} 和 /record；原 propose/decide/read_record 保留源店审批和指定接收人。
-
-**注册合同**：object_type=dossier_grant（DossierGrant.id）；adapter=`app/assistant_runtime_domains/dossier_grant.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`dossier.approval_recorded`：本授权原 DossierDecision 批准；`dossier.record_readable`：当前 principal 通过原 /record 成功读取相同 grant 的原授权摘要；`dossier.revocation_recorded`：原撤回/撤销决定明确存在。批准历史不满足当前可读，403/404 无法区分不存在和不可见时为 unknown。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：原授权版本、范围摘要、源单版本和现时 recipient/access_version；后台只读已授权 record。
-3. 接统一只读回执 resolver：DossierReceipt，含 action/request_data/grant_id/scope_digest；原详情重新验权后才返回。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：不开放 files/download 到模型；授权过期/撤回/原人员权限变化立即 waiting(permission_lost)；不把授权当业务执行。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_dossier_grant.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.10.6
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/dossier_grant.py`（`DossierGrantAdapter`，`object_types=('dossier_grant',)`：快照单次只读 `GET /api/dossier-grants/{grant_id}`，**key 即原 `DossierGrant.id`**，ID 不一致 502，动作可用性一律 `unknown`；`dossier.approval_recorded` 取原 `DossierDecision` 批准并明确**批准历史不满足当前可读**；`dossier.record_readable` **必须由本次原 `/record` 成功读取同一 grant 的摘要证明**（摘要指向别的授权 → 未知），**403/404 无法区分不存在与不可见时一律未知**；`dossier.revocation_recorded` 取原撤回/撤销决定；明细为 `null` → 未知、空列表 → 明确未满足、缺动作类型 → 未知；`extract_result` 覆盖授权族 operation（摘要读不绑定结果）；`read_receipt` 走 `DossierReceipt` 族并保持冻结 `request_id`），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原源店审批与指定接收人规则。**实测拦截与修复（如实保留）**：① 套件一行残留三元表达式，运行前自查修掉；② **"决定明细为空列表"被误判为未知而合同要求明确未满足**（真实产品缺陷），已区分空明细与缺类型两种情况。外部套件 `$ValidationRoot/tests/runtime_domains/test_dossier_grant.py`（8 项），run `20260928T142648Z-069a04fbdd` passed。详见 `docs/implementation-checkpoints/M7-10-6-review-v1.md`。源码指纹 `205391c7f3b4d92c392ab101401457fa299422f8edb7d3e964819f078facdab0`。**M7.10 组六项全部落盘**。下一项 M7.11.1。
 
 ## M7.11 基础资料和系统管理边界
 
