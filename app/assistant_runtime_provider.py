@@ -16,6 +16,16 @@ import httpx
 from fastapi import HTTPException
 
 
+class ModelProtocolError(HTTPException):
+    """A rejected provider reply must not be classified as a transport retry.
+
+    Retain the legacy HTTP 503 boundary, without attaching raw model content.
+    Runtime can stop this attempt while preserving already validated cards.
+    """
+    def __init__(self, detail):
+        super().__init__(status_code=503, detail=detail)
+
+
 class SafeDeltas:
     """Hold partial credential tokens until they can be redacted as a whole."""
     def __init__(self,sanitize):self.pending='';self.sanitize=sanitize
@@ -270,8 +280,10 @@ async def _nonstream(config, messages, thinking, usage, before_request=None):
                 await asyncio.sleep(1.0)
                 continue
             raise HTTPException(503, '业务助手连接异常，请稍后再试（%s）' % type(exc).__name__) from None
-        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError, OverflowError, RecursionError):
+        except httpx.HTTPError:
             raise HTTPException(503, '业务助手连接异常，请稍后再试') from None
+        except (ValueError, KeyError, IndexError, TypeError, OverflowError, RecursionError):
+            raise ModelProtocolError('回复未完整通过校验，请核对已有卡片。') from None
 
 
 async def _stream(config, messages, thinking, emit, usage, before_request=None):
@@ -371,13 +383,8 @@ async def _stream(config, messages, thinking, emit, usage, before_request=None):
         return reply
     except httpx.TimeoutException:raise HTTPException(503,'业务助手响应超时；已确认前的操作不会执行') from None
     except httpx.HTTPError:raise HTTPException(503,'上游连接中断；本段未完整校验的工具未执行，请核对已有卡片') from None
-    except (ValueError,KeyError,TypeError,IndexError,OverflowError,RecursionError) as exc:
-        known={'data after done','provider error','choices','delta after finish','delta','reasoning','reasoning limit',
-               'content','content limit','tools','tool index','tool id','tool type','tool function','tool fragment','tool size',
-               'incomplete finish','not SSE','stream limit','incomplete stream','tool finish mismatch',
-               'duplicate tool id','tool arguments','tool name','incomplete tool'}
-        code=str(exc) if type(exc) is ValueError and str(exc) in known else type(exc).__name__
-        raise HTTPException(503,'模型流式协议校验未通过（'+code+'）；本段未执行，请核对已有卡片') from None
+    except (ValueError,KeyError,TypeError,IndexError,OverflowError,RecursionError):
+        raise ModelProtocolError('回复未完整通过校验，请核对已有卡片。') from None
 
 
 async def call_model(config, messages, thinking=False, *, stream=False, emit=None, background=False,

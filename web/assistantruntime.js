@@ -47,6 +47,19 @@
     return true;
   }
 
+  function terminal(item) {
+    return TERMINAL.includes(item.view && item.view.status);
+  }
+
+  function canRead(item) {
+    return alive(item) && !terminal(item) && !item.paused && item.subscribers.size > 0;
+  }
+
+  function ownsRead(item, controller) {
+    return alive(item) && item.controller === controller && !controller.signal.aborted
+      && item.subscribers.size > 0;
+  }
+
   function notify(item, event) {
     if (!alive(item)) return false;
     for (var handler of Array.from(item.subscribers)) {
@@ -65,12 +78,18 @@
     var id = String(runId == null ? '' : runId);
     if (!id) throw new Error('执行编号不正确。');
     var item = records.get(id);
+    if (item && !alive(item)) {
+      item.disposed = true;
+      close(item);
+      records.delete(id);
+      item = null;
+    }
     if (!item) {
       var shared = sessionState();
       item = { id: id, view: null, session: null, lastAppliedSeq: 0, displayRevision: -1,
         connectionState: 'idle', controller: null, subscribers: new Set(), contextEpoch: contextKey(),
         sessionState: shared, generation: shared ? shared.generation || 0 : 0,
-        attempt: 0, timer: null, paused: false, disposed: false, unsupported: null, lastError: null };
+        attempt: 0, timer: null, paused: typeof document !== 'undefined' && document.visibilityState === 'hidden', disposed: false, unsupported: null, lastError: null };
       records.set(id, item);
     }
     return item;
@@ -80,56 +99,66 @@
     return view && view.status === 'succeeded' ? '本次准备已完成' : null;
   }
 
-  function applyView(item, view, session) {
-    if (!view || typeof view !== 'object' || String(view.id) !== item.id) {
+  function applyView(item, view, session, announce = true) {
+    if (!view || typeof view !== 'object' || String(view.id) !== item.id
+        || !Number.isSafeInteger(view.version) || view.version < 1
+        || !['queued', 'running'].concat(TERMINAL).includes(view.status)
+        || (item.view && String(view.session_id) !== String(item.view.session_id))) {
       throw new Error('执行状态格式不完整。');
     }
     if (!alive(item)) return view;   // 陈旧门店/账号/会话：只回服务器事实，不改本地状态
+    // A cancelled Run must not become running again when an older GET arrives.
+    if (item.view && (view.version < item.view.version
+        || (view.version === item.view.version && terminal(item) && view.status !== item.view.status)
+        || (view.version === item.view.version
+            && (view.display || {}).revision < (item.view.display || {}).revision))) return item.view;
     item.view = view;
     var display = view.display || {};
     if (Number.isSafeInteger(display.revision) && display.revision > item.displayRevision) {
       item.displayRevision = display.revision;
     }
-    notify(item, { type: 'view', view: view, session: session || null });
+    if (announce) notify(item, { type: 'view', view: view, session: session || null });
     if (TERMINAL.includes(view.status)) close(item, 'closed');
     return view;
   }
 
   function close(item, value) {
     if (item.timer) { clearTimeout(item.timer); item.timer = null; }
-    if (item.controller) { try { item.controller.abort(); } catch (error) { /* 已结束 */ } item.controller = null; }
+    var controller = item.controller;
+    item.controller = null;
+    if (controller) { try { controller.abort(); } catch (error) { /* 已结束 */ } }
     if (value) setConnection(item, value);
   }
 
   function schedule(item) {
-    if (!alive(item) || item.paused || !item.subscribers.size) return;
+    if (!canRead(item) || item.controller) return;
     var delay = item.attempt < RECONNECT_MS.length ? RECONNECT_MS[item.attempt] : IDLE_MS;
     item.attempt += 1;
     if (item.timer) clearTimeout(item.timer);
     item.timer = setTimeout(function () {
       item.timer = null;
-      if (!alive(item) || !item.subscribers.size || item.paused) return;
+      if (!canRead(item)) return;
       readOnce(item).catch(function () { schedule(item); });
     }, delay);
   }
 
   function statusFailure(item, response) {
-    if (response.status === 401) {
-      if (typeof state === 'object' && state) state.user = null;
-      if (typeof loginPage === 'function') loginPage();
-      item.disposed = true;
-      close(item, 'closed');
-      throw Object.assign(new Error('登录已失效，请重新登录。'), { fatal: true, status: 401 });
-    }
-    if (response.status === 403 || response.status === 404) {
-      // 权限或对象已不可读：停止读取，不无限重连，也不伪造 Run 状态。
-      item.disposed = true;
-      close(item, 'closed');
-      throw Object.assign(new Error('此执行当前不可读取，请回原业务页面核对。'),
+    if (response.status === 401 || response.status === 403 || response.status === 404) {
+      var failure = Object.assign(new Error(response.status === 401
+        ? '登录已失效，请重新登录。' : '此执行当前不可读取，请回原业务页面核对。'),
         { fatal: true, status: response.status });
+      // Notify while the original context is still alive; do not forge Run state.
+      setConnection(item, 'closed', failure);
+      var current = alive(item);
+      item.disposed = true;
+      close(item);
+      if (response.status === 401 && current) {
+        if (typeof state === 'object' && state) state.user = null;
+        if (typeof loginPage === 'function') loginPage();
+      }
+      throw failure;
     }
     if (response.status === 409) {
-      // 先读回 RunView 与 session 核对共同 schema 所指原因，不自造 cursor 错误分类。
       throw Object.assign(new Error('执行状态已变化，正在重新读取。'), { conflict: true, status: 409 });
     }
     throw Object.assign(new Error('暂时无法读取执行状态。'), { status: response.status, retry: true });
@@ -145,7 +174,8 @@
     if (!sessionId) return null;
     try {
       var session = await request('/sessions/' + encodeURIComponent(String(sessionId)));
-      if (!alive(item) || !session || !Array.isArray(session.messages) || !Array.isArray(session.proposals)) {
+      if (!alive(item) || !session || String(session.id) !== String(sessionId)
+          || !Array.isArray(session.messages) || !Array.isArray(session.proposals)) {
         return null;
       }
       item.session = session;
@@ -153,16 +183,29 @@
       return session;
     } catch (error) {
       // 终态读回失败只影响这次展示：不改写 Run 状态，也不重发任何业务请求。
-      item.lastError = String((error && error.message) || error);
+      if (alive(item)) item.lastError = String((error && error.message) || error);
       return null;
     }
+  }
+
+  async function refreshView(item, view) {
+    if (!TERMINAL.includes(view && view.status)) return applyView(item, view, null);
+    // A terminal view must carry the authoritative conversation before consumers
+    // unsubscribe. Otherwise a finished Run can hide every message and card.
+    var applied = applyView(item, view, null, false);
+    if (!alive(item) || !TERMINAL.includes(applied.status)) return applied;
+    var session = await readSession(item);
+    if (!session && alive(item)) {
+      notify(item, { type: 'view', view: item.view, session: null, sessionReadFailed: true });
+    }
+    return applied;
   }
 
   async function getRun(runId) {
     var item = record(runId);
     var view = await request('/runs/' + encodeURIComponent(item.id));
     if (!alive(item)) return view;
-    return applyView(item, view, null);
+    return refreshView(item, view);
   }
 
   async function submitRun(sessionId, body) {
@@ -173,7 +216,7 @@
     if (String((view && view.session_id) || '') !== String(sessionId)) {
       throw new Error('执行状态与会话不一致。');
     }
-    return applyView(item, view, null);
+    return refreshView(item, view);
   }
 
   async function cancelRun(runId, expectedVersion) {
@@ -184,15 +227,16 @@
     var view = await request('/runs/' + encodeURIComponent(item.id) + '/cancel',
       { method: 'POST', body: { expected_version: version } });
     if (!alive(item)) return view;
-    return applyView(item, view, null);
+    return refreshView(item, view);
   }
 
-  function parseFrames(pending, onLine) {
+  function parseFrames(pending, onLine, final) {
     var offset = 0;
     while (offset < pending.length) {
       var index = pending.slice(offset).search(/[\r\n]/);
       if (index < 0) break;
       var end = offset + index;
+      if (pending[end] === '\r' && end === pending.length - 1 && !final) break;
       var skip = pending[end] === '\r' && pending[end + 1] === '\n' ? 2 : 1;
       onLine(pending.slice(offset, end));
       offset = end + skip;
@@ -200,7 +244,7 @@
     return { rest: pending.slice(offset) };
   }
 
-  async function readStream(item, response) {
+  async function readStream(item, response, currentRead) {
     var reader = response.body.getReader();
     var decoder = new TextDecoder('utf-8', { fatal: true });
     var pending = '';
@@ -208,24 +252,22 @@
     var gap = false;
     var finished = false;
     setConnection(item, 'open');
-    item.attempt = 0;
 
     function dispatch() {
       if (!fields.data.length) { fields = { event: '', data: [], size: 0 }; return; }
       var raw = fields.data.join('\n');
-      var current = fields;
       fields = { event: '', data: [], size: 0 };
       var value;
       try { value = JSON.parse(raw); } catch (error) {
         throw new Error('执行事件格式不完整，正在重新读取。');
       }
-      if (!alive(item)) return;   // 门店/账号/会话已切换：迟到事件不应用、不改本地序号
+      if (!currentRead() || gap || finished) return;
       var seq = Number.isSafeInteger(value && value.seq) ? value.seq : null;
-      if (seq === null) throw new Error('执行事件缺少序号，正在重新读取。');
+      if (seq === null || seq < 1) throw new Error('执行事件缺少序号，正在重新读取。');
+      if (String(value.run_id) !== item.id) throw new Error('执行事件与订阅不一致。');
       if (seq <= item.lastAppliedSeq) return;                    // 重复/乱序事件忽略
       if (seq !== item.lastAppliedSeq + 1) { gap = true; return; } // 缺口：关闭后按 after_seq 补读
       item.lastAppliedSeq = seq;
-      if (String(value.run_id) !== item.id) throw new Error('执行事件与订阅不一致。');
       var type = String(value.type || '');
       if (KNOWN_EVENTS.indexOf(type) < 0) {
         item.unsupported = type || 'unknown';
@@ -233,6 +275,7 @@
         gap = true;
         return;
       }
+      item.attempt = 0;
       if (type === 'run.progress') {
         var display = (value.payload || {}).display || {};
         if (Number.isSafeInteger(display.revision) && display.revision > item.displayRevision) {
@@ -246,6 +289,7 @@
     }
 
     function line(text) {
+      if (!currentRead() || gap || finished) return;
       if (!text) { dispatch(); return; }
       if (text[0] === ':') return;
       var split = text.indexOf(':');
@@ -261,87 +305,70 @@
     }
 
     try {
-      while (!finished && !gap) {
+      while (currentRead() && !finished && !gap) {
         var chunk = await reader.read();
         if (chunk.done) {
           pending += decoder.decode();
+          // EOF terminates a final CR, not an unfinished event. Only an actual
+          // blank line dispatches; never synthesize a delimiter after a cut.
+          parseFrames(pending, line, true);
           break;
         }
         pending += decoder.decode(chunk.value, { stream: true });
         if (pending.length > EVENT_CHARS) throw new Error('执行事件过长，正在重新读取。');
         pending = parseFrames(pending, line).rest;
-        if (!alive(item)) break;
-      }
-      if (!gap && !finished && pending) {
-        parseFrames(pending + '\n', line);
-        line('');
+        if (!currentRead()) break;
       }
     } finally {
       try { await reader.cancel(); } catch (error) { /* 已结束 */ }
+      reader.releaseLock();
     }
     return { gap: gap, finished: finished };
   }
 
   async function readOnce(item) {
-    if (!alive(item) || !item.subscribers.size) return;
+    if (!canRead(item) || item.controller) return;
     var controller = new AbortController();
     item.controller = controller;
+    var currentRead = function () { return ownsRead(item, controller); };
     setConnection(item, item.attempt ? 'reconnecting' : 'connecting');
-    var response;
     try {
-      response = await fetch(API + '/runs/' + encodeURIComponent(item.id) + '/events?after_seq='
+      var response = await fetch(API + '/runs/' + encodeURIComponent(item.id) + '/events?after_seq='
         + String(item.lastAppliedSeq), {
         method: 'GET', credentials: 'same-origin',
         headers: { 'X-App-Request': '1', 'X-Store-ID': storeId(), 'Accept': 'text/event-stream' },
         signal: controller.signal });
-    } catch (error) {
-      item.controller = null;
-      if (!alive(item)) return;
-      setConnection(item, 'reconnecting', error);
-      schedule(item);
-      return;
-    }
-    if (!response.ok) {
-      item.controller = null;
-      var failure;
-      try { statusFailure(item, response); failure = null; } catch (error) { failure = error; }
-      if (failure && failure.conflict) {
-        try { await getRun(item.id); await readSession(item); } catch (error) { /* 保持已知状态 */ }
+      // fetch can resolve even after abort. An old reader owns no UI or auth.
+      if (!currentRead()) return;
+      if (!response.ok) statusFailure(item, response);
+      if (!response.body || typeof response.body.getReader !== 'function'
+          || !(response.headers.get('content-type') || '').includes('text/event-stream')) {
+        throw new Error('执行事件通道不可用。');
       }
-      if (failure && failure.fatal) return;
-      if (failure) setConnection(item, 'reconnecting', failure);
-      schedule(item);
-      return;
-    }
-    if (!response.body || typeof response.body.getReader !== 'function'
-        || !(response.headers.get('content-type') || '').includes('text/event-stream')) {
-      item.controller = null;
-      setConnection(item, 'reconnecting', new Error('执行事件通道不可用。'));
-      schedule(item);
-      return;
-    }
-    var outcome;
-    try {
-      outcome = await readStream(item, response);
+      await readStream(item, response, currentRead);
+      if (!currentRead()) return;
+      // Includes unknown events and gaps. Only RunView decides the Run state;
+      // its last_seq is never substituted for the locally accepted cursor.
+      await getRun(item.id);
     } catch (error) {
-      item.controller = null;
-      if (!alive(item)) return;
+      if (!currentRead()) return;
+      if (error.conflict) {
+        try { await getRun(item.id); }
+        catch (readError) { error = readError; }
+      }
+      if (!currentRead()) return;
+      if ([401, 403, 404].includes(error.status)) {
+        try { statusFailure(item, error); } catch (failure) { /* Already notified and stopped. */ }
+        return;
+      }
       setConnection(item, 'reconnecting', error);
-      schedule(item);
-      return;
+    } finally {
+      // Never clear or reschedule a new subscription's controller.
+      if (item.controller === controller) {
+        item.controller = null;
+        schedule(item);
+      }
     }
-    item.controller = null;
-    if (!alive(item)) return;
-    if (outcome.gap) { schedule(item); return; }
-    // 事件流结束（或已收到终态事件）：读回 RunView 决定终态与后续订阅。
-    try {
-      var view = await getRun(item.id);
-      if (TERMINAL.includes(view.status)) { await readSession(item); return; }
-    } catch (error) {
-      if (!alive(item)) return;
-      setConnection(item, 'reconnecting', error);
-    }
-    schedule(item);
   }
 
   function bindVisibility() {
@@ -353,7 +380,7 @@
         var terminal = TERMINAL.indexOf(item.view && item.view.status) >= 0;
         item.paused = hidden && !terminal;
         if (item.paused) { if (item.timer) { clearTimeout(item.timer); item.timer = null; } continue; }
-        if (item.subscribers.size && alive(item) && !item.controller) {
+        if (canRead(item) && !item.controller && !item.timer) {
           readOnce(item).catch(function () { schedule(item); });
         }
       }
@@ -365,7 +392,13 @@
     if (typeof onEvent !== 'function') throw new Error('订阅回调不正确。');
     item.subscribers.add(onEvent);
     bindVisibility();
-    if (!item.controller && !item.timer) {
+    if (item.view) Promise.resolve().then(function () {
+      if (!alive(item) || !item.subscribers.has(onEvent)) return;
+      try { onEvent({ type: 'view', view: item.view, session: item.session,
+        sessionReadFailed: terminal(item) && !item.session }); }
+      catch (error) { /* Match notify: a subscriber cannot break the reader. */ }
+    });
+    if (canRead(item) && !item.controller && !item.timer) {
       readOnce(item).catch(function (error) {
         if (alive(item)) { setConnection(item, 'reconnecting', error); schedule(item); }
       });

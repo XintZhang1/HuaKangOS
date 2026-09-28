@@ -29,7 +29,6 @@
   function fresh() {
     return { features: null, counts: null, groups: [], cursors: {}, loading: false,
       error: '', selected: null, serial: 0, mounted: false, bound: false, context: '',
-      error: '', selected: null, serial: 0, mounted: false, bound: false, context: '',
       drawer: false, notice: '', host: null, toggle: null, handoff: null, handoffLabel: '', handoffPrompt: '',
       plan: null, planError: '', planLoading: false, planSerial: 0, followupPending: '', revokeArmed: false,
       notices: [], noticeUnread: 0, noticeCursor: null, noticeOpen: false, noticeError: '',
@@ -174,15 +173,14 @@
 
   function headingText() {
     const item = state.selected;
-    if (!item) return '还没有选中事项';
+    if (!item) return current()?.session?.title || '新对话';
     return item.title || '待办事项';
   }
   function planHTML() {
     const item = state.selected, parts = [];
     parts.push(notificationPanelHTML());
     parts.push(planHeaderHTML());
-    if (!item) parts.push('<p class="ba-current-hint">左侧选一项待办，或直接在下面说要办的事；助手只读真实数据，不会自动提交。</p>');
-    else {
+    if (item) {
       parts.push('<p class="ba-current-status">' + escapeText(item.status_label || item.status || '') + '</p>');
       if (item.waiting_reason) parts.push('<p class="ba-current-wait">等待：' + escapeText(item.waiting_reason) + '</p>');
       if (item.kind === 'native_task') {
@@ -508,9 +506,6 @@
     const lines = [];
     if (state.planError) lines.push('<p class="ba-plan-error" role="alert">' + escapeText(state.planError) + '</p>');
     if (!plan) {
-      lines.push('<p class="ba-plan-hint">' + escapeText(state.planError
-        ? '原业务入口仍可用；需要助手跟进时请重新打开这件事。'
-        : '这件事还没有持续跟进。开启后，助手只在授权范围内查询和准备，实际办理仍需你确认。') + '</p>');
       return lines.join('');
     }
     lines.push('<p class="ba-plan-goal">目标：' + escapeText(plan.goal || '当前事项') + ' · '

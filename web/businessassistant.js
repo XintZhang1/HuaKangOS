@@ -24,6 +24,12 @@ businessAssistantState=freshBusinessAssistantState();
 function businessAssistantContext(){return `${storeContextVersion}:${state.user?.id||''}:${state.store||''}`;}
 // 退出登录/换门店只清浏览器状态：不调用 cancel、不撤销 Grant、不删除卡片。
 // 即时 Run 是否继续由服务端按当前会话与权限决定；持续跟进授权在退出后仍按原合同继续。
+function businessAssistantDetachRun(){
+ const current=businessAssistantState;
+ if(current?.runSubscription){try{current.runSubscription();}catch{}current.runSubscription=null;}
+ globalThis.AssistantRuntime?.disposeContext?.();
+ if(current){current.runId=null;current.runView=null;current.runStop='';}
+}
 function businessAssistantReleaseRuntime(){
  const current=businessAssistantState;
  if(current?.runSubscription){try{current.runSubscription();}catch{}current.runSubscription=null;}
@@ -258,28 +264,37 @@ function businessAssistantWelcomeFallback(){
          ['这项业务怎么办','说明这项业务当前还需要哪些资料和步骤，只读取不提交。'],
          ['查合同和收款','查一下这个客户的合同、收款与发票状态，只读取并说明。']];
 }
-async function businessAssistantWelcomeExamples(){
- const current=businessAssistantState,role=String(state.user?.role||''),store=String(state.store||'');
+function businessAssistantWelcomeExamples(){
+ const examples=businessAssistantState.welcomeExamples;
+ return Array.isArray(examples)?examples:businessAssistantWelcomeFallback().slice(0,4);
+}
+async function businessAssistantLoadWelcomeExamples(){
+ const current=businessAssistantState,context=businessAssistantContext();
  if(Array.isArray(current.welcomeExamples))return current.welcomeExamples;
- const order=(typeof UX_COMMON_WORKFLOWS==='object'&&UX_COMMON_WORKFLOWS)
+ if(current.welcomeLoading)return current.welcomeLoading;
+ const role=String(state.user?.role||''),store=String(state.store||'');
+ current.welcomeLoading=(async()=>{
+  const order=(typeof UX_COMMON_WORKFLOWS==='object'&&UX_COMMON_WORKFLOWS)
    ?(UX_COMMON_WORKFLOWS[role]||UX_COMMON_WORKFLOWS.default||[]):[];
- const rank=id=>{const index=order.indexOf(id);return index<0?order.length:index;};
- let picked=[];
- try{
-  const response=await fetch('/static/workflow-guides.json',{credentials:'same-origin'});
-  const data=response&&response.ok?await response.json():null;
-  const items=Array.isArray(data&&data.workflows)?data.workflows:[];
-  const guide=globalThis.WorkflowGuides;
-  const readonly=businessAssistantReadonlyRole(role)||store==='all';
-  picked=items.filter(item=>{
+  const rank=id=>{const index=order.indexOf(id);return index<0?order.length:index;};
+  let picked=[];
+  try{
+   const data=typeof loadWorkflowGuides==='function'?await loadWorkflowGuides():null;
+   const items=Array.isArray(data?.workflows)?data.workflows:[];
+   const guide=globalThis.WorkflowGuides,readonly=businessAssistantReadonlyRole(role)||store==='all';
+   picked=items.filter(item=>{
     if(!item||typeof item.id!=='string'||!item.assistant||!item.assistant.prompt)return false;
-    if(readonly&&item.assistant.intent&&item.assistant.intent!=='query_status')return false;
-    if(!guide||typeof guide.canEnter!=='function')return true;
-    try{return guide.canEnter(item,role,store);}catch(error){return false;}
-  }).sort((a,b)=>rank(a.id)-rank(b.id)).slice(0,4).map(item=>[String(item.title||item.id),String(guide&&guide.assistantPrompt?guide.assistantPrompt(item):item.assistant.prompt)]);
- }catch(error){picked=[];}
- current.welcomeExamples=picked.length?picked:businessAssistantWelcomeFallback().slice(0,4);
- return current.welcomeExamples;
+    if(readonly&&item.assistant.intent!=='query_status')return false;
+    if(!guide||typeof guide.canEnter!=='function')return false;
+    try{return guide.canEnter(item,role,store);}catch{return false;}
+   }).sort((a,b)=>rank(a.id)-rank(b.id)).slice(0,4)
+     .map(item=>[String(item.title||item.id),String(guide.assistantPrompt?guide.assistantPrompt(item):item.assistant.prompt)]);
+  }catch{picked=[];}
+  const examples=picked.length?picked:businessAssistantWelcomeFallback().slice(0,4);
+  if(current===businessAssistantState&&context===businessAssistantContext())current.welcomeExamples=examples;
+  return examples;
+ })();
+ try{return await current.welcomeLoading;}finally{current.welcomeLoading=null;}
 }
 function businessAssistantMessages(){
  const session=businessAssistantState.session,stream=businessAssistantState.stream;
@@ -325,12 +340,13 @@ async function businessAssistantSwitchMatter(intent){
  return false;
 }
 async function businessAssistantNewMatter(){
+ businessAssistantDetachRun();
  const current=businessAssistantState;
  current.session=null;current.workboard=null;current.workPlanId=null;current.workError='';current.workSerial++;current.error='';current.needsRefresh=false;current.retry=null;current.stream=null;current.thinking=false;current.tab='chat';current.historyOpen=false;current.activeCardId=null;current.queueFilter='pending';current.receipt=null;current.mobilePane='chat';current.handoffChoice=null;current.switchIntent=null;
  businessAssistantWorkspaceModule()?.clearHandoff?.();
  paintBusinessAssistant({focus:true});
 }
-async function businessAssistantCompose(){
+function businessAssistantCompose(){
  const current=businessAssistantState,ready=current.status?.ready&&!current.session?.busy&&!current.needsRefresh,disabled=current.busy||!ready;
  return `<form class="ba-compose" id="business-assistant-form"><label class="ba-input-label" for="business-assistant-input">说说要办的事</label><textarea id="business-assistant-input" name="message" rows="3" maxlength="${Number(current.status?.limits?.max_message_chars)||6000}" placeholder="例如：给张先生安排明天下午的回访" ${current.busy||current.retry?'readonly':''}>${E(current.draft)}</textarea><div class="ba-compose-bottom"><div class="row ba-compose-tools"><button type="button" data-baf-action="open" ${current.busy||current.retry?"disabled":""}>从文件填表</button><button type="button" class="ba-thinking-toggle" data-ba-action="thinking" role="switch" aria-checked="${current.thinking}" ${current.busy||current.retry?'disabled':''}>思考：${current.thinking?'开':'关'}</button><span class="ba-keyboard">Enter 发送 · Shift + Enter 换行</span></div><div class="row">${businessAssistantStopButtonHTML()}<button type="submit" class="primary" ${disabled||!current.draft.trim()?'disabled':''}>${current.busy?'处理中…':current.retry?'重试':'发送'}</button></div></div></form>`;
 }
@@ -359,7 +375,9 @@ async function businessAssistantPage(){
  if(state.store==='all')return heading('业务助手')+storeNotice();
  if(businessAssistantState.context!==businessAssistantContext()){clearBusinessAssistantSession();businessAssistantState.context=businessAssistantContext();}
  const current=businessAssistantState;if(current.busy)return businessAssistantHTML();const generation=++current.generation;
- businessAssistantWorkspaceModule()?.load?.();businessAssistantWelcomeExamples();
+ if(current.runSubscription){try{current.runSubscription();}catch{}current.runSubscription=null;}
+ businessAssistantWorkspaceModule()?.load?.();
+ businessAssistantLoadWelcomeExamples().then(()=>{if(businessAssistantCurrent(current,generation))paintBusinessAssistant();});
  const [status,sessions]=await Promise.all([businessAssistantRequest('/status'),businessAssistantRequest('/sessions')]);
  if(!businessAssistantCurrent(current,generation))return '';
  current.status=status;current.sessions=sessions.items||[];
@@ -367,7 +385,7 @@ async function businessAssistantPage(){
  if(current.tab==='issues'){const issues=await businessAssistantRequest('/issues');if(!businessAssistantCurrent(current,generation))return '';current.issues=issues.items||[];}
  if(typeof businessAssistantRefreshWork==='function')await businessAssistantRefreshWork(current,generation);
  if(!businessAssistantCurrent(current,generation))return '';
- businessAssistantReconcileRequest();current.needsRefresh=false;if(typeof applyWorkflowAssistantIntent==='function')applyWorkflowAssistantIntent();return businessAssistantHTML();
+ businessAssistantReconcileRequest();current.needsRefresh=false;businessAssistantResumeRuntimeRun();if(typeof applyWorkflowAssistantIntent==='function')applyWorkflowAssistantIntent();return businessAssistantHTML();
 }
 function paintBusinessAssistant({focus=false}={}){
  if(state.route!=='business-assistant'||businessAssistantState.context!==businessAssistantContext())return;
@@ -389,7 +407,7 @@ function bindBusinessAssistantPage(){
 }
 function businessAssistantRememberSession(session){
  const previous=businessAssistantState.session,newest=session.work_plans?.[0]?.id;
- if(previous?.id!==session.id){businessAssistantState.workboard=null;businessAssistantState.workPlanId=null;businessAssistantState.workError='';businessAssistantState.workSerial++;}
+ if(previous?.id!==session.id){businessAssistantDetachRun();businessAssistantState.workboard=null;businessAssistantState.workPlanId=null;businessAssistantState.workError='';businessAssistantState.workSerial++;}
  else if(newest&&newest!==previous.work_plans?.[0]?.id){businessAssistantState.workboard=null;businessAssistantState.workPlanId=newest;businessAssistantState.workError='';businessAssistantState.workSerial++;}
  businessAssistantState.session=session;
  businessAssistantState.sessions=[session,...businessAssistantState.sessions.filter(item=>item.id!==session.id)];
@@ -431,6 +449,7 @@ function businessAssistantWatchRuntimeRun(runId){
    current.stream={request_id:current.retry?.request_id||'',content:current.retry?.content||'',text:display.text,phase:display.phase||'responding',round:0};
   }
   if(event.session)businessAssistantRememberSession(event.session);
+  if(event.sessionReadFailed){current.needsRefresh=true;current.error='暂时无法读取结果，请刷新对话。';}
   const status=event.view?.status;
   if(['succeeded','failed','cancelled'].includes(status)){
    current.runStop=businessAssistantRunText(status);current.stream=null;current.retry=null;
@@ -441,18 +460,31 @@ function businessAssistantWatchRuntimeRun(runId){
  });
 }
 async function businessAssistantResumeRuntimeRun(){
- const current=businessAssistantState;
- const runId=current.session?.last_request?.run_id;
- if(!runId||current.runId===String(runId)||!globalThis.AssistantRuntime)return;
- if(typeof businessAssistantRequest!=='function')return;
+ const current=businessAssistantState,generation=current.generation,last=current.session?.last_request;
+ const runId=last?.run_id,runtime=globalThis.AssistantRuntime;
+ if(!runId||current.runId===String(runId)&&current.runSubscription||!runtime)return;
+ // A fresh server conversation supersedes a terminal Run's cached card list.
+ if(['completed','interrupted'].includes(last.status)){
+  if(current.runId===String(runId)){
+   try{
+    const view=await runtime.getRun(runId);
+    if(!businessAssistantAlive(current,generation))return;
+    if(['succeeded','failed','cancelled'].includes(view.status)){
+     current.runView=view;current.runStop=businessAssistantRunText(view.status);
+     current.runId=null;current.retry=null;current.stream=null;paintBusinessAssistant();
+    }
+   }catch(error){if(businessAssistantAlive(current,generation)){current.error=error.message;current.needsRefresh=true;paintBusinessAssistant();}}
+  }
+  return;
+ }
  const features=await businessAssistantRuntimeFeatures();
- if(!features?.runtime||!businessAssistantAlive(current,current.generation))return;
+ if(!features?.runtime||!businessAssistantAlive(current,generation))return;
  businessAssistantWatchRuntimeRun(runId);
 }
 async function businessAssistantSendRuntime(text){
  if(!globalThis.AssistantRuntime?.submitRun)throw new Error('本页执行客户端未就绪，请刷新后重试。');
  await businessAssistantTask(async(current,generation)=>{
-  if(!current.session){const session=await businessAssistantRequest('/sessions',{method:'POST',body:{}});if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);}
+  if(!current.session){const session=await businessAssistantRequest('/sessions',{method:'POST',body:{}});if(!businessAssistantAlive(current,generation))return;businessAssistantRememberSession(session);}
   if(!current.retry||current.retry.session_id!==current.session.id)current.retry={session_id:current.session.id,request_id:requestKey(),content:text,thinking:current.thinking};
   const request=current.retry;current.thinking=request.thinking;current.draft=request.content;
   current.stream={request_id:request.request_id,content:request.content,text:'',phase:request.thinking?'thinking':'responding',round:0};paintBusinessAssistant();
@@ -463,7 +495,7 @@ async function businessAssistantSendRuntime(text){
   if(handoff&&handoff.entry_context)payload.entry_context=handoff.entry_context;
   try{view=await globalThis.AssistantRuntime.submitRun(current.session.id,payload);}
   catch(error){current.stream=null;throw error;}  // 结果未知时保留同一 request_id 的提交记录供重试
-  if(!businessAssistantCurrent(current,generation))return;
+  if(!businessAssistantAlive(current,generation))return;
   current.runView=view;current.runStop='';
   if(current.draft.trim()===request.content.trim())current.draft='';  // 只清与已提交内容完全一致的输入
   if(handoff)businessAssistantWorkspaceModule()?.clearHandoff?.();   // 已随本次发送提交，标签清掉
@@ -472,15 +504,21 @@ async function businessAssistantSendRuntime(text){
  });
 }
 async function businessAssistantSend(){
- const text=businessAssistantState.draft.trim();if(!text||!businessAssistantState.status?.ready||businessAssistantState.session?.busy||businessAssistantState.needsRefresh)return;
- businessAssistantState.lastAction=null;
+ const current=businessAssistantState,generation=current.generation,text=current.draft.trim();
+ if(!text||current.busy||current.runId||!current.status?.ready||current.session?.busy||current.needsRefresh)return;
+ current.lastAction=null;
  const features=await businessAssistantRuntimeFeatures();
- if(features?.runtime)return businessAssistantSendRuntime(text);
+ if(!businessAssistantAlive(current,generation))return;
+ // An unreadable feature contract is not permission to resend through legacy.
+ if(!features||typeof features.runtime!=='boolean'){
+  current.error='暂时无法读取执行状态，请刷新后重试。';paintBusinessAssistant();return;
+ }
+ if(features.runtime)return businessAssistantSendRuntime(text);
  return businessAssistantSendLegacy(text);
 }
 async function businessAssistantSendLegacy(text){
  await businessAssistantTask(async(current,generation)=>{
-  if(!current.session){const session=await businessAssistantRequest('/sessions',{method:'POST',body:{}});if(!businessAssistantCurrent(current,generation))return;businessAssistantRememberSession(session);}
+  if(!current.session){const session=await businessAssistantRequest('/sessions',{method:'POST',body:{}});if(!businessAssistantAlive(current,generation))return;businessAssistantRememberSession(session);}
   if(!current.retry||current.retry.session_id!==current.session.id)current.retry={session_id:current.session.id,request_id:requestKey(),content:text,thinking:current.thinking};
   const request=current.retry;current.thinking=request.thinking;current.draft=request.content;
   current.stream={request_id:request.request_id,content:request.content,text:'',phase:request.thinking?'thinking':'responding',round:0};paintBusinessAssistant();

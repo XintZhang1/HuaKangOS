@@ -2171,7 +2171,7 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
     feature flag. All native GETs precede their short fenced write transactions.
     """
     from .assistant_runtime_principal import revalidate_principal
-    from .assistant_runtime_provider import call_model
+    from .assistant_runtime_provider import ModelProtocolError, call_model
     from .assistant_runtime_registry import registry_for_config
     from . import assistant_runtime_queue as queue
     from .assistant_runtime_events import _safe_display
@@ -2431,6 +2431,8 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
             # This path can only close its own valid lease. A lost lease raises
             # without clearing another worker's busy token or returning data.
             return _cancel_fragment(db, principal, clock=clock)
+        if isinstance(exc, ModelProtocolError):
+            return finish_reason('runtime_unavailable')
         if exc.status_code >= 500:
             facts = _actual_outcomes(db, principal, clock=clock)
             return _finish_run(db, principal, _outcome_text(facts, 'runtime_unavailable'), status='retry',

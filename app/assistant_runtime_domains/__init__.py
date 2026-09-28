@@ -245,6 +245,7 @@ def register_adapters(registry):
         object_types=(SVC_OBJECT_TYPE,),
         operation_ids=(SVC_READ, SVC_CREATE, SVC_ACTION),
         fact_keys=SVC_FACTS,
+        fact_kind_versions=(('case', 'agency', 3), ('case', 'other_income', 2)),
         fallback_object_types=(),
     ))
     # M7.12.2：加装单（addon_order）静态注册；key 即原 Case.id（AddonOrder.id 与之相同）。
@@ -253,6 +254,7 @@ def register_adapters(registry):
         object_types=(ADDON_OBJECT_TYPE,),
         operation_ids=(ADDON_READ, ADDON_CREATE, ADDON_ACTION),
         fact_keys=ADDON_FACTS,
+        fact_kind_versions=(('case', 'addon', 3),),
         fallback_object_types=(),
     ))
     # M7.12.1：保险单（insurance_order）静态注册；key 即原 Case.id（InsuranceOrder.id 与之相同）。
@@ -261,6 +263,7 @@ def register_adapters(registry):
         object_types=(INS_OBJECT_TYPE,),
         operation_ids=(INS_READ, INS_CREATE, INS_ACTION),
         fact_keys=INS_FACTS,
+        fact_kind_versions=(('case', 'insurance', 3),),
         fallback_object_types=(),
     ))
     # M7.11.4：评审升级申请（escalation_request）静态注册；只准备，人工处理动作不代办。
@@ -407,6 +410,7 @@ def register_adapters(registry):
         name='invoice', factory=InvoiceAdapter, object_types=('case',),
         operation_ids=(INVOICE_READ, INVOICE_CREATE, INVOICE_ACTION),
         fact_keys=INVOICE_FACTS,
+        fact_kind_versions=(('case', 'invoice', 3),),
         fallback_object_types=(),
     ))
     # M7.8.1：预收与结算（business_finance_order）静态注册；key 一律取原 Case.id。
@@ -414,6 +418,7 @@ def register_adapters(registry):
         name='business_finance_order', factory=BusinessFinanceOrderAdapter, object_types=('case',),
         operation_ids=(FINANCE_READ, FINANCE_CREATE, FINANCE_ACTION),
         fact_keys=FINANCE_FACTS,
+        fact_kind_versions=(('case', 'business_finance', 2),),
         fallback_object_types=(),
     ))
     # M7.7.6：会员价格规则（member_price）静态注册；key 即原 MemberPricingRule.id。
@@ -440,6 +445,7 @@ def register_adapters(registry):
         name='recharge_bundle', factory=RechargeBundleAdapter, object_types=('case',),
         operation_ids=(RECHARGE_READ, RECHARGE_CREATE, RECHARGE_ACTION),
         fact_keys=RECHARGE_FACTS,
+        fact_kind_versions=(('case', 'recharge_bundle', 2),),
         fallback_object_types=(),
     ))
     # M7.7.3：集团权益（group_benefit）静态注册。
@@ -456,7 +462,8 @@ def register_adapters(registry):
     registry.register(DomainAdapterSpec(
         name='group_principal', factory=GroupPrincipalAdapter,
         object_types=(MEMBER_OBJECT_TYPE,),
-        operation_ids=(MEMBER_READ, MEMBER_ACTION),
+        # Benefit actions belong to group_benefit, not the principal ledger.
+        operation_ids=(MEMBER_READ,),
         fact_keys=MEMBER_FACTS,
         fallback_object_types=(),
     ))
@@ -465,6 +472,7 @@ def register_adapters(registry):
         name='membership_order', factory=MembershipOrderAdapter, object_types=('case',),
         operation_ids=(MEMBERSHIP_READ, MEMBERSHIP_CREATE, MEMBERSHIP_ACTION),
         fact_keys=MEMBERSHIP_FACTS,
+        fact_kind_versions=(('case', 'membership', 2),),
         fallback_object_types=(),
     ))
     # M7.6.3：客户提醒来源（care_reminder）静态注册。
@@ -497,13 +505,16 @@ def register_adapters(registry):
         name='warehouse_document', factory=WarehouseDocumentAdapter, object_types=('case',),
         operation_ids=(WH_READ, WH_CREATE, WH_COMMAND),
         fact_keys=WH_FACTS,
+        fact_kind_versions=(('case', 'warehouse', 2),),
         fallback_object_types=(),
     ))
     # M7.5.2：物资采购预付（procurement_prepayment）静态注册。
     registry.register(DomainAdapterSpec(
         name='procurement_prepayment', factory=ProcurementPrepaymentAdapter, object_types=('case',),
-        operation_ids=(PREPAY_READ, PREPAY_ACTION),
+        # Shared procurement result/receipt ownership stays with material_procurement.
+        operation_ids=(),
         fact_keys=PREPAY_FACTS,
+        fact_kind_versions=(('case', 'procurement', 3),),
         fallback_object_types=(),
     ))
     # M7.5.1：物资采购、预付与仓储（material_procurement）静态注册。
@@ -511,6 +522,7 @@ def register_adapters(registry):
         name='material_procurement', factory=MaterialProcurementAdapter, object_types=('case',),
         operation_ids=(PROC_READ, PROC_CREATE, PROC_ACTION),
         fact_keys=PROC_FACTS,
+        fact_kind_versions=(('case', 'procurement', 2), ('case', 'procurement', 3)),
         fallback_object_types=(),
     ))
     # M7.4.3：零售集团与门店规则（retail_group_payment）静态注册。
@@ -518,6 +530,7 @@ def register_adapters(registry):
         name='retail_group_payment', factory=RetailGroupPaymentAdapter, object_types=('case',),
         operation_ids=(GROUP_READ, GROUP_CATALOG, GROUP_ACTION),
         fact_keys=GROUP_FACTS,
+        fact_kind_versions=(('case', 'retail', 2),),
         fallback_object_types=(),
     ))
     # M7.4.2：精品套餐核销与安装（retail_bundle）静态注册。
@@ -534,6 +547,7 @@ def register_adapters(registry):
         name='retail_order', factory=RetailOrderAdapter, object_types=('case',),
         operation_ids=(RETAIL_READ, RETAIL_CREATE, RETAIL_ACTION),
         fact_keys=RETAIL_FACTS,
+        fact_kind_versions=(('case', 'retail', 2),),
         fallback_object_types=(),
     ))
     # M7.3.5：维修出厂与真实进出厂时间（gate_visit）静态注册。
@@ -550,6 +564,7 @@ def register_adapters(registry):
         name='claim_order', factory=ClaimOrderAdapter, object_types=('case',),
         operation_ids=(CLAIM_READ, CLAIM_OPTIONS, CLAIM_CREATE, CLAIM_ACTION),
         fact_keys=CLAIM_FACTS,
+        fact_kind_versions=(('case', 'claim', 2),),
         fallback_object_types=(),
     ))
     # M7.3.3：维修领退料与返修（rework_grant）静态注册。
@@ -565,6 +580,7 @@ def register_adapters(registry):
         name='repair_order', factory=RepairOrderAdapter, object_types=('case',),
         operation_ids=(REPAIR_READ, REPAIR_CREATE, REPAIR_ACTION),
         fact_keys=REPAIR_FACTS,
+        fact_kind_versions=(('case', 'repair', 3), ('case', 'repair', 4)),
         fallback_object_types=(),
     ))
     # M7.3.1：维修预约与实际到店接待（service_intake）静态注册。
@@ -619,7 +635,8 @@ def register_adapters(registry):
     # M7.1.1：售前接待（lead）静态注册；映射固定，不做发现或动态导入。
     registry.register(DomainAdapterSpec(
         name='lead', factory=LeadAdapter, object_types=('case',),
-        operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
+        # Generic Flow operations already have exactly one result/receipt provider.
+        operation_ids=(),
         # 原 flow_version 1 的 lead；对象选择与事实适用性分开声明。
         kind_versions=(('case', LEAD_KIND, 1),),
         fact_kind_versions=(('case', LEAD_KIND, 1),),

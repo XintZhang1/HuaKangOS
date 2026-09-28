@@ -1,13 +1,18 @@
 /* M6.3 事项侧栏与两列工作台布局。只覆盖 .ba-runtime-workspace 根下的助手布局，
  * 不改原十模块样式；断点 1024px 抽屉化、768px 当前事项单列。 */
-.ba-runtime-workspace{display:grid;grid-template-columns:280px minmax(0,1fr);gap:0;min-height:0;min-width:0}
-.ba-runtime-workspace>.ba-side-host{min-width:0;border-right:1px solid #e8edf3;background:#f8fafc;overflow:auto}
+.ba-runtime-workspace{display:grid;grid-template-columns:280px minmax(0,1fr);gap:0;flex:1;min-height:0;min-width:0}
+.ba-runtime-workspace>.ba-side-host{min-width:0;padding:14px 12px;border-right:1px solid #e8edf3;background:#f8fafc;overflow:auto}
 .ba-runtime-workspace>.ba-current{display:flex;flex-direction:column;min-width:0;min-height:0}
 #ba-current-heading{margin:0;padding:14px 18px 6px;font-size:17px}
 #ba-current-plan{padding:0 18px 10px;border-bottom:1px solid #eef2f7}
 #ba-current-plan:empty{display:none}
 .ba-current-hint,.ba-current-wait,.ba-current-note,.ba-current-status{margin:4px 0;color:#5b6b7c;font-size:13px}
-.ba-current-flow{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
+.ba-current-flow{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,1fr);grid-template-rows:auto minmax(0,1fr);min-height:0;flex:1 1 auto}
+.ba-current-flow>.ba-chat{grid-column:1;grid-row:2}
+.ba-current-flow>.ba-cards{grid-column:2;grid-row:2}
+.ba-current-flow>.ba-handoff-choice,.ba-current-flow>.ba-handoff-label{grid-column:1/-1;grid-row:1}
+.ba-current-flow.no-cards{grid-template-columns:minmax(0,1fr)}
+.ba-current-flow.no-cards>.ba-cards{display:none}
 .ba-current-flow>.ba-chat{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
 .ba-current-flow .ba-compose{position:sticky;bottom:0;background:#fff}
 .ba-runtime-workspace .ba-cards{max-height:none}
@@ -58,3 +63,13 @@
 .ba-notice.unread button{font-weight:600}
 .ba-notice-meta,.ba-notice-empty{margin:2px 0;color:#5b6b7c;font-size:12px}
 .ba-notice-error{margin:2px 0;color:#b3261e;font-size:12px}
+
+/* Bind the existing chat/card tabs to the Runtime DOM, not the removed .ba-workspace. */
+@media(max-width:1050px){
+ .ba-current-flow{grid-template-columns:minmax(0,1fr)}
+ .ba-current-flow>.ba-cards{grid-column:1;border-left:0}
+ .ba-runtime-workspace[data-pane="chat"] .ba-current-flow>.ba-cards{display:none}
+ .ba-runtime-workspace[data-pane="chat"] .ba-current-flow>.ba-chat{display:flex}
+ .ba-runtime-workspace[data-pane="cards"] .ba-current-flow>.ba-chat{display:none}
+ .ba-runtime-workspace[data-pane="cards"] .ba-current-flow>.ba-cards{display:flex}
+}

@@ -2,11 +2,13 @@ from datetime import timedelta
 import hashlib
 import hmac
 import secrets
+import sqlite3
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
 from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy import select, func, or_, delete
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 from .config import settings
 from .db import get_db, utcnow
 from .models import User, LoginSession, LoginAttempt
@@ -43,6 +45,25 @@ def verify_password(password: str, encoded: str) -> bool:
 
 
 def authenticate(db: Session, username: str, password: str, ip: str) -> User:
+    """Restart one stale SQLite read snapshot before any login session is issued.
+
+    Password verification can overlap the Runtime worker's commit. A WAL read
+    snapshot then cannot be promoted to a writer. Only that precise pre-commit
+    failure is retried; re-read the account and throttle rather than trusting the
+    stale User. Native business requests and unknown commit outcomes are never
+    retried here. The second failure propagates normally.
+    """
+    try:
+        return _authenticate_once(db, username, password, ip)
+    except OperationalError as exc:
+        if (db.get_bind().dialect.name != 'sqlite'
+                or getattr(exc.orig, 'sqlite_errorcode', None) != sqlite3.SQLITE_BUSY_SNAPSHOT):
+            raise
+        db.rollback()
+    return _authenticate_once(db, username, password, ip)
+
+
+def _authenticate_once(db: Session, username: str, password: str, ip: str) -> User:
     username = username.lower()
     cutoff = utcnow() - timedelta(minutes=15)
     failures = db.scalar(select(func.count()).select_from(LoginAttempt).where(
