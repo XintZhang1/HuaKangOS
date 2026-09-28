@@ -45,6 +45,21 @@ run `20260928T144342Z-875dbfaa7d`，`phase_complete=true`，源码指纹 `9bebdc
 4. **撤权即停**："无授权/撤权不能继续或泄露结果"的会话级演练（含 `access_signals` 事件路径）；
 5. **同断言结果稳定性**：同一故障脚本重复运行的**结果级**稳定性（本轮仅覆盖纯函数级稳定性）。
 
+## 2b. 剩余项的夹具条件（本轮已核对，纠正此前假设）
+
+此前记录称 “`V/tests/runtime|integration|fault` 均不存在→故障注入套件需新建”，这一条只说明目录不存在，
+**不代表没有 DB 夹具**。本轮核对 `$ValidationRoot/tests/baseline/overlay/tests/conftest.py`（3754 字节），
+其中已提供以下夹具：
+
+- `isolated_database`：Base.metadata.drop_all(engine); Base.metadata.create_all(engine) with sqlite3.connect(TEST_DATABASE) as c: c.execute('PRAGMA journal_mode=WAL') with SessionLocal() as db: db.add(Store(id=1,code='MAIN',name='默认门店')); db.
+- `client`：with TestClient(app) as client: login(client) yield client
+- `login`：r=client.post('/api/auth/login',json={'username':username,'password':password},headers={'X-App-Request':'1'}) assert r.status_code==200,r.text client.headers['X-CSRF-Token']=client.cookies.get('dealer_csrf') return r.json()
+- `registered_subprocess_fixture`、`_provenance_sqlite_connect`：分别用于登记子进程夹具与来源库连接。
+
+→ 因此第 2 节剩余 5 项中的 **重复事件注入、批量部分失败即暂停、端到端零写入计数、撤权即停、延迟注入**
+**均可**在既有 overlay 夹具上落地（新增用例放在同一 M8.1 套件内即可），无需另起运行环境；
+下一轮按此路径继续，不降低断言。
+
 ## 3. 本轮实测发现的真实事实（已纳入套件）
 
 - `_work_key` 的 scope 还要求 **`intent_version`**（首轮因缺该键直接 `KeyError`）→ 已写入夹具，
