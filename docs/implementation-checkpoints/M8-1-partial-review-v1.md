@@ -145,7 +145,6 @@ DB 套件由 1 项通过推进到 **4 项通过 / 1 项失败**（run `20260928T
 
 
 ## 2h. 第六轮：第 ③ 项「无授权不能继续」的直接证据（授权闸门零容忍）
-
 新用例追加进 `m81-freeze-confirmation-db` 命令后，两条命令同时通过：
 **run `20260928T145741Z-963ec6b936`**，`status=passed`、`phase_complete=true`，
 源码指纹 `e667ed446c3f3c88e99c3aefa51e4450d46bd90e65746061bfdd55e76f102532`。
@@ -184,6 +183,27 @@ DB 套件由 1 项通过推进到 **4 项通过 / 1 项失败**（run `20260928T
 
 **仍未完成**：③ 的**会话级**演练（真实 HTTP 会话在撤权后不得继续/泄露结果，含 `access_signals` 的两条事件路径）、
 旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入。
+
+## 2j. 第八轮：旧租约不能覆盖新状态的**精确 CAS 语义**（逐字核对，DB 演练的断言清单）
+
+`assistant_runtime_events._append_queue_transition(db, run, *, previous_status, clock)` 的守卫（逐条）：
+
+1. `_attached(db, run)`：run 必须在当前会话中附着；
+2. **重复目标态不发事件**：`previous_status == run.status` 时直接 `return None`（心跳/停止请求/重复目标态都不得产生事件）；
+3. **必须能证明已提交的前态**：取 `old = _committed(db, run.id)`；
+   - `old is None` 时**仅允许** `previous_status is None and run.status == 'queued'`（首次入队），否则 `_conflict()`；
+4. **严格 CAS（旧租约不得覆盖新状态）**：当 `old` 存在时，以下任一情况都 `_conflict()`：
+   - `old['status'] != previous_status`（前态对不上）；
+   - **`run.version <= old['version']`（版本未前进 → 旧租约写入被拒）**；
+   - `(id, owner_id, store_id, session_id)` 与已提交记录不一致（身份/门店/会话被改）。
+5. 通过后以 `old[...]` 为 floor 落事件（事件不早于已提交状态）。
+
+→ **第 4 条的 `run.version <= old['version']` 正是"旧租约不能覆盖新状态"的直接实现**，
+下一轮用真实 `Run` 行构造三种场景断言：① 前态不符 → 409；② 版本未前进（旧租约）→ 409；
+③ `previous_status == run.status` → 返回 None 且不落事件。
+
+`Run` 必填列已初步核对：`id`/`owner_id`/`store_id`/`session_id`/`trigger_kind`/`trigger_key`/
+`request_digest`/`auth_kind`（+ `plan_id`/`request_id`/`entry_context` 可空），构造时仍需按其真实默认值补齐（预计 1 次迭代）。
 
 ## 4. 状态登记
 
