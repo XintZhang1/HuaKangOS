@@ -112,6 +112,9 @@ from .dictionary_entry import (DICT_CATALOG, DICT_CREATE, DICT_FACTS, DICT_LIST,
                                  DICT_OBJECT_TYPE, DICT_UPDATE, DictionaryEntryAdapter)
 from .system_readonly import (SYS_FACTS, SYS_OBJECT_TYPE, SYS_PARAMETERS,
                                 SYS_STORES, SystemReadonlyAdapter)
+from .escalation_request import (ESC_ACTIONS, ESC_CREATE, ESC_FACTS, ESC_INDEX,
+                                    ESC_REFUSALS, ESC_TYPE, ESC_UNREGISTERED_ACTION,
+                                    REFUSAL_TYPE, EscalationRequestAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -205,7 +208,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'DICT_CATALOG', 'DICT_CREATE', 'DICT_FACTS', 'DICT_LIST', 'DICT_OBJECT_TYPE',
            'DICT_UPDATE', 'DictionaryEntryAdapter',
            'SYS_FACTS', 'SYS_OBJECT_TYPE', 'SYS_PARAMETERS', 'SYS_STORES',
-           'SystemReadonlyAdapter']
+           'SystemReadonlyAdapter',
+           'ESC_ACTIONS', 'ESC_CREATE', 'ESC_FACTS', 'ESC_INDEX', 'ESC_REFUSALS', 'ESC_TYPE',
+           'ESC_UNREGISTERED_ACTION', 'REFUSAL_TYPE', 'EscalationRequestAdapter']
 
 
 def register_adapters(registry):
@@ -219,6 +224,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.11.4：评审升级申请（escalation_request）静态注册；只准备，人工处理动作不代办。
+    registry.register(DomainAdapterSpec(
+        name='escalation_request', factory=EscalationRequestAdapter,
+        object_types=(ESC_TYPE, REFUSAL_TYPE),
+        operation_ids=(ESC_INDEX, ESC_REFUSALS, ESC_CREATE),
+        fact_keys=ESC_FACTS,
+        fallback_object_types=(),
     ))
     # M7.11.3：系统只读面（system_readonly）静态注册；只保留原已评审的 stores/parameters 只读，零事实键。
     registry.register(DomainAdapterSpec(
