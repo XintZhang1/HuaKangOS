@@ -27,8 +27,21 @@
 ## 3. 已核对的原实现线索
 
 `app/insurance_service.py` 含 `is_detailed`、`can_read`、`get_order`、`_quote`、`_policy`、
-`_previous_policy_id`、`_applied`、`_execute` 等函数（投影函数名**尚未逐字确认**，实现前需读一次
-`get_order`/详情构造，确认 `quote`/`consent`/`result`/`policy` 在详情中的**真实字段名**）。
+`_previous_policy_id`、`_applied`、`_execute` 等函数。
+
+**已逐字确认（本轮第二次读取）**：
+
+- 路由：`@router.get('/{case_id}')` → `service.describe(db, user, service.get_order(db, user, case_id))`；
+- **key 就是原 `Case.id`**：`get_order(db, user, key)` 内部为 `single_store(db)` → `_role(user, READ)` →
+  `row = flow.get_case(db, user, key)` →（`is_detailed` 不成立则 `404 本店独立保险单不存在`）→
+  `_one(db, InsuranceOrder, row.id)` → 返回**原 case 行**；写入侧同为
+  `@router.post('/{case_id}/actions/{action}')` → `command(case_id, action, body)`；
+- 附件证明：`_proof(..., financial=False)` 取 `authorization`（财务类取 `receipt`），
+  `asset.generated` 或 `can_file` 不通过即 403「须上传…」——
+  **附件存在不等于业务事实**，事实层不得以附件作为满足条件。
+
+**仍需逐字确认**：`insurance_service.describe()` 投影中 `quote`/`consent`/`result`/`policy`
+的**真实字段名**（`quote_id`/`digest`/`submission_id`/`outcome`/`policy_number` 是否与计划用词一致）。
 
 ## 4. 下一步（下一轮第一步，不虚构完成）
 
