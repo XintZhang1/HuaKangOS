@@ -71,6 +71,8 @@ from .member_price import (PRICE_ACTION, PRICE_ACTIONS, PRICE_CANDIDATES, PRICE_
 from .business_finance_order import (FINANCE_ACTION, FINANCE_ADVANCES, FINANCE_CREATE,
                                     FINANCE_FACTS, FINANCE_READ, FINANCE_RECEIPTS,
                                     FINANCE_SOURCES, BusinessFinanceOrderAdapter)
+from .invoice import (INVOICE_ACTION, INVOICE_ACTIONS, INVOICE_CREATE, INVOICE_FACTS,
+                      INVOICE_READ, INVOICE_SOURCE, INVOICE_SOURCES, InvoiceAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -129,7 +131,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'PRICE_ACTION', 'PRICE_ACTIONS', 'PRICE_CANDIDATES', 'PRICE_CREATE', 'PRICE_FACTS',
            'PRICE_OBJECT_TYPE', 'PRICE_READ', 'MemberPriceAdapter',
            'FINANCE_ACTION', 'FINANCE_ADVANCES', 'FINANCE_CREATE', 'FINANCE_FACTS',
-           'FINANCE_READ', 'FINANCE_RECEIPTS', 'FINANCE_SOURCES', 'BusinessFinanceOrderAdapter']
+           'FINANCE_READ', 'FINANCE_RECEIPTS', 'FINANCE_SOURCES', 'BusinessFinanceOrderAdapter',
+           'INVOICE_ACTION', 'INVOICE_ACTIONS', 'INVOICE_CREATE', 'INVOICE_FACTS', 'INVOICE_READ',
+           'INVOICE_SOURCE', 'INVOICE_SOURCES', 'InvoiceAdapter']
 
 
 def register_adapters(registry):
@@ -143,6 +147,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.8.2：发票（invoice）静态注册；InvoiceApplication.id 与原 Case.id 相同。
+    registry.register(DomainAdapterSpec(
+        name='invoice', factory=InvoiceAdapter, object_types=('case',),
+        operation_ids=(INVOICE_READ, INVOICE_CREATE, INVOICE_ACTION),
+        fact_keys=INVOICE_FACTS,
+        fallback_object_types=(),
     ))
     # M7.8.1：预收与结算（business_finance_order）静态注册；key 一律取原 Case.id。
     registry.register(DomainAdapterSpec(

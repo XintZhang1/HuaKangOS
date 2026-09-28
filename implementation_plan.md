@@ -92,7 +92,7 @@
 | CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | **计划内部不一致（待业主确认）** | — | 本表引用的 M7.6.4/M7.6.5 在计划正文中**没有对应条目**（正文 M7.6 组只有 M7.6.1—M7.6.3，其后直接为 M7.7.1）；按正文编号顺序继续实施 M7.7.1，不自行虚构缺失条目；此不一致由实施者如实登记，不擅自改动业主计划的分组意图 |
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益 | implementation_released | docs/implementation-checkpoints/M7-7-1-review-v1.md；M7-7-2-review-v1.md；M7-7-3-review-v1.md | M7.7.1（8 项）、M7.7.2（9 项）、M7.7.3（6 项）均已落盘并实测通过；**M7.7.3 权益快照/事实因 member↔customer 维度不匹配待评审补齐**（已如实登记，未伪造）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.4（CP-26） |
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | implementation_released | docs/implementation-checkpoints/M7-7-4-review-v1.md；M7-7-5-review-v1.md；M7-7-6-review-v1.md | M7.7.4（8 项）、M7.7.5（6 项）、M7.7.6（9 项）均已落盘并实测通过；**M7.7.5 套餐事实因 purchase↔member 维度不匹配待评审补齐**（已如实登记）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.8.1（CP-27） |
-| CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | in_progress | docs/implementation-checkpoints/M7-8-1-review-v1.md | M7.8.1（business_finance_order，7 项）已 implemented 并实测通过；M7.8.2/M7.8.3 未开始，故不记 implementation_released |
+| CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | in_progress | docs/implementation-checkpoints/M7-8-1-review-v1.md；M7-8-2-review-v1.md | M7.8.1（7 项）与 M7.8.2（7 项）已 implemented 并实测通过；M7.8.3 未开始，故不记 implementation_released |
 | CP-28 | M7.8.4—M7.8.5 | 店间清算、其他收入 | not_ready | — | — |
 | CP-29 | M7.9.1—M7.9.3 | 库存仓储、期间入出存、维修领料 | not_ready | — | — |
 | CP-30 | M7.9.4—M7.9.6 | 收入成本、活动、汇总统计 | not_ready | — | — |
@@ -3334,50 +3334,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/business_finance_order.py`（`BusinessFinanceOrderAdapter`，`object_types=('case',)`：快照单次只读 `GET /api/business-finance/orders/{key}`，**key 一律取原 `Case.id`**（显式拒绝用 `FinanceOrder.id` 替代 → 502），动作可用性一律 `unknown`；`extract_result` 覆盖财务族 operation（来源读不绑定结果）；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `finance.executed`（**原执行事件与原状态必须吻合**；只有其一即未知；理由保留原 purpose 且明确"执行成功不代表所有款项完成"）、`finance.cash_batch_recorded`（原 `FinanceCashBatch` 及分配）、`finance.correction_recorded`（原 `FinanceCorrection` 或明确更正结果）——**后两键依 purpose 选择实际存在的原事实，不适用/未提供时返回 unknown 而非 False**），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原金额公式。**实测拦截/修复**：首轮 7 项低于派生登记的 8 项下限，被 `below_registered_minimum` 如实判不完整；按实际规模对齐为 7 后通过（未虚增断言）。外部套件 `$ValidationRoot/tests/runtime_domains/test_business_finance_order.py`（7 项），run `20260928T135629Z-7d6fb61959` passed。详见 `docs/implementation-checkpoints/M7-8-1-review-v1.md`。源码指纹 `ba748f5b4030bde5a1f9b78d89df53840388ed3a0db8886fc9015ca396dc8882`。下一项 M7.8.2。
 
-### M7.8.2 发票申请、外部办理与结果复核
+### M7.8.2 发票
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.8.1 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `invoice` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/invoice_api.py`、`app/invoice_service.py`、`app/invoice_models.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/invoice.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_invoice.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/invoices/orders/{key} 与 /sources/{key}；approve/submit/failure/difference/record/review_result。
-
-**注册合同**：object_type=case（InvoiceApplication.id 与原 Case.id 相同）；adapter=`app/assistant_runtime_domains/invoice.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`invoice.submission_recorded`：原 submit 成功回执及本单实际外部提交记录；`invoice.result_recorded`：本单原 InvoiceResult；`invoice.result_reviewed`：原 review_result 成功回执与原结果复核事实一致。failure/difference 仍是原结果，不能当作发票已开。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：原蓝红票关系、可开票来源、实际外部结果及差异复核；发票不改现金事实。
-3. 接统一只读回执 resolver：flow_request_receipts，invoice_v3_ 摘要族。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：提交税务不等于已开票；外部失败/差异不成功；保险仅按实际确认佣金来源，不能拿代收保费作收入。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_invoice.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.8.2
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-8-3"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/invoice.py`（`InvoiceAdapter`，`object_types=('case',)`（`InvoiceApplication.id` 与原 Case.id 相同）：快照单次只读 `GET /api/invoices/orders/{key}`，**缺原来源单 502**（不补默认值），动作可用性一律 `unknown`；`extract_result` 覆盖发票族 operation（来源读不绑定结果）；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `invoice.submission_recorded`（原对外提交记录；**详情未提供即未知**，不据文字/日期断言；满足时明确"提交不等于开票成功"）、`invoice.result_recorded`（原 `InvoiceResult`；**failure/difference 仍是原结果但不代表发票已开具**）、`invoice.result_reviewed`（原 review_result 复核事实；未提供即未知；明确"复核不改变原开票结果本身"）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原余额公式。外部套件 `$ValidationRoot/tests/runtime_domains/test_invoice.py`（7 项），run `20260928T135748Z-2a3ce40540` passed。详见 `docs/implementation-checkpoints/M7-8-2-review-v1.md`。源码指纹 `306fb1da92501149609e4eb94d42c4e05c448c20a477eed3eef9d9714e92e267`。下一项 M7.8.3。
 
 ### M7.8.3 期间对账与月结冻结
 
