@@ -41,6 +41,8 @@ from .material_procurement import (PROC_ACTION, PROC_ACTIONS, PROC_CREATE,
                                   PROC_FACTS, PROC_READ, MaterialProcurementAdapter)
 from .procurement_prepayment import (PREPAY_ACTION, PREPAY_ACTIONS, PREPAY_FACTS,
                                     PREPAY_READ, ProcurementPrepaymentAdapter)
+from .warehouse_document import (WH_COMMAND, WH_CREATE, WH_FACTS, WH_OPERATIONS,
+                                WH_READ, WarehouseDocumentAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -75,7 +77,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'PROC_ACTION', 'PROC_ACTIONS', 'PROC_CREATE', 'PROC_FACTS', 'PROC_READ',
            'MaterialProcurementAdapter',
            'PREPAY_ACTION', 'PREPAY_ACTIONS', 'PREPAY_FACTS', 'PREPAY_READ',
-           'ProcurementPrepaymentAdapter']
+           'ProcurementPrepaymentAdapter',
+           'WH_COMMAND', 'WH_CREATE', 'WH_FACTS', 'WH_OPERATIONS', 'WH_READ',
+           'WarehouseDocumentAdapter']
 
 
 def register_adapters(registry):
@@ -89,6 +93,13 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.5.3：仓储单据（warehouse_document）静态注册。
+    registry.register(DomainAdapterSpec(
+        name='warehouse_document', factory=WarehouseDocumentAdapter, object_types=('case',),
+        operation_ids=(WH_READ, WH_CREATE, WH_COMMAND),
+        fact_keys=WH_FACTS,
+        fallback_object_types=(),
     ))
     # M7.5.2：物资采购预付（procurement_prepayment）静态注册。
     registry.register(DomainAdapterSpec(

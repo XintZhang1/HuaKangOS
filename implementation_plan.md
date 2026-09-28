@@ -87,7 +87,7 @@
 | CP-19 | M7.3.1—M7.3.3 | 接待维修、领退料、返修 | implementation_released | docs/implementation-checkpoints/M7-3-1-review-v1.md；M7-3-2-review-v1.md；M7-3-3-review-v1.md | M7.3.1（9 项）、M7.3.2（9 项）、M7.3.3（10 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.3.4（CP-20） |
 | CP-20 | M7.3.4—M7.3.5 | 理赔核赔、真实进出厂 | implementation_released | docs/implementation-checkpoints/M7-3-4-review-v1.md；M7-3-5-review-v1.md | M7.3.4（claim_order，8 项）与 M7.3.5（gate_visit，8 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.4.1（CP-21） |
 | CP-21 | M7.4.1—M7.4.3 | 精品销售、套餐核销、零售集团 | implementation_released | docs/implementation-checkpoints/M7-4-1-review-v1.md；M7-4-2-review-v1.md；M7-4-3-review-v1.md | M7.4.1（9 项）、M7.4.2（9 项）、M7.4.3（7 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.5.1（CP-22） |
-| CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | in_progress | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md | M7.5.1（8 项）与 M7.5.2（8 项）已 implemented 并实测通过；M7.5.3 未开始，故不记 implementation_released |
+| CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | implementation_released | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md；M7-5-3-review-v1.md | M7.5.1（8 项）、M7.5.2（8 项）、M7.5.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.6.1（CP-23） |
 | CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | not_ready | — | — |
 | CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | not_ready | — | — |
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益单位 | not_ready | — | — |
@@ -3212,48 +3212,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/procurement_prepayment.py`（`ProcurementPrepaymentAdapter`，`object_types=('case',)`：快照单次只读 `GET /api/procurement/orders/{case_id}`（原采购详情已挂预付款面，未启用门店即视为不完整），六个 `prepay_*` 动作仍挂原采购动作且可用性一律 `unknown`；`extract_result` 覆盖采购族 operation；`read_receipt` 继续沿采购 flow_req 族并保持冻结 `request_id`；事实 `prepayment.approval_recorded`（原 `PurchasePrepaymentDecision.action='approve'`，理由带申请 ID 且明确"批准不等于已实际付款"，拒绝不满足）、`prepayment.disbursement_recorded`（该申请 `paid_cents>0`，对应原 disbursement/allocations 指向真实 `payment_id`；只证明该申请一笔，不串到另一申请）、`prepayment.expiration_recorded`（必须有原 `expire` 决定/成功结果；**仅 `valid_until` 过期不制造已过账事实**）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原状态机。外部套件 `$ValidationRoot/tests/runtime_domains/test_procurement_prepayment.py`（7 项），run `20260928T133942Z-36bb9fca5b` passed。详见 `docs/implementation-checkpoints/M7-5-2-review-v1.md`。源码指纹 `febd9b70876c3648f3d32ef106987d25fc9bcd5ff9d535bafcff1354025c2749`。下一项 M7.5.3。
 
-### M7.5.3 物资库位收发、移库与盘点
+### M7.5.3 仓储单据
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；7 项通过）
 
 **全局顺序前置**：M7.5.2 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：映射/快照/三条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `warehouse_document` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/warehouse_api.py`、`app/warehouse_service.py`、`app/warehouse_models.py`、`app/warehouse_stock.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/warehouse_document.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_warehouse_document.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/warehouse/cases/{case_id}；operation=activate/other_in/other_in_return/consumable/consumable_return/gift/gift_return/disposal/local_move/count；commands 见 LABELS。
-
-**注册合同**：object_type=case（原仓储 Case.id；operation 由原 Warehouse 业务详情给出）；adapter=`app/assistant_runtime_domains/warehouse_document.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`warehouse.entry_recorded`：本单原 WarehouseEntry；`warehouse.count_observed`：本单原 CountObservation；`warehouse.count_posted`：本单原 post_count 成功回执及实际盘差 StockMove。实盘观察/批准/准备分配均不满足实际过账键。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：实际 WarehouseEntry、库位余额/在途、原收发来源、CountObservation 与已批准盘差；不自行计算可写余额。
-3. 接统一只读回执 resolver：flow_request_receipts，warehouse_create/warehouse_<action>/warehouse_allocation 摘要分别匹配。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：capture 实盘观察不等于 post_count；在途拒收与返位各为原动作；分配 prepared 不是实际出库；负库存/未知成本由原API拒绝。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_warehouse_document.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.5.3
-```
-
-**勾选验收**：
-
-- [ ] 在隔离夹具中“读取→准备→测试员工点击原确认→重读事实”通过；卡片准备本身不产生业务写入。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 原 native result 与回执类型正确；缺回执/失权/摘要不符均不能把步骤标为完成。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/warehouse_document.py`（`WarehouseDocumentAdapter`，`object_types=('case',)`：快照单次只读 `GET /api/warehouse/cases/{case_id}`，ID 不一致或未登记 operation 一律 502（不补默认值），动作可用性一律 `unknown`；`extract_result` 覆盖仓储族 operation；`read_receipt` 沿原 `digest(action, values)` 摘要族并保持冻结 `request_id`；事实 `warehouse.entry_recorded`（原详情流水至少一笔；未提供即未知）、`warehouse.count_observed`（原 `WarehouseCountObservation`，明确"实盘观察不等于已过账"）、`warehouse.count_posted`（必须原 post_count 回执**且**实际盘差 StockMove；实盘观察/批准/准备分配都不满足，未提供标记即未知，无差异明确未满足）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未改原状态机。外部套件 `$ValidationRoot/tests/runtime_domains/test_warehouse_document.py`（7 项），run `20260928T134114Z-d3d89577cf` passed。详见 `docs/implementation-checkpoints/M7-5-3-review-v1.md`。源码指纹 `024186c59cb2bc9972b26fd01218ea60e1dc07523de0fe670a695f329a260441`。**遗留**：盘差过账与出入库流的判定需评审补只读标记。下一项 M7.6.1。
 
 ## M7.6 客户档案、服务、提醒与问卷
 
