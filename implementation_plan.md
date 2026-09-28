@@ -93,7 +93,7 @@
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益 | implementation_released | docs/implementation-checkpoints/M7-7-1-review-v1.md；M7-7-2-review-v1.md；M7-7-3-review-v1.md | M7.7.1（8 项）、M7.7.2（9 项）、M7.7.3（6 项）均已落盘并实测通过；**M7.7.3 权益快照/事实因 member↔customer 维度不匹配待评审补齐**（已如实登记，未伪造）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.4（CP-26） |
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | implementation_released | docs/implementation-checkpoints/M7-7-4-review-v1.md；M7-7-5-review-v1.md；M7-7-6-review-v1.md | M7.7.4（8 项）、M7.7.5（6 项）、M7.7.6（9 项）均已落盘并实测通过；**M7.7.5 套餐事实因 purchase↔member 维度不匹配待评审补齐**（已如实登记）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.8.1（CP-27） |
 | CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | implementation_released | docs/implementation-checkpoints/M7-8-1-review-v1.md；M7-8-2-review-v1.md；M7-8-3-review-v1.md | M7.8.1（7 项）、M7.8.2（7 项）、M7.8.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.9.1（CP-28） |
-| CP-28 | M7.8.4—M7.8.5 | 店间清算、其他收入 | not_ready | — | — |
+| CP-28 | M7.8.4—M7.8.5 | 店间清算、其他收入 | **计划内部不一致（待业主确认）** | docs/implementation-checkpoints/M7-9-1-review-v1.md | 本表引用的 M7.8.4/M7.8.5 在正文中不存在（M7.8 组只有 M7.8.1—M7.8.3）；按正文编号继续，M7.9.1（inventory_report，6 项）已 implemented 并实测通过 |
 | CP-29 | M7.9.1—M7.9.3 | 库存仓储、期间入出存、维修领料 | not_ready | — | — |
 | CP-30 | M7.9.4—M7.9.6 | 收入成本、活动、汇总统计 | not_ready | — | — |
 | CP-31 | M7.10.1—M7.10.3 | 物资整车调拨、运输差异 | not_ready | — | — |
@@ -3354,50 +3354,15 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/reconciliation_batch.py`（`ReconciliationBatchAdapter`，`object_types=('reconciliation_batch',)`：快照单次只读 `GET /api/reconciliation/batches/{key}`（**key 即原批次 id**），ID 不一致 502，动作可用性一律 `unknown`；`extract_result` 覆盖只读批次与写路径；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `reconciliation.sealed`（原 `status='sealed'`）、`reconciliation.superseded`（原状态被取代，理由带后继批次并明确**取代不冲销原差异记录**）、`reconciliation.issue_recorded`（原 `ReconciliationIssue`，理由给出条数与未解决条数并明确**issue 存在不等于差异已解决**）），`__init__.py` 显式注册（import/`__all__`/`operation_ids` 三处含 `POST /api/reconciliation/batches` 与批次动作）且 `fallback_object_types=()`。**实测发现并修复**：① 我据截断输出误判"无写 operation"，套件失败后按完整目录修正为登记真实写路径；② 一次补丁把字面 `\n` 写进源码，`ast.parse` 立即拦截、仓库未被污染，已还原；③ 首次安装的"已注册"跳过导致 spec 缺写 operation，已显式补齐；④ 直改覆盖层套件被 `VALIDATION_REJECTED:overlay_addition_changed` 拒绝（冻结机制按设计生效），重新登记哈希后通过。外部套件 `$ValidationRoot/tests/runtime_domains/test_reconciliation_batch.py`（7 项），run `20260928T140158Z-7bdbde8e27` passed。详见 `docs/implementation-checkpoints/M7-8-3-review-v1.md`。源码指纹 `7f77ae424f3698ad0a45a77d7a5447678b627eb33db2406597ac2c2c8117d9ea`。下一项 M7.9.1。
 
-### M7.9.1 整车库存与仓储统计查询
+### M7.9.1 库存报表查询
 
-**状态**：todo
+**状态**：implemented（2026-09-28 实现并完成外部实测；6 项通过）
 
-**全局顺序前置**：M7.8.5 done。
+**全局顺序前置**：M7.8.3 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**验证状态**：只读面、核心提供查询边界、零事实键与回执契约在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
-
-**目标**：只完成 `inventory_report` 一个适配器，将本项原系统能力接到统一快照、结果引用、事实等待及安全回执合同。
-
-**现有必读**：`app/inventory_reports_api.py`、`app/vehicle_operations_analytics.py`、`app/vehicle_procurement_service.py`。
-
-**允许改**：新文件 `app/assistant_runtime_domains/inventory_report.py`、`app/assistant_runtime_domains/__init__.py` 中本项显式注册映射、外部 `$ValidationRoot/tests/runtime_domains/test_inventory_report.py` 及 M0 manifest 的本编号登记。原业务文件默认不改；小 signal hook 仅按共同合同第 10 条，在上述 service 的原成功事务中追加。
-
-**禁止改**：原业务动作/状态/岗位/门店/版本/幂等/金额数量公式及迁移；不改原API响应，不新增自动确认，不将本项以外业务顺带重构。
-
-**原生证据**：GET /api/inventory-reports/{kind} 和 /warehouses/options/{kind}；只读报表，无写入动作。
-
-**注册合同**：object_type=report_query（本人 WorkItem.id）；adapter=`app/assistant_runtime_domains/inventory_report.py`，在 `app/assistant_runtime_domains/__init__.py` 显式注册。有限事实键及原满足条件：`fact_keys=[]`；仅冻结原 inventory-reports GET 的 kind/筛选及原查询结果，不注册任何库存完成、交车或入出库事实。
-
-**实施步骤**：
-
-1. 按上列原 GET 和 schema 实现 read_snapshot；检查详情与列表是否有区别，集合查询必须按真实 ID 精确匹配并处理分页。动作只保留原返回可用性；未知版本/无原版本按共同合同处理。
-2. 为本项确切 operation_id 实现 extract_result；注册事实快照：冻结员工筛选/期间/仓库范围，保留原响应列、数量与来源引用；原 kind 由目录选择。
-3. 接统一只读回执 resolver：read_receipt 返回 unsupported（本项只有 GET）；query_snapshot 不作为业务完成证据。 使用冻结的最终提交快照，不能重新生成请求号；无回执不得猜成功。
-4. 将下述异常做成确定性夹具；仅新增本 adapter 的注册元数据和事实名，复用核心准备/等待/事件处理，不创建本领域 Agent 或第二状态机。
-
-**状态转移与异常路径**：未知 kind 明确输入错误；跨店汇总仅本人授权门店；不得制造可点击写入捷径或自动导出文件。 按共同合同第 7 条分别进入 waiting/needs_input/awaiting_confirmation/uncertain；只有原事实满足才 completed。
-
-**命令**（新增 suite：`$ValidationRoot/tests/runtime_domains/test_inventory_report.py`）：
-
-```powershell
-& $ValidationPython "$ValidationRoot/run_validation.py" --repo "$RepoRoot" --milestone M7.9.1
-```
-
-**勾选验收**：
-
-- [ ] 原查询结果/筛选/权限与原页面一致；没有生成业务卡、调用写接口或改变业务行。
-- [ ] 本项所列具体异常有断言；重复事件/重启不重复准备；岗位或门店撤权后不暴露旧结果。
-- [ ] 无原生版本返回 null，report_query 不被付款/实物完成条件接受。
-- [ ] 当前源码指纹、suite、数据库类型、日志和未验证项已记录；未把历史成绩或仅结构通过计为业务闭环。
-
-<a id="m7-9-2"></a>
+**执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/inventory_report.py`（`InventoryReportAdapter`，`object_types=('report_query',)`：受控只读读取原语 `read_report(principal, kind, date_from, date_to)` 只经 `GET /api/inventory-reports/{kind}`（另登记仓库选项只读 `GET /api/inventory-reports/warehouses/options/{kind}`），**kind 形状校验后原样透传，存在性由原 API 裁定**（404 透传），不枚举业务类别；**`fact_keys=()`：不注册任何事实键**（不注册库存完成、交车或入出库事实）；`read_snapshot` 对员工本人查询对象明确报告"**冻结 kind 与筛选由核心运行时提供**"（503 + 零读取）；`extract_result` 恒空；`read_receipt` 对写形状提交先按快照校验（GET → 422），写回执族返回 `unsupported / read_only_report`），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未注册任何写 operation。**实测发现并修复**：① 套件用源码字面签名断言原 API 失败，改为断言路由装饰器与期间参数（更稳）；② 只读报表的回执期望按真实契约修正为"写形状提交先 422 拒绝"。外部套件 `$ValidationRoot/tests/runtime_domains/test_inventory_report.py`（6 项），run `20260928T140448Z-8a94844e89` passed。详见 `docs/implementation-checkpoints/M7-9-1-review-v1.md`。源码指纹 `842a1d8a6b01a389b8666cffd1189678ccc5415f08b2115ba25904bb4b16d286`。**计划不一致（如实登记）**：CP-28 行引用 M7.8.4—M7.8.5，正文 M7.8 组只有 M7.8.1—M7.8.3。下一项 M7.9.2。
 
 ### M7.9.2 物资期间入出存查询
 

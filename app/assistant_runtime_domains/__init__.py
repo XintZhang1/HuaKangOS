@@ -76,6 +76,8 @@ from .invoice import (INVOICE_ACTION, INVOICE_ACTIONS, INVOICE_CREATE, INVOICE_F
 from .reconciliation_batch import (BATCH_ACTION, BATCH_CLEARING, BATCH_CREATE, BATCH_FACTS,
                                    BATCH_OBJECT_TYPE, BATCH_ORIGINS, BATCH_READ,
                                    ReconciliationBatchAdapter)
+from .inventory_report import (REPORT_FACTS, REPORT_OBJECT_TYPE, REPORT_OPTIONS,
+                               REPORT_READ, InventoryReportAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -138,7 +140,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'INVOICE_ACTION', 'INVOICE_ACTIONS', 'INVOICE_CREATE', 'INVOICE_FACTS', 'INVOICE_READ',
            'INVOICE_SOURCE', 'INVOICE_SOURCES', 'InvoiceAdapter',
            'BATCH_ACTION', 'BATCH_CLEARING', 'BATCH_CREATE', 'BATCH_FACTS', 'BATCH_OBJECT_TYPE',
-           'BATCH_ORIGINS', 'BATCH_READ', 'ReconciliationBatchAdapter']
+           'BATCH_ORIGINS', 'BATCH_READ', 'ReconciliationBatchAdapter',
+           'REPORT_FACTS', 'REPORT_OBJECT_TYPE', 'REPORT_OPTIONS', 'REPORT_READ',
+           'InventoryReportAdapter']
 
 
 def register_adapters(registry):
@@ -152,6 +156,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.9.1：库存报表查询（inventory_report）静态注册；只读报表，不注册任何事实键。
+    registry.register(DomainAdapterSpec(
+        name='inventory_report', factory=InventoryReportAdapter,
+        object_types=(REPORT_OBJECT_TYPE,),
+        operation_ids=(REPORT_READ, REPORT_OPTIONS),
+        fact_keys=(),
+        fallback_object_types=(),
     ))
     # M7.8.3：月结冻结（reconciliation_batch）静态注册；key 即原 ReconciliationBatch.id。
     # 只读批次读取 + 已评审的 create 与批次动作。
