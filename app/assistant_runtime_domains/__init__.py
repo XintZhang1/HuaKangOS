@@ -110,6 +110,8 @@ from .typed_master import (KIND_TO_TYPE, MASTER_CATALOG, MASTER_CREATE, MASTER_F
                             MASTER_UPDATE, TypedMasterAdapter)
 from .dictionary_entry import (DICT_CATALOG, DICT_CREATE, DICT_FACTS, DICT_LIST,
                                  DICT_OBJECT_TYPE, DICT_UPDATE, DictionaryEntryAdapter)
+from .system_readonly import (SYS_FACTS, SYS_OBJECT_TYPE, SYS_PARAMETERS,
+                                SYS_STORES, SystemReadonlyAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
@@ -201,7 +203,9 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'MASTER_LIST', 'MASTER_LOOKUP', 'MASTER_OBJECT_TYPES', 'MASTER_UPDATE',
            'TypedMasterAdapter',
            'DICT_CATALOG', 'DICT_CREATE', 'DICT_FACTS', 'DICT_LIST', 'DICT_OBJECT_TYPE',
-           'DICT_UPDATE', 'DictionaryEntryAdapter']
+           'DICT_UPDATE', 'DictionaryEntryAdapter',
+           'SYS_FACTS', 'SYS_OBJECT_TYPE', 'SYS_PARAMETERS', 'SYS_STORES',
+           'SystemReadonlyAdapter']
 
 
 def register_adapters(registry):
@@ -215,6 +219,14 @@ def register_adapters(registry):
         name='flow_case', factory=FlowCaseAdapter, object_types=('case',),
         operation_ids=(FLOW_READ, FLOW_CREATE, FLOW_ACTION),
         fallback_object_types=('case',),
+    ))
+    # M7.11.3：系统只读面（system_readonly）静态注册；只保留原已评审的 stores/parameters 只读，零事实键。
+    registry.register(DomainAdapterSpec(
+        name='system_readonly', factory=SystemReadonlyAdapter,
+        object_types=(SYS_OBJECT_TYPE,),
+        operation_ids=(SYS_STORES, SYS_PARAMETERS),
+        fact_keys=(),
+        fallback_object_types=(),
     ))
     # M7.11.2：字典条目（dictionary_entry）静态注册；object_type=原 flow Reference.id，
     # group 属核心提供的冻结输入（适配器不猜 group、不跨组扫描）。
