@@ -3572,7 +3572,7 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
-**状态**：in_progress（两条登记命令同时通过，共 **28 项**：m81-fault-and-recovery-acceptance 11 项 + m81-freeze-confirmation-db 17 项，run `20260928T145741Z-963ec6b936`，phase_complete=true；已覆盖清单 ①②④⑤ 与 ③ 的"无授权不能继续"半项（授权闸门对除 True 外一切值 403）；**仍未完成**：③ 的撤权后既有会话不得继续/泄露（含 access_signals 路径）、旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md）
+**状态**：in_progress（两条登记命令同时通过，共 **30 项**：m81-fault-and-recovery-acceptance 11 项 + m81-freeze-confirmation-db 19 项，run `20260928T150035Z-a7799a50cc`，phase_complete=true；已覆盖清单 ①②④⑤ 与 ③ 的无授权/撤权两条闸门证据（授权闸门对除 True 外一切值 403；撤权或换岗后原提案 409；撤权信号受默认关闭的功能开关约束）；**仍未完成**：③ 的会话级演练（真实 HTTP 会话撤权后不得继续/泄露，含 access_signals 两条事件路径）、旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md）；**仍未完成**：③ 的撤权后既有会话不得继续/泄露（含 access_signals 路径）、旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md）
 
 **全局顺序前置**：M7.12.3 done。
 
