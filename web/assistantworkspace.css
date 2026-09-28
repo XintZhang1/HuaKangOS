@@ -1,0 +1,38 @@
+/* M6.3 事项侧栏与两列工作台布局。只覆盖 .ba-runtime-workspace 根下的助手布局，
+ * 不改原十模块样式；断点 1024px 抽屉化、768px 当前事项单列。 */
+.ba-runtime-workspace{display:grid;grid-template-columns:280px minmax(0,1fr);gap:0;min-height:0;min-width:0}
+.ba-runtime-workspace>.ba-side-host{min-width:0;border-right:1px solid #e8edf3;background:#f8fafc;overflow:auto}
+.ba-runtime-workspace>.ba-current{display:flex;flex-direction:column;min-width:0;min-height:0}
+#ba-current-heading{margin:0;padding:14px 18px 6px;font-size:17px}
+#ba-current-plan{padding:0 18px 10px;border-bottom:1px solid #eef2f7}
+#ba-current-plan:empty{display:none}
+.ba-current-hint,.ba-current-wait,.ba-current-note,.ba-current-status{margin:4px 0;color:#5b6b7c;font-size:13px}
+.ba-current-flow{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
+.ba-current-flow>.ba-chat{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
+.ba-current-flow .ba-compose{position:sticky;bottom:0;background:#fff}
+.ba-runtime-workspace .ba-cards{max-height:none}
+.ba-side{display:flex;flex-direction:column;gap:14px;padding:14px 12px}
+.ba-side-group h3{font-size:14px;margin:0}
+.ba-side-count{color:#5b6b7c;font-weight:400}
+.ba-side-sub,.ba-side-hint,.ba-side-meta,.ba-side-empty{margin:4px 0;color:#5b6b7c;font-size:12px}
+.ba-side-error{margin:4px 0;color:#b3261e;font-size:12px}
+.ba-side-notice{margin:4px 0;color:#8a5300;font-size:12px}
+.ba-side-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.ba-side-item{border:1px solid #e5eaf1;border-radius:9px;background:#fff;padding:8px 9px}
+.ba-side-item.selected{border-color:#2f6fdd;box-shadow:0 0 0 1px #2f6fdd inset}
+.ba-side-item>button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;border:0;background:none;text-align:left;cursor:pointer;font:inherit;color:inherit;padding:0}
+.ba-side-kind{color:#5b6b7c;font-size:11px}
+.ba-side-status{color:#5b6b7c;font-size:12px}
+.ba-side-mask{display:none}
+@media(max-width:1024px){
+ .ba-runtime-workspace{grid-template-columns:minmax(0,1fr)}
+ .ba-runtime-workspace>.ba-side-host{position:fixed;top:0;bottom:0;left:0;width:280px;max-width:86vw;z-index:40;
+  transform:translateX(-102%);transition:transform .18s ease;box-shadow:10px 0 30px #0003}
+ .ba-runtime-workspace.drawer-open>.ba-side-host{transform:none}
+ .ba-side-mask.shown{display:block;position:fixed;inset:0;background:#0000004d;z-index:39}
+}
+@media(max-width:768px){
+ .ba-runtime-workspace{grid-template-columns:minmax(0,1fr)}
+ #ba-current-plan{padding:0 12px 8px}
+ .ba-current-flow .ba-cards{border-left:0;border-top:1px solid #e8edf3}
+}

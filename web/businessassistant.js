@@ -3,6 +3,7 @@
 // model-produced JavaScript, HTML, URLs or arbitrary HTTP requests.
 let businessAssistantState;
 function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null,cards:{},folded:{},panelFolded:false,answers:{},lastAction:null,queueFilter:'pending',activeCardId:null,historyOpen:false,mobilePane:'chat',receipt:null,workboard:null,workPlanId:null,workError:'',workLoading:false,workSerial:0,runtimeFeatures:null,runId:null,runView:null,runSubscription:null,runStop:''};}
+function businessAssistantWorkspaceModule(){return globalThis.AssistantWorkspace||null;}
 function businessAssistantAnswers(id){const key=String(id);if(!businessAssistantState.answers[key])businessAssistantState.answers[key]={};return businessAssistantState.answers[key];}
 function businessAssistantCardQuestions(proposal){
  const questions=Array.isArray(proposal?.questions)?proposal.questions:[];
@@ -27,6 +28,7 @@ function businessAssistantReleaseRuntime(){
  const current=businessAssistantState;
  if(current?.runSubscription){try{current.runSubscription();}catch{}current.runSubscription=null;}
  if(typeof globalThis.AssistantRuntime?.disposeContext==='function')globalThis.AssistantRuntime.disposeContext();
+ if(typeof businessAssistantWorkspaceModule()?.disposeContext==='function')businessAssistantWorkspaceModule().disposeContext();
  if(current){current.runId=null;current.runView=null;current.runStop='';}
 }
 function clearBusinessAssistantSession(){
@@ -225,7 +227,7 @@ function businessAssistantCardsPanel(){
  const chooser=selected?`<div class="ba-queue-navigation"><button type="button" data-ba-action="queue-prev" aria-label="查看上一项" ${index<=0?'disabled':''}>←</button><label class="ba-queue-choose"><span class="ba-visually-hidden">选择要查看的事项</span><select id="ba-queue-select" aria-label="选择要查看的事项">${q.visible.map((card,i)=>`<option value="${E(card.id)}" ${card.id===selected.id?'selected':''}>${i+1} / ${q.visible.length} · ${E(card.summary||card.label||'办理事项')}</option>`).join('')}</select></label><button type="button" data-ba-action="queue-next" aria-label="查看下一项" ${index>=q.visible.length-1?'disabled':''}>→</button></div><p class="ba-queue-progress">${E(progress)}</p>`:'';
  const batch=groupPending.length>1?`<details class="ba-batch-tools"><summary>本组有 ${groupPending.length} 项待确认 · 批量办理</summary><p>先逐项核对。本组按顺序逐项提交；遇到未办成或结果不明就暂停，已成功的不会回滚。</p><div class="row"><button type="button" data-ba-action="card-confirm-all" data-key="${E(q.group.key)}" ${busy?'disabled':''}>核对并办理本组</button><button type="button" data-ba-action="card-cancel-all" data-key="${E(q.group.key)}" ${busy?'disabled':''}>取消本组待确认卡</button></div></details>`:'';
  const emptyText=q.filter==='pending'?'目前没有待确认卡。已办完的在“已结束”，异常结果在“需处理”。':q.filter==='attention'?'目前没有需要核对或重新准备的卡片。':'目前没有已结束的卡片。';
- return `<aside class="ba-cards" id="business-assistant-cards" aria-label="办理事项"><div class="ba-cards-head"><div><strong>办理事项</strong></div></div><div id="business-assistant-workboard">${typeof businessAssistantWorkHTML==='function'?businessAssistantWorkHTML():''}</div><div class="ba-queue-tabs" aria-label="办理事项状态">${[['pending','待确认'],['attention','需处理'],['history','已结束']].map(([key,label])=>`<button type="button" data-ba-action="queue-filter" data-filter="${key}" aria-pressed="${q.filter===key}">${label} ${q.buckets[key].length}</button>`).join('')}</div><div class="ba-cards-list">${businessAssistantState.receipt?`<p class="ba-card-receipt" role="status">${E(businessAssistantState.receipt)}</p>`:''}${chooser}${selected?businessAssistantProposal(selected):`<p class="ba-cards-empty">${emptyText}</p>`}${batch}</div>${selected?businessAssistantConfirmBar(selected):''}</aside>`;
+ return `<aside class="ba-cards" id="business-assistant-cards" aria-label="办理事项"><div class="ba-cards-head"><div><strong>办理事项</strong></div></div><div class="ba-queue-tabs" aria-label="办理事项状态">${[['pending','待确认'],['attention','需处理'],['history','已结束']].map(([key,label])=>`<button type="button" data-ba-action="queue-filter" data-filter="${key}" aria-pressed="${q.filter===key}">${label} ${q.buckets[key].length}</button>`).join('')}</div><div class="ba-cards-list">${businessAssistantState.receipt?`<p class="ba-card-receipt" role="status">${E(businessAssistantState.receipt)}</p>`:''}${chooser}${selected?businessAssistantProposal(selected):`<p class="ba-cards-empty">${emptyText}</p>`}${batch}</div>${selected?businessAssistantConfirmBar(selected):''}</aside>`;
 }
 function paintBusinessAssistantCards(){
  const host=$('#business-assistant-cards');if(!host||state.route!=='business-assistant'||businessAssistantState.context!==businessAssistantContext())return false;
@@ -282,7 +284,11 @@ function businessAssistantChat(){
 }
 function businessAssistantWorkspace(){
  const current=businessAssistantState,q=businessAssistantQueue(),hasCards=q.all.length>0||Boolean(current.session?.work_plans?.length);
- return `<div class="ba-pane-tabs" aria-label="切换对话与办理事项"><button type="button" data-ba-action="pane-chat" aria-pressed="${current.mobilePane!=='cards'}">对话</button><button type="button" data-ba-action="pane-cards" aria-pressed="${current.mobilePane==='cards'}">办理事项 ${q.buckets.pending.length+q.buckets.attention.length}</button></div><div class="ba-workspace${hasCards?'':' no-cards'}" data-pane="${E(current.mobilePane)}">${businessAssistantChat()}${businessAssistantCardsPanel()}</div>`;
+ const sidebar=businessAssistantWorkspaceModule()?.renderSidebar?.()||'';
+ // M6.3：事项栏 + 当前事项两列；当前事项内固定为标题、计划、消息流、确认卡、输入区。
+ return `<div class="ba-pane-tabs" aria-label="切换对话与办理事项"><button type="button" data-baws-action="drawer" aria-expanded="false" aria-controls="ba-sidebar-root">我的事项</button><button type="button" data-ba-action="pane-chat" aria-pressed="${current.mobilePane!=='cards'}">对话</button><button type="button" data-ba-action="pane-cards" aria-pressed="${current.mobilePane==='cards'}">办理事项 ${q.buckets.pending.length+q.buckets.attention.length}</button></div>`
+  +`<div class="ba-runtime-workspace" data-pane="${E(current.mobilePane)}"><div class="ba-side-host" id="ba-sidebar-root" aria-label="我的事项">${sidebar}</div><div class="ba-side-mask" data-baws-action="drawer-close"></div>`
+  +`<section class="ba-current" id="ba-current"><h2 id="ba-current-heading">${E(current.session?.title||'新对话')}</h2><div id="ba-current-plan"></div><div class="ba-current-flow${hasCards?'':' no-cards'}">${businessAssistantChat()}${businessAssistantCardsPanel()}</div></section></div>`;
 }
 function businessAssistantIssues(){
  const categories={input:'资料填写',rule:'业务限制',system:'操作问题',model:'助手理解',unsupported:'尚不支持'};
@@ -296,6 +302,7 @@ async function businessAssistantPage(){
  if(state.store==='all')return heading('业务助手')+storeNotice();
  if(businessAssistantState.context!==businessAssistantContext()){clearBusinessAssistantSession();businessAssistantState.context=businessAssistantContext();}
  const current=businessAssistantState;if(current.busy)return businessAssistantHTML();const generation=++current.generation;
+ businessAssistantWorkspaceModule()?.load?.();
  const [status,sessions]=await Promise.all([businessAssistantRequest('/status'),businessAssistantRequest('/sessions')]);
  if(!businessAssistantCurrent(current,generation))return '';
  current.status=status;current.sessions=sessions.items||[];
@@ -316,6 +323,7 @@ function paintBusinessAssistant({focus=false}={}){
 }
 function bindBusinessAssistantPage(){
  if(typeof bindBusinessAssistantFiles==='function')bindBusinessAssistantFiles();
+ businessAssistantWorkspaceModule()?.mount?.(document.getElementById('ba-sidebar-root'));
  const form=$('#business-assistant-form');if(!form)return;
  const input=form.elements.message,send=$('[type=submit]',form);
  input.addEventListener('input',()=>{businessAssistantState.draft=input.value;send.disabled=businessAssistantState.busy||!businessAssistantState.status?.ready||businessAssistantState.session?.busy||businessAssistantState.needsRefresh||!input.value.trim();});
