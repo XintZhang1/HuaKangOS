@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from ..assistant_runtime_schemas import (AvailableAction, BusinessObjectRef, BusinessObjectSnapshot,
                                          EvidenceRef, FactSnapshot, ReceiptLookup, SubmissionSnapshot)
+from ..dossier_grant_rules import STATES as RECEIVER_STATES
 from .flow_case import FlowCaseAdapter, _positive_id
 
 DG_OBJECT_TYPE = 'dossier_grant'
@@ -124,6 +125,33 @@ class DossierGrantAdapter(FlowCaseAdapter):
                 return candidate.strip().lower()
         return None
 
+    @staticmethod
+    def _receiver_fact(fact_key, data, from_grant):
+        """接收店的等价事实：原详情只给有效状态，不给原决定明细。
+
+        有效状态由原店独立复核（且撤销后不会回到 approved）决定，且接收侧读取会再次
+        实测当前可读性，因此 `approved` 就是“原批准已登记且现在仍有效”的原接口证据，
+        不是从文字推断。其他状态不能证明当前有效的原批准。
+        """
+        effective = data.get('effective_status')
+        if type(effective) is not str or effective not in RECEIVER_STATES:
+            return _unknown(fact_key, '原详情未提供可判定的授权有效状态，请在原页面核对复核结果')
+        if effective == 'approved':
+            if fact_key == 'dossier.revocation_recorded':
+                return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_grant],
+                                    reason='此授权尚未记录原撤销决定，当前仍按原批准范围只读')
+            return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=[from_grant],
+                                reason='接收店由原详情有效状态证明原店已独立批准；批准历史不满足当前可读')
+        if fact_key == 'dossier.revocation_recorded':
+            if effective in {'revoked', 'cancelled'}:
+                return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=[from_grant],
+                                    reason='原详情有效状态为已撤销或已取消，原授权已结束')
+            return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_grant],
+                                reason='原详情有效状态为' + RECEIVER_STATES[effective] + '，尚无原撤销决定')
+        return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_grant],
+                            reason='原详情有效状态为' + RECEIVER_STATES[effective]
+                                   + '，不能证明原批准的当前有效范围')
+
     async def fact_snapshot(self, principal, ref, fact_key):
         if fact_key not in DG_FACTS:
             try:
@@ -164,6 +192,8 @@ class DossierGrantAdapter(FlowCaseAdapter):
         grant_ref = BusinessObjectRef(type=DG_OBJECT_TYPE, id=data['id'])
         from_grant = EvidenceRef(source_type='object', source_id=grant_ref,
                                  native_version=version, observed_at=observed_at)
+        if not data.get('source_side'):
+            return self._receiver_fact(fact_key, data, from_grant)
         decisions = self._decisions(data)
         if decisions is None:
             return _unknown(fact_key, '原详情未提供原决定明细（DossierDecision），请在原页面核对')

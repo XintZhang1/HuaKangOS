@@ -407,6 +407,8 @@ class PlanStepView(StrictDTO):
     wait_for: Annotated[str, Field(max_length=500)]
     status: StepStatus
     wait_reason: str | None
+    # 与侧栏同一份固定中文等待文案，避免把内部标识直接显示给员工。
+    waiting_label: str | None = None
     proposal_id: UUIDText | None = None
     proposal_ids: list[UUIDText] = Field(default_factory=list)
     object_ref: BusinessObjectRef | None = None
@@ -478,6 +480,8 @@ class WorkspaceItem(StrictDTO):
     status: str
     status_label: str
     waiting_reason: str | None = None
+    # 固定中文等待文案；不提供内部状态机标识给员工。未知原因保持为 None。
+    waiting_label: str | None = None
     due_at: UTCDateTime | None = None
     manual_route: str | None = None
     allowed_actions: list[ActionKey] = Field(default_factory=list)

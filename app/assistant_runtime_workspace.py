@@ -24,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 from sqlalchemy.orm.exc import StaleDataError
 
+from .assistant_runtime_labels import waiting_label
 from .assistant_runtime_principal import _reader, _login, _time
 from .assistant_runtime_schemas import BusinessObjectRef, WorkspaceItem, WorkspaceQuery, WorkspaceView
 from .business_assistant_models import AssistantProposal, AssistantSession, AssistantWorkPlan
@@ -156,6 +157,7 @@ def _due(value):
 
 
 def _entry(item, group, rank, *, version):
+    item.setdefault('waiting_label', waiting_label(item.get('waiting_reason')))
     item = WorkspaceItem.model_validate(item)
     when = _time(item.updated_at)
     micros = ((when - datetime(1970, 1, 1)).days * 86400000000

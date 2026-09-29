@@ -3,6 +3,7 @@
 - 只读 `GET /api/customer-service/cases/{case_id}`（reviewed catalog 内），不调用业务 command。
 - 跟进、交接、结案是三件不同的事实：**联系不到/拒绝联系保留原 contact_result，不能冒充成功联系**；
   跟进/交接记录只在原详情确实带可识别记录时判定，否则未知，不猜。
+- 结案状态沿用原状态机的 `completed`；取消不是结案，未登记状态返回未知。
 - 原 native version 取原详情的 version；缺失即 None，不造版本。
 """
 from datetime import datetime, timezone
@@ -25,6 +26,11 @@ CARE_RESULT_OPERATIONS = frozenset({CARE_READ, CARE_CREATE, CARE_ACTION})
 CARE_RECEIPT_OPERATIONS = frozenset({CARE_CREATE, CARE_ACTION})
 CARE_FACTS = ('care.followup_recorded', 'care.handoff_recorded', 'care.closed')
 RECORD_DISCRIMINATORS = ('action', 'kind', 'type')
+# 原关怀服务单的结案状态沿用原业务状态机：`close` 动作置 `completed`，`cancel` 置 `cancelled`。
+# 不另外发明 `closed` 这类未在原业务出现过的状态名。
+CARE_STATES = ('pending', 'working', 'completed', 'cancelled')
+CARE_CLOSED_STATE = 'completed'
+CARE_CANCELLED_STATE = 'cancelled'
 
 
 def _now():
@@ -127,10 +133,16 @@ class CustomerCareAdapter(FlowCaseAdapter):
             '原联系结果未标注'
 
         if fact_key == 'care.closed':
-            if data.get('state') == 'closed':
+            state = data.get('state')
+            if state == CARE_CLOSED_STATE:
                 return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[from_case])
-            return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
-                                reason='原关怀服务单当前不是已结案状态，请在原页面核对')
+            if state == CARE_CANCELLED_STATE:
+                return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
+                                    reason='原关怀服务单已取消，不是已结案；请在原页面核对')
+            if state in CARE_STATES:
+                return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
+                                    reason='原关怀服务单当前仍是待接手或跟进中，尚未结案')
+            return _unknown(fact_key, '原详情未提供可判定的关怀状态，请在原页面核对是否已结案')
 
         want = 'followup' if fact_key == 'care.followup_recorded' else 'handoff'
         if not records:

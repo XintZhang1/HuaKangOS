@@ -37,3 +37,17 @@ class ValidationSelection(unittest.TestCase):
             path.unlink()
         with self.assertRaises(ValueError):
             selected_suites(self.root)
+
+    def test_node_summary_markers_are_accepted_across_versions(self):
+        # The executed-test-count guard must not turn a green Node run into a
+        # failure (or a silent skip) just because the summary marker changed.
+        import re
+        pattern = re.compile(r'^[#\u2139] tests (\d+)$', re.M)
+        for marker in ('#', '\u2139'):
+            with self.subTest(marker=marker):
+                log = marker + ' tests 55\n' + marker + ' fail 0\n'
+                match = pattern.search(log)
+                self.assertIsNotNone(match)
+                self.assertEqual(int(match.group(1)), 55)
+                self.assertEqual(int(re.search(r'^[#\u2139] fail (\d+)$', log, re.M).group(1)), 0)
+        self.assertIsNone(pattern.search('tests 55\n'))

@@ -1,7 +1,8 @@
 """仓储单据（warehouse_document）适配器：原仓储 Case 的只读投影。
 
 - 只读 `GET /api/warehouse/cases/{case_id}`（reviewed catalog 内），不调用 business command。
-- 入库、盘点观察、实际盘差过账是三件不同的事实：**实盘观察/批准/准备分配都不满足实际过账键**。
+- 入库、盘点观察、实际盘差过账是三件不同的事实：**实盘观察/批准/准备分配都不满足实际过账键**；
+  无差异盘点同样不需要过账，只有本单已出现原盘差库存流水才满足。
 - 只在原详情确实提供对应事实时判定；未登记的读法一律未知，不猜。
 - 原 native version 取原详情的 version；缺失即 None，不造版本。
 """
@@ -22,6 +23,20 @@ WH_OPERATIONS = ('activate', 'other_in', 'other_in_return', 'consumable', 'consu
 WH_RESULT_OPERATIONS = frozenset({WH_READ, WH_CREATE, WH_COMMAND})
 WH_RECEIPT_OPERATIONS = frozenset({WH_CREATE, WH_COMMAND})
 WH_FACTS = ('warehouse.entry_recorded', 'warehouse.count_observed', 'warehouse.count_posted')
+_COUNT_PURPOSE = None
+
+
+def count_purpose():
+    """原仓储盘差库存流水的实际用途（当前 `wh_count`）。
+
+    取自原仓储模块本身，不另造一个标记名；首次使用时才导入，避免与原业务模块
+    在 import 期形成循环依赖（调用时应用已初始化）。
+    """
+    global _COUNT_PURPOSE
+    if _COUNT_PURPOSE is None:
+        from ..warehouse_service import PURPOSES
+        _COUNT_PURPOSE = PURPOSES['count']
+    return _COUNT_PURPOSE
 
 
 def _now():
@@ -140,16 +155,20 @@ class WarehouseDocumentAdapter(FlowCaseAdapter):
                                 reason='已登记原盘点观察（实盘 ' + str(counted) + '，账 ' + str(baseline) +
                                        '）；实盘观察不等于已过账')
 
-        # warehouse.count_posted：必须原 post_count 成功回执且存在实际盘差 StockMove；
-        # 实盘观察、批准、准备分配都不满足本键。该详情未提供盘差过账标记时返回未知。
-        moves = _items(data, 'stock_moves')
+        # warehouse.count_posted：只有本单零差异结案，或已出现原 post_count 过账的实盘差异
+        # StockMove，才算实际过账。实盘观察、批准、准备分配都不满足本键。
+        # 差异库存流水沿用原仓储 `PURPOSES['count']`（当前 `wh_count`），不另造标记名。
         count = data.get('count') if type(data.get('count')) is dict else None
-        difference = count.get('difference_milli') if count else None
-        if difference == 0 and count is not None:
-            return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
-                                reason='原盘点无差异，无需盘差过账')
-        for move in moves:
-            if move.get('purpose') == 'count_adjust' and _positive_id(move.get('id')):
+        if count is not None:
+            counted = count.get('counted_quantity_milli')
+            baseline = count.get('baseline_quantity_milli')
+            if type(counted) is not int or type(baseline) is not int:
+                return _unknown(fact_key, '原盘点观察数据不完整，不能判定是否已过账，请在原页面核对')
+            if counted == baseline:
+                return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
+                                    reason='原盘点无差异，没有需要过账的盘差')
+        for move in _items(data, 'stock_moves'):
+            if move.get('purpose') == count_purpose() and _positive_id(move.get('id')):
                 return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=[from_case],
                                     reason='已存在原盘差过账（StockMove）；实盘观察或批准本身不满足本键')
         return _unknown(fact_key, '需要原 post_count 成功回执与实际盘差 StockMove，'
@@ -184,4 +203,5 @@ class WarehouseDocumentAdapter(FlowCaseAdapter):
 
 
 __all__ = ['WH_COMMAND', 'WH_CREATE', 'WH_FACTS', 'WH_OPERATIONS', 'WH_READ',
-           'WH_RECEIPT_OPERATIONS', 'WH_RESULT_OPERATIONS', 'WarehouseDocumentAdapter']
+           'WH_RECEIPT_OPERATIONS', 'WH_RESULT_OPERATIONS', 'WarehouseDocumentAdapter',
+           'count_purpose']

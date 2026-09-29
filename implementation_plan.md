@@ -3572,6 +3572,20 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
+**2026-09-29 接续检查点 v5（本批实测）**：在真实上游祖先恢复后，修复三个“真实数据上永不成立”的事实适配缺陷与一处界面文案缺陷，并修好挡住本地复验的离线执行器缺口；完整离线回归 `complete=true`、`scope=full`、19 条命令退出码全 0、**259 项**（后端 190＋前端 55＋Chromium 原页面 14），`browser_transport=fixture`、真实模型调用 0。生产源码指纹 `b43b0fe69bd55ecee0eae31395656d55454f9a6ea967ff75e39dd5f647dc8c7c`；测试套件指纹 `1bec0ba7ccc4d99ee634d3eac1b6e77041d7cf0ab456738c6c0f13fcf8229db3`。本批新增 `tests/assistant_offline/tests/test_repair_warehouse_grant_facts.py`（39 项，含三项真实 `/api/dossier-grants` HTTP 用例）。精确补丁见 PATCH-M8-1-WAREHOUSE-COUNT-01、DOSSIER-RECEIVER-01、CARE-CLOSED-01、WAIT-TEXT-01、OFFLINE-HARNESS-01；报告见 `docs/implementation-checkpoints/M8-1-offline-facts-labels-checkpoint-v5.md`。完整序列首跑保留一次 `test_07` 点击超时失败，同指纹单独复跑与第二次完整序列均 14/14 通过，记为资源竞争时序抖动，未删用例、未放宽断言。**本批仍未覆盖**：原生 Cookie/CSP/SSE 验收（本机网络策略未改，仍为 fixture）、真实模型、PostgreSQL、Windows/Linux 恢复演练、员工试用，以及其余领域适配器的真实 HTTP 闭环；M8.1 不改为 done，不勾选全局完成检查，不放行生产。
+
+- 2026-09-29 本轮“离线执行器修复 + 待办文案中文化 + 事实适配纠错”记录见 `docs/implementation-checkpoints/M8-1-offline-facts-labels-checkpoint-v5.md`。本批只改助手显示层、三个领域适配器和仓库外执行器；M8.1 保持 `in_progress`，四个功能开关默认关闭，真实模型调用 0。
+
+- 2026-09-29 追加 `PATCH-M8-1-CARE-CLOSED-01`：`care.closed` 此前比较原业务不存在的 `closed` 状态，而原关怀服务单结案置 `completed`、取消置 `cancelled`，该事实键在真实数据上永远不成立；改为引用原状态机常量并区分取消与未结案。
+
+- 2026-09-29 追加 `PATCH-M8-1-OFFLINE-HARNESS-01`：`run_browser.py` 端口探测与 `browser_harness.py` 资产读取、`run_validation.py` 日志读取的编码/异常缺口，使本地 Windows 复验此前得出“浏览器不可用”的错误结论；修正后 fixture 原页面路径在本机真实执行。不修改任何断言、CSP 或浏览器策略。
+
+- 2026-09-29 追加 `PATCH-M8-1-WAIT-TEXT-01`：侧栏事项、当前事项面板与计划步骤此前直接显示 `employee_continue`、`native_prerequisite` 等状态机标识；改为由服务器下发固定中文 `waiting_label`，未知标识不显示等待行。
+
+- 2026-09-29 追加 `PATCH-M8-1-WAREHOUSE-COUNT-01`：`warehouse.count_posted` 此前按不存在的 `count_adjust` 认盘差库存流水，而原仓储实际写入 `PURPOSES['count']`（现为 `wh_count`），该事实键在真实数据上永远无法成立；改为引用原仓储常量，并补齐无差异、观察缺失与非法用途的判定。
+
+- 2026-09-29 追加 `PATCH-M8-1-DOSSIER-RECEIVER-01`：跨店授权的接收店详情按原合同不下发原决定明细，`dossier.approval_recorded` / `dossier.revocation_recorded` 因此恒为未知；改为在接收店按原详情有效状态得到等价事实，批准历史仍不满足当前可读。
+
 - 2026-09-29 本轮续作事实、并发会话与页面回归记录见 `docs/implementation-checkpoints/M8-1-native-checkpoint-v4.md`；原生 CI 与桥接结果分开登记，保持 in_progress。
 
 - 2026-09-29 追加 PATCH-M8-1-SESSION-CREATE-01：原页面新对话 409 的并发快照复现与短事务修复；重新验证原身份，不对业务写入自动重放。

@@ -124,3 +124,33 @@ test('only a successfully read empty sidebar shows zero counts',async()=>{
  assert.match(h.ws.renderSidebar(),/data-count="attention">0</);
  assert.match(h.ws.renderSidebar(),/当前没有待你处理的事项/);
 });
+
+// 等待原因只显示服务器给的固定中文；内部状态机标识不得出现在员工界面上。
+const INTERNAL_WAIT_CODES=['employee_continue','native_prerequisite','external_fact',
+ 'completion_conditions_missing','source_inaccessible','result_unknown'];
+function waitItem(extra){
+ return {counts:{attention:1,native_tasks:1},groups:[{key:'attention',items:[
+  {key:'t',kind:'native_task',title:'仍须处理的原业务',status:'open',...extra}]}]};
+}
+for(const code of INTERNAL_WAIT_CODES){
+ test('sidebar never shows the internal wait code '+code,async()=>{
+  const h=setup();h.box.businessAssistantRequest=async()=>waitItem({waiting_reason:code,waiting_label:'等你继续办理'});
+  await h.ws.load();const html=h.ws.renderSidebar();
+  assert.doesNotMatch(html,new RegExp(code));
+  assert.match(html,/等待：等你继续办理/);
+ });
+}
+test('sidebar hides the wait line when the server sends no fixed label',async()=>{
+ const h=setup();h.box.businessAssistantRequest=async()=>waitItem({waiting_reason:'employee_continue'});
+ await h.ws.load();const html=h.ws.renderSidebar();
+ assert.doesNotMatch(html,/等待：/);assert.doesNotMatch(html,/employee_continue/);
+});
+test('waitingText only returns a server-provided label',()=>{
+ const h=setup();
+ assert.equal(h.ws.waitingText({waiting_label:'等你继续办理'}),'等你继续办理');
+ assert.equal(h.ws.waitingText({waiting_reason:'employee_continue'}),'');
+ assert.equal(h.ws.waitingText({waiting_label:null}),'');
+ assert.equal(h.ws.waitingText(null),'');
+ assert.equal(h.ws.waitingText({waiting_label:7}),'');
+});
+

@@ -20,6 +20,7 @@ from starlette.responses import StreamingResponse
 
 from . import business_assistant_service as service
 from .assistant_runtime_models import Run, RunEvent, RunItem, WorkItem
+from .assistant_runtime_labels import waiting_label
 from .assistant_runtime_principal import _identity, _login, _reader, _time
 from .assistant_runtime_schemas import (
     BusinessObjectRef, FollowupAction, NotificationList, NotificationQuery, NotificationView,
@@ -316,6 +317,7 @@ def _legacy_view(plan, projection):
         state, reason = states.get(step['status'], ('waiting', 'recheck_required'))
         steps.append({'key': step['key'], 'position': position, 'title': step.get('title') or f'第{position + 1}步',
             'wait_for': step.get('wait_for') or '', 'status': state, 'wait_reason': reason,
+            'waiting_label': waiting_label(reason),
             'proposal_id': step.get('proposal_id'),
             'proposal_ids': [step['proposal_id']] if step.get('proposal_id') else [],
             'object_ref': None, 'manual_route': None})

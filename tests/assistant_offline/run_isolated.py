@@ -43,7 +43,8 @@ def main():
                 'suite_files':suite_inventory,'python':sys.version,'browser_mode':args.browser_mode,
                 'scope':'targeted' if args.suite else 'full','selected_suites':args.suite or available}
     (output/'evidence/source-and-suite.json').write_text(json.dumps(provenance,ensure_ascii=False,indent=2))
-    env={**os.environ,'HUAKANGOS_SOURCE':str(source),'HUAKANGOS_BROWSER_MODE':args.browser_mode}
+    env={**os.environ,'HUAKANGOS_SOURCE':str(source),'HUAKANGOS_BROWSER_MODE':args.browser_mode,
+         'PYTHONIOENCODING':'utf-8','PYTHONUTF8':'1'}
     command=[sys.executable,str(output/'run_validation.py'),'--source',str(source)]
     if args.browser_mode=='off':command.append('--skip-browser')
     for suite in args.suite or []:command.extend(['--suite',suite])

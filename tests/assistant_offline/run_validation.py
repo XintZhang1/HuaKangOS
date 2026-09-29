@@ -27,7 +27,11 @@ def main():
     try:suites=selected_suites(ROOT,args.suite)
     except ValueError as exc:parser.error(str(exc))
     scope='targeted' if args.suite else 'full'
-    env={**os.environ,'HUAKANGOS_SOURCE':str(source)}
+    # Every child writes UTF-8 bytes into a log we open as UTF-8. Without this
+    # a non-UTF-8 host (for example GBK Windows) makes Python encode its own
+    # diagnostics in the locale codec, so the log cannot be read back.
+    env={**os.environ,'HUAKANGOS_SOURCE':str(source),'PYTHONIOENCODING':'utf-8',
+         'PYTHONUTF8':'1'}
     evidence=ROOT/'evidence';evidence.mkdir(exist_ok=True)
     steps=[]
     def run(name,command,cwd=ROOT,timeout=420):
@@ -53,11 +57,18 @@ def main():
         run(suite.removesuffix('.py'),[sys.executable,'-m','unittest','discover','-s','tests','-p',suite,'-v'])
     if not args.skip_browser:run('browser-final',[sys.executable,'run_browser.py'])
     counts={}
-    for name,pattern in [('frontend-final',r'^# tests (\d+)$'),*[(s.removesuffix('.py'),r'^Ran (\d+) tests? in') for s in suites],('browser-final',r'^Ran (\d+) tests? in')]:
+    # Node's test summary marker changed from '#' to 'ℹ' across major versions;
+    # accept either marker rather than silently treating a green run as uncounted.
+    for name,pattern in [('frontend-final',r'^[#\u2139] tests (\d+)$'),*[(s.removesuffix('.py'),r'^Ran (\d+) tests? in') for s in suites],('browser-final',r'^Ran (\d+) tests? in')]:
         if name=='browser-final' and args.skip_browser:continue
-        match=re.search(pattern,(evidence/(name+'.log')).read_text(),re.M)
+        log=(evidence/(name+'.log')).read_text(encoding='utf-8',errors='replace')
+        match=re.search(pattern,log,re.M)
         if not match or int(match[1])<1:raise RuntimeError('Missing/nonpositive executed test count: '+name)
         counts[name]=int(match[1])
+        if name=='frontend-final':
+            failed=re.search(r'^[#\u2139] fail (\d+)$',log,re.M)
+            if not failed:raise RuntimeError('Missing frontend failure count: '+name)
+            if int(failed[1]):raise RuntimeError('Frontend tests reported failures: '+name)
     result={'complete':not bool(args.suite),'selected_complete':True,'scope':scope,'selected_suites':suites,'steps':steps,'counts':counts,'real_model_calls':0,'browser_transport':env.get('HUAKANGOS_BROWSER_MODE','fixture') if not args.skip_browser else 'not_run','release_accepted':False}
     (evidence/'run-summary.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
     print(json.dumps(result,ensure_ascii=False,indent=2))

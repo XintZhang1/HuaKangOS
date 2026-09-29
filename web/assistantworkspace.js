@@ -26,6 +26,13 @@
   const HANDOFF_LABEL = { task: '原业务待办', object: '原单', workflow: '业务流程' };
   const uiBySession = new Map();
 
+  // 等待文案只用服务器给出的固定中文标签。内部状态机标识（如 employee_continue）
+  // 不再直接显示给员工；确实没有文案时整条等待信息不显示。
+  function waitingText(item) {
+    if (!item || typeof item !== 'object') return '';
+    return typeof item.waiting_label === 'string' ? item.waiting_label : '';
+  }
+
   function fresh() {
     return { features: null, counts: null, groups: [], cursors: {}, loading: false, loaded: false,
       error: '', selected: null, serial: 0, mounted: false, bound: false, context: '',
@@ -133,7 +140,9 @@
   function itemHTML(item) {
     const selected = state.selected && state.selected.key === item.key;
     const meta = [];
-    if (item.waiting_reason) meta.push('等待：' + item.waiting_reason);
+    // 只显示服务器给出的固定中文等待文案；没有文案时不显示内部状态机标识。
+    const waiting = waitingText(item);
+    if (waiting) meta.push('等待：' + waiting);
     if (item.due_at) meta.push('到期：' + (typeof time === 'function' ? time(item.due_at) : item.due_at));
     const route = item.manual_route
       ? '<a class="ba-record-link" href="#' + escapeText(item.manual_route) + '">打开原业务</a>' : '';
@@ -192,7 +201,8 @@
     parts.push(planHeaderHTML());
     if (item) {
       parts.push('<p class="ba-current-status">' + escapeText(item.status_label || item.status || '') + '</p>');
-      if (item.waiting_reason) parts.push('<p class="ba-current-wait">等待：' + escapeText(item.waiting_reason) + '</p>');
+      const currentWait = waitingText(item);
+      if (currentWait) parts.push('<p class="ba-current-wait">等待：' + escapeText(currentWait) + '</p>');
       if (item.kind === 'native_task') {
         parts.push('<p class="ba-current-note">这是原业务待办：可直接打开原页面办理，或把这件事交给助手准备。</p>');
         if (item.manual_route) parts.push('<p><a class="ba-record-link" href="#' + escapeText(item.manual_route) + '">打开原业务办理</a>'
@@ -536,10 +546,10 @@
     const grant = plan.grant || {};
     lines.push('<p class="ba-plan-grant">' + escapeText(grantStatusText(grant))
       + (grant.stop_reason ? '（' + escapeText(grant.stop_reason) + '）' : '') + '</p>');
-    const waiting = (plan.steps || []).filter((step) => step && step.wait_reason);
+    const waiting = (plan.steps || []).filter((step) => step && typeof step.waiting_label === 'string' && step.waiting_label);
     if (waiting.length) {
       lines.push('<ul class="ba-plan-waits">' + waiting.slice(0, 3).map((step) => '<li>'
-        + escapeText(step.title || '步骤') + '：' + escapeText(step.wait_reason) + '</li>').join('') + '</ul>');
+        + escapeText(step.title || '步骤') + '：' + escapeText(step.waiting_label) + '</li>').join('') + '</ul>');
     }
     if (features.followup !== true) {
       lines.push('<p class="ba-plan-hint">当前版本未开启持续跟进开关，只显示已有状态。</p>');
@@ -975,7 +985,7 @@
     openNotification: openNotification, checkReceipt: checkReceipt, receiptText: receiptText,
     notificationPanelHTML: notificationPanelHTML, receiptButtonHTML: receiptButtonHTML,
     loadPlan: loadPlan, setFollowup: setFollowup, planStatusText: planStatusText,
-    grantStatusText: grantStatusText, followupAllowed: followupAllowed,
+    grantStatusText: grantStatusText, followupAllowed: followupAllowed, waitingText: waitingText,
     pendingHandoff: pendingHandoff, clearHandoff: clearHandoff, handoffLabel: handoffLabel,
     rememberUi: rememberUi, restoreUi: restoreUi, clearUi: clearUi,
     snapshot: function () {

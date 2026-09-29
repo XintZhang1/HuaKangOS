@@ -18,7 +18,9 @@ WEB=fixture_env.ROOT/'web'
 
 
 def asset_text(path):
-    content=path.read_text()
+    # Front-end assets are UTF-8 by contract; never fall back to the machine's
+    # locale codec, which fails outright on a non-UTF-8 Windows host.
+    content=path.read_text(encoding='utf-8')
     def image(match):
         absolute=WEB/match.group(2).removeprefix('/static/')
         if not absolute.is_file() or absolute.suffix not in ('.svg','.png','.jpg','.jpeg','.webp','.ico'):return match.group(0)
@@ -28,7 +30,7 @@ def asset_text(path):
 
 
 def frontend_html():
-    html=(WEB/'index.html').read_text()
+    html=(WEB/'index.html').read_text(encoding='utf-8')
     html=re.sub(r'<link rel="stylesheet" href="/static/([^"]+)">',
                 lambda m:'<style>'+asset_text(WEB/m[1])+'</style>',html)
     html=re.sub(r'<script src="/static/([^"]+)" defer></script>',

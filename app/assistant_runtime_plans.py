@@ -28,6 +28,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from .business_assistant_models import AssistantMessage, AssistantProposal, AssistantWorkPlan
 from .assistant_runtime_models import FollowupGrant, PlanStep, Run, RunItem, WorkItem
+from .assistant_runtime_labels import waiting_label
 from .assistant_runtime_schemas import BusinessObjectRef
 from .db import utcnow
 
@@ -1002,6 +1003,7 @@ def _plan_view(plan, projection, grant, *, now=None):
         steps.append({'key': step['key'], 'position': step['position'],
             'title': step['title'], 'wait_for': step['wait_for'],
             'status': step['runtime_status'], 'wait_reason': reason,
+            'waiting_label': waiting_label(reason),
             'proposal_id': step['proposal_id'], 'proposal_ids': step['proposal_ids'],
             'object_ref': step['object_ref'], 'manual_route': step['manual_route']})
     # An expired active audit row has no effective authorization. This is a
