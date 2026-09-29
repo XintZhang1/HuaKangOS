@@ -64,8 +64,7 @@ class RetailOrderAdapter(FlowCaseAdapter):
         if status in {401, 403, 404}:
             raise HTTPException(404, '原业务不存在或当前账号不可查看')
         if 400 <= status < 500:
-            raise HTTPException(status, 400 if status == 400 else status,
-                                '原业务暂不能读取此精品单，请到原页面核对')
+            raise HTTPException(status, '原业务暂不能读取此精品单，请到原页面核对')
         if not 200 <= status < 300:
             raise HTTPException(503, '原业务查询暂时不可用，请稍后重试')
         data = response.get('data')
