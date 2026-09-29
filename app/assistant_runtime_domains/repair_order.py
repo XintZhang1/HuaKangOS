@@ -142,6 +142,12 @@ class RepairOrderAdapter(FlowCaseAdapter):
                 return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
                                     reason='当前报价还没有质检记录，请在原页面核对质检进度')
             latest = rows[-1]
+            # 原维修命令允许在通过质检、尚未冻结结算时退回原领料；该动作会把
+            # state 从 settling 重新置为 quality 并重开 repair_quality。旧的
+            # RepairQuality 记录仍保留用于审计，但此时已经不再证明“当前有效质检通过”。
+            if data.get('state') == 'quality':
+                return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
+                                    reason='维修事实变化后已重新打开质检，须以新的质检结果为准')
             if latest.get('passed') is True:
                 return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[from_case])
             return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
