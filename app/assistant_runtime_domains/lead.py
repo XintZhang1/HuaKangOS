@@ -18,6 +18,7 @@ from .flow_case import (
 )
 
 LEAD_KIND = 'lead'
+LEAD_FLOW_VERSIONS = (1, 2)
 LEAD_ACTIONS = ('assign', 'intent', 'remind', 'follow', 'reserve', 'close', 'reopen')
 # 本项登记的三条事实，每条都必须有原详情的直接证据。
 LEAD_FACTS = ('lead.customer_linked', 'lead.owner_assigned', 'lead.reserve_recorded')
@@ -132,4 +133,4 @@ class LeadAdapter(FlowCaseAdapter):
 
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'LEAD_ACTIONS',
-           'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter']
+           'LEAD_FACTS', 'LEAD_FLOW_VERSIONS', 'LEAD_KIND', 'LeadAdapter']

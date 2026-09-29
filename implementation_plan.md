@@ -3572,6 +3572,8 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
+- 2026-09-29 追加 PATCH-M8-1-LEAD-REGISTRY-01：接待事实的静态注册与公开条件路径复验；仍为 in_progress，不替代跨业务族验收。
+
 2026-09-29 同轮追加 `PATCH-M8-1-CONDITION-READ-01`：只读证明局部复用相同原 GET，下一次核查及实际办理仍重新验证；保留原全部验收，当前状态不变。
 
 **2026-09-29 销售事实补丁范围**：接续远端 `14829c4`，按 `PATCH-M8-1-SALES-01` 核对 v3/v4、当前报价/客户签回/VIN 关系与原 deliver 证据。实现与定向验证进行中；不改 M8.1 状态或原发布检查。

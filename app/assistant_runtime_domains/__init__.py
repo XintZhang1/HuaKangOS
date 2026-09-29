@@ -4,7 +4,7 @@ No discovery, plugin imports, background work or database access occurs here.
 """
 
 from .flow_case import FLOW_ACTION, FLOW_CREATE, FLOW_READ, FlowCaseAdapter
-from .lead import LEAD_ACTIONS, LEAD_FACTS, LEAD_KIND, LeadAdapter
+from .lead import LEAD_ACTIONS, LEAD_FACTS, LEAD_FLOW_VERSIONS, LEAD_KIND, LeadAdapter
 from .sales_order import (SALES_CREATE, SALES_FACTS, SALES_FLOW_VERSIONS, SALES_KIND, SALES_PROPOSE,
                           SALES_READ, SALES_VEHICLES, SalesOrderAdapter)
 from .aftercare import (AFTERCARE_ACTION, AFTERCARE_CREATE, AFTERCARE_FACTS,
@@ -124,7 +124,7 @@ from .service_order import (SVC_ACTION, SVC_ACTIONS, SVC_CREATE, SVC_FACTS,
                               ServiceOrderAdapter)
 
 __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
-           'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_KIND', 'LeadAdapter',
+           'LEAD_ACTIONS', 'LEAD_FACTS', 'LEAD_FLOW_VERSIONS', 'LEAD_KIND', 'LeadAdapter',
            'SALES_CREATE', 'SALES_FACTS', 'SALES_KIND', 'SALES_PROPOSE', 'SALES_READ',
            'SALES_VEHICLES', 'SalesOrderAdapter',
            'AFTERCARE_ACTION', 'AFTERCARE_CREATE', 'AFTERCARE_FACTS', 'AFTERCARE_FLOW_VERSION',
@@ -636,10 +636,11 @@ def register_adapters(registry):
     # M7.1.1：售前接待（lead）静态注册；映射固定，不做发现或动态导入。
     registry.register(DomainAdapterSpec(
         name='lead', factory=LeadAdapter, object_types=('case',),
+        fact_keys=LEAD_FACTS,
         # Generic Flow operations already have exactly one result/receipt provider.
         operation_ids=(),
-        # 原 flow_version 1 的 lead；对象选择与事实适用性分开声明。
-        kind_versions=(('case', LEAD_KIND, 1),),
-        fact_kind_versions=(('case', LEAD_KIND, 1),),
+        # Frozen lead v1 and current native v2; no version inference.
+        kind_versions=tuple(('case', LEAD_KIND, version) for version in LEAD_FLOW_VERSIONS),
+        fact_kind_versions=tuple(('case', LEAD_KIND, version) for version in LEAD_FLOW_VERSIONS),
         fallback_object_types=(),
     ))

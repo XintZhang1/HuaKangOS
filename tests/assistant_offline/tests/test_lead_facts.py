@@ -94,4 +94,57 @@ class LeadFacts(unittest.TestCase):
             with self.subTest(store=store,parent=parent):
                 self.assertIsNot(self.fact(ident,'lead.reserve_recorded',wrong_child).satisfied,True)
 
+    def test_lead_facts_are_reachable_through_the_registry(self):
+        from app.assistant_runtime_registry import domain_registry
+        from app.assistant_runtime_domains.lead import LEAD_FACTS
+        for key in LEAD_FACTS:
+            for version in (1,2):self.assertTrue(domain_registry().supports_fact(key,'case',kind='lead',flow_version=version),key)
+            for kind,version in [('lead',3),('order',1),('lead',True)]:
+                self.assertFalse(domain_registry().supports_fact(key,'case',kind=kind,flow_version=version))
+
+    def test_public_condition_uses_native_assignment_not_creator_ownership(self):
+        from app.assistant_runtime_conditions import evaluate_conditions
+        ident=self.lead();self.fact(ident,'lead.owner_assigned')
+        conditions=[{'type':'fact_exists','object_ref':{'type':'case','id':ident},'fact_key':'lead.owner_assigned'}]
+        def check():
+            with SessionLocal() as db:return asyncio.run(evaluate_conditions(db,self.principal,conditions,purpose='completion'))
+        before=check();self.assertFalse(before.satisfied);self.assertFalse(before.unknown)
+        detail=self.client.get('/api/flow/cases/'+str(ident)).json()
+        with SessionLocal() as db:employee=db.scalar(select(User.id).where(User.username=='demo_sales'))
+        response=self.client.post(f'/api/flow/cases/{ident}/actions/assign',json={
+            'request_id':'action_'+uuid4().hex,'version':detail['version'],'values':{'assignee_id':employee}})
+        self.assertEqual(response.status_code,200,response.text)
+        after=check();self.assertTrue(after.satisfied,after);self.assertTrue(after.evidence)
+        self.assertNotEqual(before.fingerprint,after.fingerprint)
+
+    def test_public_condition_verifies_the_real_linked_order(self):
+        from app.assistant_runtime_conditions import evaluate_conditions
+        child=aliased(Case)
+        with SessionLocal() as db:
+            pair=db.execute(select(Case.id,child.id).join(child,child.parent_id==Case.id).where(
+                Case.kind=='lead',child.kind=='order',Case.store_id==1,child.store_id==1)).first()
+        self.assertIsNotNone(pair)
+        self.fact(pair[0],'lead.reserve_recorded')
+        with SessionLocal() as db:result=asyncio.run(evaluate_conditions(db,self.principal,[{
+            'type':'fact_exists','object_ref':{'type':'case','id':pair[0]},'fact_key':'lead.reserve_recorded'}],purpose='completion'))
+        self.assertTrue(result.satisfied,result)
+        self.assertTrue(any(getattr(e.source_id,'id',None)==pair[1] for e in result.evidence))
+
+    def test_historical_v1_assignment_uses_original_action_and_public_condition(self):
+        from app.assistant_runtime_conditions import evaluate_conditions
+        ident=self.lead()
+        # Deliberate historical fixture: freeze v1 before any original action.
+        with SessionLocal() as db:
+            db.get(Case,ident).flow_version=1;db.commit()
+            employee=db.scalar(select(User.id).where(User.username=='demo_sales'))
+        detail=self.client.get('/api/flow/cases/'+str(ident)).json()
+        self.assertEqual(detail['flow_version'],1)
+        response=self.client.post(f'/api/flow/cases/{ident}/actions/assign',json={
+            'request_id':'action_'+uuid4().hex,'version':detail['version'],'values':{'assignee_id':employee}})
+        self.assertEqual(response.status_code,200,response.text)
+        self.fact(ident,'lead.owner_assigned')
+        with SessionLocal() as db:result=asyncio.run(evaluate_conditions(db,self.principal,[{
+            'type':'fact_exists','object_ref':{'type':'case','id':ident},'fact_key':'lead.owner_assigned'}],purpose='completion'))
+        self.assertTrue(result.satisfied,result)
+
 if __name__=='__main__':unittest.main()
