@@ -64,13 +64,20 @@ def playwright_state():
         import playwright
     except ImportError:
         return {'installed': False, 'version': None, 'bundled': None}
-    version = getattr(playwright, '__version__', None)
+    try:
+        from importlib.metadata import version as distribution_version
+        version = distribution_version('playwright')
+    except Exception:                             # source checkout without metadata
+        version = getattr(playwright, '__version__', None)
     bundled = None
     try:
         from playwright.sync_api import sync_playwright
         with sync_playwright() as started:
-            bundled = started.chromium.executable_path
-    except Exception as exc:                      # driver or browser missing
+            candidate = Path(started.chromium.executable_path)
+            # The driver reports the expected path even when the browser was
+            # never downloaded, so only an existing file counts as available.
+            bundled = str(candidate) if candidate.is_file() else None
+    except Exception as exc:                      # driver or registry unavailable
         return {'installed': True, 'version': version, 'bundled': None,
                 'driver_error': type(exc).__name__ + ': ' + str(exc)}
     return {'installed': True, 'version': version, 'bundled': bundled}
@@ -108,8 +115,6 @@ def main():
     parser.add_argument('--output', type=Path)
     parser.add_argument('--browser-mode', choices=('native', 'fixture'), default='native')
     parser.add_argument('--browser', help='explicit browser executable for the real run')
-    parser.add_argument('--extra-suite', action='append', default=[],
-                        help='target additional backend suites (repeatable)')
     args = parser.parse_args()
     source = args.source.resolve()
     if not (source / 'app/main.py').is_file():
@@ -149,12 +154,15 @@ def main():
     }
     command = [sys.executable, str(HERE / 'run_isolated.py'), '--source', str(source),
                '--output', str(output), '--browser-mode', args.browser_mode]
-    for suite in args.extra_suite:
-        command.extend(['--suite', suite])
+    # The browser choice must reach the harness explicitly; the pipeline never
+    # relies on whatever the ambient environment happens to contain.
+    child_environment = {**os.environ, 'PYTHONIOENCODING': 'utf-8', 'PYTHONUTF8': '1'}
+    if environment['browser_executable']:
+        child_environment['HUAKANGOS_CHROMIUM'] = str(environment['browser_executable'])
     environment_path = output.parent / (output.name + '.environment.json')
     print('Pipeline output: ' + str(output), flush=True)
     print('Browser: ' + str(environment['browser_executable']), flush=True)
-    result = subprocess.run(command, cwd=str(HERE.parents[1]))
+    result = subprocess.run(command, cwd=str(HERE.parents[1]), env=child_environment)
     environment_path.write_text(json.dumps(environment, ensure_ascii=False, indent=2),
                                 encoding='utf-8')
     if result.returncode != 0:

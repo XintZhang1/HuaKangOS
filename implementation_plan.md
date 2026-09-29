@@ -104,8 +104,8 @@
 | CP-32 | M7.10.4—M7.10.6 | 原损失找回、跨店原单授权 | implementation_released | docs/implementation-checkpoints/M7-10-4-review-v1.md；M7-10-5-review-v1.md；M7-10-6-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.10.4、M7.10.5、M7.10.6 均 passed。M7.10.6 首轮失败根因为外部合同夹具缺 `source_side`，已按真实 `/api/dossier-grants` 形状对齐并保留原件；适配器本身未因此放宽；继续 M7.11.1—M7.11.4（CP-33） |
 | CP-33 | M7.11.1—M7.11.4 | 基础资料、系统管理、评审边界 | implementation_released | docs/implementation-checkpoints/M7-11-1-review-v1.md；M7-11-2-review-v1.md；M7-11-3-review-v1.md；M7-11-4-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.11.1—M7.11.4 全部 passed；系统管理只读面与“人工办理不由助手代办”的边界保留；继续 M7.12.1—M7.12.3（CP-34） |
 | CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | implementation_released | docs/implementation-checkpoints/M7-12-1-review-v1.md；M7-12-2-review-v1.md；M7-12-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验通过，过程中发现并修复真实缺陷：`service.external_approved` 要求原模型不存在的 `results[].case_id`，使该事实在真实数据上永不成立（见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）；外部合同夹具另按真实形状对齐六处并保留原件。M7 章节收口，继续 M8.1（CP-35） |
-| CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | not_ready | — | — |
-| CP-36 | M8.3—M8.4 | 独立PG升级/恢复、真实HTTP浏览器 | not_ready | — | — |
+| CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | not_ready | docs/implementation-checkpoints/M8-1-offline-facts-labels-checkpoint-v5.md；M8-1-native-checkpoint-v4.md；M8-1-partial-review-v1.md；M8-1-revocation-checkpoint-v1.md | M8.1 仍 `in_progress`：已具备子进程故障注入（11 项）、干净合成库冻结确认与授权闸门（19 项）及**新增会话级撤权真实 HTTP 演练（5 项）**；旧租约晚写 DB 演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入仍未完成，故本批不形成完整审阅报告、不记 `implementation_released`/`released`；M8.2 为 `todo` |
+| CP-36 | M8.3—M8.4 | 独立PG升级/恢复、真实HTTP浏览器 | not_ready | docs/implementation-checkpoints/M8-4-browser-pipeline-checkpoint-v1.md | M8.4 仍 `todo`：真实浏览器流水线单一入口已交付并在 Windows 本机真实 Chrome 上实测（277 项、`verified=true`、14 页原生流量非零、`page_errors_total=0`），但三种宽度/IME、断网重连按 `seq` 补读、伪造身份 header、缺 CSRF 写与 HTTPS 会话仍未覆盖；M8.3 因缺独立 PostgreSQL 测试服务按计划待判 `blocked`，其全局顺序前置未满足，故不记 `released` |
 | CP-37 | M8.5—M8.6 | 经live gate授权的真实模型和保留集 | not_ready | — | — |
 | CP-38 | M8.7—M8.8 | 隔离Windows/Linux恢复演练 | not_ready | — | — |
 | CP-39 | M8.9—M8.10 | 员工试用、发布候选；此后无自动部署 | not_ready | — | — |
@@ -3606,9 +3606,11 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 2026-09-29 同轮追加 `PATCH-M8-1-CONDITION-READ-01`：只读证明局部复用相同原 GET，下一次核查及实际办理仍重新验证；保留原全部验收，当前状态不变。
 
+**2026-09-30 会话级撤权（清单 ③ 的会话级部分）**：新增 `tests/assistant_offline/tests/test_revocation_session.py`（5 项，外部隔离运行 `--suite test_revocation_session.py`，run 退出码 0、`Ran 5 tests`、`OK`），以**真实登录会话 + 真实 HTTP 接口**验证撤权后行为：`workspace`/`notifications` 返回 200 但**旧 epoch 的会话既不可达也不出现在投影里**（`GET /sessions/{id}` → 404）、旧提案确认与执行结果读取一律拒绝、旧会话不能起 Run、通知不泄露旧 epoch 内容，且拒绝源自 **epoch 变化**而非账号损坏（账号仍 `active`、岗位不变、`access_version` 恰为 +1）。**本轮先核对实现再写断言，纠正三处我的错误假设（产品代码未改、未放宽任何断言）**：① 撤权后 `workspace`/`notifications` 是 **200 + 过滤**，不是 403（`assistant_runtime_workspace.py:216`、`:220` 按冻结的 `access_version` 过滤）；② `confirm`/`runs` 有请求体契约（`digest` 64 位十六进制、`request_id` 必填），形状不合法会在身份检查前返回 422，故用例必须给出合法形状，否则会「因 422 而假绿」；③ 撤权后**新建**会话返回 201 是正确行为（员工仍在线，撤权改变的是授权 epoch），必须保证的是旧 epoch 不回来。同批次完整回归 `fixture` 传输 **277 项**（后端 208＋前端 55＋Chromium 页面 14），全部命令退出码 0、`real_model_calls=0`、`release_accepted=false`。**仍未完成**：`access_signals` 两条事件路径的端到端发射（发射器要求真实 `UserAccessReceipt` 与配套审计前后像）、旧租约晚写 DB 演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入。详见 `docs/implementation-checkpoints/M8-1-revocation-checkpoint-v1.md`。
+
 **2026-09-29 销售事实补丁范围**：接续远端 `14829c4`，按 `PATCH-M8-1-SALES-01` 核对 v3/v4、当前报价/客户签回/VIN 关系与原 deliver 证据。实现与定向验证进行中；不改 M8.1 状态或原发布检查。
 
-**状态**：in_progress（两条登记命令同时通过，共 **30 项**：m81-fault-and-recovery-acceptance 11 项 + m81-freeze-confirmation-db 19 项，run `20260928T150035Z-a7799a50cc`，phase_complete=true；已覆盖清单 ①②④⑤ 与 ③ 的无授权/撤权两条闸门证据（授权闸门对除 True 外一切值 403；撤权或换岗后原提案 409；撤权信号受默认关闭的功能开关约束）；**仍未完成**：③ 的会话级演练（真实 HTTP 会话撤权后不得继续/泄露，含 access_signals 两条事件路径）、旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md）；**仍未完成**：③ 的撤权后既有会话不得继续/泄露（含 access_signals 路径）、旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md）
+**状态**：in_progress（①会话级撤权已完成：2026-09-30 新增 `tests/assistant_offline/tests/test_revocation_session.py`（5 项）实测通过，真实 HTTP 会话在撤权后旧 epoch 的会话/提案不可达且不出现在投影中，详见 `docs/implementation-checkpoints/M8-1-revocation-checkpoint-v1.md`；②两条登记命令仍同时通过，共 **30 项**：m81-fault-and-recovery-acceptance 11 项 + m81-freeze-confirmation-db 19 项，run `20260928T150035Z-a7799a50cc`，phase_complete=true；已覆盖清单 ①②④⑤ 与 ③ 的无授权/撤权两条闸门证据（授权闸门对除 True 外一切值 403；撤权或换岗后原提案 409）；**仍未完成**：③ 的 access_signals 两条事件路径端到端发射（发射器要求真实 `UserAccessReceipt` 与配套审计前后像）、旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md）
 
 **全局顺序前置**：M7.12.3 done。
 
@@ -3707,6 +3709,39 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 ## M8.4 真实HTTP浏览器、安全会话与界面验收
 
 **状态**：todo
+
+**2026-09-30 真实浏览器流水线（单一入口）已交付并实测，M8.4 仍为 `todo`**：新增
+`tests/assistant_offline/run_browser_pipeline.py`（预检 → 全新外部目录 → 原生执行 → 证据核对，退出码
+0/2/3/4）与 `tests/assistant_offline/browser_evidence.py`（只从既有证据文件汇总，不启动浏览器、不联网），
+`browser_harness.py` 记录真实网络请求、浏览器版本与可执行文件及 CSP 事实，`run_validation.py` 在浏览器
+步骤后写出 `browser-evidence.json`，页数与实际执行数不符即失败；新增 13 项合同套件
+`tests/assistant_offline/tests/test_browser_pipeline.py`；CI 原生步骤改用同一入口。
+
+**本批实测（Windows 本机真实 Chrome 154.0.8037.58，非 Playwright 自带包）**：
+`python tests/assistant_offline/run_browser_pipeline.py --browser-mode native --browser "C:\Program Files\Google\Chrome\Application\chrome.exe"`
+→ `browser-pipeline.json` 为 `verified=true`、`problems=[]`、`native_transport=true`；
+`run-summary.json` 为 `complete=true`、`scope=full`、`browser_transport=native`、`real_model_calls=0`、
+`release_accepted=false`；**277 项**（后端 208＋前端 55＋原生页面 14）全部命令退出码 0。
+真实浏览器事实：14 页逐页 `/api/` 真实流量全部非零（14—46 条，状态码含 200/201/202/401/422/503），
+含真实 `POST /api/auth/login` → 200、真实 SSE 补读 `GET /runs/<id>/events?after_seq=0` → 200、
+真实人工确认 `POST …/proposals/<id>/confirm` → 200；`page_errors_total=0`；观测到 `script-src 'self'`
+的应用 CSP。证据目录（仓库外）
+`C:\Users\tiefu\.codex\HuaKangOS-agent-validation\runtime-v1\browser\browser-native-20260929T164304Z\evidence`；
+生产源码指纹 `a7c0cd8fe38d8eb5101ffcf92fba07e1780f59b29e6bf368acf522fbf38ae8e4`；
+测试套件指纹 `2e2e7d4b033637ee954d85b8340f24bc15dbc20e416354606139712a92ebfa9b`；证据目录
+`…\browser\browser-native-20260929T170405Z\evidence`。
+
+**核对规则（拒绝伪装）**：`browser_transport` 必须等于请求模式；原生模式要求 `complete=true` 且
+`scope=full`、逐页 `/api/` 流量 > 0、`page_errors_total=0`、必须记录真实浏览器版本、必须观测到
+`script-src 'self'`；任一不满足即 `verified=false`、退出码 4。原生失败**不自动降级**为 `fixture`。
+**本机一个真实约束（如实保留）**：Playwright 自带 Chromium 未能安装（下载子进程 `spawn EPERM`；
+改用仓库内 `PLAYWRIGHT_BROWSERS_PATH` 后被陈旧 `__dirlock` 拒绝），按使用者「可以安装插件」的授权改用
+本机已安装 Chrome；未修改任何浏览器安全策略、未关闭 CSP、未降级传输；CI 仍用 Playwright 自带 Chromium
+且走同一入口。
+
+**本批明确未覆盖（故 M8.4 不记 done）**：三种宽度与中文/组合输入、焦点与未发草稿、换店迟到结果、
+断网重连按 `seq` 补读、伪造内部身份 header 无效、缺 CSRF 写被拒、HTTPS 会话与浏览器重启；M8.3 的
+独立 PostgreSQL 前置亦未满足。详见 `docs/implementation-checkpoints/M8-4-browser-pipeline-checkpoint-v1.md`。
 
 **全局顺序前置**：M8.3 done。
 

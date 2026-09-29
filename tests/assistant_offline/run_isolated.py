@@ -3,7 +3,8 @@ from pathlib import Path
 import argparse,hashlib,json,os,shutil,subprocess,sys,tempfile
 
 FILES=('fixture_env.py','fake_provider.py','build_base.py','run_validation.py',
-       'browser_harness.py','browser_server.py','run_browser.py','browser_evidence.py')
+       'browser_harness.py','browser_server.py','run_browser.py','browser_evidence.py',
+       'run_browser_pipeline.py')
 
 def main():
     bundled=Path(__file__).resolve().parent

@@ -21,6 +21,31 @@ python tests/assistant_offline/run_isolated.py --browser-mode fixture
 
 `evidence/run-summary.json` 记录实际命令、退出码、非零测试数、浏览器模式；`source-and-suite.json` 记录逐文件与汇总指纹。任何失败都保留日志，不以删测试、调整业务规则或降级浏览器模式求绿。`runtime/` 含测试随机密码和合成库，禁止提交或上传；CI 只上传 evidence。
 
+## 真实浏览器流水线（M8.4 单一入口）
+
+`run_browser_pipeline.py` 是同一条真实浏览器验收的一键入口：预检 → 全新外部目录 → 原生运行 → 核对证据。它**不会**把原生失败改跑 `fixture` 求绿，也不会改写已有证据目录。
+
+```bash
+python tests/assistant_offline/run_browser_pipeline.py --browser-mode native
+# 显式指定浏览器（未指定时按 HUAKANGOS_CHROMIUM → 常见 Chrome/Chromium 路径 → Playwright 自带）
+python tests/assistant_offline/run_browser_pipeline.py --browser-mode native \
+  --browser "C:\Program Files\Google\Chrome\Application\chrome.exe"
+```
+
+退出码：`0` 已核对；`2` 预检拒绝（源码带 `.env`、输出在源码树内、目录已存在、无可用浏览器）；`3` 执行失败；`4` 证据不完整或自相矛盾。
+
+产物（每次运行独立目录，默认 `<V>/browser/browser-native-<UTC时间戳>/`）：
+
+| 文件 | 内容 |
+|---|---|
+| `evidence/run-summary.json` | 逐命令退出码、用例计数、`browser_transport`、真实模型调用数 |
+| `evidence/browser-evidence.json` | 逐页 `page_errors`、`/api/` 请求数与状态码、截图名、浏览器版本与可执行文件、CSP 事实 |
+| `evidence/browser-environment.json` | 本次运行的浏览器与传输事实（由浏览器夹具写出） |
+| `evidence/<用例>.png` / `.json` | 逐页截图与请求记录 |
+| `browser-pipeline.json` | 顶层核对结论 `verified` 与 `problems` |
+
+核对规则：`browser_transport` 必须等于请求的模式；原生模式下 `complete` 必须为真、逐页 API 流量必须非零、`page_errors_total` 必须为 0、必须记录真实浏览器版本并观测到应用 CSP；任何一项不满足即 `verified=false` 并以退出码 4 结束。`evidence/browser-evidence.json` 只由已有证据文件汇总，不执行浏览器、不联网。
+
 ## 覆盖内容
 
 定向覆盖：真实登录及门店权限、工具协议拒绝、持久 Run、租约与取消、人工确认及未知结果不重放；两步计划依赖、显式跟进授权、退出/暂停/撤权、原接待事实；重复唤醒、发件箱事务恢复和私有通知；原批量接口首项失败即停；完整前端模块与页面实操、移动端布局和上下文竞态。

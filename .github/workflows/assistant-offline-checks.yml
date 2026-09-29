@@ -46,7 +46,7 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Run isolated regressions with native browser transport
         run: >-
-          python tests/assistant_offline/run_isolated.py
+          python tests/assistant_offline/run_browser_pipeline.py
           --source "$GITHUB_WORKSPACE"
           --output "$RUNNER_TEMP/assistant-validation"
           --browser-mode native
