@@ -131,7 +131,13 @@ class BrowserHarness:
         await self.page.locator('input[name="username"]').fill('offline_admin')
         await self.page.locator('input[name="password"]').fill(fixture_env.PASSWORD.read_text())
         await self.page.get_by_role('button',name='登录',exact=True).click()
-        await self.page.locator('a[href="#business-assistant"]').click()
+        # The navigation renders after the login response, so wait for the entry
+        # to exist instead of racing it with a click. This only synchronises with
+        # the application's own render; it asserts nothing on its behalf.
+        entry=self.page.locator('a[href="#business-assistant"]')
+        await entry.wait_for(state='attached',timeout=30000)
+        await entry.scroll_into_view_if_needed()
+        await entry.click()
         await self.page.locator('#business-assistant-input').wait_for(timeout=15000)
         if self.mode=='native':
             # Only out-of-page fixture setup uses this jar. Page fetch, login,
