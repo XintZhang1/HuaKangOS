@@ -8,6 +8,8 @@ from types import SimpleNamespace
 
 from app.assistant_runtime_domains.material_procurement import MaterialProcurementAdapter
 from app.assistant_runtime_domains.repair_order import RepairOrderAdapter
+from app.assistant_runtime_domains.retail_order import RetailOrderAdapter
+from fastapi import HTTPException
 from app.assistant_runtime_schemas import BusinessObjectRef
 
 
@@ -87,6 +89,17 @@ class RepairQualityFacts(unittest.TestCase):
                                 'result':'复检合格','evidence_id':42})
         self.assertIs(self.fact(data).satisfied,True)
 
+
+
+class RetailReadErrors(unittest.TestCase):
+    def test_native_conflict_keeps_human_readable_detail(self):
+        async def conflict(*args, **kwargs):
+            return {'status':409,'data':{'detail':'native conflict'}}
+        adapter=RetailOrderAdapter(native_reader=conflict)
+        with self.assertRaises(HTTPException) as raised:
+            asyncio.run(adapter.read_snapshot(PRINCIPAL,REF))
+        self.assertEqual(raised.exception.status_code,409)
+        self.assertEqual(raised.exception.detail,'原业务暂不能读取此精品单，请到原页面核对')
 
 
 class ProcurementNativeFlow(unittest.TestCase):
