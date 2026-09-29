@@ -111,6 +111,12 @@ class ProcurementNativeFlow(unittest.TestCase):
         import test_runtime_integration as baseline
         cls._baseline=baseline
 
+    def login(self, client, username='admin'):
+        return self._baseline.RuntimeIntegration.login(self,client,username)
+
+    def new_run(self, content, client=None):
+        return self._baseline.RuntimeIntegration.new_run(self,content,client)
+
     def setUp(self):
         self._baseline.RuntimeIntegration.setUp(self)
 
