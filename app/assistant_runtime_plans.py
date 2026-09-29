@@ -1450,7 +1450,8 @@ def _evaluated_step(step, preparation, completion, dependencies_complete):
 async def _evaluate_plan_facts(db, principal, *, clock, registry, client_factory, followup=False):
     """Shared read phase; its callers issue non-interchangeable proof types."""
     from . import business_assistant_service as service
-    from .assistant_runtime_conditions import evaluate_conditions
+    from .assistant_runtime_conditions import _Evaluator, _evaluate_with
+    from .assistant_runtime_registry import domain_registry
     from .assistant_runtime_principal import _reader, _time, revalidate_principal
     service.require_preparation_read_phase(db)
     revalidate_principal(db, principal, clock=clock)
@@ -1459,13 +1460,16 @@ async def _evaluate_plan_facts(db, principal, *, clock, registry, client_factory
         before = _condition_snapshot(snapshot_db, principal)
         if followup:
             before['followup'] = _followup_activity(snapshot_db, principal, clock=clock)
+    # The reader never escapes this read phase. The next proof/Run/tick starts
+    # afresh; shared original objects in this DAG use one consistent observation.
+    evaluator = _Evaluator(db, principal, clock=clock,
+        registry=domain_registry() if registry is None else registry, client_factory=client_factory)
     results, completed, due_times, checked_due = [], {}, [], set()
     for step in validate_dag(before['steps']):
-        preparation = await evaluate_conditions(db, principal, step['conditions'], purpose='preparation',
-            plan_id=principal.plan_id, step_id=step['id'], clock=clock, registry=registry, client_factory=client_factory)
-        completion = await evaluate_conditions(db, principal, step['completion_conditions'], purpose='completion',
-            read_work_item_ids=step['read_ids'] or None, plan_id=principal.plan_id, step_id=step['id'],
-            clock=clock, registry=registry, client_factory=client_factory)
+        preparation = await _evaluate_with(evaluator, step['conditions'], purpose='preparation',
+            plan_id=principal.plan_id, step_id=step['id'])
+        completion = await _evaluate_with(evaluator, step['completion_conditions'], purpose='completion',
+            read_work_item_ids=step['read_ids'] or None, plan_id=principal.plan_id, step_id=step['id'])
         result = _evaluated_step(step, preparation, completion,
             all(completed.get(key, False) for key in step['depends_on']))
         completed[step['key']] = result.completion_satisfied
@@ -1485,9 +1489,8 @@ async def _evaluate_plan_facts(db, principal, *, clock, registry, client_factory
                 due = DueAt.model_validate(condition)
                 if _time(due.at) <= _time(clock()):
                     continue
-                verified = await evaluate_conditions(db, principal, [condition], purpose='preparation',
-                    plan_id=principal.plan_id, step_id=step['id'], clock=clock,
-                    registry=registry, client_factory=client_factory)
+                verified = await _evaluate_with(evaluator, [condition], purpose='preparation',
+                    plan_id=principal.plan_id, step_id=step['id'])
                 if (not verified.unknown and verified.reason == 'due_at_pending'
                         and any(value.source_type == 'message' and value.source_id == due.source_message_id
                                 for value in verified.evidence)):

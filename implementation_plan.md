@@ -3572,6 +3572,8 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
+2026-09-29 同轮追加 `PATCH-M8-1-CONDITION-READ-01`：只读证明局部复用相同原 GET，下一次核查及实际办理仍重新验证；保留原全部验收，当前状态不变。
+
 **2026-09-29 销售事实补丁范围**：接续远端 `14829c4`，按 `PATCH-M8-1-SALES-01` 核对 v3/v4、当前报价/客户签回/VIN 关系与原 deliver 证据。实现与定向验证进行中；不改 M8.1 状态或原发布检查。
 
 **状态**：in_progress（两条登记命令同时通过，共 **30 项**：m81-fault-and-recovery-acceptance 11 项 + m81-freeze-confirmation-db 19 项，run `20260928T150035Z-a7799a50cc`，phase_complete=true；已覆盖清单 ①②④⑤ 与 ③ 的无授权/撤权两条闸门证据（授权闸门对除 True 外一切值 403；撤权或换岗后原提案 409；撤权信号受默认关闭的功能开关约束）；**仍未完成**：③ 的会话级演练（真实 HTTP 会话撤权后不得继续/泄露，含 access_signals 两条事件路径）、旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md）；**仍未完成**：③ 的撤权后既有会话不得继续/泄露（含 access_signals 路径）、旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；详见 docs/implementation-checkpoints/M8-1-partial-review-v1.md）

@@ -219,7 +219,7 @@ class _Evaluator:
         self.clock = clock
         self.registry = registry
         self.client_factory = client_factory
-        self.objects, self.records = {}, {}
+        self.objects, self.records, self.native_results = {}, {}, {}
 
     def now(self):
         return _utc(self.clock())
@@ -232,7 +232,19 @@ class _Evaluator:
         if (type(operation_id) is not str or not operation_id.startswith('GET ')
                 or self.registry.spec_for_operation(operation_id) is None):
             raise HTTPException(501, '此事实尚未登记原查询')
-        return await self.original_get(operation_id, path_args=path_args, query=query, body=body)
+        # One evaluation is a read snapshot, not a cache across events, tools
+        # or confirmations. Even a hit must recheck the current authority.
+        self.guard()
+        key = _canonical([operation_id, path_args or {}, query or {}, body])
+        if key not in self.native_results:
+            result = await self.original_get(operation_id, path_args=path_args, query=query, body=body)
+            if (type(result) is not dict or type(result.get('status')) is not int
+                    or not 200 <= result['status'] < 300 or result.get('truncated')
+                    or type(result.get('data')) is dict and result['data'].get('truncated')):
+                return result
+            self.native_results[key] = deepcopy(result)
+        self.guard()
+        return deepcopy(self.native_results[key])
 
     async def original_get(self, operation_id, *, path_args=None, query=None, body=None):
         self.guard()
@@ -581,27 +593,18 @@ async def _read_completion(evaluator, work_ids, plan_id, step_id):
     return observations
 
 
-async def evaluate_conditions(db, principal, conditions, *, purpose: Literal['preparation', 'completion'] = 'preparation',
-                              read_work_item_ids=None, plan_id=None, step_id=None,
-                              clock=None, registry=None, client_factory=None):
-    """Evaluate one AND set, always by fresh reads, without changing the caller TX.
-
-    Dependencies/whole-step card states are additionally checked by plans. The
-    optional empty-completion read exception needs the exact current WorkItem
-    set and its persisted Plan/Step. It means query completion only.
-    """
+async def _evaluate_with(evaluator, conditions, *, purpose='preparation',
+                         read_work_item_ids=None, plan_id=None, step_id=None):
+    """One condition group in a server-local read pass; never a durable proof."""
     from .business_assistant_service import require_preparation_read_phase
-    require_preparation_read_phase(db)
+    require_preparation_read_phase(evaluator.db)
     if purpose not in {'preparation', 'completion'} or type(conditions) is not list:
         raise HTTPException(422, '条件用途或列表不正确')
     try:
         checked = TypeAdapter(list[Condition]).validate_python(deepcopy(conditions))
     except (ValidationError, ValueError, TypeError):
         raise HTTPException(422, '请使用已登记的有限条件类型') from None
-    revalidate_principal(db, principal, clock=clock)
-    evaluator = _Evaluator(db, principal, clock=clock or principal._clock,
-                           registry=domain_registry() if registry is None else registry,
-                           client_factory=client_factory)
+    evaluator.guard()
     observations = []
     for condition in checked:
         observations.append(await evaluator.condition(condition))
@@ -609,3 +612,22 @@ async def evaluate_conditions(db, principal, conditions, *, purpose: Literal['pr
         observations = await _read_completion(evaluator, read_work_item_ids, plan_id, step_id)
     evaluator.guard()
     return _result(observations, purpose)
+
+
+async def evaluate_conditions(db, principal, conditions, *, purpose: Literal['preparation', 'completion'] = 'preparation',
+                              read_work_item_ids=None, plan_id=None, step_id=None,
+                              clock=None, registry=None, client_factory=None):
+    """Evaluate one AND set with a fresh reader on every public call.
+
+    Dependencies/whole-step card states are additionally checked by plans. The
+    optional empty-completion read exception needs the exact current WorkItem
+    set and its persisted Plan/Step. It means query completion only.
+    """
+    from .business_assistant_service import require_preparation_read_phase
+    require_preparation_read_phase(db)
+    revalidate_principal(db, principal, clock=clock)
+    evaluator = _Evaluator(db, principal, clock=clock or principal._clock,
+                           registry=domain_registry() if registry is None else registry,
+                           client_factory=client_factory)
+    return await _evaluate_with(evaluator, conditions, purpose=purpose,
+        read_work_item_ids=read_work_item_ids, plan_id=plan_id, step_id=step_id)
