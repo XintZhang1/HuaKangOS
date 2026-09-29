@@ -1,4 +1,4 @@
-﻿# M8.1 离线事实纠错、待办文案与执行器修复检查点 v5
+# M8.1 离线事实纠错、待办文案与执行器修复检查点 v5
 
 2026-09-29；开发候选。M8.1 保持 `in_progress`。不部署、不默认开启四个功能开关、不调用真实模型。
 本记录接续 `docs/implementation-checkpoints/M8-1-native-checkpoint-v4.md` 的下一执行点：
@@ -79,10 +79,27 @@ python tests/assistant_offline/run_isolated.py --source <repo> --output <externa
   **不删除该用例、不放宽超时断言、不改浏览器策略**，并在本记录保留该次失败。
 - 本记录不与 v4 的 211 项、也不与本地早前复跑累加为不同用例。
 
+## 4.1 原生浏览器独立复跑（Linux CI）
+
+上述 259 项是本地 Windows 上的 `fixture` 传输结果，**不等于**原生 Cookie/CSP/SSE 验收。
+业主以 Git 交付后，同一批生产与测试文件在独立 Ubuntu / Python 3.13 / Node.js 22 /
+Playwright 1.57.0 / Chromium 环境中按仓库工作流以 `--browser-mode native` 真实执行：
+
+- 被测提交：`361195b7ed60c907ed920bebdf2d6b538f2998eb`（本记录所在提交，纯代码与文档，无工作流改动）。
+- Actions run `36589860689`、job `109479822120`、结论 **success**（2026-09-29T15:23:50Z→15:33:37Z），
+  步骤 6「Run isolated regressions with native browser transport」结论 success，
+  证据 artifact `assistant-evidence-361195b7ed60c907ed920bebdf2d6b538f2998eb`（ID `11044270644`，约 3.45 MB，未过期）。
+- 该次运行使用全新隔离合成库与原登录页、原 Cookie、原生 fetch 与网络 SSE；模型响应仍为合成内容。
+
+**登记边界**：本记录只依据 GitHub Actions 的 job/step 结论与 artifact 元数据（公开 API 可见部分）。
+artifact 下载与 job 日志读取均需要凭据（分别返回 401/403），本轮**未**下载该 artifact，
+因此**不**在此声称其内部计数、指纹或 `browser_transport` 取值；这些仍以 v4 的原生记录为准，
+下次具备凭据时按同一提交核对后追加。
+
 ## 5. 本轮明确未覆盖的边界
 
-- 仍为 `fixture` 传输：本机 Chromium 网络策略此前拒绝原生 HTTP 导航，本轮未修改系统或浏览器
-  安全策略，因此**没有**宣称原生 Cookie/CSP/SSE 验收。原生结果按 v4 的 CI 记录单独保留。
+- 本地为 `fixture` 传输，本轮未修改系统或浏览器安全策略，因此本地结果不构成原生验收；
+  原生结论只按上一节的 CI 记录登记，且未核对 artifact 内部内容。
 - 真实模型调用为 0；模型响应仍是确定性合成内容。
 - 未执行 PostgreSQL、独立 Windows/Linux 恢复演练、指定 MCP 客户端与真实员工试用。
 - 本批只覆盖维修交车键、仓储盘点过账键、关怀结案键与跨店授权三项事实；其余领域适配器的**静态**
