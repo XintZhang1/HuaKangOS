@@ -5,7 +5,7 @@ No discovery, plugin imports, background work or database access occurs here.
 
 from .flow_case import FLOW_ACTION, FLOW_CREATE, FLOW_READ, FlowCaseAdapter
 from .lead import LEAD_ACTIONS, LEAD_FACTS, LEAD_KIND, LeadAdapter
-from .sales_order import (SALES_CREATE, SALES_FACTS, SALES_KIND, SALES_PROPOSE,
+from .sales_order import (SALES_CREATE, SALES_FACTS, SALES_FLOW_VERSIONS, SALES_KIND, SALES_PROPOSE,
                           SALES_READ, SALES_VEHICLES, SalesOrderAdapter)
 from .aftercare import (AFTERCARE_ACTION, AFTERCARE_CREATE, AFTERCARE_FACTS,
                         AFTERCARE_FLOW_VERSION, AFTERCARE_KIND, AFTERCARE_READ,
@@ -628,8 +628,9 @@ def register_adapters(registry):
     registry.register(DomainAdapterSpec(
         name='sales_order', factory=SalesOrderAdapter, object_types=('case',),
         operation_ids=(SALES_READ, SALES_VEHICLES, SALES_CREATE, SALES_PROPOSE),
-        kind_versions=(('case', SALES_KIND, 3),),
-        fact_kind_versions=(('case', SALES_KIND, 3),),
+        fact_keys=SALES_FACTS,
+        kind_versions=tuple(('case', SALES_KIND, version) for version in SALES_FLOW_VERSIONS),
+        fact_kind_versions=tuple(('case', SALES_KIND, version) for version in SALES_FLOW_VERSIONS),
         fallback_object_types=(),
     ))
     # M7.1.1：售前接待（lead）静态注册；映射固定，不做发现或动态导入。

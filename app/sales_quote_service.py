@@ -331,6 +331,8 @@ def detail(db,user,key):
     info.update(quotes=result,pending_quote_id=row.data.get('pending_quote_id'),active_quote_id=row.data.get('active_quote_id'),
         can_propose=user.role in WRITE and (user.role!='sales' or row.owner_id==user.id) and not pending(db,row) and row.state in {'reserved','executing'} and not row.data.get('dispatched_at'))
     if visible:info['excess_cents']=max(0,flow.paid_amount(db,row)-row.amount_cents)
+    from .sales_quote_facts import project_facts
+    info['business_facts']=project_facts(db,user,row)
     return info
 
 def vehicles(db,user,key):

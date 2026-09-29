@@ -15,7 +15,7 @@ from ..assistant_runtime_schemas import BusinessObjectRef, EvidenceRef, FactSnap
 from .flow_case import FlowCaseAdapter, _positive_id
 
 SALES_KIND = 'order'
-SALES_FLOW_VERSIONS = (3,)
+SALES_FLOW_VERSIONS = (3, 4)
 SALES_READ = 'GET /api/sales-quotes/orders/{key}'
 SALES_VEHICLES = 'GET /api/sales-quotes/orders/{key}/vehicles'
 SALES_CREATE = 'POST /api/sales-quotes/orders'
@@ -23,7 +23,6 @@ SALES_PROPOSE = 'POST /api/sales-quotes/orders/{key}/quotes'
 SALES_RESULT_OPERATIONS = frozenset({SALES_READ, SALES_CREATE, SALES_PROPOSE})
 SALES_RECEIPT_OPERATIONS = frozenset({SALES_CREATE, SALES_PROPOSE})
 SALES_FACTS = ('sales.active_quote_approved', 'sales.active_quote_consented', 'sales.delivery_recorded')
-_DELIVERY_KEYS = ('delivered_at', 'delivery_recorded_at', 'delivery_receipt_id')
 
 
 def _now():
@@ -101,16 +100,6 @@ class SalesOrderAdapter(FlowCaseAdapter):
             _invalid()
         return self.snapshot_from_record(ref, record)
 
-    def _active_quote(self, data):
-        quotes = data.get('quotes')
-        active_id = data.get('active_quote_id')
-        if not isinstance(quotes, list) or not _positive_id(active_id):
-            return None
-        for quote in quotes:
-            if type(quote) is dict and quote.get('id') == active_id:
-                return quote
-        return None
-
     async def fact_snapshot(self, principal, ref, fact_key):
         if fact_key not in SALES_FACTS:
             try:
@@ -119,43 +108,34 @@ class SalesOrderAdapter(FlowCaseAdapter):
             except (ValidationError, ValueError, TypeError):
                 raise HTTPException(422, '事实标识不正确') from None
         data = await self._sales_detail(principal, ref)
-        observed_at = _now()
-        version = data.get('version') if _positive_id(data.get('version')) else data.get('flow_version')
-        case_ref = BusinessObjectRef(type='case', id=data['id'])
-        from_case = EvidenceRef(source_type='object', source_id=case_ref,
-                                native_version=version, observed_at=observed_at)
-
-        if fact_key == 'sales.active_quote_approved':
-            quote = self._active_quote(data)
-            if quote is None:
-                return _unknown(fact_key, '原单据还没有生效报价版本，请在原页面核对报价进度')
-            review = quote.get('review') if type(quote.get('review')) is dict else {}
-            resolution = quote.get('resolution') if type(quote.get('resolution')) is dict else {}
-            if review.get('decision') != 'approved':
-                return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
-                                    reason='当前生效报价版本尚未获批，请先由原审批人处理')
-            if resolution.get('withdrawn_at') or resolution.get('state') == 'withdrawn':
-                return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
-                                    reason='当前生效报价的批准已被撤回，请重新核对报价')
-            return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[from_case])
-
-        if fact_key == 'sales.active_quote_consented':
-            active_id = data.get('active_quote_id')
-            consent_id = (data.get('data') or {}).get('sales_consent_id')
-            if not _positive_id(active_id) or not _positive_id(consent_id):
-                return _unknown(fact_key, '需要原客户签回证据与生效报价版本，请在原页面核对签署进度')
-            signed = (data.get('data') or {}).get('signed_file')
-            if not _positive_id(signed):
-                return _unknown(fact_key, '原签回证据尚未登记，请在原页面核对客户签署')
-            return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[from_case])
-
-        # sales.delivery_recorded：必须由原 deliver 成功回执与重读交付事实吻合证明；
-        # dispatch、金额结清或状态文字都不能替代。
-        native = data.get('data') if type(data.get('data')) is dict else {}
-        recorded = any(native.get(key) for key in _DELIVERY_KEYS)
-        if not recorded:
-            return _unknown(fact_key, '需要原交付完成回执并重读原交付事实，请在原单核对后再继续')
-        return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[from_case])
+        if data.get('flow_version') not in SALES_FLOW_VERSIONS:
+            return _unknown(fact_key, '此销售流程版本尚不能核验，请到原单据核对')
+        projection = data.get('business_facts')
+        if (type(projection) is not dict or type(projection.get('schema_version')) is not int
+                or projection['schema_version'] != 1
+                or not _positive_id(data.get('version'))
+                or type(projection.get('case_version')) is not int
+                or projection['case_version'] != data['version']
+                or projection.get('active_quote_id') != data.get('active_quote_id')
+                or projection.get('pending_quote_id') != data.get('pending_quote_id')
+                or type(projection.get('facts')) is not dict):
+            return _unknown(fact_key, '原业务事实尚未完整核验，请刷新原单据后核对')
+        for key in ('active_quote_id', 'pending_quote_id'):
+            if key not in projection or key not in data:
+                return _unknown(fact_key, '原报价关联尚未完整核验，请刷新原单据')
+            native_id, projected_id = data[key], projection[key]
+            if (native_id is not None and not _positive_id(native_id)
+                    or type(projected_id) is not type(native_id) or projected_id != native_id):
+                return _unknown(fact_key, '原报价关联尚未完整核验，请刷新原单据')
+        satisfied = projection['facts'].get(fact_key)
+        if satisfied is True and (not _positive_id(data['active_quote_id']) or data['pending_quote_id'] is not None):
+            return _unknown(fact_key, '当前生效报价仍需核验，请刷新原单据')
+        if type(satisfied) is not bool:
+            return _unknown(fact_key, '当前报价或签回证据暂不能核验，请由获权岗位在原单据核对')
+        evidence = EvidenceRef(source_type='object', source_id=BusinessObjectRef(type='case', id=data['id']),
+                               native_version=data['version'], observed_at=_now())
+        return FactSnapshot(fact_key=fact_key, satisfied=satisfied, evidence_refs=[evidence],
+                            reason=None if satisfied else '原单据尚未满足此项事实，请核对当前办理进度')
 
     def extract_result(self, operation_id, response):
         if (type(operation_id) is not str or operation_id not in SALES_RESULT_OPERATIONS
@@ -186,5 +166,5 @@ class SalesOrderAdapter(FlowCaseAdapter):
             _invalid()
 
 
-__all__ = ['SALES_CREATE', 'SALES_FACTS', 'SALES_KIND', 'SALES_PROPOSE', 'SALES_READ',
+__all__ = ['SALES_CREATE', 'SALES_FACTS', 'SALES_FLOW_VERSIONS', 'SALES_KIND', 'SALES_PROPOSE', 'SALES_READ',
            'SALES_RECEIPT_OPERATIONS', 'SALES_RESULT_OPERATIONS', 'SALES_VEHICLES', 'SalesOrderAdapter']

@@ -33,7 +33,7 @@ def main():
         'import subprocess,sys; [subprocess.run(["node","--check",p],check=True) for p in sys.argv[1:]]; print("Checked",len(sys.argv)-1,"JavaScript files")',
         *map(str,js_files)])
     run('frontend-final',['node','--test',*map(str,sorted((ROOT/'tests').glob('*.test.cjs')))])
-    suites=['test_runtime_integration.py','test_followup_integration.py','test_followup_notifications.py','test_worker_scheduling.py','test_lead_facts.py','test_batch_confirmation.py','test_outbox_atomicity.py']
+    suites=['test_runtime_integration.py','test_followup_integration.py','test_followup_notifications.py','test_worker_scheduling.py','test_lead_facts.py','test_batch_confirmation.py','test_outbox_atomicity.py','test_sales_facts.py']
     for suite in suites:
         run(suite.removesuffix('.py'),[sys.executable,'-m','unittest','discover','-s','tests','-p',suite,'-v'])
     if not args.skip_browser:run('browser-final',[sys.executable,'run_browser.py'])
