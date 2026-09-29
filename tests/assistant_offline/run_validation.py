@@ -71,6 +71,32 @@ def main():
             if int(failed[1]):raise RuntimeError('Frontend tests reported failures: '+name)
     result={'complete':not bool(args.suite),'selected_complete':True,'scope':scope,'selected_suites':suites,'steps':steps,'counts':counts,'real_model_calls':0,'browser_transport':env.get('HUAKANGOS_BROWSER_MODE','fixture') if not args.skip_browser else 'not_run','release_accepted':False}
     (evidence/'run-summary.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+    if not args.skip_browser:
+        # Fail closed before writing the bundle: the browser log must not be
+        # interpreted more loosely than the count guard above.
+        write_browser_bundle(evidence,result,env.get('HUAKANGOS_BROWSER_MODE','fixture'),counts['browser-final'])
     print(json.dumps(result,ensure_ascii=False,indent=2))
+
+
+def write_browser_bundle(evidence,result,mode,executed):
+    """Summarise the browser pages from their own evidence files."""
+    import browser_evidence
+    provenance=json.loads((evidence/'source-and-suite.json').read_text(encoding='utf-8'))
+    bundle=browser_evidence.collect(evidence,result,mode=mode,
+        expected_tests=expected_browser_tests(evidence),
+        source_fingerprint=provenance.get('source_sha256'),suite_fingerprint=provenance.get('suite_sha256'))
+    if bundle['page_count']!=executed:
+        raise RuntimeError('Browser evidence pages do not match the executed tests: '
+                           +str(bundle['page_count'])+' != '+str(executed))
+    if mode=='native' and bundle['page_errors_total']:
+        raise RuntimeError('Native browser pages reported page errors: '+str(bundle['page_errors_total']))
+    (evidence/'browser-evidence.json').write_text(json.dumps(bundle,ensure_ascii=False,indent=2),encoding='utf-8')
+
+
+def expected_browser_tests(evidence):
+    """Page evidence names come from the suite's own files, not a hand list."""
+    names=sorted(path.stem for path in evidence.glob('test_*.json'))
+    if not names:raise RuntimeError('No browser page evidence was produced.')
+    return names
 
 if __name__=='__main__':main()

@@ -67,6 +67,13 @@ class BrowserHarness:
         executable=os.environ.get('HUAKANGOS_CHROMIUM')
         if executable is None and Path('/usr/bin/chromium').exists():executable='/usr/bin/chromium'
         self.browser=await self.playwright.chromium.launch(executable_path=executable,headless=True,args=['--no-sandbox'])
+        # The reviewer needs the exact browser that produced the pages. Record
+        # which executable was used (bundled or an explicitly supplied one) and
+        # never let a missing version silently become an unnamed browser.
+        self.browser_version=self.browser.version
+        self.browser_executable=executable or 'playwright-bundled'
+        self.csp=''
+        self.current_test='unknown'
         self.context=await self.browser.new_context(viewport={'width':width,'height':height},reduced_motion='reduce')
         self.page=await self.context.new_page()
         self.page.set_default_timeout(8000)
@@ -74,6 +81,7 @@ class BrowserHarness:
         self.errors=[];self.requests=[];self.console_errors=[]
         self.page.on('console',lambda msg:self.console_errors.append(msg.text) if msg.type=='error' else None)
         self.page.on('pageerror',lambda err:self.errors.append(str(err)))
+        self.page.on('request',self.record_request)
         if self.mode=='fixture':
             await self.page.expose_function('__fixtureHttp',self.request)
         else:
@@ -84,7 +92,10 @@ class BrowserHarness:
             def record(response):
                 url=response.url
                 if url.startswith(ORIGIN+'/api/'):
-                    self.requests.append({'method':response.request.method,'path':url[len(ORIGIN):],'status':response.status})
+                    for item in reversed(self.requests):
+                        if item['status'] is None and item['path']==url[len(ORIGIN):]:
+                            item['status']=response.status
+                            break
             self.page.on('response',record)
         try:
             await self.load()
@@ -127,8 +138,30 @@ class BrowserHarness:
             # CSRF and SSE remain unmodified native Chromium throughout.
             for cookie in await self.context.cookies():
                 self.http.cookies.set(cookie['name'],cookie['value'])
+    def record_request(self,request):
+        # Real network requests only; the fixture bridge reports its own calls
+        # through the HTTP client and must never be counted as native traffic.
+        url=request.url
+        if url.startswith(ORIGIN):
+            self.requests.append({'method':request.method,'path':url[len(ORIGIN):],'status':None})
     async def close(self):
+        self.write_environment()
         await self.context.close();await self.browser.close();await self.playwright.stop();await self.http.aclose()
+    def write_environment(self):
+        # One authoritative record per test, so an aggregator never has to guess
+        # which browser, transport or policy produced the page evidence.
+        target=fixture_env.VALIDATION/'evidence'/'browser-environment.json'
+        try:payload=json.loads(target.read_text(encoding='utf-8')) if target.is_file() else {'schema':1,'tests':{}}
+        except (OSError,ValueError):payload={'schema':1,'tests':{}}
+        payload.update({'schema':1,'mode':self.mode,'native_transport':self.mode=='native',
+            'real_model_calls':0,'origin':ORIGIN,'browser_version':self.browser_version,
+            'browser_executable':self.browser_executable,'csp':self.csp,
+            'csp_script_src_self':"script-src 'self'" in self.csp,
+            'csp_unsafe_eval':"unsafe-eval" in self.csp})
+        payload.setdefault('tests',{})[self.current_test]={
+            'page_errors':len(self.errors),'console_errors':len(self.console_errors),
+            'api_requests':len([r for r in self.requests if r['path'].startswith('/api/')])}
+        target.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
 
 async def smoke():
     h=await BrowserHarness().start()

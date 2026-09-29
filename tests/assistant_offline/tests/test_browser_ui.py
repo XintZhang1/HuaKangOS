@@ -16,6 +16,9 @@ from browser_harness import BrowserHarness
 class BrowserUI(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.h=await BrowserHarness().start();self.page=self.h.page
+        # Attribute the environment record to this exact test, including tests
+        # that fail during login, so the bundle never misses a page.
+        self.h.current_test=self._testMethodName
         try:await self.h.login()
         except BaseException:
             print("SETUP",self.h.requests[-8:],flush=True)

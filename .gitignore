@@ -27,3 +27,6 @@ assistant-test-settings.json
 # Offline test execution must stay outside the repository.
 tests/assistant_offline/runtime/
 tests/assistant_offline/evidence/
+
+# Playwright browser downloads must stay outside the repository.
+.tools/
