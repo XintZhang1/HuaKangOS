@@ -164,17 +164,29 @@ class ProcurementNativeFlow(unittest.TestCase):
     def fact(self, case_id, key):
         import asyncio
         from app.db import SessionLocal
-        from app.assistant_runtime_queue import claim_next
+        from app.assistant_runtime_queue import claim_next, release
         from app.assistant_runtime_principal import native_reader_for_principal
         from app.assistant_runtime_domains.material_procurement import PROC_READ
         from app.assistant_runtime_schemas import BusinessObjectRef
-        self._baseline.RuntimeIntegration.new_run(self,'核对采购事实')
+        _,run,_=self._baseline.RuntimeIntegration.new_run(self,'核对采购事实')
         with SessionLocal() as db:
             principal=claim_next(db,'proc-facts-'+self.request_id())
-        with SessionLocal() as db:
-            native=native_reader_for_principal(db,principal,(PROC_READ,))
-            return asyncio.run(MaterialProcurementAdapter(native_reader=native).fact_snapshot(
-                principal,BusinessObjectRef(type='case',id=case_id),key))
+        self.assertIsNotNone(principal, 'The previous fact check must release its worker slot')
+        self.assertEqual(principal.run_id,run['id'])
+        outcome='failed'
+        try:
+            with SessionLocal() as db:
+                native=native_reader_for_principal(db,principal,(PROC_READ,))
+                result=asyncio.run(MaterialProcurementAdapter(native_reader=native).fact_snapshot(
+                    principal,BusinessObjectRef(type='case',id=case_id),key))
+            outcome='succeeded'
+            return result
+        finally:
+            # A real claim owns the sole worker slot even without a provider call.
+            # Finish through the queue API, including on a failing fact assertion.
+            with SessionLocal() as db:
+                finished=release(db,principal,outcome=outcome)
+                self.assertEqual(finished.status,outcome)
 
     def create_received_order(self):
         from sqlalchemy import select

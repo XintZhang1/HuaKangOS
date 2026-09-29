@@ -94,3 +94,33 @@ for (const replacement of ['context', 'selection']) {
   assert.deepEqual(chosen,replacement==='context'?[]:['s-b']);
  });
 }
+
+
+test('unloaded sidebar does not invent empty groups or zero counts',()=>{
+ const h=setup(),html=h.ws.renderSidebar();
+ assert.doesNotMatch(html,/ba-side-count|ba-side-empty/);
+});
+test('initial sidebar loading cannot be presented as no work',async()=>{
+ const h=setup(),d=deferred();h.box.businessAssistantRequest=()=>d.promise;
+ const loading=h.ws.load();const html=h.ws.renderSidebar();
+ assert.match(html,/正在读取/);assert.doesNotMatch(html,/ba-side-count|ba-side-empty/);
+ d.resolve({groups:[],counts:{}});await loading;
+});
+test('initial sidebar failure has an actionable retry instead of a fake empty result',async()=>{
+ const h=setup();h.box.businessAssistantRequest=async()=>{throw Error('连接失败')};await h.ws.load();
+ const html=h.ws.renderSidebar();assert.match(html,/data-baws-action="retry-sidebar"/);
+ assert.doesNotMatch(html,/ba-side-count|ba-side-empty|这不是空列表/);
+});
+test('sidebar refresh failure preserves previously read work and counts',async()=>{
+ const h=setup();h.box.businessAssistantRequest=async()=>({counts:{attention:3,native_tasks:3},
+  groups:[{key:'attention',items:[{key:'t',kind:'native_task',title:'仍须处理的原业务',status:'open'}]}]});
+ await h.ws.load();h.box.businessAssistantRequest=async()=>{throw Error('暂时不可用')};await h.ws.load();
+ const html=h.ws.renderSidebar();assert.match(html,/仍须处理的原业务/);
+ assert.match(html,/data-count="attention">3</);assert.match(html,/data-baws-action="retry-sidebar"/);
+});
+test('only a successfully read empty sidebar shows zero counts',async()=>{
+ const h=setup();h.box.businessAssistantRequest=async()=>({counts:{attention:0,following:0,finished:0},
+  groups:['attention','following','finished'].map(key=>({key,items:[]}))});await h.ws.load();
+ assert.match(h.ws.renderSidebar(),/data-count="attention">0</);
+ assert.match(h.ws.renderSidebar(),/当前没有待你处理的事项/);
+});

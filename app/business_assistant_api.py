@@ -78,8 +78,38 @@ def sessions(db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.post('/sessions',status_code=201)
-def new_session(body:NewSession,db=Depends(get_db),user=Depends(get_user)):
-    return service.create_session(db,user,body.title)
+def new_session(body:NewSession,request:Request,db=Depends(get_db),user=Depends(get_user)):
+    """Create metadata in a fresh short transaction, not a stale auth snapshot.
+
+    SQLite cannot promote an old WAL reader after a worker has committed. Reserve
+    its writer before repeating the original authentication and store checks.
+    No business command or uncertain commit is ever replayed here.
+    """
+    from fastapi import HTTPException
+    from sqlalchemy import false
+    from sqlalchemy.exc import OperationalError
+    service.require_preparation_read_phase(db)
+    expected=(user.id,user.role,user.access_version,single_store(db),request.state.session_hash)
+    db.rollback()
+    try:
+        if db.get_bind().dialect.name=='sqlite':
+            # A zero-row update reserves SQLite's writer without changing any
+            # conversation or business data; it precedes every new auth read.
+            table=AssistantSession.__table__
+            db.connection().execute(table.update().where(false()).values(version=table.c.version))
+        current=get_user(request,db)
+        actual=(current.id,current.role,current.access_version,single_store(db),request.state.session_hash)
+        if actual!=expected:
+            raise HTTPException(409,'账号或门店权限已更新，请刷新后重新操作')
+        return service.create_session(db,current,body.title)
+    except OperationalError as exc:
+        db.rollback()
+        if db.get_bind().dialect.name=='sqlite' and (getattr(exc.orig,'sqlite_errorcode',0)&255) in {5,6}:
+            raise HTTPException(503,'新对话暂时不可用，请稍后重试') from None
+        raise
+    except Exception:
+        db.rollback()
+        raise
 
 
 @router.get('/sessions/{session_id}')

@@ -11,7 +11,10 @@ def main():
     parser.add_argument('--source',type=Path,default=bundled.parents[1])
     parser.add_argument('--output',type=Path)
     parser.add_argument('--browser-mode',choices=('off','fixture','native'),default='off')
+    available=sorted(p.name for p in (bundled/'tests').glob('test_*.py') if p.name!='test_browser_ui.py')
+    parser.add_argument('--suite',action='append',choices=available,help='Target one backend suite (repeatable); not a full regression.')
     args=parser.parse_args();source=args.source.resolve()
+    if args.suite and len(args.suite)!=len(set(args.suite)):parser.error('Duplicate suite selections are not allowed.')
     if not (source/'app/main.py').is_file() or (source/'.env').exists():
         parser.error('Use a disposable source checkout without .env; no database is read from the environment.')
     if args.output:
@@ -34,13 +37,16 @@ def main():
     source_files+=[source/f for f in ('requirements.txt','alembic.ini')]
     inventory={str(p.relative_to(source)):hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files}
     suite_inventory={str(p.relative_to(bundled)):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
+    suite_inventory['run_isolated.py']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
     provenance={'source_sha256':digest(inventory),'suite_sha256':digest(suite_inventory),'files':inventory,
-                'suite_files':suite_inventory,'python':sys.version,'browser_mode':args.browser_mode}
+                'suite_files':suite_inventory,'python':sys.version,'browser_mode':args.browser_mode,
+                'scope':'targeted' if args.suite else 'full','selected_suites':args.suite or available}
     (output/'evidence/source-and-suite.json').write_text(json.dumps(provenance,ensure_ascii=False,indent=2))
     env={**os.environ,'HUAKANGOS_SOURCE':str(source),'HUAKANGOS_BROWSER_MODE':args.browser_mode}
     command=[sys.executable,str(output/'run_validation.py'),'--source',str(source)]
     if args.browser_mode=='off':command.append('--skip-browser')
+    for suite in args.suite or []:command.extend(['--suite',suite])
     print('Isolated validation: '+str(output),flush=True)
     result=subprocess.run(command,cwd=output,env=env)
     print('Evidence retained: '+str(output/'evidence'),flush=True)

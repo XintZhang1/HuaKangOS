@@ -331,4 +331,47 @@ class BrowserUI(unittest.IsolatedAsyncioTestCase):
         await self.wait_state('AssistantWorkspace.snapshot().plan?.status==="completed"')
         self.assertEqual(await self.page.locator('#business-assistant-input').input_value(),'保留销售跟进草稿')
 
+    async def test_14_sidebar_retry_keeps_known_work_and_unsent_draft(self):
+        """HTTP read failure is not an empty queue and never resends business work."""
+        import httpx
+        await self.wait_state('!AssistantWorkspace.snapshot().loading && !!AssistantWorkspace.snapshot().counts')
+        before = await self.page.locator('#ba-sidebar-root .ba-side-group').all_text_contents()
+        before_posts = len(self.posts())
+        workspace_path = '/api/business-assistant/workspace'
+        original_request = self.h.http.request
+
+        async def unavailable(route):
+            await route.fulfill(status=503, content_type='application/json',
+                                body=json.dumps({'detail':'合成暂时读取失败'}))
+
+        async def fixture_request(method, url, **kwargs):
+            if method == 'GET' and str(url).split('?')[0] == workspace_path:
+                return httpx.Response(503, json={'detail':'合成暂时读取失败'})
+            return await original_request(method, url, **kwargs)
+
+        if self.h.mode == 'native':
+            await self.page.route('**/api/business-assistant/workspace*', unavailable)
+        else:
+            self.h.http.request = fixture_request
+        try:
+            await self.page.locator('[data-ba-action="refresh"]').click()
+            await self.page.locator('#ba-sidebar-root .ba-side-error').wait_for()
+            self.assertEqual(await self.page.locator('#ba-sidebar-root .ba-side-group').all_text_contents(), before)
+            self.assertNotIn('这不是空列表', await self.page.locator('#ba-sidebar-root').inner_text())
+        finally:
+            if self.h.mode == 'native':
+                await self.page.unroute('**/api/business-assistant/workspace*', unavailable)
+            else:
+                self.h.http.request = original_request
+        draft = '保留侧栏重试草稿'
+        await self.page.locator('#business-assistant-input').fill(draft)
+        await self.page.locator('[data-baws-action="retry-sidebar"]').click()
+        await self.wait_state('!AssistantWorkspace.snapshot().loading && !AssistantWorkspace.snapshot().error')
+        self.assertEqual(await self.page.locator('#business-assistant-input').input_value(), draft)
+        self.assertEqual(await self.page.locator('#ba-sidebar-root .ba-side-group').all_text_contents(), before)
+        self.assertEqual(len(self.posts()), before_posts)
+        statuses = [r['status'] for r in self.h.requests if r['method'] == 'GET' and r['path'].split('?')[0] == workspace_path]
+        self.assertIn(503, statuses)
+        self.assertEqual(statuses[-1], 200)
+
 if __name__=='__main__':unittest.main()

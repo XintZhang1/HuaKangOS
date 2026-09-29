@@ -35,7 +35,7 @@ SVC_RECEIPT_OPERATIONS = frozenset({SVC_CREATE, SVC_ACTION})
 SVC_FACTS = ('service.submission_recorded', 'service.external_approved',
              'service.fulfillment_recorded')
 PARTIAL = '至少一项履约不代表全部项目或款项完成'
-OUTCOMES = ('outcome', 'result', 'status')
+OUTCOMES = ('outcome',)
 
 
 def _now():
@@ -121,8 +121,8 @@ class ServiceOrderAdapter(FlowCaseAdapter):
             return None
         for key in OUTCOMES:
             value = record.get(key)
-            if type(value) is str and value.strip():
-                return value.strip().lower()
+            if type(value) is str and value in {'approved', 'rejected', 'need_documents'}:
+                return value
         return None
 
     async def fact_snapshot(self, principal, ref, fact_key):
@@ -152,39 +152,53 @@ class ServiceOrderAdapter(FlowCaseAdapter):
                                 reason='本单还没有原外部提交记录，请在原页面核对；' + PARTIAL)
 
         if fact_key == 'service.external_approved':
+            # The original API returns two top-level collections. Results join
+            # by submission_id, never by display text or a guessed nested shape.
             submissions = self._rows(data, 'submissions')
-            if submissions is None:
-                return _unknown(fact_key, '原详情未提供提交明细（submissions），'
-                                          '无法判断最新提交及其结果；' + PARTIAL)
-            known = [item for item in submissions if type(item) is dict and _positive_id(item.get('id'))]
-            if not known:
+            lines = self._rows(data, 'lines')
+            if submissions is None or lines is None:
+                return _unknown(fact_key, '原详情未提供完整项目及提交明细，无法核对最新结果；' + PARTIAL)
+            current_lines = set()
+            for line in lines:
+                key = line.get('line_key') if type(line) is dict else None
+                if type(key) is not str or not key.strip() or key in current_lines:
+                    return _unknown(fact_key, '原项目编号不完整或重复，请在原页面核对；' + PARTIAL)
+                current_lines.add(key)
+            by_id, latest = {}, {}
+            for item in submissions:
+                if (type(item) is not dict or not _positive_id(item.get('id'))
+                        or not _positive_id(item.get('case_id')) or item['case_id'] != data['id']
+                        or type(item.get('line_key')) is not str or not item['line_key'].strip()
+                        or item['id'] in by_id):
+                    return _unknown(fact_key, '原提交的单据或项目关联不完整，请在原页面核对；' + PARTIAL)
+                by_id[item['id']] = item
+                key = item['line_key']
+                if key in current_lines:
+                    latest[key] = max(latest.get(key, 0), item['id'])
+            if not latest:
                 return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=evidence,
-                                    reason='本单还没有可判断的原外部提交，请在原页面核对；' + PARTIAL)
-            latest = max(known, key=lambda item: item['id'])
-            results = None
-            for key in ('results', 'external_results', 'result'):
-                value = latest.get(key)
-                if isinstance(value, list):
-                    results = value
-                    break
-                if isinstance(value, dict):
-                    results = [value]
-                    break
+                                    reason='当前项目尚未有原外部提交；' + PARTIAL)
+            results = self._rows(data, 'results')
             if results is None:
-                return _unknown(fact_key, '最新提交未提供外部结果明细，无法确证审批结论；' + PARTIAL)
+                return _unknown(fact_key, '原详情未提供外部结果明细，无法确证审批结论；' + PARTIAL)
+            outcomes, result_ids = {}, set()
             for item in results:
-                if self._outcome(item) == 'approved':
-                    if item.get('submission_id') is not None and item.get('submission_id') != latest['id']:
-                        return _unknown(fact_key, '外部结果的 submission_id 与最新提交不一致，'
-                                                  '无法确证对应当前项目；' + PARTIAL)
-                    return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=evidence,
-                                        reason='最新原提交的外部结果为 approved；' + PARTIAL)
-            for item in results:
-                if self._outcome(item) is not None:
-                    return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=evidence,
-                                        reason='最新原提交的外部结果不是 approved，请在原页面核对；'
-                                               + PARTIAL)
-            return _unknown(fact_key, '外部结果缺少可识别的 outcome，无法确证；' + PARTIAL)
+                if (type(item) is not dict or not _positive_id(item.get('id'))
+                        or not _positive_id(item.get('submission_id'))
+                        or item['submission_id'] not in by_id or item['submission_id'] in outcomes
+                        or item['id'] in result_ids or self._outcome(item) is None):
+                    return _unknown(fact_key, '原外部结果的提交关联或结论不完整，请在原页面核对；' + PARTIAL)
+                result_ids.add(item['id'])
+                outcomes[item['submission_id']] = self._outcome(item)
+            # Native commands preserve immutable line_key facts across quote
+            # additions. A different project's later submission cannot erase an
+            # approval, but an older result for this same line cannot prove its
+            # replacement/supplement. This remains an existential, not all-lines, fact.
+            if any(outcomes.get(ident) == 'approved' for ident in latest.values()):
+                return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=evidence,
+                                    reason='至少一个当前项目的最新原提交已有批准结果；' + PARTIAL)
+            return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=evidence,
+                                reason='当前项目最新提交尚无批准结果，仍需等待结果或补件；' + PARTIAL)
 
         lines = self._rows(data, 'lines')
         if lines is None:

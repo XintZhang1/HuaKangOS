@@ -27,7 +27,7 @@
   const uiBySession = new Map();
 
   function fresh() {
-    return { features: null, counts: null, groups: [], cursors: {}, loading: false,
+    return { features: null, counts: null, groups: [], cursors: {}, loading: false, loaded: false,
       error: '', selected: null, serial: 0, mounted: false, bound: false, context: '',
       drawer: false, notice: '', host: null, toggle: null, handoff: null, handoffLabel: '', handoffPrompt: '',
       plan: null, planError: '', planLoading: false, planSerial: 0, followupPending: '', followupToken: null, revokeArmed: false,
@@ -120,7 +120,7 @@
       state.cursors = {};
       for (const group of state.groups) state.cursors[group.key] = group.next_cursor || null;
     }
-    state.loading = false; state.error = '';
+    state.loading = false; state.loaded = true; state.error = '';
     if (state.selected) {
       const found = findItem(state.selected.key);
       state.selected = found || null;   // 服务器不再返回就清空，不自作主张改选别的项
@@ -149,10 +149,12 @@
   function renderSidebar() {
     const notice = state.error
       ? '<p class="ba-side-error" role="alert">' + escapeText('待办读取失败：' + state.error) + '</p>'
-        + '<p class="ba-side-hint">这不是空列表；原人工入口仍可用，请稍后重试。</p>'
+        + '<button type="button" class="link" data-baws-action="retry-sidebar">重试</button>'
       : '';
-    const busy = state.loading && !state.groups.length
+    const busy = state.loading && !state.loaded
       ? '<p class="ba-side-hint">正在读取你的待办…</p>' : '';
+    // Before a successful read, unknown totals are not an empty work queue.
+    if (!state.loaded) return notice + busy;
     const sections = GROUPS.map(([key, label]) => {
       const group = groupOf(key), items = (group && group.items) || [];
       const badge = Number(((state.counts || {})[key] != null ? state.counts[key] : items.length)) || 0;
@@ -855,6 +857,10 @@
     const target = event.target && event.target.closest ? event.target.closest('[data-baws-action]') : null;
     if (!target || !alive()) return;
     const action = target.dataset.bawsAction;
+    if (action === 'retry-sidebar') {
+      if (!state.loading) await load();
+      return;
+    }
     if (action === 'open') { await openItem(target.dataset.key); return; }
     if (action === 'more') {
       const group = target.dataset.group;

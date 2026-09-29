@@ -3572,6 +3572,16 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
+- 2026-09-29 本轮续作事实、并发会话与页面回归记录见 `docs/implementation-checkpoints/M8-1-native-checkpoint-v4.md`；原生 CI 与桥接结果分开登记，保持 in_progress。
+
+- 2026-09-29 追加 PATCH-M8-1-SESSION-CREATE-01：原页面新对话 409 的并发快照复现与短事务修复；重新验证原身份，不对业务写入自动重放。
+
+- 2026-09-29 追加 PATCH-M8-1-SIDEBAR-ERROR-01：区分待办读取中／失败与真正空列表，保留已读数据并提供直接重试；不添加解释性界面文字。
+
+- 2026-09-29 追加 PATCH-M8-1-SERVICE-FACTS-01、PATCH-M8-1-SUITE-SELECTION-01：核对代办外部结果的顶层关联与逐项目最新提交，补齐真实原接口用例；测试默认完整发现、定向执行单独标记，结果待追加。
+
+- 2026-09-29 追加 PATCH-M8-1-NATIVE-FIXTURE-01：修正采购原 API 测试的 Run 领取／释放生命周期；不放宽生产权限与单 worker 守卫。基点 CI 的失败证据保留，复验结果另行追加。
+
 - 2026-09-29 追加 PATCH-M8-1-SALES-BROWSER-01：原销售 v4 签回、交付的双人工确认页面用例；保留 CSP，原生与本地传输夹具证据分别记录。
 
 - 2026-09-29 追加 PATCH-M8-1-LEAD-REGISTRY-01：接待事实的静态注册与公开条件路径复验；仍为 in_progress，不替代跨业务族验收。

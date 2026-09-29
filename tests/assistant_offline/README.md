@@ -26,3 +26,7 @@ python tests/assistant_offline/run_isolated.py --browser-mode fixture
 定向覆盖：真实登录及门店权限、工具协议拒绝、持久 Run、租约与取消、人工确认及未知结果不重放；两步计划依赖、显式跟进授权、退出/暂停/撤权、原接待事实；重复唤醒、发件箱事务恢复和私有通知；原批量接口首项失败即停；完整前端模块与页面实操、移动端布局和上下文竞态。
 
 模型响应是确定性合成内容，不使用真实 DeepSeek；原业务 API、状态、数据库与事务不是桩。原生浏览器测试与 fixture 测试分别记录，后者不证明原生 Cookie/CSP/网络 SSE。全套定向通过仍不代表原 101/283 模型场景、193 项需求、全部业务族、PostgreSQL、Windows、指定 MCP 客户端及员工试用已经验收。
+
+## 定向复验与套件发现
+
+默认运行所有已版本化 `test_*.py` 后端套件（`test_browser_ui.py` 仅由显式浏览器模式运行），不会因执行器白名单遗漏新文件。排查单项时可追加 `--suite test_service_facts.py`，可重复参数选择多个不同套件。未知文件、路径和重复项拒绝。定向执行保留语法与全部前端行为检查，但报告为 `scope=targeted`、`selected_complete=true`、`complete=false`；不能用它替代默认完整回归。CI 默认不筛选套件。入口脚本也包含在套件指纹中。
