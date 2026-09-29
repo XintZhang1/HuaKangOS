@@ -181,6 +181,9 @@ class ServiceOrderAdapter(FlowCaseAdapter):
             results = self._rows(data, 'results')
             if results is None:
                 return _unknown(fact_key, '原详情未提供外部结果明细，无法确证审批结论；' + PARTIAL)
+            # 原 `ServiceExternalResult` 只挂 `submission_id`（该列唯一），没有 `case_id`；
+            # 结果归属本单由"提交必须属本单且属当前项目"以上一步的 `by_id` 收口，不额外要求
+            # 结果自带 case_id。仍然拒绝重复提交关联、重复结果编号和结论缺失。
             outcomes, result_ids = {}, set()
             for item in results:
                 if (type(item) is not dict or not _positive_id(item.get('id'))

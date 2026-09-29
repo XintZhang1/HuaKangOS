@@ -2,7 +2,11 @@
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
-**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 13+8）、M6.6（持续跟进与生命周期控制 12+7）、M6.7（通知/协作/回执核对 11+9）、M6.8（兼容/窄屏/开关收口 21 条命令），三者均 passed，CP-14 记 `implementation_released`。下一步 M6.4（默认进入助手并保持原人工导航与深链接）。四个功能开关默认关闭。
+**当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 13+8）、M6.6（持续跟进与生命周期控制 12+7）、M6.7（通知/协作/回执核对 11+9）、M6.8（兼容/窄屏/开关收口 21 条命令），三者均 passed，CP-14 记 `implementation_released`。M7.1.1—M7.12.3 的 52 个适配小项均 `implemented`。
+
+2026-09-29 收口记录：先修复三个"真实数据上永不成立"的领域事实缺陷（仓储盘差用途、跨店授权接收店、关怀结案状态）与界面等待文案，另修好挡住本地复验的离线执行器缺口，完整离线回归 **259 项、退出码全 0**（见 M8.1 记录与 PATCH-M8-1-*）。随后把统一验证执行器从已不存在的 `E:\HuakangOSFeature` **重绑到当前仓库 `E:\HuaKangOS`**，并排查出 `service.external_approved` 同样永不成立的真实缺陷（要求原模型没有的 `results[].case_id`，见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）。在当前源码指纹 `5e6fce5e…` 上重跑 **M7.9.2—M7.12.3 共 18 个里程碑，18/18 passed**，CP-29—CP-34 据实记 `implementation_released`（见 `docs/implementation-checkpoints/CP-29-34-verification-v1.md`）。**当前执行点：M8.1 收口（CP-35）**。四个功能开关默认关闭，未部署、未调用真实模型。
+
+**当前执行点（每一轮开始时读这里）**：M8.1 剩余清单 = 会话级撤权演练（含 `access_signals` 两条事件路径）、旧租约不得覆盖新状态的 DB 跃迁演练、确认前原业务写入计数、批量部分失败即暂停、延迟注入；随后 M8.2。M8.3 起（PostgreSQL、真实模型 live gate、Windows/Linux 恢复演练、员工试用）属外部条件项，按实际具备程度执行并如实登记，缺条件记 `blocked` 而不假装完成。完成后按"先实现、测试整体后移"的业主指示，在最后建立并跑通**浏览器实测 bug 复现脚本流水线**。
 
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
@@ -94,12 +98,12 @@
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | implementation_released | docs/implementation-checkpoints/M7-7-4-review-v1.md；M7-7-5-review-v1.md；M7-7-6-review-v1.md | M7.7.4（8 项）、M7.7.5（6 项）、M7.7.6（9 项）均已落盘并实测通过；**M7.7.5 套餐事实因 purchase↔member 维度不匹配待评审补齐**（已如实登记）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.8.1（CP-27） |
 | CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | implementation_released | docs/implementation-checkpoints/M7-8-1-review-v1.md；M7-8-2-review-v1.md；M7-8-3-review-v1.md | M7.8.1（7 项）、M7.8.2（7 项）、M7.8.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.9.1（CP-28） |
 | CP-28 | M7.8.4—M7.8.5 | 店间清算、其他收入 | **计划内部不一致（待业主确认）** | docs/implementation-checkpoints/M7-9-1-review-v1.md | 本表引用的 M7.8.4/M7.8.5 在正文中不存在（M7.8 组只有 M7.8.1—M7.8.3）；按正文编号继续，M7.9.1（inventory_report，6 项）已 implemented 并实测通过 |
-| CP-29 | M7.9.1—M7.9.3 | 库存仓储、期间入出存、维修领料 | not_ready | — | — |
-| CP-30 | M7.9.4—M7.9.6 | 收入成本、活动、汇总统计 | not_ready | — | — |
-| CP-31 | M7.10.1—M7.10.3 | 物资整车调拨、运输差异 | not_ready | — | — |
-| CP-32 | M7.10.4—M7.10.6 | 原损失找回、跨店原单授权 | not_ready | — | — |
-| CP-33 | M7.11.1—M7.11.4 | 基础资料、系统管理、评审边界 | not_ready | — | — |
-| CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | not_ready | — | — |
+| CP-29 | M7.9.1—M7.9.3 | 库存仓储、期间入出存、维修领料 | implementation_released | docs/implementation-checkpoints/M7-9-1-review-v1.md；M7-9-2-review-v1.md；M7-9-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 2026-09-29 统一 runner 重绑到 `E:\HuaKangOS` 后在当前源码上复验：M7.9.2、M7.9.3 与已登记的 M7.9.1 均 passed，指纹 `5e6fce5e…`、`phase_complete=true`；仅放行后续编码，不表示深度测试或生产验收；继续 M7.9.4—M7.9.6（CP-30） |
+| CP-30 | M7.9.4—M7.9.6 | 收入成本、活动、汇总统计 | implementation_released | docs/implementation-checkpoints/M7-9-4-review-v1.md；M7-9-5-review-v1.md；M7-9-6-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.9.4、M7.9.5、M7.9.6 均 passed（指纹 `5e6fce5e…`）；只读报表面不注册事实键的边界保留；继续 M7.10.1—M7.10.3（CP-31） |
+| CP-31 | M7.10.1—M7.10.3 | 物资整车调拨、运输差异 | implementation_released | docs/implementation-checkpoints/M7-10-1-review-v1.md；M7-10-2-review-v1.md；M7-10-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.10.1、M7.10.2、M7.10.3 均 passed；`unlocated 不等于 recovered`、计划不等于处置的边界保留；继续 M7.10.4—M7.10.6（CP-32） |
+| CP-32 | M7.10.4—M7.10.6 | 原损失找回、跨店原单授权 | implementation_released | docs/implementation-checkpoints/M7-10-4-review-v1.md；M7-10-5-review-v1.md；M7-10-6-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.10.4、M7.10.5、M7.10.6 均 passed。M7.10.6 首轮失败根因为外部合同夹具缺 `source_side`，已按真实 `/api/dossier-grants` 形状对齐并保留原件；适配器本身未因此放宽；继续 M7.11.1—M7.11.4（CP-33） |
+| CP-33 | M7.11.1—M7.11.4 | 基础资料、系统管理、评审边界 | implementation_released | docs/implementation-checkpoints/M7-11-1-review-v1.md；M7-11-2-review-v1.md；M7-11-3-review-v1.md；M7-11-4-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.11.1—M7.11.4 全部 passed；系统管理只读面与“人工办理不由助手代办”的边界保留；继续 M7.12.1—M7.12.3（CP-34） |
+| CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | implementation_released | docs/implementation-checkpoints/M7-12-1-review-v1.md；M7-12-2-review-v1.md；M7-12-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验通过，过程中发现并修复真实缺陷：`service.external_approved` 要求原模型不存在的 `results[].case_id`，使该事实在真实数据上永不成立（见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）；外部合同夹具另按真实形状对齐六处并保留原件。M7 章节收口，继续 M8.1（CP-35） |
 | CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | not_ready | — | — |
 | CP-36 | M8.3—M8.4 | 独立PG升级/恢复、真实HTTP浏览器 | not_ready | — | — |
 | CP-37 | M8.5—M8.6 | 经live gate授权的真实模型和保留集 | not_ready | — | — |
