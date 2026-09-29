@@ -84,7 +84,11 @@ class BrowserHarness:
                 if url.startswith(ORIGIN+'/api/'):
                     self.requests.append({'method':response.request.method,'path':url[len(ORIGIN):],'status':response.status})
             self.page.on('response',record)
-        await self.load()
+        try:
+            await self.load()
+        except BaseException:
+            await self.close()
+            raise
         return self
     async def request(self,data):
         url=data['url']

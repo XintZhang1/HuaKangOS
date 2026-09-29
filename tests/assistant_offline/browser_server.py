@@ -9,7 +9,7 @@ os.environ['DATABASE_URL']='sqlite:///'+str(browser_db)
 from app.main import app
 from app.assistant_worker import Worker
 from app.db import engine,SessionLocal
-from app.flow_models import Case,Task
+from app.flow_models import Case,Task,FileAsset
 from sqlalchemy import select
 from fake_provider import Provider,tool,reply,customer_steps,deny_external_sockets
 import uvicorn
@@ -23,7 +23,41 @@ class BrowserProvider(Provider):
              next((m['content'] for m in reversed(context.get('recent_messages',[])) if m['role']=='user'),''))
         count=sum(m['role']=='tool' for m in messages)
         if '慢速查询' in user_text and not count:await asyncio.sleep(2)
-        if '离线接待计划' in user_text:
+        if '离线销售计划' in user_text:
+            matched=re.search(r'销售单 ([0-9]+)，合同签回 ([0-9]+)',user_text)
+            if not matched:raise AssertionError('Missing explicit synthetic sales references')
+            ident,signed=int(matched[1]),int(matched[2])
+            background=context.get('trigger',{}).get('background_is_not_new_employee_instruction')
+            fact=lambda key:{'type':'fact_exists','object_ref':{'type':'case','id':ident},'fact_key':key}
+            if not count and not background:
+                steps=[{'key':'sign','title':'确认客户本版签回',
+                    'object_ref':{'type':'case','id':ident},'form_ref':f'case:{ident}:sign',
+                    'conditions':[{'type':'native_action_available','object_ref':{'type':'case','id':ident},'action_key':'sign'}],
+                    'completion_conditions':[fact('sales.active_quote_consented')]},
+                    {'key':'deliver','title':'确认客户提车','depends_on':['sign'],
+                    'object_ref':{'type':'case','id':ident},'form_ref':f'case:{ident}:deliver',
+                    'conditions':[fact('sales.active_quote_consented'),
+                        {'type':'native_action_available','object_ref':{'type':'case','id':ident},'action_key':'deliver'}],
+                    'completion_conditions':[fact('sales.delivery_recorded')]}]
+                message=tool('save_work_plan',{'schema_version':2,'goal':'离线销售计划','steps':steps})
+            elif not count:
+                with SessionLocal() as db:
+                    sign_task=db.scalar(select(Task).where(Task.case_id==ident,Task.key=='sign'))
+                    deliver_task=db.scalar(select(Task).where(Task.case_id==ident,Task.key=='deliver'))
+                    if sign_task.status=='open':key,evidence='sign',signed
+                    elif deliver_task.status=='open':
+                        # Only the uniquely uploaded synthetic handover for this
+                        # explicitly named case. This is a test model, not a
+                        # bypass of the original preparation/file/submit guards.
+                        files=list(db.scalars(select(FileAsset.id).where(FileAsset.case_id==ident,
+                            FileAsset.category=='signed_handover',FileAsset.generated.is_(False))))
+                        if len(files)!=1:raise AssertionError('Synthetic handover must be unambiguous')
+                        key,evidence='deliver',files[0]
+                    else:raise AssertionError('Finished sales plan must not call model')
+                message=tool('prepare_business_form',{'form_ref':f'case:{ident}:{key}',
+                    'values':{'evidence_id':evidence},'summary':'核对客户签回' if key=='sign' else '核对客户提车'})
+            else:message=reply('操作已准备，请核对。')
+        elif '离线接待计划' in user_text:
             matched=re.search(r'接待单 ([0-9]+) 和 ([0-9]+)，接手员工 ([0-9]+)',user_text)
             if not matched:raise AssertionError('Missing explicit synthetic plan references')
             ids=[int(matched[1]),int(matched[2])];employee=int(matched[3])

@@ -3572,6 +3572,8 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
+- 2026-09-29 追加 PATCH-M8-1-SALES-BROWSER-01：原销售 v4 签回、交付的双人工确认页面用例；保留 CSP，原生与本地传输夹具证据分别记录。
+
 - 2026-09-29 追加 PATCH-M8-1-LEAD-REGISTRY-01：接待事实的静态注册与公开条件路径复验；仍为 in_progress，不替代跨业务族验收。
 
 2026-09-29 同轮追加 `PATCH-M8-1-CONDITION-READ-01`：只读证明局部复用相同原 GET，下一次核查及实际办理仍重新验证；保留原全部验收，当前状态不变。

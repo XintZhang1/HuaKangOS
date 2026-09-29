@@ -222,4 +222,113 @@ class BrowserUI(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len([r for r in self.posts() if r['path'].endswith('/runs')]),1)
         self.assertEqual(await self.page.locator('[data-baws-followup="enable"]').count(),0)
 
+    async def test_13_sales_v4_sign_and_delivery_require_separate_human_confirmation(self):
+        """Original v4 order/documents/actions with a synthetic provider only."""
+        import httpx
+        from datetime import date,timedelta
+        headers=lambda client:{'X-App-Request':'1','X-Store-ID':'1','X-CSRF-Token':client.cookies.get('dealer_csrf')}
+        admin=self.h.http
+        async def post(path,body,client=admin,status=200):
+            response=await client.post(path,headers=headers(client),json=body)
+            self.assertEqual(response.status_code,status,response.text)
+            return response.json()
+        model=(await post('/api/vehicle-catalog/entry',{'request_id':'fixture_'+uuid4().hex,
+            'brand_name':'合成浏览器品牌','series_name':'合成浏览器车系','name':'合成浏览器报价车型',
+            'model_year':2026,'fuel_type':'petrol','seats':5,'displacement_ml':1500}))['model']
+        with closing(sqlite3.connect('file:'+str(fixture_env.RUNTIME/'browser.sqlite')+'?mode=ro',uri=True)) as db:
+            customer=db.execute('select id from flow_customers where store_id=1 order by id limit 1').fetchone()[0]
+            account=db.execute('select id from flow_accounts where store_id=1 and active=1 order by id limit 1').fetchone()[0]
+            car=db.execute('select id,version,vin from vehicles where store_id=1 '
+                'and id not in (select vehicle_id from flow_vehicle_holds) '
+                'and id not in (select active_vehicle_id from sales where active_vehicle_id is not null) order by id limit 1').fetchone()
+        self.assertIsNotNone(car)
+        await post('/api/vehicle-catalog/vehicle-assignment',{'request_id':'fixture_'+uuid4().hex,
+            'version':0,'reason':'合成浏览器车型核对','vehicle_id':car[0],'vehicle_version':car[1],'vin':car[2],'model_id':model['id']})
+        order=await post('/api/sales-quotes/orders',{'request_id':'fixture_'+uuid4().hex,'customer_id':customer,
+            'quote':{'model_id':model['id'],'model_version':model['version'],'amount_cents':100000,
+                'delivery_due':(date.today()+timedelta(days=5)).isoformat(),
+                'valid_until':(date.today()+timedelta(days=3)).isoformat(),
+                'addon':False,'insurance':False,'agency':False,'terms':'合成浏览器销售条款','reason':'合成首次报价'}},status=201)
+        ident=order['id'];self.assertEqual(order['flow_version'],4)
+        async def detail(client=admin):
+            response=await client.get(f'/api/sales-quotes/orders/{ident}',headers=headers(client))
+            self.assertEqual(response.status_code,200,response.text);return response.json()
+        async def action(key,values,client=admin):
+            current=await detail(client)
+            return await post(f'/api/flow/cases/{ident}/actions/{key}',
+                {'request_id':'fixture_'+uuid4().hex,'version':current['version'],'values':values},client)
+        async def upload(category,source=None):
+            data={'category':category}
+            if source is not None:data['source_file_id']=str(source)
+            response=await admin.post(f'/api/flow/cases/{ident}/files',headers=headers(admin),data=data,
+                files={'file':('synthetic.txt',('合成凭据，不是真实签名 '+uuid4().hex).encode(),'text/plain')})
+            self.assertEqual(response.status_code,200,response.text);return response.json()['id']
+        async def signed_file(kind):
+            source=await post(f'/api/flow/cases/{ident}/documents',{'kind':kind})
+            return await upload('signed_contract' if kind=='contract' else 'signed_handover',source['id'])
+        reviewer_name='sales_browser_'+uuid4().hex[:12];password=fixture_env.PASSWORD.read_text()
+        await post('/api/users',{'username':reviewer_name,'display_name':'合成独立报价审核人','role':'manager',
+            'password':password+'Initial','store_ids':[1],'store_roles':[{'store_id':1,'role':'manager'}]},status=201)
+        async with httpx.AsyncClient(base_url='http://127.0.0.1:8765',trust_env=False,timeout=30) as reviewer:
+            response=await reviewer.post('/api/auth/login',headers={'X-App-Request':'1'},
+                json={'username':reviewer_name,'password':password+'Initial'})
+            self.assertEqual(response.status_code,200,response.text)
+            await post('/api/auth/password',{'current_password':password+'Initial','new_password':password},reviewer)
+            response=await reviewer.post('/api/auth/login',headers={'X-App-Request':'1'},
+                json={'username':reviewer_name,'password':password})
+            self.assertEqual(response.status_code,200,response.text)
+            await action('quote_approve',{'reason':'独立批准合成报价'},reviewer)
+        await action('allocate',{'vehicle_id':car[0]})
+        signed=await signed_file('contract')
+        await self.send(f'离线销售计划：销售单 {ident}，合同签回 {signed}，先签回后提车，每一步都由我确认。')
+        await self.settled()
+        self.assertEqual(await self.page.evaluate('businessAssistantState.session.work_plans.length'),1)
+        sid=await self.page.evaluate('businessAssistantState.session.id')
+        pid=await self.page.evaluate('businessAssistantState.session.work_plans[0].id')
+        await self.page.locator('[data-baws-followup="enable"]').click()
+        await self.wait_state('AssistantWorkspace.snapshot().plan?.grant==="active"')
+        await self.page.locator('#business-assistant-input').fill('保留销售跟进草稿')
+        async def confirm_notice(index):
+            rows=await self.wait_browser_db(
+                'select id,status from business_assistant_proposals where session_id=? order by created_at',
+                (sid,),lambda rows:len(rows)==index+1 and rows[-1][1]=='pending',timeout=70)
+            card=rows[-1][0]
+            notices=await self.wait_browser_db(
+                'select id from business_assistant_notifications where session_id=? and proposal_id=? order by created_at desc',
+                (sid,card),bool)
+            button=self.page.locator('[data-baws-action="notices"]')
+            if await button.get_attribute('aria-expanded')=='true':await button.click()
+            await button.click()
+            notice=self.page.locator('[data-baws-action="notice-open"][data-notice-id="'+notices[0][0]+'"]')
+            await notice.wait_for();await notice.click()
+            await self.wait_state('(id)=>businessAssistantState.session?.proposals?.some(c=>c.id===id)',arg=card)
+            self.assertEqual(await self.page.locator('#business-assistant-input').input_value(),'保留销售跟进草稿')
+            current=await detail()
+            if index==0:self.assertIsNone(current['active_quote_id'])
+            else:
+                self.assertNotEqual(current['state'],'delivered')
+                self.assertIsNot(current['business_facts']['facts']['sales.delivery_recorded'],True)
+            await self.page.locator('[data-ba-action="confirm"][data-id="'+card+'"]').click()
+            await self.wait_state('(id)=>businessAssistantState.session?.proposals?.some(c=>c.id===id&&c.status==="succeeded")',arg=card,timeout=15000)
+        await confirm_notice(0)
+        current=await detail();self.assertIs(current['business_facts']['facts']['sales.active_quote_consented'],True)
+        self.assertIsNot(current['business_facts']['facts']['sales.delivery_recorded'],True)
+        # Upload alone proves neither signature acceptance nor actual handover.
+        await signed_file('handover')
+        current=await detail();self.assertIsNot(current['business_facts']['facts']['sales.delivery_recorded'],True)
+        await action('receive',{'amount':'1000.00','account_id':account,'reference':'fixture_'+uuid4().hex,
+            'evidence_id':await upload('receipt')})
+        await action('inspect',{'outcome':'合格','evidence_id':await upload('inspection'),'result':'合成逐项检查合格'})
+        await action('dispatch',{'evidence_id':await upload('evidence')})
+        await confirm_notice(1)
+        current=await detail();self.assertEqual(current['state'],'delivered')
+        self.assertIs(current['business_facts']['facts']['sales.delivery_recorded'],True)
+        await self.wait_browser_db('select status from business_assistant_work_plans where id=?',(pid,),lambda r:r and r[0][0]=='completed',timeout=70)
+        self.assertEqual(len([r for r in self.posts() if r['path'].endswith('/followup')]),1)
+        self.assertEqual(len([r for r in self.posts() if r['path'].endswith('/confirm')]),2)
+        self.assertEqual(len([r for r in self.posts() if r['path'].endswith('/runs')]),1)
+        await self.page.locator('[data-baw-action="refresh"]').click()
+        await self.wait_state('AssistantWorkspace.snapshot().plan?.status==="completed"')
+        self.assertEqual(await self.page.locator('#business-assistant-input').input_value(),'保留销售跟进草稿')
+
 if __name__=='__main__':unittest.main()
