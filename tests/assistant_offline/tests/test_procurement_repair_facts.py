@@ -185,7 +185,22 @@ class ProcurementNativeFlow(unittest.TestCase):
             supplier=db.scalar(select(Supplier).where(Supplier.store_id==1,Supplier.active.is_(True)))
             item=db.scalar(select(Item).where(Item.store_id==1,Item.active.is_(True)))
             account=db.scalar(select(Account).where(Account.store_id==1,Account.active.is_(True)))
-            self.assertIsNotNone(supplier);self.assertIsNotNone(item);self.assertIsNotNone(account)
+            # The migration seed intentionally contains no operational master data.
+            # Seed only this disposable test database; all business transitions below
+            # still go through the original HTTP APIs.
+            if supplier is None:
+                supplier=Supplier(store_id=1,code='SYN-SUP',name='合成供应商',active=True,
+                                  payment_terms_days=0)
+                db.add(supplier)
+            if item is None:
+                item=Item(store_id=1,sku='SYN-PART',name='合成采购物资',unit='件',
+                          quantity_milli=0,unit_cost_cents=0,inventory_value_cents=0,
+                          reorder_milli=0,active=True)
+                db.add(item)
+            if account is None:
+                account=Account(store_id=1,name='合成采购账户',account_type='bank',active=True)
+                db.add(account)
+            db.commit()
             supplier_id,item_id,account_id=supplier.id,item.id,account.id
         r=self.client.post('/api/procurement/orders',json={'request_id':self.request_id(),
             'supplier_id':supplier_id,'reason':'合成采购事实验证',
