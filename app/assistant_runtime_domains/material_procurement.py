@@ -135,11 +135,21 @@ class MaterialProcurementAdapter(FlowCaseAdapter):
             if not returns:
                 return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
                                     reason='本单还没有原退货记录，请在原页面核对退货进度')
-            for posting in returns:
-                if any(_positive_id(posting.get(key)) for key in RETURN_REFERENCE_KEYS):
+            # 原详情的 returns 是 PurchaseReturn（申请/审批/发出），不是
+            # PurchaseReturnPosting。只有 status=dispatched 才意味着原命令已逐行
+            # 写入 posting；其 lines 中的 receipt_id 是与原收货批次的稳定关联。
+            # requested/approved 绝不能被当成已退货。
+            for returned in returns:
+                if returned.get('status') != 'dispatched':
+                    continue
+                lines = _items(returned, 'lines')
+                if lines and all(_positive_id(line.get('receipt_id')) for line in lines):
                     return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=[from_case],
-                                        reason='已存在原退货过账且指向原收货批次；一笔不等于全部行完成')
-            return _unknown(fact_key, '原退货记录未提供指向原收货批次的引用，请在原页面核对')
+                                        reason='已存在原退货实物发出记录并逐行关联原收货批次；一笔不等于全部行完成')
+            if any(returned.get('status') == 'dispatched' for returned in returns):
+                return _unknown(fact_key, '原退货已标记发出但缺少原收货批次关联，请在原页面核对')
+            return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
+                                reason='退货仍在申请或审批阶段，尚未形成原退货实物发出记录')
 
         # procurement.payment_recorded：必须有原 PurchasePayment 的实际付款来源；
         # 应付金额或收货都不满足本键；金额岗位不可见时未知。
