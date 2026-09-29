@@ -1,6 +1,8 @@
-"""Actual Chromium/complete frontend + real HTTP backend via explicit mock transport.
+"""Original Chromium UI against an isolated real backend and synthetic model.
 
-Not an assertion about native Chromium navigation, cookie policy, or streaming HTTP.
+Native and fixture transports are explicit and reported separately. Tests keep
+the application CSP intact; asynchronous state waits are polled from Python,
+not evaluated through an injected in-page eval/timer loop.
 """
 import sys
 from pathlib import Path
@@ -27,13 +29,28 @@ class BrowserUI(unittest.IsolatedAsyncioTestCase):
     async def send(self,text):
         await self.page.locator('#business-assistant-input').fill(text)
         await self.page.locator('#business-assistant-form [type=submit]').click()
+    async def wait_state(self, expression, *, arg=None, timeout=8000):
+        """Poll a read-only DevTools expression without an in-page eval loop."""
+        deadline = asyncio.get_running_loop().time() + timeout / 1000
+        while True:
+            if await self.page.evaluate(expression, arg):
+                return
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("Browser state did not settle: " + expression)
+            await asyncio.sleep(0.05)
+
     async def settled(self):
-        await self.page.wait_for_function('!!businessAssistantState.runStop && !businessAssistantState.busy && !businessAssistantState.runId',timeout=15000)
+        await self.wait_state('!!businessAssistantState.runStop && !businessAssistantState.busy && !businessAssistantState.runId',timeout=15000)
     def customer_count(self,name):
         with closing(sqlite3.connect('file:'+str(fixture_env.RUNTIME/'browser.sqlite')+'?mode=ro',uri=True)) as db:
             return db.execute('select count(*) from flow_customers where name=?',(name,)).fetchone()[0]
     def posts(self):return [r for r in self.h.requests if r['method']=='POST' and r['path'].startswith('/api/business-assistant/')]
     async def test_01_empty_page_and_suggestion_do_not_send(self):
+        if self.h.mode == "native":
+            self.assertIn("script-src 'self'", self.h.csp)
+            self.assertNotIn("unsafe-eval", self.h.csp)
+            self.assertNotIn("unsafe-inline", self.h.csp.split("script-src", 1)[1].split(";", 1)[0])
+            self.assertIn("[native code]", await self.page.evaluate("Function.prototype.toString.call(window.fetch)"))
         self.assertNotIn('[object Promise]',await self.page.locator('#main').inner_text())
         before=len(self.posts());suggestions=self.page.locator('[data-ba-action="suggestion"]')
         self.assertGreater(await suggestions.count(),0);self.assertLessEqual(await suggestions.count(),4)
@@ -61,7 +78,7 @@ class BrowserUI(unittest.IsolatedAsyncioTestCase):
         rect=await confirm.bounding_box();layout=await self.page.locator('#business-assistant').bounding_box()
         self.assertLessEqual(rect['y']+rect['height'],layout['y']+layout['height'])
         await confirm.click()
-        await self.page.wait_for_function('businessAssistantState.session?.proposals?.[0]?.status==="succeeded"',timeout=15000)
+        await self.wait_state('businessAssistantState.session?.proposals?.[0]?.status==="succeeded"',timeout=15000)
         self.assertEqual(self.customer_count(name),1)
         # A real refresh and history reopen must not repeat the native command.
         await self.page.locator('[data-ba-action="refresh"]').click()
@@ -70,18 +87,18 @@ class BrowserUI(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len([r for r in self.posts() if r['path'].endswith('/confirm')]),1)
     async def test_05_leave_and_return_during_run_does_not_lose_result(self):
         await self.send('慢速查询本店张姓客户')
-        await self.page.wait_for_function('!!businessAssistantState.runId',timeout=15000)
+        await self.wait_state('!!businessAssistantState.runId',timeout=15000)
         await self.page.locator('a[href="#work"]').click()
-        await self.page.wait_for_function('state.route==="work"')
+        await self.wait_state('state.route==="work"')
         await self.page.locator('a[href="#business-assistant"]').click()
         await self.settled()
         self.assertIn('已核对本店客户资料',await self.page.locator('#main').inner_text())
         self.assertEqual(len([r for r in self.posts() if r['path'].endswith('/runs')]),1)
     async def test_06_switch_store_drops_old_run_and_draft(self):
         await self.send('慢速查询旧门店张姓客户')
-        await self.page.wait_for_function('!!businessAssistantState.runId',timeout=15000)
+        await self.wait_state('!!businessAssistantState.runId',timeout=15000)
         await self.page.locator('#store').select_option('2')
-        await self.page.wait_for_function('String(state.store)==="2" && !state.storeSwitch',timeout=15000)
+        await self.wait_state('String(state.store)==="2" && !state.storeSwitch',timeout=15000)
         await self.page.locator('a[href="#business-assistant"]').click()
         await self.page.locator('#business-assistant-input').wait_for()
         await self.page.wait_for_timeout(2500)
@@ -117,16 +134,16 @@ class BrowserUI(unittest.IsolatedAsyncioTestCase):
         rect=await confirm.bounding_box();layout=await self.page.locator('#business-assistant').bounding_box()
         self.assertLessEqual(rect['y']+rect['height'],layout['y']+layout['height'])
         await confirm.click()
-        await self.page.wait_for_function('businessAssistantState.session?.proposals?.[0]?.status==="succeeded"',timeout=15000)
+        await self.wait_state('businessAssistantState.session?.proposals?.[0]?.status==="succeeded"',timeout=15000)
         self.assertEqual(self.customer_count(name),1)
         await self.page.locator('[data-ba-action="pane-chat"]').click()
         self.assertTrue(await self.page.locator('#business-assistant-input').is_visible())
     async def test_10_explicit_stop_never_prepares_a_card(self):
         await self.send('慢速查询本店客户')
-        await self.page.wait_for_function('!!businessAssistantState.runId',timeout=15000)
+        await self.wait_state('!!businessAssistantState.runId',timeout=15000)
         await self.page.locator('[data-ba-action="stop"]').click()
         # Progress can change the optimistic version; the UI then reads it back.
-        try:await self.page.wait_for_function('businessAssistantState.runView?.status==="cancelled"',timeout=1000)
+        try:await self.wait_state('businessAssistantState.runView?.status==="cancelled"',timeout=1000)
         except Exception:
             if await self.page.locator('[data-ba-action="stop"]').count():await self.page.locator('[data-ba-action="stop"]').click()
         await self.settled()
@@ -173,7 +190,7 @@ class BrowserUI(unittest.IsolatedAsyncioTestCase):
         ids,sid,pid=await self.create_followup_plan()
         enable=self.page.locator('[data-baws-followup="enable"]');await enable.wait_for()
         await enable.click()
-        await self.page.wait_for_function('AssistantWorkspace.snapshot().plan?.grant==="active"')
+        await self.wait_state('AssistantWorkspace.snapshot().plan?.grant==="active"')
         await self.page.locator('#business-assistant-input').fill('不要覆盖我的草稿')
         for index in range(2):
             rows=await self.wait_browser_db(
@@ -192,13 +209,13 @@ class BrowserUI(unittest.IsolatedAsyncioTestCase):
             await button.click()
             notice=self.page.locator('[data-baws-action="notice-open"][data-notice-id="'+notice_id+'"]')
             await notice.wait_for();await notice.click()
-            await self.page.wait_for_function('(id)=>businessAssistantState.session?.proposals?.some(c=>c.id===id)',arg=card)
+            await self.wait_state('(id)=>businessAssistantState.session?.proposals?.some(c=>c.id===id)',arg=card)
             self.assertEqual(await self.page.locator('#business-assistant-input').input_value(),'不要覆盖我的草稿')
             await self.page.locator('[data-ba-action="confirm"][data-id="'+card+'"]').click()
-            await self.page.wait_for_function('(id)=>businessAssistantState.session?.proposals?.some(c=>c.id===id&&c.status==="succeeded")',arg=card)
+            await self.wait_state('(id)=>businessAssistantState.session?.proposals?.some(c=>c.id===id&&c.status==="succeeded")',arg=card)
         await self.wait_browser_db('select status from business_assistant_work_plans where id=?',(pid,),lambda r:r and r[0][0]=='completed')
         await self.page.locator('[data-baw-action="refresh"]').click()
-        await self.page.wait_for_function('AssistantWorkspace.snapshot().plan?.status==="completed"')
+        await self.wait_state('AssistantWorkspace.snapshot().plan?.status==="completed"')
         self.assertEqual(await self.page.locator('#business-assistant-input').input_value(),'不要覆盖我的草稿')
         self.assertEqual(len([r for r in self.posts() if r['path'].endswith('/followup')]),1)
         self.assertEqual(len([r for r in self.posts() if r['path'].endswith('/confirm')]),2)

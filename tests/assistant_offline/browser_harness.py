@@ -100,7 +100,8 @@ class BrowserHarness:
                 'cookies':'dealer_csrf='+csrf if csrf else ''}
     async def load(self):
         if self.mode=='native':
-            await self.page.goto(ORIGIN,wait_until='domcontentloaded')
+            response = await self.page.goto(ORIGIN,wait_until='domcontentloaded')
+            self.csp = response.headers.get('content-security-policy', '') if response else ''
             return
         # A new about:blank document avoids the denied-navigation error page.
         await self.page.set_content('<html><head></head><body></body></html>')

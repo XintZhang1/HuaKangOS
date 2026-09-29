@@ -39,3 +39,10 @@
 当前本地 Chromium 禁止原生 HTTP 导航；未修改其策略。fixture 模式通过真实完整原页面控件和显式 HTTP/Cookie/SSE 桥接验证，不证明原生 SameSite/CSP/网络分块或 HTTPS。原生模式与 GitHub CI 入口已实现，但**本检查点记录时尚未运行成功**，后续必须以真实 CI 结果补充，不把模式存在当通过。
 
 本轮不是原 101/283 模型场景、193 项业务需求或全业务族验收。仍欠完整多业务族故障矩阵、原生浏览器/代理部署、PostgreSQL、Windows、指定 MCP 客户端及员工试用等原计划门槛。代码与定向闭环可以提交审阅，不登记 M8.1 done，不将历史套件成绩继承为当前结果。
+
+
+## 原生浏览器首轮失败记录（2026-09-29）
+
+Actions run `36500955850`，job `109191405697`：导入精确提交及全部 67 项后端、42 项前端行为测试通过；原生 Chromium 页面的 12 项测试未通过（9 errors、1 failure）。交付步骤按门禁跳过，feature 未推进。
+
+失败落点为测试侧 `Page.wait_for_function` 注入的字符串求值被原应用 `script-src 'self'` 拒绝；不是应用需要 `unsafe-eval` 的证据。修正测试为 Python 侧限时轮询只读 DevTools 表达式，不修改应用 CSP、不设置 bypass_csp、不替换 native fetch/Cookie。首项同时断言原 CSP 和 native fetch 保持。原失败日志与截图保留在该 Actions artifact；修正后必须重新完整运行，不能据此直接登记通过。
