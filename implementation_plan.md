@@ -3734,10 +3734,20 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 **核对规则（拒绝伪装）**：`browser_transport` 必须等于请求模式；原生模式要求 `complete=true` 且
 `scope=full`、逐页 `/api/` 流量 > 0、`page_errors_total=0`、必须记录真实浏览器版本、必须观测到
 `script-src 'self'`；任一不满足即 `verified=false`、退出码 4。原生失败**不自动降级**为 `fixture`。
+
+**Linux CI 独立复跑（已核对运行结论与日志）**：push 后 run `36644421471`、job `109663952353` 结论
+**success**（8m40s），同一入口打印 `verified=true`、`problems=[]`、`native_transport=true`、
+`page_count=14`、`page_errors_total=0`、`real_model_calls=0`，逐套件计数（后端 208＋前端 55＋浏览器 14
+＝**277**）与本机原生运行一致；该次浏览器为 `154.0.8037.0`、`browser_executable=/usr/bin/chromium`。
+**由此发现并修复一处真实缺陷**：解析顺序原先把主机自带 `/usr/bin/chromium` 排在**固定版本的自带浏览器
+之前**，导致 CI 用的不是该步骤刚安装的浏览器；现改为「显式参数 → `HUAKANGOS_CHROMIUM` →
+**Playwright 固定版本自带浏览器** → 主机候选」并记录 `browser_source`，合同用例
+`test_pinned_playwright_browser_wins_over_a_host_system_browser` 固定该优先级。
+
 **本机一个真实约束（如实保留）**：Playwright 自带 Chromium 未能安装（下载子进程 `spawn EPERM`；
 改用仓库内 `PLAYWRIGHT_BROWSERS_PATH` 后被陈旧 `__dirlock` 拒绝），按使用者「可以安装插件」的授权改用
-本机已安装 Chrome；未修改任何浏览器安全策略、未关闭 CSP、未降级传输；CI 仍用 Playwright 自带 Chromium
-且走同一入口。
+本机已安装 Chrome；未修改任何浏览器安全策略、未关闭 CSP、未降级传输；CI 侧自带浏览器已安装成功并成为
+首选。
 
 **本批明确未覆盖（故 M8.4 不记 done）**：三种宽度与中文/组合输入、焦点与未发草稿、换店迟到结果、
 断网重连按 `seq` 补读、伪造内部身份 header 无效、缺 CSRF 写被拒、HTTPS 会话与浏览器重启；M8.3 的

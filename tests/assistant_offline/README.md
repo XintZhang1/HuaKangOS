@@ -32,6 +32,11 @@ python tests/assistant_offline/run_browser_pipeline.py --browser-mode native \
   --browser "C:\Program Files\Google\Chrome\Application\chrome.exe"
 ```
 
+浏览器解析顺序为「`--browser` 显式参数 → `HUAKANGOS_CHROMIUM` → **Playwright 固定版本自带浏览器** →
+主机常见候选」，并把来源记入 `browser_source`（`explicit`/`environment`/`playwright-bundled`/
+`system-candidate`）。固定版本的自带浏览器优先于主机自带候选，避免 CI 镜像里的系统 Chromium 悄悄
+替换掉该步骤刚安装的那个。
+
 退出码：`0` 已核对；`2` 预检拒绝（源码带 `.env`、输出在源码树内、目录已存在、无可用浏览器）；`3` 执行失败；`4` 证据不完整或自相矛盾。
 
 产物（每次运行独立目录，默认 `<V>/browser/browser-native-<UTC时间戳>/`）：

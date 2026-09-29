@@ -125,11 +125,17 @@ class PipelinePreflight(unittest.TestCase):
         with self.assertRaises(ValueError):
             pipeline.find_browser(str(fixture_env.VALIDATION / 'no-such-browser.exe'))
 
+    def clear_environment_browser(self):
+        import os
+        previous = os.environ.pop('HUAKANGOS_CHROMIUM', None)
+        if previous is not None:
+            self.addCleanup(os.environ.__setitem__, 'HUAKANGOS_CHROMIUM', previous)
+
     def test_explicit_browser_is_used_verbatim(self):
         target = fixture_env.VALIDATION / 'synthetic-browser.bin'
         target.write_bytes(b'not a browser')
         self.addCleanup(target.unlink)
-        self.assertEqual(pipeline.find_browser(str(target)), str(target))
+        self.assertEqual(pipeline.find_browser(str(target)), (str(target), 'explicit'))
 
     def test_environment_browser_is_accepted_only_when_it_exists(self):
         import os
@@ -140,7 +146,28 @@ class PipelinePreflight(unittest.TestCase):
         self.addCleanup(lambda: os.environ.__setitem__('HUAKANGOS_CHROMIUM', previous)
                         if previous is not None else os.environ.pop('HUAKANGOS_CHROMIUM', None))
         os.environ['HUAKANGOS_CHROMIUM'] = str(target)
-        self.assertEqual(pipeline.find_browser(None), str(target))
+        self.assertEqual(pipeline.find_browser(None), (str(target), 'environment'))
+
+    def test_pinned_playwright_browser_wins_over_a_host_system_browser(self):
+        # A runner image that happens to ship /usr/bin/chromium must not replace
+        # the pinned Playwright browser the CI step explicitly installed.
+        self.clear_environment_browser()
+        pinned = fixture_env.VALIDATION / 'synthetic-pinned-chromium.bin'
+        pinned.write_bytes(b'pinned')
+        self.addCleanup(pinned.unlink)
+        self.assertEqual(pipeline.find_browser(None, str(pinned)),
+                         (str(pinned), 'playwright-bundled'))
+
+    def test_a_broken_explicit_or_environment_browser_is_refused(self):
+        with self.assertRaises(ValueError):
+            pipeline.find_browser(str(fixture_env.VALIDATION / 'absent-browser'))
+        import os
+        previous = os.environ.get('HUAKANGOS_CHROMIUM')
+        self.addCleanup(lambda: os.environ.__setitem__('HUAKANGOS_CHROMIUM', previous)
+                        if previous is not None else os.environ.pop('HUAKANGOS_CHROMIUM', None))
+        os.environ['HUAKANGOS_CHROMIUM'] = str(fixture_env.VALIDATION / 'absent-browser')
+        with self.assertRaises(ValueError):
+            pipeline.find_browser(None)
 
     def test_default_output_stays_outside_the_source_and_names_the_transport(self):
         for mode, bucket in (('native', 'browser-native'), ('fixture', 'browser-fixture')):

@@ -98,18 +98,38 @@ python tests/assistant_offline/run_browser_pipeline.py --browser-mode native `
 > `test_browser_pipeline.py`（13 项合同套件）与 `test_revocation_session.py`（5 项撤权套件）都与本批
 > 同时落盘，因此 277 项包含它们。
 
-### 4.1 与 Linux CI 原生结果的关系
+### 4.1 Linux CI 独立复跑（本轮已读到运行结论与日志，v5 当时读不到的部分已补齐）
 
-本批之前唯一可核对的原生结论来自 Linux CI（`--browser-mode native`）。本记录是**Windows 本机真实
-Chrome** 的独立复跑，两者是不同的浏览器、不同宿主，各自留证，不互相替代；本记录不声称 CI 计数与指纹。
+交付推送后，GitHub Actions 按仓库工作流在 Ubuntu 上用同一个入口真实执行：
+
+- 被测提交 `9b79fd3bb98207cf669f468782546e12d623bddc`；
+- run `36644421471`、job `109663952353`，结论 **success**（2026-09-29T23:17:44Z→23:26:27Z，8m40s）；
+- 步骤「Run isolated regressions with native browser transport」打印出本流水线自己的结论：
+  **`verified=true`、`problems=[]`、`native_transport=true`、`page_count=14`、`page_errors_total=0`、
+  `real_model_calls=0`**，并以 `PIPELINE VERIFIED: /home/runner/work/_temp/assistant-validation` 结束；
+- 逐套件计数：后端 **208**（含 `test_browser_pipeline` 13、`test_revocation_session` 5）＋前端 `frontend-final`
+  **55** ＋`browser-final` **14** ＝ **277**，与本机原生运行的完整清单**逐套件一致**；
+- 浏览器版本 `154.0.8037.0`，**`browser_executable=/usr/bin/chromium`**。
+
+**由此暴露并已修复的一处真实缺陷（如实保留）**：CI 步骤确实安装了 Playwright 自带 Chromium，但流水线的
+浏览器解析顺序把主机自带的 `/usr/bin/chromium` 排在了**固定版本的自带浏览器之前**——也就是说 CI 用的是
+镜像里的系统浏览器，而不是该步骤刚装的那个。已改为「显式参数 → `HUAKANGOS_CHROMIUM` →
+**Playwright 固定版本自带浏览器** → 主机常见候选」，并在 `browser_source`
+（`explicit`/`environment`/`playwright-bundled`/`system-candidate`）与 `browser-pipeline.json` 里记录来源，
+使审阅者能看出究竟用了哪个浏览器；新增合同用例
+`test_pinned_playwright_browser_wins_over_a_host_system_browser` 固定该优先级。本机没有自带浏览器，
+因此本机仍解析为系统候选，与第 4.2 节一致。
+
+本机的 Windows + 真实 Chrome 运行与本次 Linux CI 运行是**不同浏览器、不同宿主**的两次独立复跑，
+各自留证，不互相替代。上面的计数一致性只说明两端的用例清单相同，不代表两端浏览器相同。
 
 ### 4.2 本机浏览器环境的一个真实约束（如实保留）
 
 Playwright 自带的 Chromium **未能安装**：`playwright install chromium` 在派生下载子进程时以
 `spawn EPERM` 失败，指定仓库内 `PLAYWRIGHT_BROWSERS_PATH` 后又被 `__dirlock` 陈旧锁拒绝。
 最终按**使用者明确授权安装插件**的范围改用本机已安装的 Chrome（`HUAKANGOS_CHROMIUM` /
-`--browser`），未修改任何浏览器安全策略、未关闭 CSP、未降级传输。CI 侧仍是 Playwright 自带 Chromium
-（`python -m playwright install --with-deps chromium`），两条路径都走同一个原生入口。
+`--browser`），未修改任何浏览器安全策略、未关闭 CSP、未降级传输。CI 侧 Playwright 自带 Chromium 已安装
+成功，并在第 4.1 节所述的顺序修复后成为 CI 的首选浏览器。
 
 ## 5. 本批明确未覆盖的边界
 

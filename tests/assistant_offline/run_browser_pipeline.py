@@ -41,21 +41,30 @@ def refuse(message):
     return 2
 
 
-def find_browser(explicit):
+def find_browser(explicit, bundled=None):
+    """Resolve the browser in a deliberate order, and say where it came from.
+
+    The Playwright-managed browser is the pinned one CI installs, so it wins
+    over whatever the host happens to ship; otherwise a runner image with a
+    system Chromium would silently substitute a different browser for the
+    pinned one. An explicit choice still overrides everything.
+    """
     if explicit:
         path = Path(explicit)
         if not path.is_file():
             raise ValueError('The supplied browser executable does not exist: ' + str(path))
-        return str(path)
+        return str(path), 'explicit'
     from_env = os.environ.get('HUAKANGOS_CHROMIUM')
     if from_env:
         if not Path(from_env).is_file():
             raise ValueError('HUAKANGOS_CHROMIUM does not exist: ' + from_env)
-        return from_env
+        return from_env, 'environment'
+    if bundled and Path(bundled).is_file():
+        return str(bundled), 'playwright-bundled'
     for candidate in BROWSER_CANDIDATES:
         if Path(candidate).is_file():
-            return candidate
-    return None
+            return candidate, 'system-candidate'
+    return None, None
 
 
 def playwright_state():
@@ -132,10 +141,10 @@ def main():
     if not state['installed']:
         return refuse('playwright is not installed for this interpreter')
     try:
-        browser = find_browser(args.browser)
+        browser, origin_of_choice = find_browser(args.browser, state.get('bundled'))
     except ValueError as exc:
         return refuse(str(exc))
-    if browser is None and not state.get('bundled'):
+    if browser is None:
         return refuse('no browser available: install playwright chromium or pass --browser')
     environment = {
         'schema': 1,
@@ -147,7 +156,8 @@ def main():
         'real_model_calls': 0,
         'python': sys.version,
         'playwright_version': state.get('version'),
-        'browser_executable': browser or state.get('bundled'),
+        'browser_executable': browser,
+        'browser_source': origin_of_choice,
         'browser_explicit': bool(browser),
         'source': str(source),
         'source_sha256_prefix': source_fingerprint(source)[:16],
