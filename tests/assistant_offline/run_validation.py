@@ -34,14 +34,30 @@ def main():
          'PYTHONUTF8':'1'}
     evidence=ROOT/'evidence';evidence.mkdir(exist_ok=True)
     steps=[]
-    def run(name,command,cwd=ROOT,timeout=420):
+    def run(name,command,cwd=ROOT,timeout=None):
+        # Per-step hang guard. The browser pages take by far the longest, and a
+        # guard that trips on a merely loaded host reports a timeout that says
+        # nothing about the pages under test; both bounds stay configurable so a
+        # slower machine does not need a source change.
+        if timeout is None:
+            default=900 if name.startswith('browser') else 420
+            timeout=int(env.get('HUAKANGOS_BROWSER_GUARD_SECONDS' if name.startswith('browser')
+                                else 'HUAKANGOS_STEP_GUARD_SECONDS',default))
         started=time.monotonic()
         with (evidence/(name+'.log')).open('w',encoding='utf-8') as stream:
             try:
                 result=subprocess.run(command,cwd=cwd,env=env,stdout=stream,stderr=subprocess.STDOUT,timeout=timeout)
                 code=result.returncode
-            except (OSError,subprocess.TimeoutExpired) as exc:
-                stream.write(type(exc).__name__+': '+str(exc)+'\n');code=124 if isinstance(exc,subprocess.TimeoutExpired) else 127
+            except subprocess.TimeoutExpired as exc:
+                # `subprocess.run` kills only the step it started. The browser
+                # step has already started the fixture server, so an abandoned
+                # child would keep port 8765 and make every later run refuse to
+                # start. Terminate the whole tree instead of leaving it behind.
+                stream.write(type(exc).__name__+': '+str(exc)+'\n')
+                terminate_step(command)
+                code=124
+            except OSError as exc:
+                stream.write(type(exc).__name__+': '+str(exc)+'\n');code=127
         steps.append({'name':name,'command':command,'exit_code':code,'elapsed_seconds':round(time.monotonic()-started,3),'log':name+'.log'})
         (evidence/'run-summary.json').write_text(json.dumps({'steps':steps,'complete':False,'selected_complete':False,'scope':scope,'selected_suites':suites,
             'real_model_calls':0,'release_accepted':False},ensure_ascii=False,indent=2))
@@ -91,6 +107,41 @@ def write_browser_bundle(evidence,result,mode,executed):
     if mode=='native' and bundle['page_errors_total']:
         raise RuntimeError('Native browser pages reported page errors: '+str(bundle['page_errors_total']))
     (evidence/'browser-evidence.json').write_text(json.dumps(bundle,ensure_ascii=False,indent=2),encoding='utf-8')
+
+
+def terminate_step(command):
+    """Kill the whole process tree of a step that exceeded its hang guard.
+
+    Only the step's own tree, identified by its command tail, is stopped. The
+    browser step leaves a fixture server behind because `subprocess.run` kills
+    just the direct child, and that orphan would keep port 8765 occupied. Each
+    platform uses its own process listing; nothing is stopped by guesswork.
+    """
+    tail=str(command[-1])
+    current=os.getpid()
+    if os.name=='nt':
+        listing=['powershell','-NoProfile','-Command',
+            "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*"+tail+"*' } | "
+            "Select-Object -ExpandProperty ProcessId"]
+        kill=lambda pid:['taskkill','/PID',str(pid),'/T','/F']
+    else:
+        listing=['ps','-eo','pid=,args=']
+        kill=lambda pid:['kill','-9',str(pid)]
+    try:
+        result=subprocess.run(listing,capture_output=True,text=True,timeout=60)
+    except (OSError,subprocess.SubprocessError):
+        return
+    for line in result.stdout.splitlines():
+        parts=line.split()
+        if os.name!='nt':
+            if len(parts)<2 or tail not in line:continue
+            parts=parts[:1]
+        for token in parts:
+            if not token.isdigit():continue
+            pid=int(token)
+            if pid==current:continue
+            try:subprocess.run(kill(pid),capture_output=True,timeout=60)
+            except (OSError,subprocess.SubprocessError):pass
 
 
 def expected_browser_tests(evidence):

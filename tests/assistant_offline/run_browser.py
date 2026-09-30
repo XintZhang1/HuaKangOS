@@ -22,7 +22,12 @@ try:
         except (httpx.ConnectError,httpx.ConnectTimeout,httpx.ReadTimeout):pass
         time.sleep(.2)
     else:raise TimeoutError('Fixture server not ready')
-    result=subprocess.run([sys.executable,'-m','unittest','discover','-s','tests','-p','test_browser_ui.py','-v']+sys.argv[1:],cwd=root,timeout=300)
+    # The suite must end by itself; this is only a hang guard. It has to clear
+    # the worst realistic case (a loaded host running the browser pages next to
+    # another regression), because a guard that trips on a merely slow machine
+    # reports a timeout that says nothing about the pages under test.
+    guard=int(os.environ.get('HUAKANGOS_BROWSER_GUARD_SECONDS','900'))
+    result=subprocess.run([sys.executable,'-m','unittest','discover','-s','tests','-p','test_browser_ui.py','-v']+sys.argv[1:],cwd=root,timeout=guard)
 finally:
     server.terminate()
     try:server.wait(timeout=10)

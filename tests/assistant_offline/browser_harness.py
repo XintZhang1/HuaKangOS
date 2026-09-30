@@ -142,11 +142,13 @@ class BrowserHarness:
         for attempt in range(1,attempts+1):
             await self.page.locator('input[name="username"]').fill('offline_admin')
             await self.page.locator('input[name="password"]').fill(fixture_env.PASSWORD.read_text())
-            async with self.page.expect_response(
-                    lambda r:r.url.endswith('/api/auth/login') and r.request.method=='POST',
-                    timeout=30000) as login_response:
-                await self.page.get_by_role('button',name='登录',exact=True).click()
-            status=(await login_response.value).status
+            posted=len(self.login_posts())
+            await self.page.get_by_role('button',name='登录',exact=True).click()
+            # The harness's own request ledger is authoritative in both modes:
+            # `fixture` replaces window.fetch with the explicit bridge, so the
+            # browser emits no network response event there and waiting on one
+            # would time out without saying anything about the login.
+            status=await self.login_status(posted)
             if status!=503:break
             if attempt==attempts:break
             await self.page.wait_for_timeout(500*attempt)
@@ -172,6 +174,21 @@ class BrowserHarness:
             # CSRF and SSE remain unmodified native Chromium throughout.
             for cookie in await self.context.cookies():
                 self.http.cookies.set(cookie['name'],cookie['value'])
+    def login_posts(self):
+        return [item for item in self.requests
+                if item['method']=='POST' and item['path']=='/api/auth/login']
+
+    async def login_status(self, posted_before, timeout=20000):
+        """The status of the login POST this click produced, from our ledger."""
+        deadline=asyncio.get_running_loop().time()+timeout/1000
+        while True:
+            posts=self.login_posts()
+            if len(posts)>posted_before and posts[-1].get('status') is not None:
+                return posts[-1]['status']
+            if asyncio.get_running_loop().time()>=deadline:
+                return posts[-1]['status'] if len(posts)>posted_before else None
+            await asyncio.sleep(0.05)
+
     async def report_login_state(self):
         """Read-only diagnostics for a navigation that never rendered."""
         facts={'url':self.page.url,'nav_entries':0}
