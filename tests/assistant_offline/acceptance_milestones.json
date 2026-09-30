@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "note": "验收判定配置。只描述断言，不含证据；证据由 run_browser_pipeline.py 在同目录外产出。改动本文件必须同步 README 并重新登记。",
+  "milestones": {
+    "M8.1": {
+      "title": "综合故障与恢复验收（助手运行时）",
+      "scope": "full",
+      "browser_mode": "fixture",
+      "minimum_total": 288,
+      "required_suites": {
+        "test_lease_transition_db": 5,
+        "test_prepare_zero_write": 2,
+        "test_delay_injection": 2,
+        "test_access_signals_emit": 4,
+        "test_revocation_session": 5,
+        "test_batch_confirmation": 7,
+        "test_browser_pipeline": 16
+      },
+      "require_page_errors_zero": true,
+      "note": "清单①—⑤（授权闸门与冻结确认、批量首项失败即停、会话级撤权、旧租约不得覆盖新状态、确认前零原业务写入、延迟注入、撤权信号发射）。浏览器为显式桥接传输，不构成原生验收。"
+    },
+    "M8.2": {
+      "title": "原业务、助手与前端不退化验收",
+      "scope": "full",
+      "browser_mode": "fixture",
+      "minimum_total": 288,
+      "required_suites": {
+        "test_runtime_integration": 26,
+        "test_sales_facts": 27,
+        "test_service_facts": 13,
+        "test_lead_facts": 10,
+        "test_repair_warehouse_grant_facts": 39,
+        "test_procurement_repair_facts": 11,
+        "test_condition_reads": 12,
+        "test_followup_integration": 11,
+        "test_followup_notifications": 2,
+        "test_outbox_atomicity": 1,
+        "test_session_create": 12,
+        "test_worker_scheduling": 14,
+        "test_validation_selection": 5,
+        "test_batch_confirmation": 7,
+        "test_browser_pipeline": 16
+      },
+      "require_page_errors_zero": true,
+      "note": "保留的原业务入口、十个模块、193 项需求映射与 111 条发布工作流检查另见 docs/implementation-checkpoints/。"
+    }
+  }
+}

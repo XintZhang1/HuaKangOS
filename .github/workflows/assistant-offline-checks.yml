@@ -50,6 +50,10 @@ jobs:
           --source "$GITHUB_WORKSPACE"
           --output "$RUNNER_TEMP/assistant-validation"
           --browser-mode native
+      - name: Verify the published workflow guides against their source
+        run: >-
+          python tests/assistant_offline/check_m82_contracts.py
+          --report "$RUNNER_TEMP/assistant-validation/evidence/m82-contracts.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

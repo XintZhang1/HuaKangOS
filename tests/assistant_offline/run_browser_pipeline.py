@@ -107,14 +107,18 @@ def bucket(browser_mode):
 
 
 def default_output(browser_mode):
+    """Evidence beside the repository, never inside it.
+
+    The isolator copies the suite to a brand-new directory outside the source
+    tree and refuses to run when its output would sit in the tree it is testing
+    - that is what keeps the synthetic database, the random password and the
+    per-page screenshots out of the checkout. So the default is a sibling
+    directory, and `--output` still selects an explicit location instead.
+    """
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-    for root in (Path('C:/Users/tiefu/.codex/HuaKangOS-agent-validation/runtime-v1'),
-                 Path(os.environ.get('TEMP', '.'))):
-        if root.is_dir():
-            break
-    else:
-        root = Path(os.environ.get('TEMP', '.'))
-    return (root / 'browser' / (bucket(browser_mode) + '-' + stamp)).resolve()
+    root = Path(os.environ.get('HUAKANGOS_EVIDENCE_ROOT',
+                               str(HERE.parents[1].parent / 'HuaKangOS-validation')))
+    return (root / (bucket(browser_mode) + '-' + stamp)).resolve()
 
 
 def main():

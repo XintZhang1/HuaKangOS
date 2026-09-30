@@ -39,7 +39,8 @@ python tests/assistant_offline/run_browser_pipeline.py --browser-mode native \
 
 退出码：`0` 已核对；`2` 预检拒绝（源码带 `.env`、输出在源码树内、目录已存在、无可用浏览器）；`3` 执行失败；`4` 证据不完整或自相矛盾。
 
-产物（每次运行独立目录，默认 `<V>/browser/browser-native-<UTC时间戳>/`）：
+产物（每次运行独立目录，默认仓库旁的 `HuaKangOS-validation/browser-<模式>-<UTC时间戳>/`，可用
+`--output` 或 `HUAKANGOS_EVIDENCE_ROOT` 指定）：
 
 | 文件 | 内容 |
 |---|---|
@@ -50,6 +51,33 @@ python tests/assistant_offline/run_browser_pipeline.py --browser-mode native \
 | `browser-pipeline.json` | 顶层核对结论 `verified` 与 `problems` |
 
 核对规则：`browser_transport` 必须等于请求的模式；原生模式下 `complete` 必须为真、逐页 API 流量必须非零、`page_errors_total` 必须为 0、必须记录真实浏览器版本并观测到应用 CSP；任何一项不满足即 `verified=false` 并以退出码 4 结束。`evidence/browser-evidence.json` 只由已有证据文件汇总，不执行浏览器、不联网。
+
+## 里程碑验收判定（`run_acceptance.py`）
+
+`run_acceptance.py` 是本目录的**验收判定**入口：它不跑测试、不联网，只按 `acceptance_milestones.json` 里登记的断言复核一次已完成运行的证据，然后写出结论。
+
+```bash
+# 1) 先产出证据（同一条完整命令）
+python tests/assistant_offline/run_browser_pipeline.py --browser-mode fixture
+# 2) 再按里程碑复核
+python tests/assistant_offline/run_acceptance.py --milestone M8.1 \
+  --evidence ../HuaKangOS-validation/browser-fixture-<时间戳>/evidence
+```
+
+退出码：`0` 通过；`1` 未通过（逐条列出矛盾）；`2` 拒绝（里程碑未登记、证据目录不存在或缺少 `run-summary.json`）。
+结论写入 `<证据目录>/acceptance-<里程碑>.json`，其中 `problems` 为空才算通过。
+
+判定规则全部来自 `acceptance_milestones.json`（只写断言、不含证据）：运行必须 `complete=true`、`scope` 与登记一致、传输模式与登记一致、总用例数不低于登记下限、每个登记套件的用例数不低于登记值、真实模型调用为 0、页面错误为 0、必须有浏览器证据。任何一项不符即 `accepted=false`，**不会**因为「看起来差不多」放过。
+
+改动测试或新增套件后必须同步更新 `acceptance_milestones.json`，否则旧下限会让判定失去意义。
+
+## 工作流与需求总账检查（M8.2，`check_m82_contracts.py`）
+
+```bash
+python tests/assistant_offline/check_m82_contracts.py --report <外部目录>/m82-contracts.json
+```
+
+它做三件事：以 `--check` 模式运行 `scripts/build_workflow_guides.py`（从不使用 `--draft`，因此手工改过的生成物会被判失败而不是被静默重写）；核对 193 项需求与 10 个模块的完整性、唯一性与引用；核对 111 条工作流与需求**双向**映射一致，并要求生成物携带与源相同的指纹。`--skip-generator` 只做对账，便于快速复核。
 
 ## 覆盖内容
 
