@@ -1,6 +1,10 @@
 # 业务助手离线回归
 
-测试源码随 Git 版本化，执行时先复制到仓库外**全新目录**。不要在此目录直接运行 unittest，也不要把生产/预览配置、数据或 `.env` 放进被测源码。入口在导入 app 之前验证路径、生成显式合成环境；不清理或重用旧证据。
+测试源码随 Git 版本化。每次执行会把本目录的套件复制到本目录下的**全新运行目录**（`evidence/<模式>-<UTC时间戳>/`），再导入 app；不清理或重用旧证据。不要在此目录直接运行 unittest，也不要把生产/预览配置、数据或 `.env` 放进被测源码——入口会在导入 app 之前验证路径并生成显式合成环境。
+
+**套件、运行记录与证据都在工作区的这一个文件夹里**，不散落在仓库之外，`evidence/` 已由 `.gitignore` 排除。
+
+**唯一例外是合成运行时**（合成库、随机密码、合成助手配置），它必须留在仓库外，由 `HUAKANGOS_RUNTIME_ROOT` 决定（默认仓库旁 `HuaKangOS-validation/runtime/<运行名>/`）。这不是洁癖：应用自己的 `business_assistant_service.load_config` 会拒绝读取位于本仓库内的助手配置（`path.is_relative_to(ROOT)` → 503），而真实数据库也绝不能被打开。装置在导入 app 之前就会拒绝把运行时放进源码树。
 
 ## 运行
 
@@ -17,7 +21,7 @@ python tests/assistant_offline/run_isolated.py --browser-mode native
 python tests/assistant_offline/run_isolated.py --browser-mode fixture
 ```
 
-可用 `--source /absolute/source` 指定被测源码，`--output /absolute/new/external/path` 指定不存在的外部验证目录。默认创建唯一临时目录并保留结果。`HUAKANGOS_CHROMIUM` 可明确指定浏览器可执行文件。已有 8765 端口服务会导致浏览器测试拒绝启动，不复用不明实例。
+可用 `--source /absolute/source` 指定被测源码，`--output <新目录>` 指定该次运行目录（默认落在本目录 `evidence/` 下，绝不覆盖已有目录，也不允许落在 `app/`、`web/`、`migrations/` 内）。`HUAKANGOS_CHROMIUM` 可明确指定浏览器可执行文件。已有 8765 端口服务会导致浏览器测试拒绝启动，不复用不明实例。
 
 `evidence/run-summary.json` 记录实际命令、退出码、非零测试数、浏览器模式；`source-and-suite.json` 记录逐文件与汇总指纹。任何失败都保留日志，不以删测试、调整业务规则或降级浏览器模式求绿。`runtime/` 含测试随机密码和合成库，禁止提交或上传；CI 只上传 evidence。
 
@@ -37,9 +41,9 @@ python tests/assistant_offline/run_browser_pipeline.py --browser-mode native \
 `system-candidate`）。固定版本的自带浏览器优先于主机自带候选，避免 CI 镜像里的系统 Chromium 悄悄
 替换掉该步骤刚安装的那个。
 
-退出码：`0` 已核对；`2` 预检拒绝（源码带 `.env`、输出在源码树内、目录已存在、无可用浏览器）；`3` 执行失败；`4` 证据不完整或自相矛盾。
+退出码：`0` 已核对；`2` 预检拒绝（源码带 `.env`、输出落在应用源码内、目录已存在、无可用浏览器）；`3` 执行失败；`4` 证据不完整或自相矛盾。
 
-产物（每次运行独立目录，默认仓库旁的 `HuaKangOS-validation/browser-<模式>-<UTC时间戳>/`，可用
+产物（每次运行独立目录，默认本目录下 `evidence/browser-<模式>-<UTC时间戳>/`，可用
 `--output` 或 `HUAKANGOS_EVIDENCE_ROOT` 指定）：
 
 | 文件 | 内容 |
@@ -57,11 +61,11 @@ python tests/assistant_offline/run_browser_pipeline.py --browser-mode native \
 `run_acceptance.py` 是本目录的**验收判定**入口：它不跑测试、不联网，只按 `acceptance_milestones.json` 里登记的断言复核一次已完成运行的证据，然后写出结论。
 
 ```bash
-# 1) 先产出证据（同一条完整命令）
+# 1) 先产出证据（同一条完整命令，证据默认落在本目录 evidence/ 下）
 python tests/assistant_offline/run_browser_pipeline.py --browser-mode fixture
 # 2) 再按里程碑复核
 python tests/assistant_offline/run_acceptance.py --milestone M8.1 \
-  --evidence ../HuaKangOS-validation/browser-fixture-<时间戳>/evidence
+  --evidence tests/assistant_offline/evidence/browser-fixture-<时间戳>/evidence
 ```
 
 退出码：`0` 通过；`1` 未通过（逐条列出矛盾）；`2` 拒绝（里程碑未登记、证据目录不存在或缺少 `run-summary.json`）。
@@ -74,7 +78,8 @@ python tests/assistant_offline/run_acceptance.py --milestone M8.1 \
 ## 工作流与需求总账检查（M8.2，`check_m82_contracts.py`）
 
 ```bash
-python tests/assistant_offline/check_m82_contracts.py --report <外部目录>/m82-contracts.json
+python tests/assistant_offline/check_m82_contracts.py \
+  --report tests/assistant_offline/evidence/m82-contracts.json
 ```
 
 它做三件事：以 `--check` 模式运行 `scripts/build_workflow_guides.py`（从不使用 `--draft`，因此手工改过的生成物会被判失败而不是被静默重写）；核对 193 项需求与 10 个模块的完整性、唯一性与引用；核对 111 条工作流与需求**双向**映射一致，并要求生成物携带与源相同的指纹。`--skip-generator` 只做对账，便于快速复核。

@@ -60,6 +60,13 @@
 | 「业务成功、通知失败」仍呈现真实业务成功；未知写入绝不重放 | **满足** | `test_batch_confirmation.py`（响应丢失记 `uncertain` 且不重放）＋既有回执用例 |
 | 故障重复执行能稳定得到同一断言结果 | **满足** | §3 两次完整运行逐套件计数与双指纹一致 |
 
+## 4.1 证据与运行的落点（2026-09-30 调整）
+
+按业主要求，套件、运行记录与证据统一放在工作区 	ests/assistant_offline/evidence/，
+不再散落在仓库之外；evidence/ 由 .gitignore 排除。**唯一留在仓库外的是合成运行时**
+（合成库、随机密码、合成助手配置，默认 HuaKangOS-validation/runtime/<运行名>/），因为应用自身的
+usiness_assistant_service.load_config 拒绝读取位于本仓库内的助手配置，装置也拒绝把运行时放进源码树。
+
 ## 5. 本批实际改动文件
 
 生产代码：**无**。新增 `tests/assistant_offline/run_acceptance.py`、

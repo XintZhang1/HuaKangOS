@@ -23,7 +23,10 @@ def main():
     args=parser.parse_args();source=args.source.resolve()
     if not (source/'app/main.py').is_file() or (source/'.env').exists():
         parser.error('Use a disposable source checkout without a .env file.')
-    if ROOT.is_relative_to(source):parser.error('Extract validation outside the source checkout.')
+    # A run directory may live inside this test folder, but never inside the
+    # application source that is being exercised.
+    if any(ROOT.is_relative_to(source/folder) for folder in ('app','web','migrations')):
+        parser.error('Extract validation outside the application source.')
     try:suites=selected_suites(ROOT,args.suite)
     except ValueError as exc:parser.error(str(exc))
     scope='targeted' if args.suite else 'full'

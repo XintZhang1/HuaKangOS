@@ -27,9 +27,12 @@ BASE='/api/business-assistant'
 class RuntimeIntegration(unittest.TestCase):
     def setUp(self):
         engine.dispose()
-        # Sole destination is our explicitly named disposable synthetic database.
+        # Sole destination is our explicitly named disposable synthetic database,
+        # and it must never sit in the application source that is being exercised.
         destination=fixture_env.RUNTIME/'synthetic.sqlite'
-        assert destination.parent==fixture_env.RUNTIME and not destination.is_relative_to(fixture_env.ROOT)
+        assert destination.parent==fixture_env.RUNTIME
+        assert not any(destination.is_relative_to(fixture_env.ROOT/folder)
+                       for folder in ('app','web','migrations'))
         for suffix in ('','-wal','-shm'):
             destination.with_name(destination.name+suffix).unlink(missing_ok=True)
         with closing(sqlite3.connect(str(fixture_env.RUNTIME/'seed-base.sqlite'))) as src, closing(sqlite3.connect(destination)) as dst:

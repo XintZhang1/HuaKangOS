@@ -24,7 +24,7 @@ playwright-report/
 # Local assistant test configuration
 assistant-test-settings.json
 
-# Offline test execution must stay outside the repository.
+# Per-run synthetic state and evidence live beside the suites but are never committed.
 tests/assistant_offline/runtime/
 tests/assistant_offline/evidence/
 

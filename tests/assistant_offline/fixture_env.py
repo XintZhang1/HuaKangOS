@@ -9,9 +9,18 @@ if not os.environ.get('HUAKANGOS_SOURCE'):
     raise RuntimeError('Use run_isolated.py with an explicit disposable source checkout')
 ROOT = Path(os.environ['HUAKANGOS_SOURCE']).resolve()
 VALIDATION = Path(__file__).resolve().parent
-RUNTIME = VALIDATION / 'runtime'
-if ROOT == VALIDATION or VALIDATION.is_relative_to(ROOT):
-    raise RuntimeError('Validation must remain outside source')
+# Synthetic state never lives in the application source, and the application
+# itself refuses to read an assistant config from inside its own checkout
+# (business_assistant_service.load_config). So the runtime directory - the
+# synthetic database, the random password and the synthetic config - stays
+# outside the repository, while the suites, the run record and the evidence
+# live in one place inside it. HUAKANGOS_RUNTIME names that directory.
+if VALIDATION == ROOT or any(VALIDATION.is_relative_to(ROOT / folder)
+                             for folder in ('app', 'web', 'migrations')):
+    raise RuntimeError('Validation must remain outside the application source')
+RUNTIME = Path(os.environ.get('HUAKANGOS_RUNTIME') or (VALIDATION / 'runtime')).resolve()
+if RUNTIME.is_relative_to(ROOT):
+    raise RuntimeError('Synthetic runtime must stay outside the source checkout')
 if not (ROOT / 'app/main.py').is_file():
     raise RuntimeError('Source checkout is incomplete')
 if (ROOT / '.env').exists():

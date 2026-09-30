@@ -107,17 +107,16 @@ def bucket(browser_mode):
 
 
 def default_output(browser_mode):
-    """Evidence beside the repository, never inside it.
+    """Keep a run inside this test folder, beside the suites it exercises.
 
-    The isolator copies the suite to a brand-new directory outside the source
-    tree and refuses to run when its output would sit in the tree it is testing
-    - that is what keeps the synthetic database, the random password and the
-    per-page screenshots out of the checkout. So the default is a sibling
-    directory, and `--output` still selects an explicit location instead.
+    One place then holds the suites, the run record and the evidence, and
+    `tests/assistant_offline/evidence/` is ignored by git. The synthetic
+    database and the random password are created under that same run directory,
+    so nothing lands in the application source the run is executed against.
+    `--output` and HUAKANGOS_EVIDENCE_ROOT still select another location.
     """
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-    root = Path(os.environ.get('HUAKANGOS_EVIDENCE_ROOT',
-                               str(HERE.parents[1].parent / 'HuaKangOS-validation')))
+    root = Path(os.environ.get('HUAKANGOS_EVIDENCE_ROOT', str(HERE / 'evidence')))
     return (root / (bucket(browser_mode) + '-' + stamp)).resolve()
 
 
@@ -137,8 +136,10 @@ def main():
     if not (HERE / 'run_isolated.py').is_file():
         return refuse('run_isolated.py is missing next to the pipeline')
     output = (args.output or default_output(args.browser_mode)).resolve()
-    if output.is_relative_to(source):
-        return refuse('the output directory must stay outside the source tree')
+    # The run may live inside this test folder, but never inside the application
+    # source it will be executed against.
+    if any(output.is_relative_to(source / folder) for folder in ('app', 'web', 'migrations')):
+        return refuse('the output directory must not sit inside the application source')
     if output.exists():
         return refuse('choose a new output path; evidence is never overwritten')
     state = playwright_state()
