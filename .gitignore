@@ -30,3 +30,7 @@ tests/assistant_offline/evidence/
 
 # Playwright browser downloads must stay outside the repository.
 .tools/
+
+# 一次性诊断探针与历史合成运行时（非验收套件，不提交）
+tests/assistant_offline/probes/
+tests/assistant_offline/legacy-runtime/
