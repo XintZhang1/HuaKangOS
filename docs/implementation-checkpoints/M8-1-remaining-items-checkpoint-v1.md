@@ -134,6 +134,19 @@ python tests/assistant_offline/run_browser_pipeline.py --source E:\HuaKangOS --b
 同一轮核对保留的附带事实：`run_validation.py` 原文用 `except (OSError, TimeoutExpired)` 合并处理，无法
 区分「超时」与「无法启动」；上面的进程树终止只挂在超时分支上。
 
+### 8.2 同一批次的 native 复跑与外部里程碑复验
+
+- **native（真实 Chrome 154.0.8037.59，非桥接）**：`run_browser_pipeline.py --browser-mode native
+  --browser "C:\Program Files\Google\Chrome\Application\chrome.exe"` → `verified=true`、
+  `native_transport=true`、`page_count=14`、`page_errors_total=0`、`real_model_calls=0`，同为
+  **293 项**（后端 224＋前端 55＋页面 14）、测试套件指纹同为
+  `4849cd5ba84ac8cb03a78dbe67718867aedc36511f9974be263ced980e760660`。该次运行同时证明第 9 节的
+  账本判定在**真实网络**事件下同样成立（不是只在桥接下成立）。
+- **外部里程碑复验**：`& $VPython "$V/run_validation.py" --repo E:\HuaKangOS --milestone M8.1` →
+  `status=passed`、`phase_complete=true`、`milestone_complete=false`、`incomplete_reasons=[]`，
+  源码指纹 `660b23ef…`（两条已登记命令仍为 11+19 项全绿）。该命令验证的是**已登记的**两条套件；
+  本轮新增的仓库套件尚未登记进该 manifest（见第 10 节）。
+
 ## 10. 仍未完成 / 明确不声称
 
 
