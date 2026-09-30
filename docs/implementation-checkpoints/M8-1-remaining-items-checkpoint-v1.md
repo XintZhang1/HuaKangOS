@@ -146,6 +146,12 @@ python tests/assistant_offline/run_browser_pipeline.py --source E:\HuaKangOS --b
   `status=passed`、`phase_complete=true`、`milestone_complete=false`、`incomplete_reasons=[]`，
   源码指纹 `660b23ef…`（两条已登记命令仍为 11+19 项全绿）。该命令验证的是**已登记的**两条套件；
   本轮新增的仓库套件尚未登记进该 manifest（见第 10 节）。
+- **Linux CI 独立复跑**：推送后 run `36656637456`（提交 `ca47d5d`）结论 **success**，同一入口打印
+  `verified=true`、`problems=[]`、`page_errors_total=0`、`browser_source=playwright-bundled`、
+  `browser_version=143.0.7499.4`，并以 `PIPELINE VERIFIED` 结束；**四个新套件都在 CI 上真实执行**
+  （`test_lease_transition_db` 5、`test_prepare_zero_write` 2、`test_delay_injection` 2、
+  `test_access_signals_emit` 4），逐套件计数与本机 native 运行一致：后端 **224**＋前端 55＋`browser-final`
+  14 ＝ **293 项**。该次同时证明第 9 节的账本判定在 **Linux + 固定版本自带 Chromium** 上同样成立。
 
 ## 10. 仍未完成 / 明确不声称
 
