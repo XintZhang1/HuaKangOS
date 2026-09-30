@@ -494,9 +494,22 @@
     const valid = () => validContext() && state.followupToken === token && state.plan?.id === plan.id;
     patchCurrent();
     try {
+      // 后台进度会推进 version；核对同一授权范围后只提交一次服务器当前版本。
+      const current = await businessAssistantRequest('/plans/' + encodeURIComponent(String(plan.id)));
+      if (!valid()) return { ok: false, reason: '当前事项已切换。' };
+      if (!current || current.id !== plan.id || !Number.isSafeInteger(current.version)
+          || !Number.isSafeInteger(plan.goal_version) || current.goal_version !== plan.goal_version
+          || JSON.stringify(current.grant) !== JSON.stringify(plan.grant)
+          || !Array.isArray(current.allowed_actions) || !current.allowed_actions.includes(action)) {
+        state.plan = current && current.id === plan.id ? current : null;
+        state.revokeArmed = false;
+        state.planError = '事项已变化，请核对后再操作。';
+        return { ok: false, reason: state.planError };
+      }
+      state.plan = current;
       const updated = await businessAssistantRequest(
         '/plans/' + encodeURIComponent(String(plan.id)) + '/followup',
-        { method: 'POST', body: { action: action, expected_version: version } });
+        { method: 'POST', body: { action: action, expected_version: current.version } });
       if (!valid()) return { ok: false, reason: '当前事项已切换。' };
       state.planSerial++; state.planLoading = false;
       if (state.plan && state.plan.id === plan.id && (!Number.isSafeInteger(updated?.version) || updated.version >= state.plan.version)) {

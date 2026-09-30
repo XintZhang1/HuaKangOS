@@ -123,6 +123,22 @@ def get_user(request: Request, db: Session = Depends(get_db)) -> User:
     return principal
 
 
+def revoke_login_session(request: Request, db: Session) -> None:
+    """Delete this authenticated session once, without promoting a stale WAL read.
+
+    SQLite logout starts a short writer transaction and revalidates the original
+    request inside it. Concurrent worker commits then cannot invalidate the
+    authentication snapshot before DELETE. No failed write/commit is replayed;
+    the caller clears cookies only after this commit succeeds.
+    """
+    if db.get_bind().dialect.name == 'sqlite':
+        db.rollback()
+        db.connection(execution_options={'huakangos_sqlite_write_transaction': True})
+        get_user(request, db)
+    db.execute(delete(LoginSession).where(LoginSession.id == request.state.session_hash))
+    db.commit()
+
+
 def require_module(user: User, module: str, write: bool = False):
     if module not in ALL:
         raise HTTPException(404, '模块不存在')

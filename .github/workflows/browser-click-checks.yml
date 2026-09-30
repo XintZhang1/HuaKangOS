@@ -1,0 +1,58 @@
+name: Browser click checks
+
+on:
+  push:
+    branches: [feature/assistant-agent-runtime]
+    paths:
+      - 'app/**'
+      - 'web/**'
+      - 'migrations/**'
+      - 'requirements.txt'
+      - 'alembic.ini'
+      - 'tests/browser_click/**'
+      - '.github/workflows/browser-click-checks.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'web/**'
+      - 'migrations/**'
+      - 'requirements.txt'
+      - 'alembic.ini'
+      - 'tests/browser_click/**'
+      - '.github/workflows/browser-click-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-click-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-click:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install application and pinned browser dependencies
+        run: |
+          python -m pip install -r requirements.txt playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Run real browser clicks against a new isolated instance
+        run: >-
+          python tests/browser_click/run.py
+          --source "$GITHUB_WORKSPACE"
+          --output "$RUNNER_TEMP/browser-click-${{ github.run_id }}-${{ github.run_attempt }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-click-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/browser-click-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
+          retention-days: 7
+          if-no-files-found: warn

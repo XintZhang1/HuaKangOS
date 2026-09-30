@@ -1,5 +1,5 @@
 from typing import Annotated, Literal
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from .db import get_db
 from .security import get_user
@@ -79,6 +79,9 @@ def create_rule(body:RuleRequest,db=Depends(get_db),user=Depends(get_user)):
 @router.get('/members')
 def member(customer_id:int,db=Depends(get_db),user=Depends(get_user)):
     return service.member_detail(db,user,customer_id)
+@router.get('/members/{member_id}')
+def member_by_id(member_id:int=Path(gt=0),db=Depends(get_db),user=Depends(get_user)):
+    return service.member_detail_by_id(db,user,member_id)
 @router.get('/reconciliation')
 def reconciliation(db=Depends(get_db),user=Depends(get_user)):
     with service.group.authority(db,user,service.eng.MANAGEMENT):

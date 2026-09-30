@@ -17,7 +17,7 @@ from .vehicle_operation import (OPERATION_ACTION, OPERATION_ACTIONS, OPERATION_C
                                OPERATION_FACTS, OPERATION_FLOW_VERSION, OPERATION_KIND,
                                OPERATION_KINDS, OPERATION_READ, VehicleOperationAdapter)
 from .vehicle_import_batch import (IMPORT_ACTION, IMPORT_ACTIONS, IMPORT_FACTS,
-                                  IMPORT_OBJECT_TYPE, VehicleImportBatchAdapter)
+                                  IMPORT_OBJECT_TYPE, IMPORT_READ, VehicleImportBatchAdapter)
 from .service_intake import (APPOINTMENT_OBJECT_TYPE, INTAKE_ACTION, INTAKE_ACTIONS,
                             INTAKE_CREATE, INTAKE_FACTS, INTAKE_READ, ServiceIntakeAdapter)
 from .repair_order import (REPAIR_ACTION, REPAIR_ACTIONS, REPAIR_CREATE, REPAIR_FACTS,
@@ -56,14 +56,14 @@ from .membership_order import (MEMBERSHIP_ACTION, MEMBERSHIP_ACTIONS, MEMBERSHIP
                                MembershipOrderAdapter)
 from .group_principal import (MEMBER_ACTION, MEMBER_COMMANDS, MEMBER_FACTS,
                               MEMBER_OBJECT_TYPE, MEMBER_READ, GroupPrincipalAdapter)
-from .group_benefit import (BENEFIT_ACTION, BENEFIT_FACTS, BENEFIT_KINDS,
+from .group_benefit import (BENEFIT_ACTION, BENEFIT_FACTS, BENEFIT_KINDS, BENEFIT_MEMBER_READ,
                             BENEFIT_MEMBERS, BENEFIT_OBJECT_TYPE, BENEFIT_RULES,
                             GroupBenefitAdapter)
 from .recharge_bundle import (RECHARGE_ACTION, RECHARGE_ACTIONS, RECHARGE_CREATE,
                               RECHARGE_FACTS, RECHARGE_PURCHASES, RECHARGE_PURPOSES,
                               RECHARGE_READ, RechargeBundleAdapter)
 from .repair_package import (PACKAGE_ACTION, PACKAGE_ACTIONS, PACKAGE_CREATE,
-                             PACKAGE_FACTS, PACKAGE_MEMBER_PURCHASES, PACKAGE_OBJECT_TYPE,
+                             PACKAGE_FACTS, PACKAGE_MEMBER_PURCHASES, PACKAGE_OBJECT_TYPE, PACKAGE_READ,
                              PACKAGE_ORDER_CAPTURE, PACKAGE_ORDER_QUOTE,
                              PACKAGE_REFUND_ACTION, PACKAGE_RULES, RepairPackageAdapter)
 from .member_price import (PRICE_ACTION, PRICE_ACTIONS, PRICE_CANDIDATES, PRICE_CREATE,
@@ -170,12 +170,12 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'MEMBERSHIP_PURPOSES', 'MEMBERSHIP_READ', 'MembershipOrderAdapter',
            'MEMBER_ACTION', 'MEMBER_COMMANDS', 'MEMBER_FACTS', 'MEMBER_OBJECT_TYPE',
            'MEMBER_READ', 'GroupPrincipalAdapter',
-           'BENEFIT_ACTION', 'BENEFIT_FACTS', 'BENEFIT_KINDS', 'BENEFIT_MEMBERS',
+           'BENEFIT_ACTION', 'BENEFIT_FACTS', 'BENEFIT_KINDS', 'BENEFIT_MEMBER_READ', 'BENEFIT_MEMBERS',
            'BENEFIT_OBJECT_TYPE', 'BENEFIT_RULES', 'GroupBenefitAdapter',
            'RECHARGE_ACTION', 'RECHARGE_ACTIONS', 'RECHARGE_CREATE', 'RECHARGE_FACTS',
            'RECHARGE_PURCHASES', 'RECHARGE_PURPOSES', 'RECHARGE_READ', 'RechargeBundleAdapter',
            'PACKAGE_ACTION', 'PACKAGE_ACTIONS', 'PACKAGE_CREATE', 'PACKAGE_FACTS',
-           'PACKAGE_MEMBER_PURCHASES', 'PACKAGE_OBJECT_TYPE', 'PACKAGE_ORDER_CAPTURE',
+           'PACKAGE_MEMBER_PURCHASES', 'PACKAGE_OBJECT_TYPE', 'PACKAGE_ORDER_CAPTURE', 'PACKAGE_READ',
            'PACKAGE_ORDER_QUOTE', 'PACKAGE_REFUND_ACTION', 'PACKAGE_RULES', 'RepairPackageAdapter',
            'PRICE_ACTION', 'PRICE_ACTIONS', 'PRICE_CANDIDATES', 'PRICE_CREATE', 'PRICE_FACTS',
            'PRICE_OBJECT_TYPE', 'PRICE_READ', 'MemberPriceAdapter',
@@ -272,7 +272,7 @@ def register_adapters(registry):
         object_types=(ESC_TYPE, REFUSAL_TYPE),
         operation_ids=(ESC_INDEX, ESC_REFUSALS, ESC_CREATE),
         fact_keys=ESC_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(ESC_TYPE, REFUSAL_TYPE),
     ))
     # M7.11.3：系统只读面（system_readonly）静态注册；只保留原已评审的 stores/parameters 只读，零事实键。
     registry.register(DomainAdapterSpec(
@@ -297,7 +297,7 @@ def register_adapters(registry):
         object_types=MASTER_OBJECT_TYPES,
         operation_ids=(MASTER_LIST, MASTER_CATALOG, MASTER_LOOKUP, MASTER_CREATE, MASTER_UPDATE),
         fact_keys=MASTER_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=MASTER_OBJECT_TYPES,
     ))
     # M7.10.6：卷宗授权（dossier_grant）静态注册；key 即原 DossierGrant.id。
     registry.register(DomainAdapterSpec(
@@ -305,7 +305,7 @@ def register_adapters(registry):
         object_types=(DG_OBJECT_TYPE,),
         operation_ids=(DG_READ, DG_RECORD, DG_CREATE, DG_ACTION),
         fact_keys=DG_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(DG_OBJECT_TYPE,),
     ))
     # M7.10.5：整车运输异常（vehicle_transport_exception）静态注册；key 即原异常案 id。
     registry.register(DomainAdapterSpec(
@@ -313,7 +313,7 @@ def register_adapters(registry):
         object_types=(VTE_OBJECT_TYPE,),
         operation_ids=(VTE_READ, VTE_CREATE, VTE_ACTION),
         fact_keys=VTE_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(VTE_OBJECT_TYPE,),
     ))
     # M7.10.4：调拨货物找回（transfer_goods_recovery）静态注册；key 即原 GoodsRecovery.id。
     registry.register(DomainAdapterSpec(
@@ -321,7 +321,7 @@ def register_adapters(registry):
         object_types=(GR_OBJECT_TYPE,),
         operation_ids=(GR_READ, GR_CREATE, GR_ACTION),
         fact_keys=GR_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(GR_OBJECT_TYPE,),
     ))
     # M7.10.3：调拨差异处置（transfer_exception）静态注册；key 即原 TransferException.id。
     registry.register(DomainAdapterSpec(
@@ -329,7 +329,7 @@ def register_adapters(registry):
         object_types=(EXC_OBJECT_TYPE,),
         operation_ids=(EXC_READ, EXC_CREATE, EXC_ACTION),
         fact_keys=EXC_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(EXC_OBJECT_TYPE,),
     ))
     # M7.10.2：整车调拨（vehicle_transfer）静态注册；key 即原 VehicleTransfer.id。
     registry.register(DomainAdapterSpec(
@@ -337,7 +337,7 @@ def register_adapters(registry):
         object_types=(VT_OBJECT_TYPE,),
         operation_ids=(VT_READ, VT_CREATE, VT_ACTION),
         fact_keys=VT_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(VT_OBJECT_TYPE,),
     ))
     # M7.10.1：物资调拨（material_transfer）静态注册；key 即原 MaterialTransfer.id。
     registry.register(DomainAdapterSpec(
@@ -345,7 +345,7 @@ def register_adapters(registry):
         object_types=(TRANSFER_OBJECT_TYPE,),
         operation_ids=(TRANSFER_READ, TRANSFER_CREATE, TRANSFER_ACTION),
         fact_keys=TRANSFER_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(TRANSFER_OBJECT_TYPE,),
     ))
     # M7.9.6：经营报表与日报（management_report）静态注册。
     # dashboard/reports 属封闭域、无已评审读取；日报生成是被挡写入 → 只登记唯一已评审只读。
@@ -403,7 +403,7 @@ def register_adapters(registry):
         object_types=(BATCH_OBJECT_TYPE,),
         operation_ids=(BATCH_READ, BATCH_CREATE, BATCH_ACTION),
         fact_keys=BATCH_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(BATCH_OBJECT_TYPE,),
     ))
     # M7.8.2：发票（invoice）静态注册；InvoiceApplication.id 与原 Case.id 相同。
     registry.register(DomainAdapterSpec(
@@ -427,18 +427,17 @@ def register_adapters(registry):
         object_types=(PRICE_OBJECT_TYPE,),
         operation_ids=(PRICE_READ, PRICE_CANDIDATES, PRICE_CREATE, PRICE_ACTION),
         fact_keys=PRICE_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(PRICE_OBJECT_TYPE,),
     ))
     # M7.7.5：维修套餐（repair_package）静态注册。
-    # 已评审读取按会员维度（members/{key}/purchases），与 package_purchase 维度不一致：
-    # 适配器只登记已评审 operation，不编造 purchase→member 映射，事实按合同返回未知。
+    # 按购买 id 读取原详情；与原会员列表保持同一授权及字段可见性。
     registry.register(DomainAdapterSpec(
         name='repair_package', factory=RepairPackageAdapter,
         object_types=(PACKAGE_OBJECT_TYPE,),
-        operation_ids=(PACKAGE_MEMBER_PURCHASES, PACKAGE_RULES, PACKAGE_CREATE, PACKAGE_ORDER_CAPTURE,
+        operation_ids=(PACKAGE_MEMBER_PURCHASES, PACKAGE_READ, PACKAGE_RULES, PACKAGE_CREATE, PACKAGE_ORDER_CAPTURE,
                        PACKAGE_ORDER_QUOTE, PACKAGE_ACTION, PACKAGE_REFUND_ACTION),
         fact_keys=PACKAGE_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(PACKAGE_OBJECT_TYPE,),
     ))
     # M7.7.4：组合退回与履约（recharge_bundle）静态注册；key 一律取原 Case.id。
     registry.register(DomainAdapterSpec(
@@ -449,12 +448,11 @@ def register_adapters(registry):
         fallback_object_types=(),
     ))
     # M7.7.3：集团权益（group_benefit）静态注册。
-    # 权益读取按客户维度（必填 customer_id），与登记的 member 维度不一致：
-    # 适配器只登记已评审 operation，不编造 member→customer 映射，事实按合同返回未知。
+    # 权益详情按原 member id 读取；共享对象快照仍由 group_principal 唯一提供。
     registry.register(DomainAdapterSpec(
         name='group_benefit', factory=GroupBenefitAdapter,
         object_types=(BENEFIT_OBJECT_TYPE,),
-        operation_ids=(BENEFIT_MEMBERS, BENEFIT_RULES, BENEFIT_ACTION),
+        operation_ids=(BENEFIT_MEMBERS, BENEFIT_MEMBER_READ, BENEFIT_RULES, BENEFIT_ACTION),
         fact_keys=BENEFIT_FACTS,
         fallback_object_types=(),
     ))
@@ -465,7 +463,7 @@ def register_adapters(registry):
         # Benefit actions belong to group_benefit, not the principal ledger.
         operation_ids=(MEMBER_READ,),
         fact_keys=MEMBER_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(MEMBER_OBJECT_TYPE,),
     ))
     # M7.7.1：会员业务单（membership_order）静态注册；key 一律取原 Case.id。
     registry.register(DomainAdapterSpec(
@@ -481,7 +479,7 @@ def register_adapters(registry):
         object_types=(REMINDER_OBJECT_TYPE,),
         operation_ids=(REMINDER_RULES, REMINDER_RULE_SAVE, REMINDER_GENERATE),
         fact_keys=REMINDER_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(REMINDER_OBJECT_TYPE,),
     ))
     # M7.6.2：客户关怀服务单（customer_care）静态注册。
     registry.register(DomainAdapterSpec(
@@ -489,7 +487,7 @@ def register_adapters(registry):
         object_types=(CARE_OBJECT_TYPE,),
         operation_ids=(CARE_READ, CARE_CREATE, CARE_ACTION),
         fact_keys=CARE_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(CARE_OBJECT_TYPE,),
     ))
     # M7.6.1：客户档案与服务单（customer_vehicle）静态注册。
     registry.register(DomainAdapterSpec(
@@ -498,7 +496,7 @@ def register_adapters(registry):
         operation_ids=(VEHICLE_READ, VEHICLE_HISTORY, VEHICLE_CREATE, VEHICLE_OBSERVATION,
                        VEHICLE_HISTORY_LINK),
         fact_keys=VEHICLE_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(VEHICLE_OBJECT_TYPE,),
     ))
     # M7.5.3：仓储单据（warehouse_document）静态注册。
     registry.register(DomainAdapterSpec(
@@ -540,7 +538,7 @@ def register_adapters(registry):
         object_types=(RULE_OBJECT_TYPE, SALE_OBJECT_TYPE),
         operation_ids=(BUNDLE_RULES, BUNDLE_PREVIEW, BUNDLE_RULE_CREATE, BUNDLE_SALE_CREATE),
         fact_keys=BUNDLE_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(RULE_OBJECT_TYPE, SALE_OBJECT_TYPE),
     ))
     # M7.4.1：精品销售与套餐（retail_order）静态注册。
     registry.register(DomainAdapterSpec(
@@ -557,7 +555,7 @@ def register_adapters(registry):
         operation_ids=(GATE_READ, GATE_CREATE, GATE_ACTION, GATE_CORRECTION,
                        GATE_CORRECTION_ACTION, GATE_DEPARTURE),
         fact_keys=GATE_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(GATE_OBJECT_TYPE,),
     ))
     # M7.3.4：理赔核赔受理（claim_order）静态注册。
     registry.register(DomainAdapterSpec(
@@ -573,7 +571,7 @@ def register_adapters(registry):
         object_types=(GRANT_OBJECT_TYPE,),
         operation_ids=(GRANT_READ, GRANT_CREATE, GRANT_ACTION, GRANT_REQUEST, GRANT_QUOTE),
         fact_keys=GRANT_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(GRANT_OBJECT_TYPE,),
     ))
     # M7.3.2：维修工单接车与施工进度（repair_order）静态注册。
     registry.register(DomainAdapterSpec(
@@ -589,16 +587,16 @@ def register_adapters(registry):
         object_types=(APPOINTMENT_OBJECT_TYPE,),
         operation_ids=(INTAKE_READ, INTAKE_CREATE, INTAKE_ACTION),
         fact_keys=INTAKE_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(APPOINTMENT_OBJECT_TYPE,),
     ))
     # M7.2.3：整车批量导入批次（vehicle_import_batch）静态注册。
-    # 只登记已评审的批次动作；原详情 GET 未在目录内，适配器按能力缺口明确拒绝。
+    # 原批次详情 GET 沿用活跃只读路由；动作仍仅来自已评审目录。
     registry.register(DomainAdapterSpec(
         name='vehicle_import_batch', factory=VehicleImportBatchAdapter,
         object_types=(IMPORT_OBJECT_TYPE,),
-        operation_ids=(IMPORT_ACTION,),
+        operation_ids=(IMPORT_READ, IMPORT_ACTION),
         fact_keys=IMPORT_FACTS,
-        fallback_object_types=(),
+        fallback_object_types=(IMPORT_OBJECT_TYPE,),
     ))
     # M7.2.2：整车库位及出退库作业（vehicle_operation）静态注册。
     registry.register(DomainAdapterSpec(

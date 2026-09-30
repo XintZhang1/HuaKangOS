@@ -112,24 +112,41 @@ def wallet_info(db, wallet, sid, financial=True):
     return info
 
 
+def _member_benefits(db, user, member, sid):
+    """Project the original benefit detail after its caller proves member access."""
+    wallets = list(db.scalars(select(BenefitWallet).where(BenefitWallet.member_id == member.id).order_by(BenefitWallet.id.desc()).limit(501)))
+    if len(wallets)>500:
+        raise HTTPException(413,'会员权益批次超过当前上限，请联系管理员按期间核对')
+    ids=[w.id for w in wallets]
+    entries=list(db.scalars(select(BenefitEntry).where(BenefitEntry.wallet_id.in_(ids),BenefitEntry.store_id==sid).order_by(BenefitEntry.id.desc()).limit(100)))
+    reservations=list(db.scalars(select(BenefitReservation).where(BenefitReservation.wallet_id.in_(ids)).order_by(BenefitReservation.id.desc()).limit(100)))
+    refunds=list(db.scalars(select(BenefitRefund).where(BenefitRefund.wallet_id.in_(ids)).order_by(BenefitRefund.id.desc()).limit(100)))
+    return {'member':group._wallet(member),
+        'wallets':[wallet_info(db,w,sid,user.role in eng.MANAGEMENT) for w in wallets],
+        'entries':[{k:getattr(e,k) for k in ['id','wallet_id','case_id','purpose','units','credit_cents','original_id']} for e in entries],
+        'reservations':[{k:getattr(r,k) for k in ['id','version','wallet_id','case_id','units','credit_cents','status']} for r in reservations],
+        'refunds':[{k:getattr(r,k) for k in ['id','version','wallet_id','case_id','units','status','requested_by']} for r in refunds]}
+
+
 def member_detail(db, user, customer_id):
     local = group.member_for_customer(db, user, customer_id)
     if not local['member']:
         return {**local, 'wallets':[], 'entries':[], 'reservations':[], 'refunds':[]}
     with group.authority(db,user) as sid:
         member = group._member(db, local['member']['id'], sid)
-        wallets = list(db.scalars(select(BenefitWallet).where(BenefitWallet.member_id == member.id).order_by(BenefitWallet.id.desc()).limit(501)))
-        if len(wallets)>500:
-            raise HTTPException(413,'会员权益批次超过当前上限，请联系管理员按期间核对')
-        ids=[w.id for w in wallets]
-        entries=list(db.scalars(select(BenefitEntry).where(BenefitEntry.wallet_id.in_(ids),BenefitEntry.store_id==sid).order_by(BenefitEntry.id.desc()).limit(100)))
-        reservations=list(db.scalars(select(BenefitReservation).where(BenefitReservation.wallet_id.in_(ids)).order_by(BenefitReservation.id.desc()).limit(100)))
-        refunds=list(db.scalars(select(BenefitRefund).where(BenefitRefund.wallet_id.in_(ids)).order_by(BenefitRefund.id.desc()).limit(100)))
-        return {**local, 'member':group._wallet(member),
-            'wallets':[wallet_info(db,w,sid,user.role in eng.MANAGEMENT) for w in wallets],
-            'entries':[{k:getattr(e,k) for k in ['id','wallet_id','case_id','purpose','units','credit_cents','original_id']} for e in entries],
-            'reservations':[{k:getattr(r,k) for k in ['id','version','wallet_id','case_id','units','credit_cents','status']} for r in reservations],
-            'refunds':[{k:getattr(r,k) for k in ['id','version','wallet_id','case_id','units','status','requested_by']} for r in refunds]}
+        return {**local, **_member_benefits(db,user,member,sid)}
+
+
+def member_detail_by_id(db, user, member_id):
+    # The original detail checks current store/role/member and, for sales and
+    # reception, responsibility for a linked local customer. No customer is chosen.
+    group.member_detail(db,user,member_id)
+    with group.authority(db,user) as sid:
+        member = group._member(db,member_id,sid)
+        detail = _member_benefits(db,user,member,sid)
+        return {**detail, 'history_limit':100,
+            'history_may_be_truncated':{key:len(detail[key])>=100
+                for key in ('entries','reservations','refunds')}}
 
 
 def _usable(wallet, rule, sid):

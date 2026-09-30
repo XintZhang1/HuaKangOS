@@ -24,13 +24,9 @@ playwright-report/
 # Local assistant test configuration
 assistant-test-settings.json
 
-# Per-run synthetic state and evidence live beside the suites but are never committed.
-tests/assistant_offline/runtime/
-tests/assistant_offline/evidence/
-
 # Playwright browser downloads must stay outside the repository.
 .tools/
 
-# 一次性诊断探针与历史合成运行时（非验收套件，不提交）
-tests/assistant_offline/probes/
-tests/assistant_offline/legacy-runtime/
+# Browser click runs must be outside the checkout; ignore accidental local output.
+tests/browser_click/evidence/
+tests/browser_click/runtime/

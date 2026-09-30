@@ -1,6 +1,6 @@
 """Separate employee actions for mixed prepaid repair components."""
 from typing import Literal,Annotated
-from fastapi import APIRouter,Depends,HTTPException
+from fastapi import APIRouter,Depends,HTTPException,Path
 from pydantic import Field,ValidationError
 from .db import get_db
 from .security import get_user
@@ -86,6 +86,9 @@ def decision(key:int,action:Literal['approve','reject','cancel','revoke'],body:D
 def mapping(key:int,body:Map,db=Depends(get_db),user=Depends(get_user)):return service.map_component(db,user,body.request_id,key,body.model_dump(exclude={'request_id'}))
 @router.get('/members/{key}/purchases')
 def purchases(key:int,db=Depends(get_db),user=Depends(get_user)):return service.purchases(db,user,key)
+@router.get('/purchases/{key}')
+def purchase_detail(key:int=Path(gt=0),db=Depends(get_db),user=Depends(get_user)):
+    return service.purchase_detail(db,user,key)
 @router.post('/purchases',status_code=201)
 def purchase(body:Purchase,db=Depends(get_db),user=Depends(get_user)):return service.create_purchase(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.post('/purchases/{key}/actions/{action}')

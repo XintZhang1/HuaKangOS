@@ -179,15 +179,41 @@ def purchase_info(db,user,p):
         out['lots'].append(data)
     return out
 
+def _purchase_customers(db,user,member,sid):
+    """The original list's local customer responsibility guard, shared by detail."""
+    from .flow_models import Customer
+    query=select(Customer).join(GroupIdentityLink,GroupIdentityLink.local_id==Customer.id).where(GroupIdentityLink.store_id==sid,GroupIdentityLink.local_kind=='customer',GroupIdentityLink.identity_id==member.identity_id,Customer.store_id==sid)
+    if user.role in {'sales','reception'}:query=query.where(Customer.owner_id==user.id)
+    customers=list(db.scalars(query))
+    if not customers:raise HTTPException(403,'只能查看当前明确负责的本店客户套餐')
+    return customers
+
+
 def purchases(db,user,member_id):
     with authority(db,user) as sid:
         member=_member(db,member_id,sid,False)
-        from .flow_models import Customer
-        query=select(Customer).join(GroupIdentityLink,GroupIdentityLink.local_id==Customer.id).where(GroupIdentityLink.store_id==sid,GroupIdentityLink.local_kind=='customer',GroupIdentityLink.identity_id==member.identity_id,Customer.store_id==sid)
-        if user.role in {'sales','reception'}:query=query.where(Customer.owner_id==user.id)
-        customers=list(db.scalars(query))
-        if not customers:raise HTTPException(403,'只能查看当前明确负责的本店客户套餐')
+        customers=_purchase_customers(db,user,member,sid)
         return {'customers':[{'id':c.id,'name':c.name} for c in customers],'items':[purchase_info(db,user,p) for p in db.scalars(select(PackagePurchase).where(PackagePurchase.member_id==member_id)) if sid in p.contract['allowed_store_ids'] and (p.issuer_store_id==sid or p.status=='issued')]}
+
+
+def purchase_detail(db,user,purchase_id):
+    with authority(db,user) as sid:
+        purchase=_purchase(db,user,purchase_id,sid,False)
+        member=_member(db,purchase.member_id,sid,False)
+        _purchase_customers(db,user,member,sid)
+        if sid not in purchase.contract['allowed_store_ids'] or (purchase.issuer_store_id!=sid and purchase.status!='issued'):
+            raise HTTPException(404,'当前授权范围内购买记录不存在')
+        detail=purchase_info(db,user,purchase)
+        entries=list(db.scalars(select(PackageEntry).join(PackageLot,PackageEntry.lot_id==PackageLot.id).where(
+            PackageLot.purchase_id==purchase.id,PackageEntry.store_id==sid,
+            PackageEntry.purpose=='capture').order_by(PackageEntry.id.desc()).limit(501)))
+        if len(entries)>500:
+            raise HTTPException(413,'本店套餐核销记录超过当前上限，请按原业务期间核对')
+        fields=['id','store_id','lot_id','case_id','purpose','hold_id','quantity_milli']
+        if user.role in MONEY:fields+=['credit_cents','paid_cents']
+        if user.role in INTERNAL:fields+=['settlement_cents']
+        return {**detail,'capture_entries':[{key:getattr(entry,key) for key in fields} for entry in entries],
+            'capture_entry_limit':500}
 
 def create_purchase(db,user,key,v):
     def run(sid):

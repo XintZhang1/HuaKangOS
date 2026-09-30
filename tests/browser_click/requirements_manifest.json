@@ -1,0 +1,5479 @@
+{
+  "schema": 1,
+  "source_sha256": "ddf297678e5d6d35e1dbfffc5c232c3d56748934eb22b58bbb9f9d5343689aae",
+  "source_same_as_desktop_docx": true,
+  "execution_status": "unexecuted",
+  "business_accepted": false,
+  "counts": {
+    "requirements": 193,
+    "modules": 10,
+    "workflows": 111,
+    "targets": 70
+  },
+  "form_ref_status": "not_declared_in_published_guides",
+  "requirements": [
+    {
+      "id": "HK-001",
+      "module": "整车销售模块",
+      "group": "售前跟踪",
+      "title": "展厅接待",
+      "workflow_ids": [
+        "wf-reception"
+      ],
+      "target_routes": [
+        "cases/lead"
+      ]
+    },
+    {
+      "id": "HK-002",
+      "module": "整车销售模块",
+      "group": "售前跟踪",
+      "title": "展厅接待分派",
+      "workflow_ids": [
+        "wf-reception"
+      ],
+      "target_routes": [
+        "cases/lead"
+      ]
+    },
+    {
+      "id": "HK-003",
+      "module": "整车销售模块",
+      "group": "售前跟踪",
+      "title": "意向客户管理",
+      "workflow_ids": [
+        "wf-intent-followup"
+      ],
+      "target_routes": [
+        "cases/lead"
+      ]
+    },
+    {
+      "id": "HK-004",
+      "module": "整车销售模块",
+      "group": "售前跟踪",
+      "title": "意向单分派",
+      "workflow_ids": [
+        "wf-intent-followup"
+      ],
+      "target_routes": [
+        "cases/lead"
+      ]
+    },
+    {
+      "id": "HK-005",
+      "module": "整车销售模块",
+      "group": "售前跟踪",
+      "title": "意向单跟进记录",
+      "workflow_ids": [
+        "wf-intent-followup"
+      ],
+      "target_routes": [
+        "cases/lead"
+      ]
+    },
+    {
+      "id": "HK-006",
+      "module": "整车销售模块",
+      "group": "售前跟踪",
+      "title": "展厅接待提醒",
+      "workflow_ids": [
+        "wf-reception"
+      ],
+      "target_routes": [
+        "cases/lead"
+      ]
+    },
+    {
+      "id": "HK-007",
+      "module": "整车销售模块",
+      "group": "售前跟踪",
+      "title": "意向客户提醒",
+      "workflow_ids": [
+        "wf-intent-followup"
+      ],
+      "target_routes": [
+        "cases/lead"
+      ]
+    },
+    {
+      "id": "HK-008",
+      "module": "整车销售模块",
+      "group": "整车销售",
+      "title": "车辆预订单",
+      "workflow_ids": [
+        "wf-reservation-contract"
+      ],
+      "target_routes": [
+        "sales-quotes"
+      ]
+    },
+    {
+      "id": "HK-009",
+      "module": "整车销售模块",
+      "group": "整车销售",
+      "title": "车辆销售单",
+      "workflow_ids": [
+        "wf-sale-delivery",
+        "wf-sale-aftercare"
+      ],
+      "target_routes": [
+        "sales-quotes",
+        "aftercare"
+      ]
+    },
+    {
+      "id": "HK-010",
+      "module": "整车销售模块",
+      "group": "整车销售",
+      "title": "销售订单退订单",
+      "workflow_ids": [
+        "wf-sale-cancellation",
+        "wf-sale-aftercare"
+      ],
+      "target_routes": [
+        "sales-quotes",
+        "aftercare"
+      ]
+    },
+    {
+      "id": "HK-011",
+      "module": "整车销售模块",
+      "group": "整车销售",
+      "title": "客户提车单",
+      "workflow_ids": [
+        "wf-sale-delivery",
+        "wf-sale-aftercare"
+      ],
+      "target_routes": [
+        "sales-quotes",
+        "aftercare"
+      ]
+    },
+    {
+      "id": "HK-012",
+      "module": "整车销售模块",
+      "group": "车辆服务",
+      "title": "精品加装单",
+      "workflow_ids": [
+        "wf-sale-addon"
+      ],
+      "target_routes": [
+        "addon-orders"
+      ]
+    },
+    {
+      "id": "HK-013",
+      "module": "整车销售模块",
+      "group": "车辆服务",
+      "title": "车辆保险单",
+      "workflow_ids": [
+        "wf-insurance-order"
+      ],
+      "target_routes": [
+        "insurance-orders"
+      ]
+    },
+    {
+      "id": "HK-014",
+      "module": "整车销售模块",
+      "group": "车辆服务",
+      "title": "保险核价单",
+      "workflow_ids": [
+        "wf-insurance-order"
+      ],
+      "target_routes": [
+        "insurance-orders"
+      ]
+    },
+    {
+      "id": "HK-015",
+      "module": "整车销售模块",
+      "group": "车辆服务",
+      "title": "代办服务单",
+      "workflow_ids": [
+        "wf-agency-service"
+      ],
+      "target_routes": [
+        "service-orders"
+      ]
+    },
+    {
+      "id": "HK-016",
+      "module": "整车销售模块",
+      "group": "车辆服务",
+      "title": "代办核价单",
+      "workflow_ids": [
+        "wf-agency-service"
+      ],
+      "target_routes": [
+        "service-orders"
+      ]
+    },
+    {
+      "id": "HK-017",
+      "module": "整车销售模块",
+      "group": "车辆服务",
+      "title": "整车其它收入单",
+      "workflow_ids": [
+        "wf-other-customer-income",
+        "wf-vehicle-other-income"
+      ],
+      "target_routes": [
+        "service-orders",
+        "vehicle-income"
+      ]
+    },
+    {
+      "id": "HK-018",
+      "module": "整车仓库模块",
+      "group": "整车入库",
+      "title": "所有车辆品牌型号筛参数选展示专题页",
+      "workflow_ids": [
+        "wf-vehicle-catalog"
+      ],
+      "target_routes": [
+        "vehicle-catalog"
+      ]
+    },
+    {
+      "id": "HK-019",
+      "module": "整车仓库模块",
+      "group": "整车入库",
+      "title": "车辆请款导入",
+      "workflow_ids": [
+        "wf-vehicle-batch-import"
+      ],
+      "target_routes": [
+        "vehicle-procurement"
+      ]
+    },
+    {
+      "id": "HK-020",
+      "module": "整车仓库模块",
+      "group": "整车入库",
+      "title": "车辆调拨入库",
+      "workflow_ids": [
+        "wf-vehicle-transfer"
+      ],
+      "target_routes": [
+        "vehicle-transfers"
+      ]
+    },
+    {
+      "id": "HK-021",
+      "module": "整车仓库模块",
+      "group": "整车入库",
+      "title": "车辆采购入库",
+      "workflow_ids": [
+        "wf-vehicle-purchase"
+      ],
+      "target_routes": [
+        "vehicle-procurement"
+      ]
+    },
+    {
+      "id": "HK-022",
+      "module": "整车仓库模块",
+      "group": "整车出库",
+      "title": "车辆销售出库",
+      "workflow_ids": [
+        "wf-sale-delivery"
+      ],
+      "target_routes": [
+        "sales-quotes"
+      ]
+    },
+    {
+      "id": "HK-023",
+      "module": "整车仓库模块",
+      "group": "整车出库",
+      "title": "车辆采购退回",
+      "workflow_ids": [
+        "wf-vehicle-purchase-return"
+      ],
+      "target_routes": [
+        "vehicle-procurement"
+      ]
+    },
+    {
+      "id": "HK-024",
+      "module": "整车仓库模块",
+      "group": "整车出库",
+      "title": "车辆调拨出库",
+      "workflow_ids": [
+        "wf-vehicle-transfer"
+      ],
+      "target_routes": [
+        "vehicle-transfers"
+      ]
+    },
+    {
+      "id": "HK-025",
+      "module": "整车仓库模块",
+      "group": "整车出库",
+      "title": "车辆其他出库",
+      "workflow_ids": [
+        "wf-vehicle-other-out"
+      ],
+      "target_routes": [
+        "vehicle-operations"
+      ]
+    },
+    {
+      "id": "HK-026",
+      "module": "整车仓库模块",
+      "group": "整车管理",
+      "title": "采购计划管理",
+      "workflow_ids": [
+        "wf-vehicle-purchase"
+      ],
+      "target_routes": [
+        "vehicle-procurement"
+      ]
+    },
+    {
+      "id": "HK-027",
+      "module": "整车仓库模块",
+      "group": "整车管理",
+      "title": "请款导入车辆发货",
+      "workflow_ids": [
+        "wf-vehicle-batch-import"
+      ],
+      "target_routes": [
+        "vehicle-procurement"
+      ]
+    },
+    {
+      "id": "HK-028",
+      "module": "整车仓库模块",
+      "group": "整车管理",
+      "title": "请款导入车辆到货",
+      "workflow_ids": [
+        "wf-vehicle-batch-import"
+      ],
+      "target_routes": [
+        "vehicle-procurement"
+      ]
+    },
+    {
+      "id": "HK-029",
+      "module": "整车仓库模块",
+      "group": "整车管理",
+      "title": "车辆库存查询",
+      "workflow_ids": [
+        "wf-vehicle-catalog"
+      ],
+      "target_routes": [
+        "vehicle-catalog"
+      ]
+    },
+    {
+      "id": "HK-030",
+      "module": "整车仓库模块",
+      "group": "整车管理",
+      "title": "车辆店内移库",
+      "workflow_ids": [
+        "wf-vehicle-local-move"
+      ],
+      "target_routes": [
+        "vehicle-operations"
+      ]
+    },
+    {
+      "id": "HK-031",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "维修预约",
+      "workflow_ids": [
+        "wf-repair-intake"
+      ],
+      "target_routes": [
+        "service-intake/appointments"
+      ]
+    },
+    {
+      "id": "HK-032",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "洗车开单",
+      "workflow_ids": [
+        "wf-repair-intake"
+      ],
+      "target_routes": [
+        "service-intake/appointments"
+      ]
+    },
+    {
+      "id": "HK-033",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "快捷开单",
+      "workflow_ids": [
+        "wf-repair-intake"
+      ],
+      "target_routes": [
+        "service-intake/appointments"
+      ]
+    },
+    {
+      "id": "HK-034",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "一般维修",
+      "workflow_ids": [
+        "wf-repair-complete"
+      ],
+      "target_routes": [
+        "repair-orders"
+      ]
+    },
+    {
+      "id": "HK-035",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "保险理赔维修",
+      "workflow_ids": [
+        "wf-repair-claim"
+      ],
+      "target_routes": [
+        "claims"
+      ]
+    },
+    {
+      "id": "HK-036",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "厂家索赔维修",
+      "workflow_ids": [
+        "wf-repair-claim"
+      ],
+      "target_routes": [
+        "claims"
+      ]
+    },
+    {
+      "id": "HK-037",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "新车检测(PDI)",
+      "workflow_ids": [
+        "wf-sale-delivery"
+      ],
+      "target_routes": [
+        "sales-quotes"
+      ]
+    },
+    {
+      "id": "HK-038",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "返修单",
+      "workflow_ids": [
+        "wf-repair-rework"
+      ],
+      "target_routes": [
+        "service-intake/reworks"
+      ]
+    },
+    {
+      "id": "HK-039",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "保险账核价单",
+      "workflow_ids": [
+        "wf-repair-claim"
+      ],
+      "target_routes": [
+        "claims"
+      ]
+    },
+    {
+      "id": "HK-040",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "索赔账核价单",
+      "workflow_ids": [
+        "wf-repair-claim"
+      ],
+      "target_routes": [
+        "claims"
+      ]
+    },
+    {
+      "id": "HK-041",
+      "module": "维修管理模块",
+      "group": "维修美容开单",
+      "title": "内部账核价单",
+      "workflow_ids": [
+        "wf-repair-claim"
+      ],
+      "target_routes": [
+        "claims"
+      ]
+    },
+    {
+      "id": "HK-042",
+      "module": "维修管理模块",
+      "group": "其它维修服务",
+      "title": "客户报销结算",
+      "workflow_ids": [
+        "wf-customer-reimbursement"
+      ],
+      "target_routes": [
+        "claims"
+      ]
+    },
+    {
+      "id": "HK-043",
+      "module": "维修管理模块",
+      "group": "其它维修服务",
+      "title": "维修套餐设置",
+      "workflow_ids": [
+        "wf-repair-package"
+      ],
+      "target_routes": [
+        "repair-packages"
+      ]
+    },
+    {
+      "id": "HK-044",
+      "module": "维修管理模块",
+      "group": "其它维修服务",
+      "title": "维修工单提醒",
+      "workflow_ids": [
+        "wf-repair-intake"
+      ],
+      "target_routes": [
+        "service-intake/appointments"
+      ]
+    },
+    {
+      "id": "HK-045",
+      "module": "物资管理模块",
+      "group": "物资入库",
+      "title": "物资采购入库",
+      "workflow_ids": [
+        "wf-material-purchase"
+      ],
+      "target_routes": [
+        "procurement"
+      ]
+    },
+    {
+      "id": "HK-046",
+      "module": "物资管理模块",
+      "group": "物资入库",
+      "title": "物资其它入库",
+      "workflow_ids": [
+        "wf-material-other-in"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-047",
+      "module": "物资管理模块",
+      "group": "物资入库",
+      "title": "物资调拨入库",
+      "workflow_ids": [
+        "wf-material-transfer"
+      ],
+      "target_routes": [
+        "transfers"
+      ]
+    },
+    {
+      "id": "HK-048",
+      "module": "物资管理模块",
+      "group": "物资入库",
+      "title": "耗材领用退回",
+      "workflow_ids": [
+        "wf-consumable-issue-return"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-049",
+      "module": "物资管理模块",
+      "group": "物资入库",
+      "title": "维修退料入库",
+      "workflow_ids": [
+        "wf-repair-materials"
+      ],
+      "target_routes": [
+        "repair-orders"
+      ]
+    },
+    {
+      "id": "HK-050",
+      "module": "物资管理模块",
+      "group": "物资入库",
+      "title": "礼品退货入库",
+      "workflow_ids": [
+        "wf-gift-issue-return"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-051",
+      "module": "物资管理模块",
+      "group": "物资入库",
+      "title": "物资盘盈入库查询",
+      "workflow_ids": [
+        "wf-material-stock-count"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-052",
+      "module": "物资管理模块",
+      "group": "物资入库",
+      "title": "精品采购入库",
+      "workflow_ids": [
+        "wf-material-purchase"
+      ],
+      "target_routes": [
+        "procurement"
+      ]
+    },
+    {
+      "id": "HK-053",
+      "module": "物资管理模块",
+      "group": "物资出库",
+      "title": "维修领料出库",
+      "workflow_ids": [
+        "wf-repair-materials"
+      ],
+      "target_routes": [
+        "repair-orders"
+      ]
+    },
+    {
+      "id": "HK-054",
+      "module": "物资管理模块",
+      "group": "物资出库",
+      "title": "物资采购入库退货",
+      "workflow_ids": [
+        "wf-material-purchase-return"
+      ],
+      "target_routes": [
+        "procurement"
+      ]
+    },
+    {
+      "id": "HK-055",
+      "module": "物资管理模块",
+      "group": "物资出库",
+      "title": "物资调拨出库",
+      "workflow_ids": [
+        "wf-material-transfer"
+      ],
+      "target_routes": [
+        "transfers"
+      ]
+    },
+    {
+      "id": "HK-056",
+      "module": "物资管理模块",
+      "group": "物资出库",
+      "title": "耗材领用出库",
+      "workflow_ids": [
+        "wf-consumable-issue-return"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-057",
+      "module": "物资管理模块",
+      "group": "物资出库",
+      "title": "其它入库退货",
+      "workflow_ids": [
+        "wf-material-other-in"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-058",
+      "module": "物资管理模块",
+      "group": "物资出库",
+      "title": "精品采购入库退货",
+      "workflow_ids": [
+        "wf-material-purchase-return"
+      ],
+      "target_routes": [
+        "procurement"
+      ]
+    },
+    {
+      "id": "HK-059",
+      "module": "物资管理模块",
+      "group": "物资出库",
+      "title": "礼品出库",
+      "workflow_ids": [
+        "wf-gift-issue-return"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-060",
+      "module": "物资管理模块",
+      "group": "物资出库",
+      "title": "物资其他出库",
+      "workflow_ids": [
+        "wf-material-other-out"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-061",
+      "module": "物资管理模块",
+      "group": "物资出库",
+      "title": "盘亏出库查询",
+      "workflow_ids": [
+        "wf-material-stock-count"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-062",
+      "module": "物资管理模块",
+      "group": "精品销售",
+      "title": "精品销售单",
+      "workflow_ids": [
+        "wf-retail-sale"
+      ],
+      "target_routes": [
+        "retail"
+      ]
+    },
+    {
+      "id": "HK-063",
+      "module": "物资管理模块",
+      "group": "精品销售",
+      "title": "维修精品销售单",
+      "workflow_ids": [
+        "wf-retail-sale"
+      ],
+      "target_routes": [
+        "retail"
+      ]
+    },
+    {
+      "id": "HK-064",
+      "module": "物资管理模块",
+      "group": "精品销售",
+      "title": "精品销售出库",
+      "workflow_ids": [
+        "wf-retail-sale"
+      ],
+      "target_routes": [
+        "retail"
+      ]
+    },
+    {
+      "id": "HK-065",
+      "module": "物资管理模块",
+      "group": "精品销售",
+      "title": "精品加装出库",
+      "workflow_ids": [
+        "wf-sale-addon"
+      ],
+      "target_routes": [
+        "addon-orders"
+      ]
+    },
+    {
+      "id": "HK-066",
+      "module": "物资管理模块",
+      "group": "精品销售",
+      "title": "维修精品销售出库",
+      "workflow_ids": [
+        "wf-retail-sale"
+      ],
+      "target_routes": [
+        "retail"
+      ]
+    },
+    {
+      "id": "HK-067",
+      "module": "物资管理模块",
+      "group": "精品销售",
+      "title": "精品销售退货",
+      "workflow_ids": [
+        "wf-retail-return"
+      ],
+      "target_routes": [
+        "retail"
+      ]
+    },
+    {
+      "id": "HK-068",
+      "module": "物资管理模块",
+      "group": "精品销售",
+      "title": "精品销售套餐设置",
+      "workflow_ids": [
+        "wf-retail-bundle"
+      ],
+      "target_routes": [
+        "retail-bundles"
+      ]
+    },
+    {
+      "id": "HK-069",
+      "module": "物资管理模块",
+      "group": "物资库存管理",
+      "title": "物资采购订货",
+      "workflow_ids": [
+        "wf-material-purchase"
+      ],
+      "target_routes": [
+        "procurement"
+      ]
+    },
+    {
+      "id": "HK-070",
+      "module": "物资管理模块",
+      "group": "物资库存管理",
+      "title": "物资库存查询",
+      "workflow_ids": [
+        "wf-material-stock-query"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-071",
+      "module": "物资管理模块",
+      "group": "物资库存管理",
+      "title": "机构库存查询",
+      "workflow_ids": [
+        "wf-material-stock-query"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-072",
+      "module": "物资管理模块",
+      "group": "物资库存管理",
+      "title": "物资店内移库",
+      "workflow_ids": [
+        "wf-material-local-move"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-073",
+      "module": "物资管理模块",
+      "group": "物资库存管理",
+      "title": "物资库存盘点",
+      "workflow_ids": [
+        "wf-material-stock-count"
+      ],
+      "target_routes": [
+        "warehouse"
+      ]
+    },
+    {
+      "id": "HK-074",
+      "module": "物资管理模块",
+      "group": "物资库存管理",
+      "title": "精品采购订货",
+      "workflow_ids": [
+        "wf-material-purchase"
+      ],
+      "target_routes": [
+        "procurement"
+      ]
+    },
+    {
+      "id": "HK-075",
+      "module": "财务管理模块",
+      "group": "整车销售收款",
+      "title": "车辆销售收款",
+      "workflow_ids": [
+        "wf-sale-delivery"
+      ],
+      "target_routes": [
+        "sales-quotes"
+      ]
+    },
+    {
+      "id": "HK-076",
+      "module": "财务管理模块",
+      "group": "整车销售收款",
+      "title": "代办服务收款",
+      "workflow_ids": [
+        "wf-agency-service"
+      ],
+      "target_routes": [
+        "service-orders"
+      ]
+    },
+    {
+      "id": "HK-077",
+      "module": "财务管理模块",
+      "group": "整车销售收款",
+      "title": "保险服务收款",
+      "workflow_ids": [
+        "wf-insurance-order"
+      ],
+      "target_routes": [
+        "insurance-orders"
+      ]
+    },
+    {
+      "id": "HK-078",
+      "module": "财务管理模块",
+      "group": "整车销售收款",
+      "title": "整车收款单调整",
+      "workflow_ids": [
+        "wf-cash-correction"
+      ],
+      "target_routes": [
+        "business-finance"
+      ]
+    },
+    {
+      "id": "HK-079",
+      "module": "财务管理模块",
+      "group": "维修收款",
+      "title": "维修收款",
+      "workflow_ids": [
+        "wf-repair-complete"
+      ],
+      "target_routes": [
+        "repair-orders"
+      ]
+    },
+    {
+      "id": "HK-080",
+      "module": "财务管理模块",
+      "group": "维修收款",
+      "title": "洗车收款",
+      "workflow_ids": [
+        "wf-repair-intake",
+        "wf-repair-complete"
+      ],
+      "target_routes": [
+        "service-intake/appointments",
+        "repair-orders"
+      ]
+    },
+    {
+      "id": "HK-081",
+      "module": "财务管理模块",
+      "group": "维修收款",
+      "title": "维修收款单调整",
+      "workflow_ids": [
+        "wf-cash-correction"
+      ],
+      "target_routes": [
+        "business-finance"
+      ]
+    },
+    {
+      "id": "HK-082",
+      "module": "财务管理模块",
+      "group": "物资收款",
+      "title": "精品销售收款",
+      "workflow_ids": [
+        "wf-retail-sale"
+      ],
+      "target_routes": [
+        "retail"
+      ]
+    },
+    {
+      "id": "HK-083",
+      "module": "财务管理模块",
+      "group": "物资收款",
+      "title": "采购入库退货收款",
+      "workflow_ids": [
+        "wf-material-purchase-return"
+      ],
+      "target_routes": [
+        "procurement"
+      ]
+    },
+    {
+      "id": "HK-084",
+      "module": "财务管理模块",
+      "group": "物资收款",
+      "title": "调拨出库收款",
+      "workflow_ids": [
+        "wf-transfer-clearing"
+      ],
+      "target_routes": [
+        "clearing"
+      ]
+    },
+    {
+      "id": "HK-085",
+      "module": "财务管理模块",
+      "group": "物资收款",
+      "title": "其他入库退货收款",
+      "workflow_ids": [
+        "wf-supplier-other-return-money"
+      ],
+      "target_routes": [
+        "business-finance"
+      ]
+    },
+    {
+      "id": "HK-086",
+      "module": "财务管理模块",
+      "group": "物资收款",
+      "title": "物资收款单调整",
+      "workflow_ids": [
+        "wf-cash-correction"
+      ],
+      "target_routes": [
+        "business-finance"
+      ]
+    },
+    {
+      "id": "HK-087",
+      "module": "财务管理模块",
+      "group": "其他收款",
+      "title": "财务预收款",
+      "workflow_ids": [
+        "wf-customer-advance"
+      ],
+      "target_routes": [
+        "business-finance"
+      ]
+    },
+    {
+      "id": "HK-088",
+      "module": "财务管理模块",
+      "group": "其他收款",
+      "title": "其它收入单收款",
+      "workflow_ids": [
+        "wf-other-customer-income",
+        "wf-vehicle-other-income"
+      ],
+      "target_routes": [
+        "service-orders",
+        "vehicle-income"
+      ]
+    },
+    {
+      "id": "HK-089",
+      "module": "财务管理模块",
+      "group": "其他收款",
+      "title": "会员储值卡充值收款",
+      "workflow_ids": [
+        "wf-member-topup-refund"
+      ],
+      "target_routes": [
+        "membership"
+      ]
+    },
+    {
+      "id": "HK-090",
+      "module": "财务管理模块",
+      "group": "其他收款",
+      "title": "其他收款单调整",
+      "workflow_ids": [
+        "wf-cash-correction",
+        "wf-member-topup-refund"
+      ],
+      "target_routes": [
+        "business-finance",
+        "membership"
+      ]
+    },
+    {
+      "id": "HK-091",
+      "module": "财务管理模块",
+      "group": "其他收款",
+      "title": "客户应收款查询",
+      "workflow_ids": [
+        "wf-customer-statement"
+      ],
+      "target_routes": [
+        "business-finance"
+      ]
+    },
+    {
+      "id": "HK-092",
+      "module": "财务管理模块",
+      "group": "其他收款",
+      "title": "收款单退款申请",
+      "workflow_ids": [
+        "wf-sale-cancellation",
+        "wf-sale-aftercare"
+      ],
+      "target_routes": [
+        "sales-quotes",
+        "aftercare"
+      ]
+    },
+    {
+      "id": "HK-093",
+      "module": "财务管理模块",
+      "group": "其它退款",
+      "title": "预收款退款",
+      "workflow_ids": [
+        "wf-customer-advance"
+      ],
+      "target_routes": [
+        "business-finance"
+      ]
+    },
+    {
+      "id": "HK-094",
+      "module": "财务管理模块",
+      "group": "其它退款",
+      "title": "会员储值卡退款",
+      "workflow_ids": [
+        "wf-member-topup-refund"
+      ],
+      "target_routes": [
+        "membership"
+      ]
+    },
+    {
+      "id": "HK-095",
+      "module": "财务管理模块",
+      "group": "月结处理",
+      "title": "月结查询",
+      "workflow_ids": [
+        "wf-period-close"
+      ],
+      "target_routes": [
+        "reconciliation"
+      ]
+    },
+    {
+      "id": "HK-096",
+      "module": "财务管理模块",
+      "group": "月结处理",
+      "title": "客户月结处理",
+      "workflow_ids": [
+        "wf-customer-statement"
+      ],
+      "target_routes": [
+        "business-finance"
+      ]
+    },
+    {
+      "id": "HK-097",
+      "module": "财务管理模块",
+      "group": "发票管理",
+      "title": "开发票",
+      "workflow_ids": [
+        "wf-invoice-issue-red"
+      ],
+      "target_routes": [
+        "invoices"
+      ]
+    },
+    {
+      "id": "HK-098",
+      "module": "客户管理模块",
+      "group": "客户管理",
+      "title": "客户档案",
+      "workflow_ids": [
+        "wf-customer-profile"
+      ],
+      "target_routes": [
+        "master/customers"
+      ]
+    },
+    {
+      "id": "HK-099",
+      "module": "客户管理模块",
+      "group": "客户管理",
+      "title": "车辆档案",
+      "workflow_ids": [
+        "wf-customer-vehicle",
+        "wf-cross-store-service-history"
+      ],
+      "target_routes": [
+        "customer-vehicles",
+        "dossier-grants/received"
+      ]
+    },
+    {
+      "id": "HK-100",
+      "module": "客户管理模块",
+      "group": "客户服务",
+      "title": "其它收入单",
+      "workflow_ids": [
+        "wf-other-service-income"
+      ],
+      "target_routes": [
+        "service-orders"
+      ]
+    },
+    {
+      "id": "HK-101",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "问卷设置",
+      "workflow_ids": [
+        "wf-questionnaire-design-and-answer"
+      ],
+      "target_routes": [
+        "customer-questionnaires"
+      ]
+    },
+    {
+      "id": "HK-102",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "车辆销售回访",
+      "workflow_ids": [
+        "wf-sales-repair-callback"
+      ],
+      "target_routes": [
+        "customer-service"
+      ]
+    },
+    {
+      "id": "HK-103",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "意向客户回访",
+      "workflow_ids": [
+        "wf-intent-callback"
+      ],
+      "target_routes": [
+        "cases/lead"
+      ]
+    },
+    {
+      "id": "HK-104",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "维修工单回访",
+      "workflow_ids": [
+        "wf-sales-repair-callback"
+      ],
+      "target_routes": [
+        "customer-service"
+      ]
+    },
+    {
+      "id": "HK-105",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "保养提醒",
+      "workflow_ids": [
+        "wf-vehicle-reminders"
+      ],
+      "target_routes": [
+        "customer-reminders"
+      ]
+    },
+    {
+      "id": "HK-106",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "保修提醒",
+      "workflow_ids": [
+        "wf-vehicle-reminders"
+      ],
+      "target_routes": [
+        "customer-reminders"
+      ]
+    },
+    {
+      "id": "HK-107",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "客户咨询",
+      "workflow_ids": [
+        "wf-customer-consultation-complaint-rescue"
+      ],
+      "target_routes": [
+        "customer-service"
+      ]
+    },
+    {
+      "id": "HK-108",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "客户投诉",
+      "workflow_ids": [
+        "wf-customer-consultation-complaint-rescue"
+      ],
+      "target_routes": [
+        "customer-service"
+      ]
+    },
+    {
+      "id": "HK-109",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "客户救援",
+      "workflow_ids": [
+        "wf-customer-consultation-complaint-rescue"
+      ],
+      "target_routes": [
+        "customer-service"
+      ]
+    },
+    {
+      "id": "HK-110",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "客户回访查询",
+      "workflow_ids": [
+        "wf-sales-repair-callback",
+        "wf-cross-store-service-history"
+      ],
+      "target_routes": [
+        "customer-service",
+        "dossier-grants/received"
+      ]
+    },
+    {
+      "id": "HK-111",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "跟进记录查询",
+      "workflow_ids": [
+        "wf-sales-repair-callback"
+      ],
+      "target_routes": [
+        "customer-service"
+      ]
+    },
+    {
+      "id": "HK-112",
+      "module": "客户管理模块",
+      "group": "客户关怀",
+      "title": "首保提醒回访",
+      "workflow_ids": [
+        "wf-vehicle-reminders"
+      ],
+      "target_routes": [
+        "customer-reminders"
+      ]
+    },
+    {
+      "id": "HK-113",
+      "module": "客户管理模块",
+      "group": "续保管理",
+      "title": "续保信息提取",
+      "workflow_ids": [
+        "wf-insurance-renewal"
+      ],
+      "target_routes": [
+        "customer-reminders"
+      ]
+    },
+    {
+      "id": "HK-114",
+      "module": "客户管理模块",
+      "group": "续保管理",
+      "title": "续保信息分派",
+      "workflow_ids": [
+        "wf-insurance-renewal"
+      ],
+      "target_routes": [
+        "customer-reminders"
+      ]
+    },
+    {
+      "id": "HK-115",
+      "module": "客户管理模块",
+      "group": "续保管理",
+      "title": "续保分派回访",
+      "workflow_ids": [
+        "wf-insurance-renewal"
+      ],
+      "target_routes": [
+        "customer-reminders"
+      ]
+    },
+    {
+      "id": "HK-116",
+      "module": "客户管理模块",
+      "group": "续保管理",
+      "title": "保险到期提醒",
+      "workflow_ids": [
+        "wf-insurance-renewal"
+      ],
+      "target_routes": [
+        "customer-reminders"
+      ]
+    },
+    {
+      "id": "HK-117",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员信息管理",
+      "workflow_ids": [
+        "wf-member-card"
+      ],
+      "target_routes": [
+        "membership"
+      ]
+    },
+    {
+      "id": "HK-118",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员换补卡",
+      "workflow_ids": [
+        "wf-member-card"
+      ],
+      "target_routes": [
+        "membership"
+      ]
+    },
+    {
+      "id": "HK-119",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员积分兑换",
+      "workflow_ids": [
+        "wf-member-points"
+      ],
+      "target_routes": [
+        "membership"
+      ]
+    },
+    {
+      "id": "HK-120",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员积分调整",
+      "workflow_ids": [
+        "wf-member-points"
+      ],
+      "target_routes": [
+        "membership"
+      ]
+    },
+    {
+      "id": "HK-121",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员级别调整",
+      "workflow_ids": [
+        "wf-member-renew-tier",
+        "wf-member-level-rules"
+      ],
+      "target_routes": [
+        "membership",
+        "member-pricing"
+      ]
+    },
+    {
+      "id": "HK-122",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员续会",
+      "workflow_ids": [
+        "wf-member-renew-tier"
+      ],
+      "target_routes": [
+        "membership"
+      ]
+    },
+    {
+      "id": "HK-123",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员卡充值套餐设置",
+      "workflow_ids": [
+        "wf-recharge-bundle"
+      ],
+      "target_routes": [
+        "recharge-bundles"
+      ]
+    },
+    {
+      "id": "HK-124",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员储值卡充值",
+      "workflow_ids": [
+        "wf-member-principal",
+        "wf-recharge-bundle"
+      ],
+      "target_routes": [
+        "membership",
+        "recharge-bundles"
+      ]
+    },
+    {
+      "id": "HK-125",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员储值卡退款请求",
+      "workflow_ids": [
+        "wf-member-principal",
+        "wf-recharge-bundle"
+      ],
+      "target_routes": [
+        "membership",
+        "recharge-bundles"
+      ]
+    },
+    {
+      "id": "HK-126",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员套餐购买",
+      "workflow_ids": [
+        "wf-customer-repair-package"
+      ],
+      "target_routes": [
+        "repair-packages"
+      ]
+    },
+    {
+      "id": "HK-127",
+      "module": "会员服务模块",
+      "group": "会员管理",
+      "title": "会员套餐退款",
+      "workflow_ids": [
+        "wf-customer-repair-package"
+      ],
+      "target_routes": [
+        "repair-packages"
+      ]
+    },
+    {
+      "id": "HK-128",
+      "module": "会员服务模块",
+      "group": "会员卡管理",
+      "title": "会员卡生成",
+      "workflow_ids": [
+        "wf-member-card"
+      ],
+      "target_routes": [
+        "membership"
+      ]
+    },
+    {
+      "id": "HK-129",
+      "module": "会员服务模块",
+      "group": "消费券管理",
+      "title": "消费券类型",
+      "workflow_ids": [
+        "wf-coupons-and-benefits"
+      ],
+      "target_routes": [
+        "group"
+      ]
+    },
+    {
+      "id": "HK-130",
+      "module": "会员服务模块",
+      "group": "消费券管理",
+      "title": "消费券生成",
+      "workflow_ids": [
+        "wf-coupons-and-benefits"
+      ],
+      "target_routes": [
+        "group"
+      ]
+    },
+    {
+      "id": "HK-131",
+      "module": "会员服务模块",
+      "group": "消费券管理",
+      "title": "消费券赠送",
+      "workflow_ids": [
+        "wf-coupons-and-benefits"
+      ],
+      "target_routes": [
+        "group"
+      ]
+    },
+    {
+      "id": "HK-132",
+      "module": "会员服务模块",
+      "group": "消费券管理",
+      "title": "消费券信息查询",
+      "workflow_ids": [
+        "wf-coupons-and-benefits"
+      ],
+      "target_routes": [
+        "group"
+      ]
+    },
+    {
+      "id": "HK-133",
+      "module": "会员服务模块",
+      "group": "套餐卡管理",
+      "title": "套餐卡类型",
+      "workflow_ids": [
+        "wf-customer-repair-package"
+      ],
+      "target_routes": [
+        "repair-packages"
+      ]
+    },
+    {
+      "id": "HK-134",
+      "module": "统计分析模块",
+      "group": "整车销售统计分析",
+      "title": "展厅接待分析",
+      "workflow_ids": [
+        "wf-report-134"
+      ],
+      "target_routes": [
+        "table/leads"
+      ]
+    },
+    {
+      "id": "HK-135",
+      "module": "统计分析模块",
+      "group": "整车销售统计分析",
+      "title": "意向客户分析",
+      "workflow_ids": [
+        "wf-report-135"
+      ],
+      "target_routes": [
+        "table/leads"
+      ]
+    },
+    {
+      "id": "HK-136",
+      "module": "统计分析模块",
+      "group": "整车销售统计分析",
+      "title": "售前跟进分析",
+      "workflow_ids": [
+        "wf-report-136"
+      ],
+      "target_routes": [
+        "visit-activity"
+      ]
+    },
+    {
+      "id": "HK-137",
+      "module": "统计分析模块",
+      "group": "整车销售统计分析",
+      "title": "销售订单统计",
+      "workflow_ids": [
+        "wf-report-137"
+      ],
+      "target_routes": [
+        "table/orders"
+      ]
+    },
+    {
+      "id": "HK-138",
+      "module": "统计分析模块",
+      "group": "整车销售统计分析",
+      "title": "销售单统计",
+      "workflow_ids": [
+        "wf-report-138"
+      ],
+      "target_routes": [
+        "table/deliveries"
+      ]
+    },
+    {
+      "id": "HK-139",
+      "module": "统计分析模块",
+      "group": "整车销售统计分析",
+      "title": "加装单分析",
+      "workflow_ids": [
+        "wf-report-139"
+      ],
+      "target_routes": [
+        "table/addon_actual_facts"
+      ]
+    },
+    {
+      "id": "HK-140",
+      "module": "统计分析模块",
+      "group": "整车销售统计分析",
+      "title": "代办单分析",
+      "workflow_ids": [
+        "wf-report-140"
+      ],
+      "target_routes": [
+        "table/service_fee_facts"
+      ]
+    },
+    {
+      "id": "HK-141",
+      "module": "统计分析模块",
+      "group": "整车销售统计分析",
+      "title": "保险单分析",
+      "workflow_ids": [
+        "wf-report-141"
+      ],
+      "target_routes": [
+        "analytics/sales"
+      ]
+    },
+    {
+      "id": "HK-142",
+      "module": "统计分析模块",
+      "group": "整车销售统计分析",
+      "title": "整车销售毛利统计",
+      "workflow_ids": [
+        "wf-report-142"
+      ],
+      "target_routes": [
+        "table/deliveries"
+      ]
+    },
+    {
+      "id": "HK-143",
+      "module": "统计分析模块",
+      "group": "整车仓库统计分析",
+      "title": "整车入库历史统计",
+      "workflow_ids": [
+        "wf-report-143"
+      ],
+      "target_routes": [
+        "vehicle-period"
+      ]
+    },
+    {
+      "id": "HK-144",
+      "module": "统计分析模块",
+      "group": "整车仓库统计分析",
+      "title": "整车出库历史统计",
+      "workflow_ids": [
+        "wf-report-144"
+      ],
+      "target_routes": [
+        "vehicle-period"
+      ]
+    },
+    {
+      "id": "HK-145",
+      "module": "统计分析模块",
+      "group": "整车仓库统计分析",
+      "title": "整车仓库入出存统计",
+      "workflow_ids": [
+        "wf-report-145"
+      ],
+      "target_routes": [
+        "vehicle-period"
+      ]
+    },
+    {
+      "id": "HK-146",
+      "module": "统计分析模块",
+      "group": "维修统计分析",
+      "title": "维修预约分析",
+      "workflow_ids": [
+        "wf-report-146"
+      ],
+      "target_routes": [
+        "table/service_appointments"
+      ]
+    },
+    {
+      "id": "HK-147",
+      "module": "统计分析模块",
+      "group": "维修统计分析",
+      "title": "维修工单分析",
+      "workflow_ids": [
+        "wf-report-147"
+      ],
+      "target_routes": [
+        "table/repairs"
+      ]
+    },
+    {
+      "id": "HK-148",
+      "module": "统计分析模块",
+      "group": "维修统计分析",
+      "title": "维修项目分析",
+      "workflow_ids": [
+        "wf-report-148"
+      ],
+      "target_routes": [
+        "table/repair_projects"
+      ]
+    },
+    {
+      "id": "HK-149",
+      "module": "统计分析模块",
+      "group": "维修统计分析",
+      "title": "维修领料分析",
+      "workflow_ids": [
+        "wf-report-149"
+      ],
+      "target_routes": [
+        "repair-materials"
+      ]
+    },
+    {
+      "id": "HK-150",
+      "module": "统计分析模块",
+      "group": "物资统计分析",
+      "title": "物资入库历史统计",
+      "workflow_ids": [
+        "wf-report-150"
+      ],
+      "target_routes": [
+        "table/movements"
+      ]
+    },
+    {
+      "id": "HK-151",
+      "module": "统计分析模块",
+      "group": "物资统计分析",
+      "title": "物资出库历史统计",
+      "workflow_ids": [
+        "wf-report-151"
+      ],
+      "target_routes": [
+        "table/movements"
+      ]
+    },
+    {
+      "id": "HK-152",
+      "module": "统计分析模块",
+      "group": "物资统计分析",
+      "title": "物资仓库入出存统计",
+      "workflow_ids": [
+        "wf-report-152"
+      ],
+      "target_routes": [
+        "warehouse-period"
+      ]
+    },
+    {
+      "id": "HK-153",
+      "module": "统计分析模块",
+      "group": "物资统计分析",
+      "title": "物资采购订货统计",
+      "workflow_ids": [
+        "wf-report-153"
+      ],
+      "target_routes": [
+        "procurement-cohort"
+      ]
+    },
+    {
+      "id": "HK-154",
+      "module": "统计分析模块",
+      "group": "物资统计分析",
+      "title": "精品销售统计",
+      "workflow_ids": [
+        "wf-report-154"
+      ],
+      "target_routes": [
+        "table/retail_settlements"
+      ]
+    },
+    {
+      "id": "HK-155",
+      "module": "统计分析模块",
+      "group": "物资统计分析",
+      "title": "物资移库明细统计",
+      "workflow_ids": [
+        "wf-report-155"
+      ],
+      "target_routes": [
+        "table/warehouse_local_moves"
+      ]
+    },
+    {
+      "id": "HK-156",
+      "module": "统计分析模块",
+      "group": "物资统计分析",
+      "title": "精品销售施工统计",
+      "workflow_ids": [
+        "wf-report-156"
+      ],
+      "target_routes": [
+        "table/retail_installation"
+      ]
+    },
+    {
+      "id": "HK-157",
+      "module": "统计分析模块",
+      "group": "财务统计分析",
+      "title": "物资应收账统计",
+      "workflow_ids": [
+        "wf-report-157"
+      ],
+      "target_routes": [
+        "table/receivables"
+      ]
+    },
+    {
+      "id": "HK-158",
+      "module": "统计分析模块",
+      "group": "财务统计分析",
+      "title": "整车相关应收账统计",
+      "workflow_ids": [
+        "wf-report-158"
+      ],
+      "target_routes": [
+        "table/receivables"
+      ]
+    },
+    {
+      "id": "HK-159",
+      "module": "统计分析模块",
+      "group": "财务统计分析",
+      "title": "维修应收账统计",
+      "workflow_ids": [
+        "wf-report-159"
+      ],
+      "target_routes": [
+        "table/receivables"
+      ]
+    },
+    {
+      "id": "HK-160",
+      "module": "统计分析模块",
+      "group": "财务统计分析",
+      "title": "收款统计",
+      "workflow_ids": [
+        "wf-report-160"
+      ],
+      "target_routes": [
+        "table/cash"
+      ]
+    },
+    {
+      "id": "HK-161",
+      "module": "统计分析模块",
+      "group": "财务统计分析",
+      "title": "物资收入成本对照表",
+      "workflow_ids": [
+        "wf-report-161"
+      ],
+      "target_routes": [
+        "material-value"
+      ]
+    },
+    {
+      "id": "HK-162",
+      "module": "统计分析模块",
+      "group": "财务统计分析",
+      "title": "预收款统计",
+      "workflow_ids": [
+        "wf-report-162"
+      ],
+      "target_routes": [
+        "table/finance_advances"
+      ]
+    },
+    {
+      "id": "HK-163",
+      "module": "统计分析模块",
+      "group": "财务统计分析",
+      "title": "财务结算统计",
+      "workflow_ids": [
+        "wf-report-163"
+      ],
+      "target_routes": [
+        "reconciliation"
+      ]
+    },
+    {
+      "id": "HK-164",
+      "module": "统计分析模块",
+      "group": "客户车辆统计",
+      "title": "客户车辆统计",
+      "workflow_ids": [
+        "wf-report-164"
+      ],
+      "target_routes": [
+        "table/customer_vehicle_stats"
+      ]
+    },
+    {
+      "id": "HK-165",
+      "module": "统计分析模块",
+      "group": "客户车辆统计",
+      "title": "客户回访统计",
+      "workflow_ids": [
+        "wf-report-165"
+      ],
+      "target_routes": [
+        "table/callbacks"
+      ]
+    },
+    {
+      "id": "HK-166",
+      "module": "统计分析模块",
+      "group": "客户车辆统计",
+      "title": "进出厂统计",
+      "workflow_ids": [
+        "wf-report-166"
+      ],
+      "target_routes": [
+        "visit-activity"
+      ]
+    },
+    {
+      "id": "HK-167",
+      "module": "统计分析模块",
+      "group": "客户车辆统计",
+      "title": "客户价值分析统计",
+      "workflow_ids": [
+        "wf-report-167"
+      ],
+      "target_routes": [
+        "table/customer_value"
+      ]
+    },
+    {
+      "id": "HK-168",
+      "module": "统计分析模块",
+      "group": "会员统计分析",
+      "title": "会员积分统计",
+      "workflow_ids": [
+        "wf-report-168"
+      ],
+      "target_routes": [
+        "analytics/members"
+      ]
+    },
+    {
+      "id": "HK-169",
+      "module": "统计分析模块",
+      "group": "会员统计分析",
+      "title": "消费券统计",
+      "workflow_ids": [
+        "wf-report-169"
+      ],
+      "target_routes": [
+        "table/benefit_coupon"
+      ]
+    },
+    {
+      "id": "HK-170",
+      "module": "基础数据模块",
+      "group": "公共基础数据",
+      "title": "公共字典",
+      "workflow_ids": [
+        "wf-dictionary-settings"
+      ],
+      "target_routes": [
+        "dictionaries"
+      ]
+    },
+    {
+      "id": "HK-171",
+      "module": "基础数据模块",
+      "group": "公共基础数据",
+      "title": "供应商设置",
+      "workflow_ids": [
+        "wf-suppliers-and-insurers"
+      ],
+      "target_routes": [
+        "masters"
+      ]
+    },
+    {
+      "id": "HK-172",
+      "module": "基础数据模块",
+      "group": "公共基础数据",
+      "title": "保险公司",
+      "workflow_ids": [
+        "wf-suppliers-and-insurers"
+      ],
+      "target_routes": [
+        "masters"
+      ]
+    },
+    {
+      "id": "HK-173",
+      "module": "基础数据模块",
+      "group": "维修基础数据",
+      "title": "维修字典",
+      "workflow_ids": [
+        "wf-dictionary-settings"
+      ],
+      "target_routes": [
+        "dictionaries"
+      ]
+    },
+    {
+      "id": "HK-174",
+      "module": "基础数据模块",
+      "group": "维修基础数据",
+      "title": "车间班组",
+      "workflow_ids": [
+        "wf-workshops-and-jobs"
+      ],
+      "target_routes": [
+        "masters"
+      ]
+    },
+    {
+      "id": "HK-175",
+      "module": "基础数据模块",
+      "group": "维修基础数据",
+      "title": "作业项目",
+      "workflow_ids": [
+        "wf-workshops-and-jobs"
+      ],
+      "target_routes": [
+        "masters"
+      ]
+    },
+    {
+      "id": "HK-176",
+      "module": "基础数据模块",
+      "group": "整车基础数据",
+      "title": "整车字典",
+      "workflow_ids": [
+        "wf-dictionary-settings"
+      ],
+      "target_routes": [
+        "dictionaries"
+      ]
+    },
+    {
+      "id": "HK-177",
+      "module": "基础数据模块",
+      "group": "整车基础数据",
+      "title": "品牌车系车型",
+      "workflow_ids": [
+        "wf-vehicle-catalog-one-form"
+      ],
+      "target_routes": [
+        "vehicle-catalog"
+      ]
+    },
+    {
+      "id": "HK-178",
+      "module": "基础数据模块",
+      "group": "整车基础数据",
+      "title": "整车仓库",
+      "workflow_ids": [
+        "wf-warehouse-location-masters"
+      ],
+      "target_routes": [
+        "masters"
+      ]
+    },
+    {
+      "id": "HK-179",
+      "module": "基础数据模块",
+      "group": "整车基础数据",
+      "title": "代办项目",
+      "workflow_ids": [
+        "wf-agency-project-master"
+      ],
+      "target_routes": [
+        "masters/agency_projects"
+      ]
+    },
+    {
+      "id": "HK-180",
+      "module": "基础数据模块",
+      "group": "物资基础数据",
+      "title": "物资字典",
+      "workflow_ids": [
+        "wf-dictionary-settings"
+      ],
+      "target_routes": [
+        "dictionaries"
+      ]
+    },
+    {
+      "id": "HK-181",
+      "module": "基础数据模块",
+      "group": "物资基础数据",
+      "title": "物资品牌",
+      "workflow_ids": [
+        "wf-material-catalog-masters"
+      ],
+      "target_routes": [
+        "master/items"
+      ]
+    },
+    {
+      "id": "HK-182",
+      "module": "基础数据模块",
+      "group": "物资基础数据",
+      "title": "物资分类",
+      "workflow_ids": [
+        "wf-material-catalog-masters"
+      ],
+      "target_routes": [
+        "master/items"
+      ]
+    },
+    {
+      "id": "HK-183",
+      "module": "基础数据模块",
+      "group": "物资基础数据",
+      "title": "物资目录",
+      "workflow_ids": [
+        "wf-material-catalog-masters"
+      ],
+      "target_routes": [
+        "master/items"
+      ]
+    },
+    {
+      "id": "HK-184",
+      "module": "基础数据模块",
+      "group": "物资基础数据",
+      "title": "物资仓库",
+      "workflow_ids": [
+        "wf-warehouse-location-masters"
+      ],
+      "target_routes": [
+        "masters"
+      ]
+    },
+    {
+      "id": "HK-185",
+      "module": "基础数据模块",
+      "group": "财务基础数据",
+      "title": "财务字典",
+      "workflow_ids": [
+        "wf-dictionary-settings"
+      ],
+      "target_routes": [
+        "dictionaries"
+      ]
+    },
+    {
+      "id": "HK-186",
+      "module": "基础数据模块",
+      "group": "客户基础数据",
+      "title": "客户字典",
+      "workflow_ids": [
+        "wf-dictionary-settings"
+      ],
+      "target_routes": [
+        "dictionaries"
+      ]
+    },
+    {
+      "id": "HK-187",
+      "module": "基础数据模块",
+      "group": "客户基础数据",
+      "title": "会员字典",
+      "workflow_ids": [
+        "wf-dictionary-settings"
+      ],
+      "target_routes": [
+        "dictionaries"
+      ]
+    },
+    {
+      "id": "HK-188",
+      "module": "基础数据模块",
+      "group": "客户基础数据",
+      "title": "会员级别",
+      "workflow_ids": [
+        "wf-member-level-rules"
+      ],
+      "target_routes": [
+        "member-pricing"
+      ]
+    },
+    {
+      "id": "HK-189",
+      "module": "系统管理模块",
+      "group": "直接功能",
+      "title": "机构管理",
+      "workflow_ids": [
+        "wf-store-management"
+      ],
+      "target_routes": [
+        "stores"
+      ]
+    },
+    {
+      "id": "HK-190",
+      "module": "系统管理模块",
+      "group": "直接功能",
+      "title": "角色管理",
+      "workflow_ids": [
+        "wf-cross-store-service-history",
+        "wf-employee-store-roles"
+      ],
+      "target_routes": [
+        "dossier-grants/received",
+        "users"
+      ]
+    },
+    {
+      "id": "HK-191",
+      "module": "系统管理模块",
+      "group": "直接功能",
+      "title": "员工管理",
+      "workflow_ids": [
+        "wf-employee-store-roles"
+      ],
+      "target_routes": [
+        "users"
+      ]
+    },
+    {
+      "id": "HK-192",
+      "module": "系统管理模块",
+      "group": "直接功能",
+      "title": "参数设置密码修改",
+      "workflow_ids": [
+        "wf-parameters-password-brand"
+      ],
+      "target_routes": [
+        "parameters"
+      ]
+    },
+    {
+      "id": "HK-193",
+      "module": "系统管理模块",
+      "group": "直接功能",
+      "title": "系统日志",
+      "workflow_ids": [
+        "wf-audit-business-history"
+      ],
+      "target_routes": [
+        "audit"
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "id": "wf-reception",
+      "title": "登记接待并安排回访",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-001",
+        "HK-002",
+        "HK-006"
+      ],
+      "entry": {
+        "route": "cases/lead",
+        "label": "打开售前接待",
+        "roles": [
+          "admin",
+          "manager",
+          "sales",
+          "reception"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-intent-followup",
+      "title": "跟进意向客户并转预订",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-003",
+        "HK-004",
+        "HK-005",
+        "HK-007"
+      ],
+      "entry": {
+        "route": "cases/lead",
+        "label": "打开售前接待",
+        "roles": [
+          "admin",
+          "manager",
+          "sales",
+          "reception"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-reservation-contract",
+      "title": "新建预订合同",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-008"
+      ],
+      "entry": {
+        "route": "sales-quotes",
+        "label": "打开预订与合同",
+        "roles": [
+          "admin",
+          "manager",
+          "sales"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-sale-delivery",
+      "title": "收车款并完成检查交车",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-009",
+        "HK-011",
+        "HK-022",
+        "HK-037",
+        "HK-075"
+      ],
+      "entry": {
+        "route": "sales-quotes",
+        "label": "打开预订与合同",
+        "roles": [
+          "admin",
+          "manager",
+          "sales",
+          "inventory",
+          "service",
+          "technician",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-sale-cancellation",
+      "title": "取消未履约的车辆预订",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-010",
+        "HK-092"
+      ],
+      "entry": {
+        "route": "sales-quotes",
+        "label": "打开预订与合同",
+        "roles": [
+          "admin",
+          "manager",
+          "sales",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-sale-aftercare",
+      "title": "办理已履约退订或提车后退车",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-009",
+        "HK-010",
+        "HK-011",
+        "HK-092"
+      ],
+      "entry": {
+        "route": "aftercare",
+        "label": "打开售后纠正",
+        "roles": [
+          "admin",
+          "sales",
+          "service",
+          "manager",
+          "inventory",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-sale-addon",
+      "title": "办理销售加装与赠送加装",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-012",
+        "HK-065"
+      ],
+      "entry": {
+        "route": "addon-orders",
+        "label": "打开销售加装明细",
+        "roles": [
+          "admin",
+          "sales",
+          "service",
+          "manager",
+          "inventory",
+          "technician",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-insurance-order",
+      "title": "报价投保并核对保费和佣金",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-013",
+        "HK-014",
+        "HK-077"
+      ],
+      "entry": {
+        "route": "insurance-orders",
+        "label": "打开保险核价与结算",
+        "roles": [
+          "admin",
+          "sales",
+          "service",
+          "manager",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-agency-service",
+      "title": "办理代办服务及代缴款",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-015",
+        "HK-016",
+        "HK-076"
+      ],
+      "entry": {
+        "route": "service-orders",
+        "label": "打开代办与其它客户服务",
+        "roles": [
+          "admin",
+          "sales",
+          "service",
+          "manager",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-other-customer-income",
+      "title": "登记其他客户服务收入",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-017",
+        "HK-088"
+      ],
+      "entry": {
+        "route": "service-orders",
+        "label": "打开代办与其它客户服务",
+        "roles": [
+          "admin",
+          "sales",
+          "service",
+          "manager",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-vehicle-other-income",
+      "title": "登记厂家或供应商整车收入",
+      "category": "整车销售",
+      "requirement_ids": [
+        "HK-017",
+        "HK-088"
+      ],
+      "entry": {
+        "route": "vehicle-income",
+        "label": "打开厂家及供应商整车其他收入",
+        "roles": [
+          "admin",
+          "manager",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-vehicle-catalog",
+      "title": "找车型并查询可用车辆",
+      "category": "整车仓储",
+      "requirement_ids": [
+        "HK-018",
+        "HK-029"
+      ],
+      "entry": {
+        "route": "vehicle-catalog",
+        "label": "打开车型目录",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory",
+          "sales",
+          "service",
+          "finance",
+          "auditor"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-vehicle-purchase",
+      "title": "采购车辆并逐车验收入库",
+      "category": "整车仓储",
+      "requirement_ids": [
+        "HK-021",
+        "HK-026"
+      ],
+      "entry": {
+        "route": "vehicle-procurement",
+        "label": "打开整车采购与付款",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-vehicle-batch-import",
+      "title": "批量导入车辆请款发运和到货",
+      "category": "整车仓储",
+      "requirement_ids": [
+        "HK-019",
+        "HK-027",
+        "HK-028"
+      ],
+      "entry": {
+        "route": "vehicle-procurement",
+        "label": "打开整车采购与付款",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-vehicle-purchase-return",
+      "title": "把采购车辆退回供应商",
+      "category": "整车仓储",
+      "requirement_ids": [
+        "HK-023"
+      ],
+      "entry": {
+        "route": "vehicle-procurement",
+        "label": "打开整车采购与付款",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-vehicle-transfer",
+      "title": "两店调拨车辆并验收",
+      "category": "整车仓储",
+      "requirement_ids": [
+        "HK-020",
+        "HK-024"
+      ],
+      "entry": {
+        "route": "vehicle-transfers",
+        "label": "打开整车跨店调拨",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-vehicle-other-out",
+      "title": "办理车辆其他出库及原车退回",
+      "category": "整车仓储",
+      "requirement_ids": [
+        "HK-025"
+      ],
+      "entry": {
+        "route": "vehicle-operations",
+        "label": "打开整车库位与出退库",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-vehicle-local-move",
+      "title": "把车辆移到本店另一库位",
+      "category": "整车仓储",
+      "requirement_ids": [
+        "HK-030"
+      ],
+      "entry": {
+        "route": "vehicle-operations",
+        "label": "打开整车库位与出退库",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-repair-intake",
+      "title": "预约维修或快捷洗车开单",
+      "category": "维修",
+      "requirement_ids": [
+        "HK-031",
+        "HK-032",
+        "HK-033",
+        "HK-044",
+        "HK-080"
+      ],
+      "entry": {
+        "route": "service-intake/appointments",
+        "label": "打开维修预约与到店",
+        "roles": [
+          "admin",
+          "manager",
+          "service",
+          "reception",
+          "customer_service"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-repair-complete",
+      "title": "完成维修报价施工和结算",
+      "category": "维修",
+      "requirement_ids": [
+        "HK-034",
+        "HK-079",
+        "HK-080"
+      ],
+      "entry": {
+        "route": "repair-orders",
+        "label": "打开维修明细工单",
+        "roles": [
+          "admin",
+          "manager",
+          "service",
+          "technician",
+          "inventory",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-repair-materials",
+      "title": "按维修工单领料和退料",
+      "category": "维修",
+      "requirement_ids": [
+        "HK-049",
+        "HK-053"
+      ],
+      "entry": {
+        "route": "repair-orders",
+        "label": "打开维修明细工单",
+        "roles": [
+          "admin",
+          "inventory",
+          "service",
+          "technician",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-repair-claim",
+      "title": "办理保险厂家或内部核价",
+      "category": "维修",
+      "requirement_ids": [
+        "HK-035",
+        "HK-036",
+        "HK-039",
+        "HK-040",
+        "HK-041"
+      ],
+      "entry": {
+        "route": "claims",
+        "label": "打开理赔索赔与客户报销",
+        "roles": [
+          "admin",
+          "manager",
+          "service",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-customer-reimbursement",
+      "title": "办理客户维修报销及原报销返还",
+      "category": "维修",
+      "requirement_ids": [
+        "HK-042"
+      ],
+      "entry": {
+        "route": "claims",
+        "label": "打开理赔索赔与客户报销",
+        "roles": [
+          "admin",
+          "service",
+          "manager",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-repair-package",
+      "title": "设置购买并使用维修套餐",
+      "category": "维修",
+      "requirement_ids": [
+        "HK-043"
+      ],
+      "entry": {
+        "route": "repair-packages",
+        "label": "打开维修组合套餐",
+        "roles": [
+          "admin",
+          "manager",
+          "sales",
+          "service",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-repair-rework",
+      "title": "按原维修申请返修",
+      "category": "维修",
+      "requirement_ids": [
+        "HK-038"
+      ],
+      "entry": {
+        "route": "service-intake/reworks",
+        "label": "打开原单责任返修",
+        "roles": [
+          "admin",
+          "manager",
+          "service",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-material-purchase",
+      "title": "采购物资精品并分批收货",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-045",
+        "HK-052",
+        "HK-069",
+        "HK-074"
+      ],
+      "entry": {
+        "route": "procurement",
+        "label": "打开采购与供应商结算",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-material-purchase-return",
+      "title": "退采购物资并登记供应商退款",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-054",
+        "HK-058",
+        "HK-083"
+      ],
+      "entry": {
+        "route": "procurement",
+        "label": "打开采购与供应商结算",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-material-other-in",
+      "title": "办理其他物资入库和原单退回",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-046",
+        "HK-057"
+      ],
+      "entry": {
+        "route": "warehouse",
+        "label": "打开库位与仓储作业",
+        "roles": [
+          "admin",
+          "inventory",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-consumable-issue-return",
+      "title": "领用耗材并退回未用部分",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-048",
+        "HK-056"
+      ],
+      "entry": {
+        "route": "warehouse",
+        "label": "打开库位与仓储作业",
+        "roles": [
+          "admin",
+          "inventory",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-gift-issue-return",
+      "title": "发礼品并登记原礼品退回",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-050",
+        "HK-059"
+      ],
+      "entry": {
+        "route": "warehouse",
+        "label": "打开库位与仓储作业",
+        "roles": [
+          "admin",
+          "inventory",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-material-other-out",
+      "title": "登记物资其他处置出库",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-060"
+      ],
+      "entry": {
+        "route": "warehouse",
+        "label": "打开库位与仓储作业",
+        "roles": [
+          "admin",
+          "inventory",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-material-transfer",
+      "title": "两店调拨物资并分批接收",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-047",
+        "HK-055"
+      ],
+      "entry": {
+        "route": "transfers",
+        "label": "打开跨店物资调拨",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-material-stock-query",
+      "title": "查询本店及可查看门店的库存",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-070",
+        "HK-071"
+      ],
+      "entry": {
+        "route": "warehouse",
+        "label": "打开库位与仓储作业",
+        "roles": [
+          "admin",
+          "manager",
+          "inventory",
+          "finance",
+          "auditor"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-material-local-move",
+      "title": "把物资移到本店另一库位",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-072"
+      ],
+      "entry": {
+        "route": "warehouse",
+        "label": "打开库位与仓储作业",
+        "roles": [
+          "admin",
+          "inventory",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-material-stock-count",
+      "title": "盘点物资并处理盘盈盘亏",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-051",
+        "HK-061",
+        "HK-073"
+      ],
+      "entry": {
+        "route": "warehouse",
+        "label": "打开库位与仓储作业",
+        "roles": [
+          "admin",
+          "inventory",
+          "manager",
+          "finance",
+          "auditor"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-retail-sale",
+      "title": "销售精品或维修附带精品",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-062",
+        "HK-063",
+        "HK-064",
+        "HK-066",
+        "HK-082"
+      ],
+      "entry": {
+        "route": "retail",
+        "label": "打开精品销售",
+        "roles": [
+          "admin",
+          "sales",
+          "service",
+          "manager",
+          "inventory",
+          "technician",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-retail-return",
+      "title": "办理精品原单部分退货",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-067"
+      ],
+      "entry": {
+        "route": "retail",
+        "label": "打开精品销售",
+        "roles": [
+          "admin",
+          "sales",
+          "service",
+          "manager",
+          "inventory",
+          "technician",
+          "finance"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-retail-bundle",
+      "title": "设置并销售精品套餐",
+      "category": "物资",
+      "requirement_ids": [
+        "HK-068"
+      ],
+      "entry": {
+        "route": "retail-bundles",
+        "label": "打开精品销售套餐",
+        "roles": [
+          "admin",
+          "manager",
+          "sales",
+          "service"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-cash-correction",
+      "title": "更正录错的业务收款",
+      "category": "财务",
+      "requirement_ids": [
+        "HK-078",
+        "HK-081",
+        "HK-086",
+        "HK-090"
+      ],
+      "entry": {
+        "route": "business-finance",
+        "label": "打开业务财务结算",
+        "roles": [
+          "admin",
+          "finance",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-customer-advance",
+      "title": "登记客户预收抵用及未用退款",
+      "category": "财务",
+      "requirement_ids": [
+        "HK-087",
+        "HK-093"
+      ],
+      "entry": {
+        "route": "business-finance",
+        "label": "打开业务财务结算",
+        "roles": [
+          "admin",
+          "manager",
+          "finance",
+          "sales",
+          "service",
+          "reception",
+          "customer_service"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-member-topup-refund",
+      "title": "登记会员充值及原本金退款",
+      "category": "财务",
+      "requirement_ids": [
+        "HK-089",
+        "HK-090",
+        "HK-094"
+      ],
+      "entry": {
+        "route": "membership",
+        "label": "打开会员卡与续会",
+        "roles": [
+          "admin",
+          "manager",
+          "finance",
+          "sales",
+          "service",
+          "reception",
+          "customer_service"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-customer-statement",
+      "title": "查客户欠款并办理期间月结收款",
+      "category": "财务",
+      "requirement_ids": [
+        "HK-091",
+        "HK-096"
+      ],
+      "entry": {
+        "route": "business-finance",
+        "label": "打开业务财务结算",
+        "roles": [
+          "admin",
+          "finance",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-supplier-other-return-money",
+      "title": "收取其他入库退货款并更正差额",
+      "category": "财务",
+      "requirement_ids": [
+        "HK-085"
+      ],
+      "entry": {
+        "route": "business-finance",
+        "label": "打开业务财务结算",
+        "roles": [
+          "admin",
+          "finance",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-transfer-clearing",
+      "title": "登记两店调拨实际收付款",
+      "category": "财务",
+      "requirement_ids": [
+        "HK-084"
+      ],
+      "entry": {
+        "route": "clearing",
+        "label": "打开店间实际清算",
+        "roles": [
+          "admin",
+          "finance",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-period-close",
+      "title": "核对期间账目并封存月结",
+      "category": "财务",
+      "requirement_ids": [
+        "HK-095"
+      ],
+      "entry": {
+        "route": "reconciliation",
+        "label": "打开业务对账与月结",
+        "roles": [
+          "admin",
+          "finance",
+          "manager",
+          "auditor"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-invoice-issue-red",
+      "title": "申请开票登记结果及原票冲红",
+      "category": "财务",
+      "requirement_ids": [
+        "HK-097"
+      ],
+      "entry": {
+        "route": "invoices",
+        "label": "打开开票与原票冲红",
+        "roles": [
+          "admin",
+          "finance",
+          "manager"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-customer-profile",
+      "title": "新增、查找和补全客户",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-098"
+      ],
+      "entry": {
+        "route": "master/customers",
+        "label": "打开客户档案",
+        "roles": [
+          "sales",
+          "service",
+          "customer_service",
+          "reception",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-customer-vehicle",
+      "title": "登记客户车辆、日期和里程",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-099"
+      ],
+      "entry": {
+        "route": "customer-vehicles",
+        "label": "打开客户车辆档案",
+        "roles": [
+          "service",
+          "customer_service",
+          "sales",
+          "reception",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-other-service-income",
+      "title": "办理客户其他服务收入",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-100"
+      ],
+      "entry": {
+        "route": "service-orders",
+        "label": "打开代办与其它服务办理",
+        "roles": [
+          "sales",
+          "service",
+          "manager",
+          "admin",
+          "finance",
+          "auditor"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-questionnaire-design-and-answer",
+      "title": "设置问卷并登记客户回答",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-101"
+      ],
+      "entry": {
+        "route": "customer-questionnaires",
+        "label": "打开问卷题目版本",
+        "roles": [
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-sales-repair-callback",
+      "title": "销售、维修回访和跟进查询",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-102",
+        "HK-104",
+        "HK-110",
+        "HK-111"
+      ],
+      "entry": {
+        "route": "customer-service",
+        "label": "打开客户服务任务",
+        "roles": [
+          "customer_service",
+          "service",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-intent-callback",
+      "title": "跟进意向客户并安排下次联系",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-103"
+      ],
+      "entry": {
+        "route": "cases/lead",
+        "label": "打开售前接待",
+        "roles": [
+          "sales",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-vehicle-reminders",
+      "title": "生成首保、保养和保修提醒",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-105",
+        "HK-106",
+        "HK-112"
+      ],
+      "entry": {
+        "route": "customer-reminders",
+        "label": "打开保养与续保提醒",
+        "roles": [
+          "manager",
+          "admin",
+          "service",
+          "customer_service"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-customer-consultation-complaint-rescue",
+      "title": "处理客户咨询、投诉和救援",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-107",
+        "HK-108",
+        "HK-109"
+      ],
+      "entry": {
+        "route": "customer-service",
+        "label": "打开客户服务任务",
+        "roles": [
+          "customer_service",
+          "service",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-insurance-renewal",
+      "title": "提取、分派并跟进续保",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-113",
+        "HK-114",
+        "HK-115",
+        "HK-116"
+      ],
+      "entry": {
+        "route": "customer-reminders",
+        "label": "打开保养与续保提醒",
+        "roles": [
+          "service",
+          "customer_service",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-cross-store-service-history",
+      "title": "查看车辆历史并申请跨店协同",
+      "category": "客户",
+      "requirement_ids": [
+        "HK-099",
+        "HK-110",
+        "HK-190"
+      ],
+      "entry": {
+        "route": "dossier-grants/received",
+        "label": "打开跨店协同",
+        "roles": [
+          "service",
+          "sales",
+          "customer_service",
+          "manager",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-member-card",
+      "title": "开通会员、发卡、挂失和补卡",
+      "category": "会员",
+      "requirement_ids": [
+        "HK-117",
+        "HK-118",
+        "HK-128"
+      ],
+      "entry": {
+        "route": "membership",
+        "label": "打开会员卡与独立办理",
+        "roles": [
+          "sales",
+          "service",
+          "customer_service",
+          "reception",
+          "finance",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-member-points",
+      "title": "积分兑换、调整与退费后补回",
+      "category": "会员",
+      "requirement_ids": [
+        "HK-119",
+        "HK-120"
+      ],
+      "entry": {
+        "route": "membership",
+        "label": "打开会员卡与独立办理",
+        "roles": [
+          "customer_service",
+          "service",
+          "sales",
+          "reception",
+          "finance",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-member-renew-tier",
+      "title": "续会、调整等级和退未生效会费",
+      "category": "会员",
+      "requirement_ids": [
+        "HK-121",
+        "HK-122"
+      ],
+      "entry": {
+        "route": "membership",
+        "label": "打开会员卡与独立办理",
+        "roles": [
+          "sales",
+          "service",
+          "customer_service",
+          "reception",
+          "finance",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-member-principal",
+      "title": "会员本金充值和原款退款",
+      "category": "会员",
+      "requirement_ids": [
+        "HK-124",
+        "HK-125"
+      ],
+      "entry": {
+        "route": "membership",
+        "label": "打开会员卡与独立办理",
+        "roles": [
+          "sales",
+          "service",
+          "customer_service",
+          "reception",
+          "finance",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-recharge-bundle",
+      "title": "设置、购买和退回充值组合",
+      "category": "会员",
+      "requirement_ids": [
+        "HK-123",
+        "HK-124",
+        "HK-125"
+      ],
+      "entry": {
+        "route": "recharge-bundles",
+        "label": "打开会员充值组合套餐",
+        "roles": [
+          "sales",
+          "service",
+          "customer_service",
+          "reception",
+          "finance",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-coupons-and-benefits",
+      "title": "设置消费券、购买或赠送并查询",
+      "category": "会员",
+      "requirement_ids": [
+        "HK-129",
+        "HK-130",
+        "HK-131",
+        "HK-132"
+      ],
+      "entry": {
+        "route": "group",
+        "label": "打开集团会员",
+        "roles": [
+          "service",
+          "customer_service",
+          "sales",
+          "reception",
+          "finance",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-customer-repair-package",
+      "title": "设置、购买、使用和退款维修套餐",
+      "category": "会员",
+      "requirement_ids": [
+        "HK-126",
+        "HK-127",
+        "HK-133"
+      ],
+      "entry": {
+        "route": "repair-packages",
+        "label": "打开维修套餐",
+        "roles": [
+          "service",
+          "sales",
+          "manager",
+          "finance",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-member-level-rules",
+      "title": "配置会员等级及本店实际优惠",
+      "category": "会员",
+      "requirement_ids": [
+        "HK-121",
+        "HK-188"
+      ],
+      "entry": {
+        "route": "member-pricing",
+        "label": "打开会员等级实际定价",
+        "roles": [
+          "manager",
+          "admin",
+          "finance",
+          "auditor"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-report-134",
+      "title": "展厅接待分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-134"
+      ],
+      "entry": {
+        "route": "table/leads",
+        "label": "打开接待客户批次",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-135",
+      "title": "意向客户分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-135"
+      ],
+      "entry": {
+        "route": "table/leads",
+        "label": "打开接待客户批次",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-136",
+      "title": "售前跟进分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-136"
+      ],
+      "entry": {
+        "route": "visit-activity",
+        "label": "打开实际跟进与进出厂统计",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-137",
+      "title": "销售订单统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-137"
+      ],
+      "entry": {
+        "route": "table/orders",
+        "label": "打开销售订单明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-138",
+      "title": "销售单统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-138"
+      ],
+      "entry": {
+        "route": "table/deliveries",
+        "label": "打开交付明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-139",
+      "title": "加装单分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-139"
+      ],
+      "entry": {
+        "route": "table/addon_actual_facts",
+        "label": "打开期间加装客户验收及原单退货",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-140",
+      "title": "代办单分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-140"
+      ],
+      "entry": {
+        "route": "table/service_fee_facts",
+        "label": "打开期间代办及其它服务实际收费事实",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-141",
+      "title": "保险单分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-141"
+      ],
+      "entry": {
+        "route": "analytics/sales",
+        "label": "打开整车销售统计",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-142",
+      "title": "整车销售毛利统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-142"
+      ],
+      "entry": {
+        "route": "table/deliveries",
+        "label": "打开交付明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-143",
+      "title": "整车入库历史统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-143"
+      ],
+      "entry": {
+        "route": "vehicle-period",
+        "label": "打开期间整车入出存",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-144",
+      "title": "整车出库历史统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-144"
+      ],
+      "entry": {
+        "route": "vehicle-period",
+        "label": "打开期间整车入出存",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-145",
+      "title": "整车仓库入出存统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-145"
+      ],
+      "entry": {
+        "route": "vehicle-period",
+        "label": "打开期间整车入出存",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-146",
+      "title": "维修预约分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-146"
+      ],
+      "entry": {
+        "route": "table/service_appointments",
+        "label": "打开按预约开始日期的接待批次",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-147",
+      "title": "维修工单分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-147"
+      ],
+      "entry": {
+        "route": "table/repairs",
+        "label": "打开维修工单明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-148",
+      "title": "维修项目分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-148"
+      ],
+      "entry": {
+        "route": "table/repair_projects",
+        "label": "打开已交车维修的最终报价项目",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-149",
+      "title": "维修领料分析",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-149"
+      ],
+      "entry": {
+        "route": "repair-materials",
+        "label": "打开维修实际领退料分析",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-150",
+      "title": "物资入库历史统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-150"
+      ],
+      "entry": {
+        "route": "table/movements",
+        "label": "打开物资出入库明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-151",
+      "title": "物资出库历史统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-151"
+      ],
+      "entry": {
+        "route": "table/movements",
+        "label": "打开物资出入库明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-152",
+      "title": "物资仓库入出存统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-152"
+      ],
+      "entry": {
+        "route": "warehouse-period",
+        "label": "打开期间仓库入出存",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-153",
+      "title": "物资采购订货统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-153"
+      ],
+      "entry": {
+        "route": "procurement-cohort",
+        "label": "打开采购计划执行统计",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-154",
+      "title": "精品销售统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-154"
+      ],
+      "entry": {
+        "route": "table/retail_settlements",
+        "label": "打开期间精品履约与退货冲减",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-155",
+      "title": "物资移库明细统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-155"
+      ],
+      "entry": {
+        "route": "table/warehouse_local_moves",
+        "label": "打开期间店内移库配对明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-156",
+      "title": "精品销售施工统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-156"
+      ],
+      "entry": {
+        "route": "table/retail_installation",
+        "label": "打开期间精品实际安装范围",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-157",
+      "title": "物资应收账统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-157"
+      ],
+      "entry": {
+        "route": "table/receivables",
+        "label": "打开当前待收款",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-158",
+      "title": "整车相关应收账统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-158"
+      ],
+      "entry": {
+        "route": "table/receivables",
+        "label": "打开当前待收款",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-159",
+      "title": "维修应收账统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-159"
+      ],
+      "entry": {
+        "route": "table/receivables",
+        "label": "打开当前待收款",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-160",
+      "title": "收款统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-160"
+      ],
+      "entry": {
+        "route": "table/cash",
+        "label": "打开实际收支明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-161",
+      "title": "物资收入成本对照表",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-161"
+      ],
+      "entry": {
+        "route": "material-value",
+        "label": "打开物资收入与成本核对",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-162",
+      "title": "预收款统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-162"
+      ],
+      "entry": {
+        "route": "table/finance_advances",
+        "label": "打开当前本店客户预收余额",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-163",
+      "title": "财务结算统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-163"
+      ],
+      "entry": {
+        "route": "reconciliation",
+        "label": "打开业务对账与月结",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-164",
+      "title": "客户车辆统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-164"
+      ],
+      "entry": {
+        "route": "table/customer_vehicle_stats",
+        "label": "打开当前客户车辆身份统计",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-165",
+      "title": "客户回访统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-165"
+      ],
+      "entry": {
+        "route": "table/callbacks",
+        "label": "打开客户回访明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-166",
+      "title": "进出厂统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-166"
+      ],
+      "entry": {
+        "route": "visit-activity",
+        "label": "打开实际跟进与进出厂统计",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-167",
+      "title": "客户价值分析统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-167"
+      ],
+      "entry": {
+        "route": "table/customer_value",
+        "label": "打开期间客户已记录业务归集",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-168",
+      "title": "会员积分统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-168"
+      ],
+      "entry": {
+        "route": "analytics/members",
+        "label": "打开会员储值统计",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-report-169",
+      "title": "消费券统计",
+      "category": "经营统计",
+      "requirement_ids": [
+        "HK-169"
+      ],
+      "entry": {
+        "route": "table/benefit_coupon",
+        "label": "打开消费券变动明细",
+        "roles": [
+          "manager",
+          "finance",
+          "auditor",
+          "admin"
+        ],
+        "mode": "read"
+      }
+    },
+    {
+      "id": "wf-dictionary-settings",
+      "title": "维护公共、维修、整车等分类",
+      "category": "基础资料",
+      "requirement_ids": [
+        "HK-170",
+        "HK-173",
+        "HK-176",
+        "HK-180",
+        "HK-185",
+        "HK-186",
+        "HK-187"
+      ],
+      "entry": {
+        "route": "dictionaries",
+        "label": "打开分类设置",
+        "roles": [
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-suppliers-and-insurers",
+      "title": "维护供应商和保险公司",
+      "category": "基础资料",
+      "requirement_ids": [
+        "HK-171",
+        "HK-172"
+      ],
+      "entry": {
+        "route": "masters",
+        "label": "打开经营主数据",
+        "roles": [
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-workshops-and-jobs",
+      "title": "维护车间班组和作业项目",
+      "category": "基础资料",
+      "requirement_ids": [
+        "HK-174",
+        "HK-175"
+      ],
+      "entry": {
+        "route": "masters",
+        "label": "打开经营主数据",
+        "roles": [
+          "service",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-vehicle-catalog-one-form",
+      "title": "一次录完品牌、车系和车型",
+      "category": "基础资料",
+      "requirement_ids": [
+        "HK-177"
+      ],
+      "entry": {
+        "route": "vehicle-catalog",
+        "label": "打开车型与库存",
+        "roles": [
+          "inventory",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-warehouse-location-masters",
+      "title": "配置整车、物资仓库和库位",
+      "category": "基础资料",
+      "requirement_ids": [
+        "HK-178",
+        "HK-184"
+      ],
+      "entry": {
+        "route": "masters",
+        "label": "打开经营主数据",
+        "roles": [
+          "inventory",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-agency-project-master",
+      "title": "维护代办项目",
+      "category": "基础资料",
+      "requirement_ids": [
+        "HK-179"
+      ],
+      "entry": {
+        "route": "masters/agency_projects",
+        "label": "打开代办项目",
+        "roles": [
+          "service",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-material-catalog-masters",
+      "title": "维护物资品牌、分类和目录",
+      "category": "基础资料",
+      "requirement_ids": [
+        "HK-181",
+        "HK-182",
+        "HK-183"
+      ],
+      "entry": {
+        "route": "master/items",
+        "label": "打开物资目录",
+        "roles": [
+          "inventory",
+          "manager",
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-store-management",
+      "title": "新增或停用门店",
+      "category": "系统管理",
+      "requirement_ids": [
+        "HK-189"
+      ],
+      "entry": {
+        "route": "stores",
+        "label": "打开门店设置",
+        "roles": [
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-employee-store-roles",
+      "title": "新增员工、配置岗位和重置密码",
+      "category": "系统管理",
+      "requirement_ids": [
+        "HK-190",
+        "HK-191"
+      ],
+      "entry": {
+        "route": "users",
+        "label": "打开员工账号",
+        "roles": [
+          "admin"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-parameters-password-brand",
+      "title": "设置业务参数、改密码和换登录图片",
+      "category": "系统管理",
+      "requirement_ids": [
+        "HK-192"
+      ],
+      "entry": {
+        "route": "parameters",
+        "label": "打开参数与个人密码",
+        "roles": [
+          "admin",
+          "manager",
+          "sales",
+          "inventory",
+          "service",
+          "finance",
+          "auditor",
+          "reception",
+          "technician",
+          "customer_service"
+        ],
+        "mode": "write"
+      }
+    },
+    {
+      "id": "wf-audit-business-history",
+      "title": "查询操作记录和原单办理历史",
+      "category": "系统管理",
+      "requirement_ids": [
+        "HK-193"
+      ],
+      "entry": {
+        "route": "audit",
+        "label": "打开操作记录",
+        "roles": [
+          "admin",
+          "manager",
+          "auditor"
+        ],
+        "mode": "read"
+      }
+    }
+  ],
+  "targets": [
+    {
+      "route": "cases/lead",
+      "target": "#cases/lead",
+      "workflow_ids": [
+        "wf-reception",
+        "wf-intent-followup",
+        "wf-intent-callback"
+      ],
+      "requirement_ids": [
+        "HK-001",
+        "HK-002",
+        "HK-006",
+        "HK-003",
+        "HK-004",
+        "HK-005",
+        "HK-007",
+        "HK-103"
+      ]
+    },
+    {
+      "route": "sales-quotes",
+      "target": "#sales-quotes",
+      "workflow_ids": [
+        "wf-reservation-contract",
+        "wf-sale-delivery",
+        "wf-sale-cancellation"
+      ],
+      "requirement_ids": [
+        "HK-008",
+        "HK-009",
+        "HK-011",
+        "HK-022",
+        "HK-037",
+        "HK-075",
+        "HK-010",
+        "HK-092"
+      ]
+    },
+    {
+      "route": "aftercare",
+      "target": "#aftercare",
+      "workflow_ids": [
+        "wf-sale-aftercare"
+      ],
+      "requirement_ids": [
+        "HK-009",
+        "HK-010",
+        "HK-011",
+        "HK-092"
+      ]
+    },
+    {
+      "route": "addon-orders",
+      "target": "#addon-orders",
+      "workflow_ids": [
+        "wf-sale-addon"
+      ],
+      "requirement_ids": [
+        "HK-012",
+        "HK-065"
+      ]
+    },
+    {
+      "route": "insurance-orders",
+      "target": "#insurance-orders",
+      "workflow_ids": [
+        "wf-insurance-order"
+      ],
+      "requirement_ids": [
+        "HK-013",
+        "HK-014",
+        "HK-077"
+      ]
+    },
+    {
+      "route": "service-orders",
+      "target": "#service-orders",
+      "workflow_ids": [
+        "wf-agency-service",
+        "wf-other-customer-income",
+        "wf-other-service-income"
+      ],
+      "requirement_ids": [
+        "HK-015",
+        "HK-016",
+        "HK-076",
+        "HK-017",
+        "HK-088",
+        "HK-100"
+      ]
+    },
+    {
+      "route": "vehicle-income",
+      "target": "#vehicle-income",
+      "workflow_ids": [
+        "wf-vehicle-other-income"
+      ],
+      "requirement_ids": [
+        "HK-017",
+        "HK-088"
+      ]
+    },
+    {
+      "route": "vehicle-catalog",
+      "target": "#vehicle-catalog",
+      "workflow_ids": [
+        "wf-vehicle-catalog",
+        "wf-vehicle-catalog-one-form"
+      ],
+      "requirement_ids": [
+        "HK-018",
+        "HK-029",
+        "HK-177"
+      ]
+    },
+    {
+      "route": "vehicle-procurement",
+      "target": "#vehicle-procurement",
+      "workflow_ids": [
+        "wf-vehicle-purchase",
+        "wf-vehicle-batch-import",
+        "wf-vehicle-purchase-return"
+      ],
+      "requirement_ids": [
+        "HK-021",
+        "HK-026",
+        "HK-019",
+        "HK-027",
+        "HK-028",
+        "HK-023"
+      ]
+    },
+    {
+      "route": "vehicle-transfers",
+      "target": "#vehicle-transfers",
+      "workflow_ids": [
+        "wf-vehicle-transfer"
+      ],
+      "requirement_ids": [
+        "HK-020",
+        "HK-024"
+      ]
+    },
+    {
+      "route": "vehicle-operations",
+      "target": "#vehicle-operations",
+      "workflow_ids": [
+        "wf-vehicle-other-out",
+        "wf-vehicle-local-move"
+      ],
+      "requirement_ids": [
+        "HK-025",
+        "HK-030"
+      ]
+    },
+    {
+      "route": "service-intake/appointments",
+      "target": "#service-intake/appointments",
+      "workflow_ids": [
+        "wf-repair-intake"
+      ],
+      "requirement_ids": [
+        "HK-031",
+        "HK-032",
+        "HK-033",
+        "HK-044",
+        "HK-080"
+      ]
+    },
+    {
+      "route": "repair-orders",
+      "target": "#repair-orders",
+      "workflow_ids": [
+        "wf-repair-complete",
+        "wf-repair-materials"
+      ],
+      "requirement_ids": [
+        "HK-034",
+        "HK-079",
+        "HK-080",
+        "HK-049",
+        "HK-053"
+      ]
+    },
+    {
+      "route": "claims",
+      "target": "#claims",
+      "workflow_ids": [
+        "wf-repair-claim",
+        "wf-customer-reimbursement"
+      ],
+      "requirement_ids": [
+        "HK-035",
+        "HK-036",
+        "HK-039",
+        "HK-040",
+        "HK-041",
+        "HK-042"
+      ]
+    },
+    {
+      "route": "repair-packages",
+      "target": "#repair-packages",
+      "workflow_ids": [
+        "wf-repair-package",
+        "wf-customer-repair-package"
+      ],
+      "requirement_ids": [
+        "HK-043",
+        "HK-126",
+        "HK-127",
+        "HK-133"
+      ]
+    },
+    {
+      "route": "service-intake/reworks",
+      "target": "#service-intake/reworks",
+      "workflow_ids": [
+        "wf-repair-rework"
+      ],
+      "requirement_ids": [
+        "HK-038"
+      ]
+    },
+    {
+      "route": "procurement",
+      "target": "#procurement",
+      "workflow_ids": [
+        "wf-material-purchase",
+        "wf-material-purchase-return"
+      ],
+      "requirement_ids": [
+        "HK-045",
+        "HK-052",
+        "HK-069",
+        "HK-074",
+        "HK-054",
+        "HK-058",
+        "HK-083"
+      ]
+    },
+    {
+      "route": "warehouse",
+      "target": "#warehouse",
+      "workflow_ids": [
+        "wf-material-other-in",
+        "wf-consumable-issue-return",
+        "wf-gift-issue-return",
+        "wf-material-other-out",
+        "wf-material-stock-query",
+        "wf-material-local-move",
+        "wf-material-stock-count"
+      ],
+      "requirement_ids": [
+        "HK-046",
+        "HK-057",
+        "HK-048",
+        "HK-056",
+        "HK-050",
+        "HK-059",
+        "HK-060",
+        "HK-070",
+        "HK-071",
+        "HK-072",
+        "HK-051",
+        "HK-061",
+        "HK-073"
+      ]
+    },
+    {
+      "route": "transfers",
+      "target": "#transfers",
+      "workflow_ids": [
+        "wf-material-transfer"
+      ],
+      "requirement_ids": [
+        "HK-047",
+        "HK-055"
+      ]
+    },
+    {
+      "route": "retail",
+      "target": "#retail",
+      "workflow_ids": [
+        "wf-retail-sale",
+        "wf-retail-return"
+      ],
+      "requirement_ids": [
+        "HK-062",
+        "HK-063",
+        "HK-064",
+        "HK-066",
+        "HK-082",
+        "HK-067"
+      ]
+    },
+    {
+      "route": "retail-bundles",
+      "target": "#retail-bundles",
+      "workflow_ids": [
+        "wf-retail-bundle"
+      ],
+      "requirement_ids": [
+        "HK-068"
+      ]
+    },
+    {
+      "route": "business-finance",
+      "target": "#business-finance",
+      "workflow_ids": [
+        "wf-cash-correction",
+        "wf-customer-advance",
+        "wf-customer-statement",
+        "wf-supplier-other-return-money"
+      ],
+      "requirement_ids": [
+        "HK-078",
+        "HK-081",
+        "HK-086",
+        "HK-090",
+        "HK-087",
+        "HK-093",
+        "HK-091",
+        "HK-096",
+        "HK-085"
+      ]
+    },
+    {
+      "route": "membership",
+      "target": "#membership",
+      "workflow_ids": [
+        "wf-member-topup-refund",
+        "wf-member-card",
+        "wf-member-points",
+        "wf-member-renew-tier",
+        "wf-member-principal"
+      ],
+      "requirement_ids": [
+        "HK-089",
+        "HK-090",
+        "HK-094",
+        "HK-117",
+        "HK-118",
+        "HK-128",
+        "HK-119",
+        "HK-120",
+        "HK-121",
+        "HK-122",
+        "HK-124",
+        "HK-125"
+      ]
+    },
+    {
+      "route": "clearing",
+      "target": "#clearing",
+      "workflow_ids": [
+        "wf-transfer-clearing"
+      ],
+      "requirement_ids": [
+        "HK-084"
+      ]
+    },
+    {
+      "route": "reconciliation",
+      "target": "#reconciliation",
+      "workflow_ids": [
+        "wf-period-close",
+        "wf-report-163"
+      ],
+      "requirement_ids": [
+        "HK-095",
+        "HK-163"
+      ]
+    },
+    {
+      "route": "invoices",
+      "target": "#invoices",
+      "workflow_ids": [
+        "wf-invoice-issue-red"
+      ],
+      "requirement_ids": [
+        "HK-097"
+      ]
+    },
+    {
+      "route": "master/customers",
+      "target": "#master/customers",
+      "workflow_ids": [
+        "wf-customer-profile"
+      ],
+      "requirement_ids": [
+        "HK-098"
+      ]
+    },
+    {
+      "route": "customer-vehicles",
+      "target": "#customer-vehicles",
+      "workflow_ids": [
+        "wf-customer-vehicle"
+      ],
+      "requirement_ids": [
+        "HK-099"
+      ]
+    },
+    {
+      "route": "customer-questionnaires",
+      "target": "#customer-questionnaires",
+      "workflow_ids": [
+        "wf-questionnaire-design-and-answer"
+      ],
+      "requirement_ids": [
+        "HK-101"
+      ]
+    },
+    {
+      "route": "customer-service",
+      "target": "#customer-service",
+      "workflow_ids": [
+        "wf-sales-repair-callback",
+        "wf-customer-consultation-complaint-rescue"
+      ],
+      "requirement_ids": [
+        "HK-102",
+        "HK-104",
+        "HK-110",
+        "HK-111",
+        "HK-107",
+        "HK-108",
+        "HK-109"
+      ]
+    },
+    {
+      "route": "customer-reminders",
+      "target": "#customer-reminders",
+      "workflow_ids": [
+        "wf-vehicle-reminders",
+        "wf-insurance-renewal"
+      ],
+      "requirement_ids": [
+        "HK-105",
+        "HK-106",
+        "HK-112",
+        "HK-113",
+        "HK-114",
+        "HK-115",
+        "HK-116"
+      ]
+    },
+    {
+      "route": "dossier-grants/received",
+      "target": "#dossier-grants/received",
+      "workflow_ids": [
+        "wf-cross-store-service-history"
+      ],
+      "requirement_ids": [
+        "HK-099",
+        "HK-110",
+        "HK-190"
+      ]
+    },
+    {
+      "route": "recharge-bundles",
+      "target": "#recharge-bundles",
+      "workflow_ids": [
+        "wf-recharge-bundle"
+      ],
+      "requirement_ids": [
+        "HK-123",
+        "HK-124",
+        "HK-125"
+      ]
+    },
+    {
+      "route": "group",
+      "target": "#group",
+      "workflow_ids": [
+        "wf-coupons-and-benefits"
+      ],
+      "requirement_ids": [
+        "HK-129",
+        "HK-130",
+        "HK-131",
+        "HK-132"
+      ]
+    },
+    {
+      "route": "member-pricing",
+      "target": "#member-pricing",
+      "workflow_ids": [
+        "wf-member-level-rules"
+      ],
+      "requirement_ids": [
+        "HK-121",
+        "HK-188"
+      ]
+    },
+    {
+      "route": "table/leads",
+      "target": "#table/leads",
+      "workflow_ids": [
+        "wf-report-134",
+        "wf-report-135"
+      ],
+      "requirement_ids": [
+        "HK-134",
+        "HK-135"
+      ]
+    },
+    {
+      "route": "visit-activity",
+      "target": "#visit-activity",
+      "workflow_ids": [
+        "wf-report-136",
+        "wf-report-166"
+      ],
+      "requirement_ids": [
+        "HK-136",
+        "HK-166"
+      ]
+    },
+    {
+      "route": "table/orders",
+      "target": "#table/orders",
+      "workflow_ids": [
+        "wf-report-137"
+      ],
+      "requirement_ids": [
+        "HK-137"
+      ]
+    },
+    {
+      "route": "table/deliveries",
+      "target": "#table/deliveries",
+      "workflow_ids": [
+        "wf-report-138",
+        "wf-report-142"
+      ],
+      "requirement_ids": [
+        "HK-138",
+        "HK-142"
+      ]
+    },
+    {
+      "route": "table/addon_actual_facts",
+      "target": "#table/addon_actual_facts",
+      "workflow_ids": [
+        "wf-report-139"
+      ],
+      "requirement_ids": [
+        "HK-139"
+      ]
+    },
+    {
+      "route": "table/service_fee_facts",
+      "target": "#table/service_fee_facts",
+      "workflow_ids": [
+        "wf-report-140"
+      ],
+      "requirement_ids": [
+        "HK-140"
+      ]
+    },
+    {
+      "route": "analytics/sales",
+      "target": "#analytics/sales",
+      "workflow_ids": [
+        "wf-report-141"
+      ],
+      "requirement_ids": [
+        "HK-141"
+      ]
+    },
+    {
+      "route": "vehicle-period",
+      "target": "#vehicle-period",
+      "workflow_ids": [
+        "wf-report-143",
+        "wf-report-144",
+        "wf-report-145"
+      ],
+      "requirement_ids": [
+        "HK-143",
+        "HK-144",
+        "HK-145"
+      ]
+    },
+    {
+      "route": "table/service_appointments",
+      "target": "#table/service_appointments",
+      "workflow_ids": [
+        "wf-report-146"
+      ],
+      "requirement_ids": [
+        "HK-146"
+      ]
+    },
+    {
+      "route": "table/repairs",
+      "target": "#table/repairs",
+      "workflow_ids": [
+        "wf-report-147"
+      ],
+      "requirement_ids": [
+        "HK-147"
+      ]
+    },
+    {
+      "route": "table/repair_projects",
+      "target": "#table/repair_projects",
+      "workflow_ids": [
+        "wf-report-148"
+      ],
+      "requirement_ids": [
+        "HK-148"
+      ]
+    },
+    {
+      "route": "repair-materials",
+      "target": "#repair-materials",
+      "workflow_ids": [
+        "wf-report-149"
+      ],
+      "requirement_ids": [
+        "HK-149"
+      ]
+    },
+    {
+      "route": "table/movements",
+      "target": "#table/movements",
+      "workflow_ids": [
+        "wf-report-150",
+        "wf-report-151"
+      ],
+      "requirement_ids": [
+        "HK-150",
+        "HK-151"
+      ]
+    },
+    {
+      "route": "warehouse-period",
+      "target": "#warehouse-period",
+      "workflow_ids": [
+        "wf-report-152"
+      ],
+      "requirement_ids": [
+        "HK-152"
+      ]
+    },
+    {
+      "route": "procurement-cohort",
+      "target": "#procurement-cohort",
+      "workflow_ids": [
+        "wf-report-153"
+      ],
+      "requirement_ids": [
+        "HK-153"
+      ]
+    },
+    {
+      "route": "table/retail_settlements",
+      "target": "#table/retail_settlements",
+      "workflow_ids": [
+        "wf-report-154"
+      ],
+      "requirement_ids": [
+        "HK-154"
+      ]
+    },
+    {
+      "route": "table/warehouse_local_moves",
+      "target": "#table/warehouse_local_moves",
+      "workflow_ids": [
+        "wf-report-155"
+      ],
+      "requirement_ids": [
+        "HK-155"
+      ]
+    },
+    {
+      "route": "table/retail_installation",
+      "target": "#table/retail_installation",
+      "workflow_ids": [
+        "wf-report-156"
+      ],
+      "requirement_ids": [
+        "HK-156"
+      ]
+    },
+    {
+      "route": "table/receivables",
+      "target": "#table/receivables",
+      "workflow_ids": [
+        "wf-report-157",
+        "wf-report-158",
+        "wf-report-159"
+      ],
+      "requirement_ids": [
+        "HK-157",
+        "HK-158",
+        "HK-159"
+      ]
+    },
+    {
+      "route": "table/cash",
+      "target": "#table/cash",
+      "workflow_ids": [
+        "wf-report-160"
+      ],
+      "requirement_ids": [
+        "HK-160"
+      ]
+    },
+    {
+      "route": "material-value",
+      "target": "#material-value",
+      "workflow_ids": [
+        "wf-report-161"
+      ],
+      "requirement_ids": [
+        "HK-161"
+      ]
+    },
+    {
+      "route": "table/finance_advances",
+      "target": "#table/finance_advances",
+      "workflow_ids": [
+        "wf-report-162"
+      ],
+      "requirement_ids": [
+        "HK-162"
+      ]
+    },
+    {
+      "route": "table/customer_vehicle_stats",
+      "target": "#table/customer_vehicle_stats",
+      "workflow_ids": [
+        "wf-report-164"
+      ],
+      "requirement_ids": [
+        "HK-164"
+      ]
+    },
+    {
+      "route": "table/callbacks",
+      "target": "#table/callbacks",
+      "workflow_ids": [
+        "wf-report-165"
+      ],
+      "requirement_ids": [
+        "HK-165"
+      ]
+    },
+    {
+      "route": "table/customer_value",
+      "target": "#table/customer_value",
+      "workflow_ids": [
+        "wf-report-167"
+      ],
+      "requirement_ids": [
+        "HK-167"
+      ]
+    },
+    {
+      "route": "analytics/members",
+      "target": "#analytics/members",
+      "workflow_ids": [
+        "wf-report-168"
+      ],
+      "requirement_ids": [
+        "HK-168"
+      ]
+    },
+    {
+      "route": "table/benefit_coupon",
+      "target": "#table/benefit_coupon",
+      "workflow_ids": [
+        "wf-report-169"
+      ],
+      "requirement_ids": [
+        "HK-169"
+      ]
+    },
+    {
+      "route": "dictionaries",
+      "target": "#dictionaries",
+      "workflow_ids": [
+        "wf-dictionary-settings"
+      ],
+      "requirement_ids": [
+        "HK-170",
+        "HK-173",
+        "HK-176",
+        "HK-180",
+        "HK-185",
+        "HK-186",
+        "HK-187"
+      ]
+    },
+    {
+      "route": "masters",
+      "target": "#masters",
+      "workflow_ids": [
+        "wf-suppliers-and-insurers",
+        "wf-workshops-and-jobs",
+        "wf-warehouse-location-masters"
+      ],
+      "requirement_ids": [
+        "HK-171",
+        "HK-172",
+        "HK-174",
+        "HK-175",
+        "HK-178",
+        "HK-184"
+      ]
+    },
+    {
+      "route": "masters/agency_projects",
+      "target": "#masters/agency_projects",
+      "workflow_ids": [
+        "wf-agency-project-master"
+      ],
+      "requirement_ids": [
+        "HK-179"
+      ]
+    },
+    {
+      "route": "master/items",
+      "target": "#master/items",
+      "workflow_ids": [
+        "wf-material-catalog-masters"
+      ],
+      "requirement_ids": [
+        "HK-181",
+        "HK-182",
+        "HK-183"
+      ]
+    },
+    {
+      "route": "stores",
+      "target": "#stores",
+      "workflow_ids": [
+        "wf-store-management"
+      ],
+      "requirement_ids": [
+        "HK-189"
+      ]
+    },
+    {
+      "route": "users",
+      "target": "#users",
+      "workflow_ids": [
+        "wf-employee-store-roles"
+      ],
+      "requirement_ids": [
+        "HK-190",
+        "HK-191"
+      ]
+    },
+    {
+      "route": "parameters",
+      "target": "#parameters",
+      "workflow_ids": [
+        "wf-parameters-password-brand"
+      ],
+      "requirement_ids": [
+        "HK-192"
+      ]
+    },
+    {
+      "route": "audit",
+      "target": "#audit",
+      "workflow_ids": [
+        "wf-audit-business-history"
+      ],
+      "requirement_ids": [
+        "HK-193"
+      ]
+    }
+  ]
+}

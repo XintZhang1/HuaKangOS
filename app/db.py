@@ -32,7 +32,11 @@ def make_engine(url: str):
             cursor.close()
         @event.listens_for(engine, 'begin')
         def sqlite_begin(connection):
-            connection.exec_driver_sql('BEGIN')
+            # Only a server-owned short write transaction may reserve the WAL
+            # writer before reading. Ordinary business/read transactions keep
+            # their established BEGIN and version guards.
+            immediate = connection.get_execution_options().get('huakangos_sqlite_write_transaction') is True
+            connection.exec_driver_sql('BEGIN IMMEDIATE' if immediate else 'BEGIN')
     return engine
 
 

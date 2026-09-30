@@ -1,0 +1,240 @@
+"""Run the current application and worker using only the new synthetic instance."""
+import argparse
+import asyncio
+from contextlib import asynccontextmanager
+import json
+import os
+from pathlib import Path
+import sys
+
+from provider import SyntheticProvider, local_network_only
+
+
+def read_instance(path):
+    path = path.resolve()
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    root = path.parent
+    for key in ("source_root", "runtime_root", "evidence_root", "database_path", "credentials_path"):
+        value = Path(manifest[key]).resolve()
+        if not value.is_relative_to(root):
+            raise RuntimeError("Instance path escaped its new isolated directory: " + key)
+    if manifest.get("synthetic_data_only") is not True:
+        raise RuntimeError("Only explicitly synthetic browser instances are accepted")
+    if (Path(manifest["source_root"]) / ".env").exists():
+        raise RuntimeError("The isolated source must never contain .env")
+    return manifest
+
+
+def configure_environment(manifest, initialize):
+    runtime = Path(manifest["runtime_root"])
+    credentials = json.loads(Path(manifest["credentials_path"]).read_text(encoding="utf-8"))
+    config = runtime / "synthetic-assistant.json"
+    if initialize:
+        config.write_text(json.dumps({"enabled": True, "api_key": "SYNTHETIC-NOT-A-CREDENTIAL",
+                          "model": "deepseek-flash", "provider": "deepseek", "synthetic": True,
+                          "tool_profile": "business_v1", "max_rounds": 8,
+                          "turn_timeout_seconds": 60}), encoding="utf-8")
+        config.chmod(0o600)
+    elif not config.is_file():
+        raise RuntimeError("Synthetic initialization did not produce its model configuration")
+    feature = "false" if initialize else "true"
+    os.environ.update({
+        "APP_ENV": "test", "APP_TIMEZONE": "Asia/Shanghai",
+        "DATABASE_URL": "sqlite:///" + manifest["database_path"],
+        "SCHEDULER_ENABLED": "false", "SCHEDULER_MODE": "off",
+        "ALLOW_AI_EXTERNAL": "false", "DEEPSEEK_API_KEY": "",
+        "DEEPSEEK_BASE_URL": "https://api.deepseek.com", "COOKIE_SECURE": "false",
+        "LEGACY_BUSINESS_WRITE": "false", "FILE_SCAN_MODE": "structure_only",
+        "FILE_STORAGE_MODE": "blob", "PRIVATE_FILE_ROOT": str(runtime / "private-files"),
+        "ALLOWED_HOSTS": "localhost,127.0.0.1", "BUSINESS_ASSISTANT_CONFIG": str(config),
+        "ASSISTANT_HOME_ENABLED": feature, "ASSISTANT_RUNTIME_ENABLED": feature,
+        "ASSISTANT_FOLLOWUP_ENABLED": feature, "ASSISTANT_NOTIFICATIONS_ENABLED": feature,
+        "HUAKANGOS_INITIAL_PASSWORD": credentials["users"]["admin"]["password"],
+        "HUAKANGOS_LOCAL_PREVIEW": "0",
+    })
+    sys.path.insert(0, manifest["source_root"])
+    return credentials
+
+
+def initialize_instance(manifest, path, credentials):
+    database = Path(manifest["database_path"])
+    if database.exists():
+        raise RuntimeError("Synthetic initialization refuses to overwrite an existing database")
+    # Load the real app first, preserving its established model import order.
+    from app.main import app  # noqa: F401
+    from app.cli import initialize
+    from app.db import SessionLocal, engine
+    from app.models import User, UserStore, Store
+    from app.flow_models import Task, Customer, Item
+    from app.flow_engine import new_case
+    from app.security import hash_password
+    from app.tenancy import set_scope
+    from app.group_service import link_identity, issue_member
+    from app.repair_package_api import Rule as PackageRuleInput, Decision as PackageDecisionInput, Purchase as PackagePurchaseInput
+    from app.repair_package_service import create_rule, decide_rule, create_purchase
+    from app.master_models import Supplier, VehicleModel
+    from app.master_data import SupplierInput, VehicleModelInput, save_master
+    from sqlalchemy import select
+
+    initialize(argparse.Namespace(admin_user=manifest["users"]["admin"]["username"], demo=True))
+    with SessionLocal() as db:
+        admin = db.scalar(select(User).where(User.username == manifest["users"]["admin"]["username"]))
+        admin.display_name = "合成管理员"
+        store = db.get(Store, 1)
+        store.name = "合成一店"
+        second = db.get(Store, 2)
+        if second is None:
+            raise RuntimeError("The original demo initialization did not create its second store")
+        second.name = "合成二店"
+        sales = User(username=manifest["users"]["sales"]["username"], display_name="合成销售",
+                     password_hash=hash_password(credentials["users"]["sales"]["password"]),
+                     role="sales", active=True, must_change_password=False)
+        db.add(sales)
+        db.flush()
+        for store_id in (1, second.id):
+            db.add(UserStore(user_id=sales.id, store_id=store_id, role="sales"))
+        db.commit()
+        set_scope(db, [1], write_store=1)
+        # The original demo has legacy supplier/model labels, but the current
+        # procurement forms require typed, active masters. Keep their original
+        # validation, permissions, audit and idempotency; do not create orders.
+        supplier = db.scalar(select(Supplier).where(
+            Supplier.store_id == 1, Supplier.active.is_(True)).order_by(Supplier.id).limit(1))
+        if supplier is None:
+            values = SupplierInput.model_validate({
+                "code": "BROWSER_SUPPLIER", "name": "合成浏览器供应商", "active": True,
+            }).model_dump(mode="json")
+            result = save_master(db, admin, "suppliers", "browser_supplier_master", values)
+            supplier = db.get(Supplier, result["id"])
+        vehicle_model = db.scalar(select(VehicleModel).where(
+            VehicleModel.store_id == 1, VehicleModel.active.is_(True)).order_by(VehicleModel.id).limit(1))
+        if vehicle_model is None:
+            values = VehicleModelInput.model_validate({
+                "code": "BROWSER_MODEL", "name": "合成浏览器车型", "active": True,
+                "brand": "合成品牌", "model_year": 2026, "fuel_type": "petrol", "seats": 5,
+                "displacement_ml": 1500, "battery_wh": 0, "guide_price_cents": 0,
+            }).model_dump(mode="json")
+            result = save_master(db, admin, "vehicle_models", "browser_vehicle_model_master", values)
+            vehicle_model = db.get(VehicleModel, result["id"])
+        active_items = list(db.scalars(select(Item).where(
+            Item.store_id == 1, Item.active.is_(True)).order_by(Item.id)))
+        if not active_items:
+            raise RuntimeError("Original demo initialization did not provide its active synthetic material")
+        form_prerequisites = {
+            "store_id": 1, "supplier_id": supplier.id,
+            "vehicle_model_id": vehicle_model.id, "item_id": active_items[0].id,
+            "existing_active_item_count": len(active_items),
+        }
+        cases = [new_case(db, admin, "lead", {"customer_name": "合成浏览器接待" + str(index + 1),
+                                             "source": "展厅到店"}) for index in range(2)]
+        db.commit()
+        tasks = [db.scalar(select(Task).where(Task.case_id == row.id, Task.key == "assign")) for row in cases]
+        if any(task is None for task in tasks):
+            raise RuntimeError("Original lead creation did not produce its real assignment tasks")
+        manifest["users"] = {"admin": {"id": admin.id, "username": admin.username,
+                             "display_name": admin.display_name, "role": "admin"},
+                             "sales": {"id": sales.id, "username": sales.username,
+                             "display_name": sales.display_name, "role": "sales"}}
+        manifest["stores"] = [{"id": 1, "name": store.name}, {"id": second.id, "name": second.name}]
+        manifest["lead_plan"] = {"case_ids": [row.id for row in cases], "task_ids": [task.id for task in tasks],
+                                 "assignee_id": sales.id, "assignee_name": sales.display_name}
+        customer = Customer(name="张合成会员", phone="19900001111", owner_id=sales.id,
+                            contact_allowed=False, note="本次浏览器读取核对的合成客户")
+        db.add(customer)
+        db.commit()
+        identity = link_identity(db, sales, "browser_identity_" + str(customer.id),
+                                 "customer", customer.id)
+        member = issue_member(db, sales, "browser_member_" + str(customer.id), identity["identity_id"])
+        # Keep the read sample at the original proposed stage. Real issuance
+        # requires customer evidence and actual cash, which this fixture has not provided.
+        rule_input = PackageRuleInput.model_validate({
+            "request_id": "browser_package_rule_" + str(customer.id),
+            "code": "browser_mixed_" + str(customer.id), "name": "合成维修套餐读取样例",
+            "allowed_store_ids": [1], "validity_days": 365,
+            "refund_policy": "unused_anytime", "discount_bearer": "service_store",
+            "components": [
+                {"key": "synthetic_work", "kind": "work", "name": "合成作业",
+                 "unit": "job", "specification": "合成按次作业", "quantity_milli": 1000,
+                 "credit_cents": 10000, "paid_cents": 10000, "settlement_cents": 10000},
+                {"key": "synthetic_part", "kind": "part", "name": "合成配件",
+                 "unit": "件", "specification": "合成配件规格", "quantity_milli": 1000,
+                 "credit_cents": 5000, "paid_cents": 5000, "settlement_cents": 5000},
+            ],
+        })
+        rule = create_rule(db, sales, rule_input.request_id,
+                           rule_input.model_dump(mode="json", exclude={"request_id"}))
+        decision_input = PackageDecisionInput.model_validate({
+            "request_id": "browser_package_approve_" + str(rule["id"]),
+            "reason": "独立核对合成读取样例规则",
+        })
+        decide_rule(db, admin, decision_input.request_id, rule["id"], "approve",
+                    decision_input.model_dump(mode="json", exclude={"request_id"}))
+        package_case = new_case(db, sales, "lead", {"customer_id": customer.id, "source": "展厅到店"})
+        db.commit()
+        purchase_input = PackagePurchaseInput.model_validate({
+            "request_id": "browser_package_purchase_" + str(package_case.id),
+            "rule_id": rule["id"], "member_id": member["member"]["id"],
+            "case_id": package_case.id, "case_version": package_case.version, "sets": 1,
+        })
+        purchase = create_purchase(db, sales, purchase_input.request_id,
+                                   purchase_input.model_dump(mode="json", exclude={"request_id"}))
+        if purchase["status"] != "proposed" or purchase["lots"] or purchase["refunds"]:
+            raise RuntimeError("Original service did not produce the expected unissued read sample")
+        manifest["domain_samples"] = {"group_member_id": member["member"]["id"], "customer_id": customer.id,
+                                      "package_purchase_id": purchase["id"],
+                                      "form_prerequisites": form_prerequisites}
+    engine.dispose()
+    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("Initialized new synthetic database and original lead objects.", flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--initialize", action="store_true")
+    args = parser.parse_args()
+    manifest = read_instance(args.manifest)
+    credentials = configure_environment(manifest, args.initialize)
+    provider = SyntheticProvider(manifest)
+    evidence = Path(manifest["evidence_root"])
+    with local_network_only(provider.counts):
+        if args.initialize:
+            initialize_instance(manifest, args.manifest.resolve(), credentials)
+            return 0
+        from app.main import app
+        from app.assistant_worker import Worker
+        from app.db import engine
+        import uvicorn
+
+        original_lifespan = app.router.lifespan_context
+        server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=manifest["port"],
+                                log_level="warning", access_log=False))
+
+        async def watch_stop_request():
+            while not (Path(manifest["runtime_root"]) / "stop-requested").exists():
+                await asyncio.sleep(0.2)
+            server.should_exit = True
+
+        @asynccontextmanager
+        async def synthetic_lifespan(application):
+            with provider.installed():
+                async with original_lifespan(application):
+                    worker = Worker()
+                    worker.start()
+                    stopping = asyncio.create_task(watch_stop_request())
+                    try:
+                        yield
+                    finally:
+                        stopping.cancel()
+                        await worker.stop(timeout=5)
+                        (evidence / "provider.json").write_text(
+                            json.dumps(provider.counts, ensure_ascii=False, indent=2), encoding="utf-8")
+                        engine.dispose()
+
+        app.router.lifespan_context = synthetic_lifespan
+        server.run()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

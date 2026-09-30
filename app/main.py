@@ -21,7 +21,7 @@ from .branding import PRODUCT_TITLE
 from .db import engine, get_db, today, utcnow
 from .models import Store, UserStore, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
 from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, BatchUserInput, StoreRoleInput, StoreRole
-from .security import get_user, authenticate, set_session, clear_cookies, user_info, require_full, require_module, verify_password, hash_password, ROLES
+from .security import get_user, authenticate, set_session, clear_cookies, revoke_login_session, user_info, require_full, require_module, verify_password, hash_password, ROLES
 from .services import serialize, plain, audit, readable_query, get_record, create_record, update_record, act_record, check_version
 from .analytics import dashboard, source_revision, build_snapshot, external_payload, rules_config
 from .reports import generate_report
@@ -231,7 +231,7 @@ def me(user=Depends(get_user)): return user_info(user)
 
 @app.post('/api/auth/logout')
 def logout(request: Request,response: Response,db=Depends(get_db),user=Depends(get_user)):
-    db.execute(delete(LoginSession).where(LoginSession.id==request.state.session_hash)); db.commit()
+    revoke_login_session(request, db)
     clear_cookies(response)
     return {'ok':True}
 

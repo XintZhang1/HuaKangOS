@@ -97,7 +97,7 @@ class GroupPrincipalAdapter(FlowCaseAdapter):
         try:
             return BusinessObjectSnapshot(
                 ref=member_ref, native_version=version,
-                display_number=member.get('name') if type(member.get('name')) is str else None,
+                display_number=member.get('number') if type(member.get('number')) is str else None,
                 state=None,
                 tasks=[],
                 # 原详情不返回动作可用性：不猜（合同第 6 条）。
@@ -130,9 +130,9 @@ class GroupPrincipalAdapter(FlowCaseAdapter):
                 return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_member],
                                     reason='本会员还没有原集团入账流水，请在原页面核对')
             for entry in entries:
-                if (_positive_id(entry.get('id')) and type(entry.get('kind')) is str
-                        and entry.get('kind').strip()):
-                    reason = '已存在原集团入账流水（至少一笔，保留 kind/金额与来源）；一笔不代表某单已结清'
+                if (_positive_id(entry.get('id')) and type(entry.get('purpose')) is str
+                        and entry.get('purpose').strip()):
+                    reason = '已存在原集团入账流水（至少一笔，保留用途、金额与来源）；一笔不代表某单已结清'
                     if len(entries) >= DETAIL_PAGE_LIMIT:
                         reason += '；原详情按 %d 条截断，仅证明存在' % DETAIL_PAGE_LIMIT
                     return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=[from_member],

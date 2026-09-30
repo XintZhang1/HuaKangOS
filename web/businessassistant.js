@@ -288,7 +288,7 @@ async function businessAssistantLoadWelcomeExamples(){
     if(!guide||typeof guide.canEnter!=='function')return false;
     try{return guide.canEnter(item,role,store);}catch{return false;}
    }).sort((a,b)=>rank(a.id)-rank(b.id)).slice(0,4)
-     .map(item=>[String(item.title||item.id),String(guide.assistantPrompt?guide.assistantPrompt(item):item.assistant.prompt)]);
+     .map(item=>[String(item.title||item.id),String(item.title||item.id)+'。']);
   }catch{picked=[];}
   const examples=picked.length?picked:businessAssistantWelcomeFallback().slice(0,4);
   if(current===businessAssistantState&&context===businessAssistantContext())current.welcomeExamples=examples;
