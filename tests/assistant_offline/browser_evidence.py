@@ -35,6 +35,7 @@ def collect(evidence, summary, *, mode, expected_tests, source_fingerprint=None,
             'test': name,
             'screenshot': name + '.png' if (evidence / (name + '.png')).is_file() else None,
             'page_errors': errors,
+            'setup_failed': bool(record.get('setup_failed')),
             'api_requests': len(api),
             'api_statuses': sorted({item['status'] for item in api
                                     if type(item.get('status')) is int}),

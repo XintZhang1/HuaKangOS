@@ -128,14 +128,42 @@ class BrowserHarness:
         # document.write replacement keeps bridge bindings in this same global.
         await self.page.set_content(frontend_html(),wait_until='domcontentloaded')
     async def login(self):
-        await self.page.locator('input[name="username"]').fill('offline_admin')
-        await self.page.locator('input[name="password"]').fill(fixture_env.PASSWORD.read_text())
-        await self.page.get_by_role('button',name='登录',exact=True).click()
+        """Log in, treating the original database-busy 503 as the transient it is.
+
+        The application answers `OperationalError` with 503 and the text
+        "数据库暂时忙…避免重复录单", i.e. the request was refused and may be
+        retried. The isolated worker contends for the same SQLite database, so a
+        single-shot login makes every page fail for a reason that says nothing
+        about the page under test. Only this transient status is retried, and it
+        is bounded; any other failure is reported as-is.
+        """
+        attempts=3
+        status=None
+        for attempt in range(1,attempts+1):
+            await self.page.locator('input[name="username"]').fill('offline_admin')
+            await self.page.locator('input[name="password"]').fill(fixture_env.PASSWORD.read_text())
+            async with self.page.expect_response(
+                    lambda r:r.url.endswith('/api/auth/login') and r.request.method=='POST',
+                    timeout=30000) as login_response:
+                await self.page.get_by_role('button',name='登录',exact=True).click()
+            status=(await login_response.value).status
+            if status!=503:break
+            if attempt==attempts:break
+            await self.page.wait_for_timeout(500*attempt)
+        if status==503:
+            await self.report_login_state()
+            raise AssertionError('Login stayed database-busy after '+str(attempts)+' attempts')
         # The navigation renders after the login response, so wait for the entry
         # to exist instead of racing it with a click. This only synchronises with
         # the application's own render; it asserts nothing on its behalf.
         entry=self.page.locator('a[href="#business-assistant"]')
-        await entry.wait_for(state='attached',timeout=30000)
+        try:
+            await entry.wait_for(state='attached',timeout=30000)
+        except Exception:
+            # A reviewer reading a CI log cannot open the page, so report what
+            # the assistant entry depends on instead of only "timed out".
+            await self.report_login_state()
+            raise
         await entry.scroll_into_view_if_needed()
         await entry.click()
         await self.page.locator('#business-assistant-input').wait_for(timeout=15000)
@@ -144,6 +172,18 @@ class BrowserHarness:
             # CSRF and SSE remain unmodified native Chromium throughout.
             for cookie in await self.context.cookies():
                 self.http.cookies.set(cookie['name'],cookie['value'])
+    async def report_login_state(self):
+        """Read-only diagnostics for a navigation that never rendered."""
+        facts={'url':self.page.url,'nav_entries':0}
+        try:facts['nav_entries']=await self.page.locator('a[href^="#"]').count()
+        except Exception as exc:facts['nav_entries_error']=type(exc).__name__
+        for label,expression in (('user','(function(){try{return !!(window.state&&state.user)}catch(e){return "no-state"}})()'),
+                                 ('login_form','!!document.querySelector(\'input[name="username"]\')'),
+                                 ('body','document.body.innerText.slice(0,400)')):
+            try:facts[label]=await self.page.evaluate(expression)
+            except Exception as exc:facts[label]='<'+type(exc).__name__+'>'
+        facts['requests']=self.requests[-12:]
+        print('LOGIN-STATE '+json.dumps(facts,ensure_ascii=False),flush=True)
     def record_request(self,request):
         # Real network requests only; the fixture bridge reports its own calls
         # through the HTTP client and must never be counted as native traffic.

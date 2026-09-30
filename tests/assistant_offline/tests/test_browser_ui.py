@@ -14,19 +14,36 @@ from uuid import uuid4
 from browser_harness import BrowserHarness
 
 class BrowserUI(unittest.IsolatedAsyncioTestCase):
+    async def record_page(self):
+        """Write this page's own evidence, whether it passed or failed.
+
+        Called before the harness is closed, because a setup failure used to
+        close the browser first and then lose the screenshot and the request
+        list of the very page a reviewer needs to diagnose.
+        """
+        if getattr(self,'_recorded',False):return
+        self._recorded=True
+        evidence=fixture_env.VALIDATION/'evidence'
+        await self.page.screenshot(path=str(evidence/f'{self._testMethodName}.png'),full_page=True)
+        (evidence/f'{self._testMethodName}.json').write_text(json.dumps(
+            {'page_errors':self.h.errors,'requests':self.h.requests,'setup_failed':getattr(self,'_setup_failed',False)},
+            ensure_ascii=False,indent=2))
     async def asyncSetUp(self):
+        self._recorded=False;self._setup_failed=False
         self.h=await BrowserHarness().start();self.page=self.h.page
         # Attribute the environment record to this exact test, including tests
         # that fail during login, so the bundle never misses a page.
         self.h.current_test=self._testMethodName
         try:await self.h.login()
         except BaseException:
+            self._setup_failed=True
             print("SETUP",self.h.requests[-8:],flush=True)
+            try:await self.record_page()
+            except BaseException as exc:print("SETUP-EVIDENCE",type(exc).__name__,exc,flush=True)
             await self.h.close();raise
     async def asyncTearDown(self):
         try:
-            await self.page.screenshot(path=str(fixture_env.VALIDATION/'evidence'/f'{self._testMethodName}.png'),full_page=True)
-            (fixture_env.VALIDATION/'evidence'/f'{self._testMethodName}.json').write_text(json.dumps({'page_errors':self.h.errors,'requests':self.h.requests},ensure_ascii=False,indent=2))
+            await self.record_page()
             self.assertEqual(self.h.errors,[])
         finally:await self.h.close()
     async def send(self,text):

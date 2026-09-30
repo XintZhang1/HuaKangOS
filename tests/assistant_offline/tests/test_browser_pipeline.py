@@ -77,6 +77,20 @@ class EvidenceBundle(unittest.TestCase):
             browser_evidence.collect(self.evidence, self.summary, mode='native',
                                      expected_tests=['test_a'])
 
+    def test_a_page_that_failed_during_setup_still_carries_its_evidence(self):
+        # A setup failure must still leave the screenshot, the request list and
+        # an explicit marker, otherwise the page a reviewer needs to diagnose is
+        # the one page missing from the bundle.
+        self.write('test_a', {'page_errors': [], 'setup_failed': True,
+                              'requests': [{'method': 'GET', 'path': '/api/auth/me', 'status': 200}]},
+                   png=True)
+        bundle = browser_evidence.collect(self.evidence, self.summary, mode='native',
+                                          expected_tests=['test_a'])
+        page = bundle['pages'][0]
+        self.assertTrue(page['setup_failed'])
+        self.assertEqual(page['screenshot'], 'test_a.png')
+        self.assertEqual(page['api_requests'], 1)
+
 
 class ValidationWiring(unittest.TestCase):
     def test_expected_pages_come_from_the_evidence_directory(self):
