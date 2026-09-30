@@ -104,7 +104,7 @@
 | CP-32 | M7.10.4—M7.10.6 | 原损失找回、跨店原单授权 | implementation_released | docs/implementation-checkpoints/M7-10-4-review-v1.md；M7-10-5-review-v1.md；M7-10-6-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.10.4、M7.10.5、M7.10.6 均 passed。M7.10.6 首轮失败根因为外部合同夹具缺 `source_side`，已按真实 `/api/dossier-grants` 形状对齐并保留原件；适配器本身未因此放宽；继续 M7.11.1—M7.11.4（CP-33） |
 | CP-33 | M7.11.1—M7.11.4 | 基础资料、系统管理、评审边界 | implementation_released | docs/implementation-checkpoints/M7-11-1-review-v1.md；M7-11-2-review-v1.md；M7-11-3-review-v1.md；M7-11-4-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.11.1—M7.11.4 全部 passed；系统管理只读面与“人工办理不由助手代办”的边界保留；继续 M7.12.1—M7.12.3（CP-34） |
 | CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | implementation_released | docs/implementation-checkpoints/M7-12-1-review-v1.md；M7-12-2-review-v1.md；M7-12-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验通过，过程中发现并修复真实缺陷：`service.external_approved` 要求原模型不存在的 `results[].case_id`，使该事实在真实数据上永不成立（见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）；外部合同夹具另按真实形状对齐六处并保留原件。M7 章节收口，继续 M8.1（CP-35） |
-| CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | not_ready | docs/implementation-checkpoints/M8-1-offline-facts-labels-checkpoint-v5.md；M8-1-native-checkpoint-v4.md；M8-1-partial-review-v1.md；M8-1-revocation-checkpoint-v1.md；M8-1-remaining-items-checkpoint-v1.md | M8.1 仍 `in_progress`：清单①—⑤均已落地实测（会话级撤权 5 项、旧租约 DB 跃迁 5 项、确认前零写入 2 项、批量部分失败由既有 7 项覆盖、延迟注入 2 项、access_signals 发射 4 项；同批完整回归 `fixture` 传输 293 项全绿、`real_model_calls=0`）；**仍未完成**：把新增套件登记进外部 manifest 并在 `--milestone M8.1` 下运行、跨套件重复运行的稳定性证明与最终收口判定，故本批不形成完整审阅报告、不记 `implementation_released`/`released`；M8.2 为 `todo` |
+| CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | implementation_released | docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md；M8-1-closeout-checkpoint-v1.md；M8-2-regression-checkpoint-v1.md；M8-2-closeout-checkpoint-v1.md；docs/implementation-patches/PATCH-CP-00B-09.md | M8.1 记 **`implemented`**：清单①—⑤全部落地，工作区门禁两次完整运行逐套件计数与双指纹一致（293 项、`accepted=true`），完成检查 4 条满足、1 条部分满足（完整批量行逐行核对依赖归档组）。M8.2 记 **`implemented`**：归档基线 M0.2.B 在 `7211e7f`（`working_tree` 干净）上 **3336 passed / 0 failed / 1 skipped**，`inventory/coverage_complete` 均 true、`missing/extra/duplicate` 全 0、六项未变指纹全 true；逐项比较声明 193 模块、声明未执行 0、执行未声明 0；193/111 契约检查与 293 项当前适用回归通过；唯一 skip 为已登记符号链接环境缺口。业主批准的 `PATCH-CP-00B-09` 两处归档断言已对齐（第一版被真实运行否证后修正，均如实登记）。**仅放行后续编码**：真实模型、PostgreSQL、独立 Linux、员工试用仍属 M8.3—M8.9，故不记 `released`，不勾选整体验收 |
 | CP-36 | M8.3—M8.4 | 独立PG升级/恢复、真实HTTP浏览器 | not_ready | docs/implementation-checkpoints/M8-4-browser-pipeline-checkpoint-v1.md | M8.4 仍 `todo`：真实浏览器流水线单一入口已交付并在 Windows 本机真实 Chrome 上实测（277 项、`verified=true`、14 页原生流量非零、`page_errors_total=0`），但三种宽度/IME、断网重连按 `seq` 补读、伪造身份 header、缺 CSRF 写与 HTTPS 会话仍未覆盖；M8.3 因缺独立 PostgreSQL 测试服务按计划待判 `blocked`，其全局顺序前置未满足，故不记 `released` |
 | CP-37 | M8.5—M8.6 | 经live gate授权的真实模型和保留集 | not_ready | — | — |
 | CP-38 | M8.7—M8.8 | 隔离Windows/Linux恢复演练 | not_ready | — | — |
@@ -3662,11 +3662,42 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.2 原业务、助手和前端不退化验收
 
-**状态**：todo
+**状态**：implemented（2026-09-30 在原业务/助手/前端三面取得工作区内证据；归档基线 3336 passed / 0 failed /
+1 skipped 且六项未变指纹全为 true。**不记 `done`**：唯一 skip 为宿主符号链接环境缺口，真实模型、
+PostgreSQL、独立 Linux 与员工试用按计划仍属 M8.3—M8.9）
 
 **全局顺序前置**：M8.1 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=**部分执行**；命令/退出码=—；证据路径=—；遗留/阻塞=**归档基线两处测试合同冲突待业主裁决**。
+**执行记录**：完成日期=2026-09-30；修改文件=测试与判定脚本（生产代码未改）；源码指纹=`7211e7f7b0db66cbbc38e69fd758abff4119f1fb`（`working_tree` 干净）；测试结果=**归档基线 3336 passed / 0 failed / 1 skipped** ＋ 工作区同一条命令 293 项全绿；命令/退出码=`run_validation.py --milestone M0.1` → passed（run `20260930T054849Z-22e4515c0e`）、`--milestone M0.2 --phase B` → run `20260930T054921Z-0db7d7fedb`（`status=failed` **仅由唯一 skip 引起**）；证据路径=`tests/assistant_offline/evidence/m82-closeout.json`、`…\m82-contracts.json`、`…\browser-fixture-20260930T044502Z\evidence\acceptance-M8.2.json`；遗留/阻塞=**无阻塞**；唯一未执行节点 `test_symlink_file_and_root_rejected` 为已登记环境缺口。
+
+**2026-09-30 收口（有效基线 + 逐项比较，M8.2 → `implemented`）**：先在冻结源码上重建严格参照（M0.1
+**passed**），随后在**全程不改动工作区**的条件下跑完归档基线 M0.2.B（run `20260930T054921Z-0db7d7fedb`，
+被测提交 `7211e7f`、`working_tree=''`）：41 条命令全部实际执行，**3336 passed / 0 failed / 1 skipped**，
+`inventory_complete`/`coverage_complete` 均 true，`missing/extra/duplicate` 全为 **0**，`per_node` 3337 行，
+六项未变指纹（`source`/`mirror`/`overlay`/`harness`/`inputs`/`external_inputs`）**全为 true**——与上一轮
+`source_unchanged=false` 的无效运行相比，本次是有效证据。**唯一未完整项**为
+`tests/test_private_files.py::test_symlink_file_and_root_rejected`：用例在宿主不允许创建符号链接时显式
+`pytest.skip`，而计划禁止为测试改 Windows 开发者模式/权限，故如实记为环境缺口；同文件的 Windows junction
+用例已实际执行并通过。装置据此判 `baseline_not_successful`，本记录不改该判定、不冒充通过。
+
+**业主批准的两处归档契约对齐（`PATCH-CP-00B-09`，第一版被真实运行否证后修正）**：①
+`scripts/check_assistant_r3t3.py` 原断言要求 `detail` 含内部码 `tool finish mismatch`；第一版误断言
+`s.ModelProtocolError`（该类在 `app.assistant_runtime_provider`，未被 service 再导出）→ 改为从该模块导入，
+并断言 `503` ＋ 固定中文 ＋ **不含**内部码与员工原文。②
+`tests/test_business_assistant.py::test_batch_confirm_reports_one_bad_card_without_blocking_the_rest` 原断言
+期望 `['succeeded','succeeded']`；第一版误断言 `len(calls)==2`，实测为 **1**（只有第一张到达原 API）→
+改为 `['succeeded','skipped']` 且 `len(calls)==1`，与 `PATCH-M8-1-BATCH-01` 及仓库
+`test_batch_confirmation.py` 一致。第二版两处均 `exit 0`。精确冲突、第一版错误与例外路径见
+`docs/implementation-patches/PATCH-CP-00B-09.md`。
+
+**逐项比较（完成检查第 1 条）**：新增 `tests/assistant_offline/check_m82_closeout.py`，从归档聚合报告与
+manifest 声明清单计算：声明模块 **193**（可适用原模块 162＋新增 13＋本阶段已登记脚本命令 18）、
+**声明但未执行 0**、**执行但未声明 0**；5 个已废止维护子系统文件按 `AGENTS.md:46` 登记不适用并保留原文件与
+哈希；`scripts/check_assistant_workboard_browser.py` 按计划延期至 M8.4；工作区 20 个后端套件**全部**已登记
+进 `acceptance_milestones.json` 判据（未登记即判失败）；11 个探针文件明确不参与套件发现。其余三条完成检查
+证据：193/111 契约检查通过（`check_m82_contracts.py`，含生成物 `--check` 与双向映射）、SQLite 当前适用
+回归 293 项全绿（两次运行逐套件计数与双指纹一致）、旧接口 `request_id` 幂等由
+`test_runtime_integration` 两个用例覆盖。详见 `docs/implementation-checkpoints/M8-2-closeout-checkpoint-v1.md`。
 
 **2026-09-30 归档基线复跑与归因（M8.2 仍为 `todo`）**：先在当前源码建立 M0.2.B 所需的严格参照——
 `--milestone M0.1` → **passed**（run `20260930T024144Z-e24c65f6db`、`phase_complete=true`）；随后
