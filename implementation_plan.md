@@ -3612,7 +3612,21 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **2026-09-29 销售事实补丁范围**：接续远端 `14829c4`，按 `PATCH-M8-1-SALES-01` 核对 v3/v4、当前报价/客户签回/VIN 关系与原 deliver 证据。实现与定向验证进行中；不改 M8.1 状态或原发布检查。
 
-**状态**：in_progress（清单项①—⑤均已有落地证据：会话级撤权 5 项、旧租约 DB 跃迁 5 项、确认前零写入 2 项、批量部分失败由既有 7 项覆盖、延迟注入 2 项、`access_signals` 发射 4 项；外部两条登记命令（`m81-fault-and-recovery-acceptance` 11 项 + `m81-freeze-confirmation-db` 19 项）仍同时通过，run `20260928T150035Z-a7799a50cc`、`phase_complete=true`。**仍未完成**：把上述新增套件按计划登记进外部 manifest 并在 `--milestone M8.1` 下运行；「故障重复执行稳定同一结果」的跨套件重复运行；以及 M8.1 完成检查的最终收口判定。详见 `docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md`）
+**状态**：implemented（清单①—⑤均已落地并两次完整复跑，详见下；剩余未完成项与偏离已如实登记）
+
+**2026-09-30 收口（工作区验收门禁 + 稳定性复跑）**：`tests/assistant_offline/` 现为自洽验收链路——
+`run_browser_pipeline.py` 产出证据，`run_acceptance.py` + `acceptance_milestones.json` 按登记断言出具
+判定（只复核证据、不跑测试、不联网；任一不符即 `accepted=false`）。**同一源码两次完整运行**逐套件计数
+完全一致（**293 项**、22 套件、`browser_transport=fixture`、`complete=true`、14 页、页面错误 0），
+源码指纹同为 `a7c0cd8f…`，两次判定均 `accepted=true`；一次被工具中断的**不完整**运行已登记并排除。
+**关于计划命令字符串的偏离（如实登记）**：计划写的 `$V/run_validation.py --milestone M8.1` **无法承载
+仓库套件**，原因在隔离器本身——`harness/isolation.py` 的 `DENIED` 显式包含 `tests`，`source_inventory()`
+（`git ls-files` 驱动）从不把仓库测试文件放进冻结副本，而 `baseline.overlay()` 拒绝放置已存在的文件；
+要挂上去只能把套件复制进 `V/tests/baseline/overlay`（双份、必然漂移）或在 V 侧写适配器。按业主「就在
+工作区里用同一个测试文件夹做测试」的要求，本轮采用工作区门禁，不动 V 侧。完成检查逐条判定：确认前零
+写入、旧租约/撤权不得继续、未知写入不重放、故障重复执行稳定——**满足**；「每个稳定 WorkItem 至多一个
+有效准备版本、批量无遗漏」**部分满足**（唯一约束与重复点击语义已有证据，完整批量行逐行核对依赖归档组）。
+详见 `docs/implementation-checkpoints/M8-1-closeout-checkpoint-v1.md`。
 
 **全局顺序前置**：M7.12.3 done。
 
@@ -3652,7 +3666,32 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **全局顺序前置**：M8.1 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=**部分执行**；命令/退出码=—；证据路径=—；遗留/阻塞=**归档基线两处测试合同冲突待业主裁决**。
+
+**2026-09-30 归档基线复跑与归因（M8.2 仍为 `todo`）**：先在当前源码建立 M0.2.B 所需的严格参照——
+`--milestone M0.1` → **passed**（run `20260930T024144Z-e24c65f6db`、`phase_complete=true`）；随后
+`--milestone M0.2 --phase B` → run `20260930T024201Z-44314a41f0`，41 条命令全部实际执行，归档聚合
+**3334 passed / 2 failed / 1 skipped**，`inventory_complete=true`、`coverage_complete=true`。**但该次
+运行不是有效证据**：`source_unchanged=false`——我在运行期间提交了验收机制提交，装置前后源码清单指纹
+比对拍到了工作树变化（`incomplete_reasons` 含 `inputs_changed`）。重跑须在运行期间**不改动被测源码**。
+
+三处失败的精确归因：① `b04-check_assistant_r3t3` 的
+`StreamRepairs.test_protocol_error_retains_safe_fixed_code`（`scripts/check_assistant_r3t3.py:238`）
+要求 `detail` 含内部码 `'tool finish mismatch'`，而 `app/assistant_runtime_provider.py:285-286` 已把它
+统一包装为固定中文，内部码仍在 `:219`；断言后半句「不得回显员工原文」在当前实现下仍成立——**过时测试
+合同**。② `b05-business-02` 的
+`tests/test_business_assistant.py::test_batch_confirm_reports_one_bad_card_without_blocking_the_rest`
+期望 `['succeeded','succeeded']`，而**同一归档文件**内
+`test_batch_confirm_refuses_absurd_or_repeated_selections` 的重复报名断言通过、现行标准（`PATCH-M8-1-
+BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、后续 `skipped`」——**归档内部自相矛盾
+的过时合同**。③ `b05-business-11` 的 `tests/test_private_files.py::test_symlink_file_and_root_rejected`
+为 1 skipped——**已知符号链接环境缺口**（与 CP-00B-v6 记录一致），非产品缺陷。
+
+①②落入计划 B4 表「已过时测试合同」一行，该行明确「**A列的两例可迁移，其他例提交补丁审阅，不能自行
+放宽**」。我已给出精确冲突（文件、行号、期望值、实际值、当前正确行为的依据），**未自行修改归档断言**，
+等待业主裁决是否批准迁移（拟登记为 `PATCH-CP-00B-09`）。M8.2 其余完成检查中：193 映射与 111 工作流
+检查、SQLite 当前适用回归、旧接口 `request_id` 幂等**已有证据**；「基线及新增用例逐项比较」须待有效
+基线与合同裁决后完成。详见 `docs/implementation-checkpoints/M8-2-regression-checkpoint-v1.md`。
 
 
 **目标**：覆盖保留的193项需求映射、111条发布工作流、原业务接口及新旧助手兼容。
