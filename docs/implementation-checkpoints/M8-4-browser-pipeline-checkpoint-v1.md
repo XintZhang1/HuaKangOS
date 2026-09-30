@@ -66,10 +66,10 @@ python tests/assistant_offline/run_browser_pipeline.py --browser-mode native `
 
 | 层次 | 用例数 | 结果 |
 |---|---:|---|
-| 后端领域与集成（17 个已版本化套件） | 208 | 全部通过 |
+| 后端领域与集成（17 个已版本化套件） | 211 | 全部通过 |
 | 前端模块行为（Node） | 55 | 全部通过 |
 | **原生浏览器页面操作** | 14 | 全部通过 |
-| 合计 | **277** | 全部命令退出码 0 |
+| 合计 | **280** | 全部命令退出码 0 |
 
 `browser-pipeline.json`：`verified=true`、`problems=[]`、`browser_mode=native`、`native_transport=true`。
 `run-summary.json`：`complete=true`、`scope=full`、`browser_transport=native`、`real_model_calls=0`、
@@ -77,8 +77,8 @@ python tests/assistant_offline/run_browser_pipeline.py --browser-mode native `
 
 **真实浏览器事实**（不是桥接）：
 
-- 浏览器：`C:\Program Files\Google\Chrome\Application\chrome.exe`，版本 `154.0.8037.58`（真实安装的
-  Chrome，不是 Playwright 自带包）；
+- 浏览器：`C:\Program Files\Google\Chrome\Application\chrome.exe`，版本 `154.0.8037.59`，来源
+  `browser_source=system-candidate`（本机没有 Playwright 自带浏览器，见 4.2）；
 - 观测到的 CSP：`default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src …`
   （`script-src 'self'` 存在、无 `unsafe-eval`）；
 - 逐页 `/api/` 真实流量：14 页全部非零（最少 14 条、最多 46 条），状态码覆盖 `200/201/202/401/422/503`
@@ -87,41 +87,68 @@ python tests/assistant_offline/run_browser_pipeline.py --browser-mode native `
 - `page_errors_total = 0`；真实模型调用 0。
 
 证据目录（仓库外，逐页 PNG + JSON + 逐命令日志）：
-`C:\Users\tiefu\.codex\HuaKangOS-agent-validation\runtime-v1\browser\browser-native-20260929T170405Z\evidence`
+`C:\Users\tiefu\.codex\HuaKangOS-agent-validation\runtime-v1\browser\browser-native-20260930T001744Z\evidence`
 
 生产源码指纹 `a7c0cd8fe38d8eb5101ffcf92fba07e1780f59b29e6bf368acf522fbf38ae8e4`；
-测试套件指纹 `2e2e7d4b033637ee954d85b8340f24bc15dbc20e416354606139712a92ebfa9b`。
+测试套件指纹 `36370e655814085e86b5ba7ad402b38ceb3461225fd7e1153d574d837e8f49a4`。
 
-> 本批有一次更早的原生运行（`browser-native-20260929T164304Z`，当时 **272** 项，尚不含会话级撤权
-> 套件）。两者是同一批次里不同源码集合的完整运行，**不相加**、不比较为「不同用例」；上面以最终一次
-> 运行为准。上表是该次原生运行**实际执行的完整清单**（`counts` 逐套件计数之和），其中
-> `test_browser_pipeline.py`（13 项合同套件）与 `test_revocation_session.py`（5 项撤权套件）都与本批
-> 同时落盘，因此 277 项包含它们。
+> 本批保留更早的两次原生运行（`…164304Z` 时 **272** 项、`…170405Z` 时 **277** 项、`…001744Z` 时
+> **280** 项），它们是同一批次里不同源码集合的**完整运行**，**不相加**、不比较为「不同用例」；上面以
+> 最终一次为准。上表是该次原生运行实际执行的完整清单（`counts` 逐套件计数之和），其中
+> `test_browser_pipeline.py`（16 项合同套件）与 `test_revocation_session.py`（5 项撤权套件）都与本批
+> 同时落盘。
 
 ### 4.1 Linux CI 独立复跑（本轮已读到运行结论与日志，v5 当时读不到的部分已补齐）
 
-交付推送后，GitHub Actions 按仓库工作流在 Ubuntu 上用同一个入口真实执行：
+交付推送后，GitHub Actions 按仓库工作流在 Ubuntu 上用同一个入口真实执行。**连续四次运行的结果都保留**，
+因为它们是本轮修正的真实依据：
 
-- 被测提交 `9b79fd3bb98207cf669f468782546e12d623bddc`；
-- run `36644421471`、job `109663952353`，结论 **success**（2026-09-29T23:17:44Z→23:26:27Z，8m40s）；
-- 步骤「Run isolated regressions with native browser transport」打印出本流水线自己的结论：
-  **`verified=true`、`problems=[]`、`native_transport=true`、`page_count=14`、`page_errors_total=0`、
-  `real_model_calls=0`**，并以 `PIPELINE VERIFIED: /home/runner/work/_temp/assistant-validation` 结束；
-- 逐套件计数：后端 **208**（含 `test_browser_pipeline` 13、`test_revocation_session` 5）＋前端 `frontend-final`
-  **55** ＋`browser-final` **14** ＝ **277**，与本机原生运行的完整清单**逐套件一致**；
-- 浏览器版本 `154.0.8037.0`，**`browser_executable=/usr/bin/chromium`**。
+| # | 提交 | run | 结论 | 真实原因（不是猜测） |
+|---:|---|---|---|---|
+| 1 | `9b79fd3` | `36644421471` | success | 通过，但**跑的是主机自带 chromium**（见下） |
+| 2 | `cc6d5fe` | `36645406272` | **failure** | 修正优先级后改用固定版本自带 Chromium 143，`test_07` 在 `asyncSetUp` 点击导航项超时 |
+| 3 | `a87c2c8` | `36647479427` | **failure** | 改为显式等待导航项后仍失败（30s 也未出现），说明不是渲染快慢 |
+| 4 | `71a4b51` | `36650238893` | **success** | 修好真实根因后全绿（本行即最终结论） |
 
-**由此暴露并已修复的一处真实缺陷（如实保留）**：CI 步骤确实安装了 Playwright 自带 Chromium，但流水线的
-浏览器解析顺序把主机自带的 `/usr/bin/chromium` 排在了**固定版本的自带浏览器之前**——也就是说 CI 用的是
-镜像里的系统浏览器，而不是该步骤刚装的那个。已改为「显式参数 → `HUAKANGOS_CHROMIUM` →
-**Playwright 固定版本自带浏览器** → 主机常见候选」，并在 `browser_source`
-（`explicit`/`environment`/`playwright-bundled`/`system-candidate`）与 `browser-pipeline.json` 里记录来源，
-使审阅者能看出究竟用了哪个浏览器；新增合同用例
+**最终一次（run `36650238893`，被测提交 `71a4b51`）的核对结论**：
+
+- 步骤打印 **`verified=true`、`problems=[]`、`native_transport=true`、`page_count=14`、
+  `page_errors_total=0`、`real_model_calls=0`**，以 `PIPELINE VERIFIED: …` 结束；`browser-final`
+  日志为 `Ran 14 tests` / `OK`；
+- **`browser_source=playwright-bundled`**、
+  `browser_executable=/home/runner/.cache/ms-playwright/chromium-1200/chrome-linux64/chrome`、
+  `browser_version=143.0.7499.4`：CI 现在确实跑在该步骤安装的**固定版本**浏览器上；
+- 逐套件计数：后端 **211**（含 `test_browser_pipeline` 16、`test_revocation_session` 5）＋前端 **55**
+  ＋`browser-final` **14** ＝ **280**。
+
+**第 1 次暴露的真实缺陷（已修复）**：CI 步骤确实安装了 Playwright 自带 Chromium，但解析顺序把主机自带的
+`/usr/bin/chromium` 排在**固定版本自带浏览器之前**——CI 用的其实是镜像里的系统浏览器，而不是该步骤刚装的
+那个。已改为「显式参数 → `HUAKANGOS_CHROMIUM` → **Playwright 固定版本自带浏览器** → 主机常见候选」，并把
+来源记入 `browser_source` 与 `browser-pipeline.json`；合同用例
 `test_pinned_playwright_browser_wins_over_a_host_system_browser` 固定该优先级。本机没有自带浏览器，
 因此本机仍解析为系统候选，与第 4.2 节一致。
 
-本机的 Windows + 真实 Chrome 运行与本次 Linux CI 运行是**不同浏览器、不同宿主**的两次独立复跑，
-各自留证，不互相替代。上面的计数一致性只说明两端的用例清单相同，不代表两端浏览器相同。
+**第 2、3 次暴露的真实根因（已修复）**：`test_07` 每次都在 `asyncSetUp` 的登录步骤失败，而**不是页面
+渲染慢**——30 秒等待也没等到导航项。为此给装置补了只读诊断 `LOGIN-STATE`，第 3 次运行本机复现时它直接
+给出答案：
+
+```
+LOGIN-STATE {"nav_entries": 0, "user": false, "login_form": true,
+  "body": "…登录\n账号\n密码\n数据库暂时忙或连接异常，请刷新核对后重试，避免重复录单。…",
+  "requests": [ … {"method": "POST", "path": "/api/auth/login", "status": 503}]}
+```
+
+即 `POST /api/auth/login` 返回 **503**。该状态是应用对 `OperationalError` 的既有处理
+（`app/main.py:200-203`），文案本身就说「可以重试、且不会重复录单」；隔离 worker 与登录共用同一个
+SQLite 库，于是**一次瞬时写竞争**被单发登录放大成 14 个页面错误，而它们与页面本身毫无关系。装置现改为
+**仅对该瞬时状态**做最多 3 次有界重试（其它失败照原样报告），并新增两条证据补强：① 在 `asyncSetUp`
+失败的页面也会在关闭浏览器**之前**留下截图与请求清单，并标记 `setup_failed`（此前这类页面恰恰是审阅最
+需要、却唯一缺失的那一页）；② 导航未出现时打印 URL、导航项数量、登录表单是否仍在、可见文本与最近请求，
+使只有 CI 日志的审阅者也能定位。
+
+本机的 Windows + 真实 Chrome 运行与 Linux CI 运行是**不同浏览器、不同宿主**的两次独立复跑，各自留证，
+不互相替代。上面的计数一致性只说明两端的用例清单相同，不代表两端浏览器相同；本机原生运行的
+`verified=true`、`page_count=14`、`page_errors_total=0` 来自同源码指纹的独立运行。
 
 ### 4.2 本机浏览器环境的一个真实约束（如实保留）
 

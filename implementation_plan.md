@@ -3721,28 +3721,33 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 `python tests/assistant_offline/run_browser_pipeline.py --browser-mode native --browser "C:\Program Files\Google\Chrome\Application\chrome.exe"`
 → `browser-pipeline.json` 为 `verified=true`、`problems=[]`、`native_transport=true`；
 `run-summary.json` 为 `complete=true`、`scope=full`、`browser_transport=native`、`real_model_calls=0`、
-`release_accepted=false`；**277 项**（后端 208＋前端 55＋原生页面 14）全部命令退出码 0。
+`release_accepted=false`；**280 项**（后端 211＋前端 55＋原生页面 14）全部命令退出码 0。
 真实浏览器事实：14 页逐页 `/api/` 真实流量全部非零（14—46 条，状态码含 200/201/202/401/422/503），
 含真实 `POST /api/auth/login` → 200、真实 SSE 补读 `GET /runs/<id>/events?after_seq=0` → 200、
 真实人工确认 `POST …/proposals/<id>/confirm` → 200；`page_errors_total=0`；观测到 `script-src 'self'`
 的应用 CSP。证据目录（仓库外）
 `C:\Users\tiefu\.codex\HuaKangOS-agent-validation\runtime-v1\browser\browser-native-20260929T164304Z\evidence`；
 生产源码指纹 `a7c0cd8fe38d8eb5101ffcf92fba07e1780f59b29e6bf368acf522fbf38ae8e4`；
-测试套件指纹 `2e2e7d4b033637ee954d85b8340f24bc15dbc20e416354606139712a92ebfa9b`；证据目录
-`…\browser\browser-native-20260929T170405Z\evidence`。
+测试套件指纹 `36370e655814085e86b5ba7ad402b38ceb3461225fd7e1153d574d837e8f49a4`；证据目录
+`…\browser\browser-native-20260930T001744Z\evidence`。
 
 **核对规则（拒绝伪装）**：`browser_transport` 必须等于请求模式；原生模式要求 `complete=true` 且
 `scope=full`、逐页 `/api/` 流量 > 0、`page_errors_total=0`、必须记录真实浏览器版本、必须观测到
 `script-src 'self'`；任一不满足即 `verified=false`、退出码 4。原生失败**不自动降级**为 `fixture`。
 
-**Linux CI 独立复跑（已核对运行结论与日志）**：push 后 run `36644421471`、job `109663952353` 结论
-**success**（8m40s），同一入口打印 `verified=true`、`problems=[]`、`native_transport=true`、
-`page_count=14`、`page_errors_total=0`、`real_model_calls=0`，逐套件计数（后端 208＋前端 55＋浏览器 14
-＝**277**）与本机原生运行一致；该次浏览器为 `154.0.8037.0`、`browser_executable=/usr/bin/chromium`。
-**由此发现并修复一处真实缺陷**：解析顺序原先把主机自带 `/usr/bin/chromium` 排在**固定版本的自带浏览器
-之前**，导致 CI 用的不是该步骤刚安装的浏览器；现改为「显式参数 → `HUAKANGOS_CHROMIUM` →
-**Playwright 固定版本自带浏览器** → 主机候选」并记录 `browser_source`，合同用例
-`test_pinned_playwright_browser_wins_over_a_host_system_browser` 固定该优先级。
+**Linux CI 独立复跑（连续四次运行全部保留，最终一次为权威结论）**：第 1 次 run `36644421471` 结论
+**success**，但对照日志发现它跑的是**主机自带 chromium**（`browser_executable=/usr/bin/chromium`，
+`browser_source` 当时尚未记录）。修正浏览器优先级后第 2 次 run `36645406272`、第 3 次 run `36647479427`
+**连续 failure**：改用固定版本自带 Chromium 143.0.7499.4 后 `test_07` 每次都在 `asyncSetUp` 登录步骤
+失败。新增的只读诊断 `LOGIN-STATE` 给出真实根因——`POST /api/auth/login` 返回 **503**
+（`app/main.py:200-203` 对 `OperationalError` 的既有处理，文案本身即「可重试、不会重复录单」），
+隔离 worker 与登录共用同一个 SQLite 库，**一次瞬时写竞争**被单发登录放大成 14 个与页面无关的错误。
+装置改为**仅对该瞬时状态**做最多 3 次有界重试，并补两处证据：`asyncSetUp` 失败的页面也会在关闭浏览器
+**之前**留截图与请求清单并标记 `setup_failed`；导航未出现时打印 URL、导航项数、登录表单是否仍在、可见
+文本与最近请求。第 4 次 run `36650238893`（提交 `71a4b51`）结论 **success**：`verified=true`、
+`problems=[]`、`native_transport=true`、`page_count=14`、`page_errors_total=0`、`real_model_calls=0`、
+`browser-final` 为 `Ran 14 tests`/`OK`，**`browser_source=playwright-bundled`**、
+`browser_version=143.0.7499.4`，逐套件计数后端 211＋前端 55＋浏览器 14＝**280**。
 
 **本机一个真实约束（如实保留）**：Playwright 自带 Chromium 未能安装（下载子进程 `spawn EPERM`；
 改用仓库内 `PLAYWRIGHT_BROWSERS_PATH` 后被陈旧 `__dirlock` 拒绝），按使用者「可以安装插件」的授权改用
