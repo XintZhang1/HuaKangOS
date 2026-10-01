@@ -77,13 +77,13 @@ def cases(page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),text:str=Qu
         total=db.scalar(select(func.count()).select_from(q.subquery()))
         return {'items':[svc.describe(db,user,r) for r in db.scalars(q.order_by(Case.id.desc()).offset((page-1)*page_size).limit(page_size))],'total':total,'page':page,'page_size':page_size}
 @router.post('/cases',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     return svc.create(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.get('/cases/{case_id}')
 def detail(case_id:int,db=Depends(get_db),user=Depends(get_user)):
     with svc.authority(db,user,svc.READ):return svc.describe(db,user,svc.get_case(db,user,case_id)[0])
 @router.post('/cases/{case_id}/commands/{action}')
-def command(case_id:int,action:str,body:Envelope,db=Depends(get_db),user=Depends(get_user)):
+def command(case_id:int,action:str,body:Envelope,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if not schema:raise HTTPException(404,'仓储动作不存在')
     return svc.command(db,user,case_id,body.request_id,body.version,action,parse(schema,body.values))

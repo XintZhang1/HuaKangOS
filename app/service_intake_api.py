@@ -3,7 +3,7 @@ from datetime import datetime,date
 from typing import Literal,Annotated
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError,field_validator
-from .db import get_db,today
+from .db import get_db,get_write_db,today
 from .security import get_user
 from . import service_intake_service as service
 router=APIRouter(prefix='/api/service-intake',tags=['维修接待与返修'])
@@ -84,44 +84,44 @@ def sources(page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):re
 @router.get('/resources')
 def resources(db=Depends(get_db),user=Depends(get_user)):return service.catalog(db,user)['resources']
 @router.post('/resources',status_code=201)
-def resource_create(body:ResourceSave,db=Depends(get_db),user=Depends(get_user)):
+def resource_create(body:ResourceSave,db=Depends(get_write_db),user=Depends(get_user)):
     return service.resource_create(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.post('/resources/{key}/active')
-def resource_active(key:int,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def resource_active(key:int,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     return service.master_active(db,user,'resources',key,body.request_id,body.version,values(Active,body.values))
 @router.post('/presets',status_code=201)
-def preset_create(body:PresetSave,db=Depends(get_db),user=Depends(get_user)):
+def preset_create(body:PresetSave,db=Depends(get_write_db),user=Depends(get_user)):
     return service.preset_create(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.post('/presets/{key}/active')
-def preset_active(key:int,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def preset_active(key:int,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     return service.master_active(db,user,'presets',key,body.request_id,body.version,values(Active,body.values))
 @router.get('/appointments')
 def appointments(page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):return service.list_records(db,user,'appointments',page)
 @router.post('/appointments',status_code=201)
-def appointment_create(body:AppointmentSave,db=Depends(get_db),user=Depends(get_user)):
+def appointment_create(body:AppointmentSave,db=Depends(get_write_db),user=Depends(get_user)):
     return service.appointment_create(db,user,body.request_id,body.model_dump(mode='json',exclude={'request_id'}))
 @router.get('/appointments/{key}')
 def appointment_detail(key:int,db=Depends(get_db),user=Depends(get_user)):return service.appointment_detail(db,user,key)
 @router.post('/appointments/{key}/actions/{action}')
-def appointment_action(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def appointment_action(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=APPOINTMENT_ACTIONS.get(action)
     if not schema:raise HTTPException(404,'预约动作不存在')
     return service.appointment_action(db,user,key,body.request_id,body.version,action,values(schema,body.values))
 @router.post('/bindings',status_code=201)
-def binding(body:BindingSave,db=Depends(get_db),user=Depends(get_user)):
+def binding(body:BindingSave,db=Depends(get_write_db),user=Depends(get_user)):
     return service.binding_create(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.get('/reworks')
 def reworks(page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):return service.list_records(db,user,'reworks',page)
 @router.post('/reworks',status_code=201)
-def rework_create(body:ReworkSave,db=Depends(get_db),user=Depends(get_user)):
+def rework_create(body:ReworkSave,db=Depends(get_write_db),user=Depends(get_user)):
     return service.rework_create(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.get('/reworks/{key}')
 def rework_detail(key:int,db=Depends(get_db),user=Depends(get_user)):return service.rework_detail(db,user,key)
 @router.post('/reworks/{key}/actions/{action}')
-def rework_action(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def rework_action(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=REWORK_ACTIONS.get(action)
     if not schema:raise HTTPException(404,'返修申请动作不存在')
     return service.rework_action(db,user,key,body.request_id,body.version,action,values(schema,body.values))
 @router.post('/orders/{key}/resource/{action}')
-def resource_action(key:int,action:Literal['acquire','release'],body:Command,db=Depends(get_db),user=Depends(get_user)):
+def resource_action(key:int,action:Literal['acquire','release'],body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     return service.resource_action(db,user,key,body.request_id,body.version,action,values(ResourceFact,body.values))

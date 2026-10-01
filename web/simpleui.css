@@ -29,3 +29,19 @@
  .ux-action-options .actioncard{width:100%;max-width:none}.ux-action-options .actioncard button{width:100%}
  .ux-start-search>label:first-child,.mux-search>label:first-child{min-width:0;width:100%}
 }
+@media(max-width:900px){
+ .audit-records .tablewrap{overflow:visible}
+ .audit-records table,.audit-records tbody{display:block;width:100%;min-width:0;white-space:normal}
+ .audit-records thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+ .audit-records tbody tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 12px;padding:14px 16px;border-bottom:1px solid #eaf0f4}
+ .audit-records tbody tr:last-child{border-bottom:0}
+ .audit-records td{display:block;min-width:0;padding:0;border:0;overflow-wrap:anywhere}
+ .audit-records td:nth-child(3),.audit-records td:nth-child(6),.audit-records td:nth-child(7){grid-column:1/-1}
+ .audit-records td:nth-child(3){font-weight:600}
+ .audit-records td:nth-child(4)::before{content:'类型：';color:var(--muted)}
+ .audit-records td:nth-child(5)::before{content:'原记录：';color:var(--muted)}
+ .audit-records td:nth-child(6) .wrap{display:block;min-width:0;max-width:none}
+ .audit-records td:nth-child(7){padding-top:4px}
+}
+.repair-detail{grid-template-columns:minmax(0,1fr);min-width:0}
+.repair-detail>*{min-width:0}

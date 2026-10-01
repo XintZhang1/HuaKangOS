@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
 from sqlalchemy import select,func
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from .flow_models import Case,Item
 from . import addon_service as service
@@ -96,11 +96,11 @@ def orders(page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):
     service._role(user,service.READ);q=service.flow.case_query(user).where(Case.kind=='addon',Case.flow_version==3)
     return dict(items=[service.describe(db,user,r) for r in db.scalars(q.order_by(Case.id.desc()).offset((page-1)*30).limit(30))],total=db.scalar(select(func.count()).select_from(q.subquery())))
 @router.post('',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):return service.create(db,user,body.request_id,body.model_dump(exclude={'request_id'},mode='json'))
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):return service.create(db,user,body.request_id,body.model_dump(exclude={'request_id'},mode='json'))
 @router.get('/{key}')
 def detail(key:int,db=Depends(get_db),user=Depends(get_user)):return service.describe(db,user,service.get_order(db,user,key))
 @router.post('/{key}/actions/{action}')
-def command(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if not schema:raise HTTPException(404,'加装办理动作不存在')
     try:v=schema.model_validate(body.values).model_dump(mode='json')

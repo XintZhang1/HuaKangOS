@@ -7,13 +7,30 @@ Object.assign(reconciliationSources,{transfer_loss_postings:'运输损失原库�
 Object.assign(reconciliationSources,{transfer_goods_facts:'找回实物观察（不是库存入账）',transfer_goods_postings:'找回原成本实际恢复',transfer_goods_reviews:'找回独立复核',transfer_goods_settlements:'找回反向店间往来',transfer_goods_terms:'找回后的原追偿约定',transfer_goods_refunds:'找回后的原款退回关联（不重复计现金）'});
 Object.assign(reconciliationSources,{retail_group_scopes:'本店已批准商品适用范围',retail_group_plans:'精品原付款授权',retail_group_tenders:'原付款批次 C/P/S',retail_group_units:'原可恢复单位 C/P/S',retail_group_allocations:'原商品/安装份额 C/P/S',retail_group_reservations:'原集团占额关联',retail_group_captures:'原集团实际核销关联',retail_group_closures:'未核销原份额释放',retail_group_returns:'实际原退货关联',retail_group_return_parts:'原退对价及待恢复份额',retail_group_restores:'原本金/权益恢复关联',retail_group_settlements:'原退负债与恢复抵消（非现金）',retail_group_cash_allocations:'实际原款分摊（不重复计现金）'});
 Object.assign(reconciliationSources,{"vehicle_transport_exceptions": "原整车运输差异", "vehicle_transport_observations": "原VIN实际观察", "vehicle_transport_plans": "原损失及找回方案", "vehicle_transport_reviews": "两店独立复核", "vehicle_transport_withdrawals": "原方案撤回", "vehicle_transport_disposals": "在手原车实际处置", "vehicle_transport_found_unavailable": "找回后实际无法接收", "vehicle_transport_losses": "原车原成本损失", "vehicle_transport_loss_settlements": "原车损失承担往来", "vehicle_transport_found_receipts": "原车实际找回入库", "vehicle_transport_found_settlements": "原车找回净往来", "vehicle_transport_claims": "本店原车外部追偿", "vehicle_transport_claim_plans": "原车赔付目标版本", "vehicle_transport_claim_reviews": "原赔付独立复核", "vehicle_transport_claim_withdrawals": "原赔付方案撤回", "vehicle_transport_claim_payments": "原赔付实际收退关联"});
+Object.assign(reconciliationSources,{
+ business_finance_advance_entries:'预收款流水',business_finance_advances:'预收款原账户',business_finance_applications:'预收抵用与退款申请',business_finance_cash_allocations:'客户收退分配',business_finance_cash_batches:'客户收退批次',business_finance_credit_links:'预收抵用关联',business_finance_stored_correction_requests:'预收账务更正申请',business_finance_stored_corrections:'预收账务更正',
+ repair_package_purchase_events:'维修套餐购买事件',sales_quote_consents:'销售报价知情记录',sales_quote_resolutions:'销售报价处理结果',sales_quote_reviews:'销售报价复核',sales_quotes:'销售报价',
+ service_authorizations:'客户服务授权',service_fulfillments:'客户服务履约',service_lines:'客户服务项目',service_orders:'客户服务原单',service_price_approvals:'客户服务价格复核',service_quotes:'客户服务报价',service_tender_slices:'客户服务收款分配',vehicle_position_entries:'整车库位流水',vehicle_positions:'整车当前库位',
+ addon_dispatches:'加装实际出库',addon_inspections:'加装验收',addon_installations:'加装实际施工',addon_lines:'加装项目',addon_orders:'加装原单',addon_payments:'加装收退款关联',addon_quotes:'加装报价',addon_rectifications:'加装整改',addon_reservations:'加装库存占量',addon_targets:'加装原款目标'
+});
+const reconciliationPurposeLabels={
+ business_finance_advance_entries:{receive:'预收款实际到账',correction:'账务更正',apply:'预收抵用',refund:'原款退款'},
+ flow_member_entries:{topup:'充值'},flow_stock_moves:{purchase:'采购入库',issue:'物资出库'}
+};
+const reconciliationStatusLabels={business_finance_applications:{applied:'已办理'},business_finance_stored_correction_requests:{applied:'已办理'},vehicle_positions:{stored:'在库',exited:'已出库'}};
+function reconciliationFact(source,data){
+ if(data.reference||data.voucher_no)return data.reference||data.voucher_no;
+ if(data.purpose)return reconciliationPurposeLabels[source]?.[data.purpose]||({transfer_in:'跨店调入',transfer_out:'跨店调出',purchase_in:'采购入库'}[data.purpose]||data.purpose);
+ if(data.side)return data.side;
+ return reconciliationStatusLabels[source]?.[data.status]||data.status||'';
+}
 const reconcileLabels={issue:'记录本条差异',resolve:'记录差异处理结果',submit:'提交独立店长复核',seal:'复核封存',recalculate:'重算为新版本',reopen:'注明原因并复开',pay:'确认本店实际付款',receive:'确认本店实际到账',difference:'记录未到账或其他差异',cancel:'撤销未付款申请',reject:'拒绝未付款申请'};
 const reconcileFinance=()=>canWrite()&&['admin','finance'].includes(state.user.role);
 const reconcileManager=()=>canWrite()&&['admin','manager'].includes(state.user.role);
 function reconciliationCashBasis(r){
  const excluded=new Set(r.summary.excluded_cash_ids||[]),omitted=(r.manifest||[]).filter(x=>x.source==='cash_entries'&&(excluded.has(x.source_id)||x.data.category==='transfer'));
  const amounts={in:0,out:0};for(const x of omitted)amounts[x.data.direction]+=x.data.amount_cents;
- return `<p>现金摘要按本版本完整来源 CSV 中的 cash_entries（实际现金）分别汇总收入与支出，排除已被纠正的原登记、仅用于账务纠正的冲正条目及内部转账。原登记和冲正仍保留在完整来源中备查；收款关联、会员本金、权益、库存和往来不重复计入现金。这里是实际收付口径，预收本金实际到账仍计入收入，不等同经营收入或利润。</p>${omitted.length?`<details><summary>查看本版本现金摘要排除明细：收入 ${money(amounts.in)} 元，支出 ${money(amounts.out)} 元</summary>${table(['来源条目','方向','排除金额（元）','原因'],omitted.map(x=>[E(x.key),x.data.direction==='in'?'收入':'支出',money(x.data.amount_cents),x.data.category==='transfer'?'内部转账':'原登记已纠正或仅作账务冲正']))}</details>`:''}`;
+ return `<p>现金摘要按本版本完整来源 CSV 中的实际现金分别汇总收入与支出，排除已被纠正的原登记、仅用于账务纠正的冲正条目及内部转账。原登记和冲正仍保留在完整来源中备查；收款关联、会员本金、权益、库存和往来不重复计入现金。预收本金实际到账仍计入收入，不等同经营收入或利润。</p>${omitted.length?`<details><summary>现金摘要排除明细：收入 ${money(amounts.in)} 元，支出 ${money(amounts.out)} 元</summary>${table(['来源条目','方向','排除金额（元）','原因'],omitted.map(x=>[E(x.key),x.data.direction==='in'?'收入':'支出',money(x.data.amount_cents),x.data.category==='transfer'?'内部转账':'原登记已纠正或仅作账务冲正']))}</details>`:''}`;
 }
 async function reconciliationPage(id){
  if(state.store==='all')return heading('业务对账与月结')+storeNotice();
@@ -23,20 +40,21 @@ async function reconciliationPage(id){
  if(reconcileManager()&&!r.successor_id&&r.status==='review')buttons.push(b('reconcile-action','独立复核封存','data-key="seal"','primary'));
  if(reconcileManager()&&!r.successor_id&&r.status==='sealed')buttons.push(b('reconcile-action','复开新版本','data-key="reopen"'));
  let html=heading('业务对账与月结',`${r.start} 至 ${r.end} · 版本${r.revision} · ${r.status_label}`,buttons.join('')+b('open','本批凭据与待办',`data-route="case/${r.case_id}"`));
- if(r.definition_version>=9)html+='<div class="notice">自第 9 版起区分实物观察、实际恢复原成本、反向店间往来及原款退回关联。观察数量不等于入库量，往来及退款关联不再次计入现金。</div>';
- if(r.definition_version>=10)html+='<div class="notice">自第 10 版起保留精品原批次与逐件付款分摊。C 为抵扣面额、P 为原发行对价、S 为内部结算；原关联按生成时点冻结，实际现金仍只取原现金账。不同来源表的金额不能相加。</div>';
- if(r.definition_version>=11)html+='<div class="notice">自第 11 版起保留本店原退运查找、独立复核、实际结束结果及再次找到关联。它们采用生成时点口径，不增加第二笔损失、库存或现金。</div>';
- if(r.definition_version>=12)html+='<div class="notice">自第12版起保留本店原整车差异、双方独立复核、原损失、实际找回、原赔付与原款关联。实车观察不等于入库，目标不等于现金；各来源表不得合并相加。</div>';
- if(r.definition_version>=22)html+='<div class="notice">本批对账凭据用于证明核对及独立复核，保留在本批原单，不再作为业务来源重复纳入；业务原单的附件仍参与来源核对。</div>';
+ const basis=[];
+ if(r.definition_version>=9)basis.push('<p>自第 9 版起区分实物观察、实际恢复原成本、反向店间往来及原款退回关联。观察数量不等于入库量，往来及退款关联不再次计入现金。</p>');
+ if(r.definition_version>=10)basis.push('<p>自第 10 版起保留精品原批次与逐件付款分摊。C 为抵扣面额、P 为原发行对价、S 为内部结算；原关联按生成时点冻结，实际现金仍只取原现金账。不同来源表的金额不能相加。</p>');
+ if(r.definition_version>=11)basis.push('<p>自第 11 版起保留本店原退运查找、独立复核、实际结束结果及再次找到关联。它们采用生成时点口径，不增加第二笔损失、库存或现金。</p>');
+ if(r.definition_version>=12)basis.push('<p>自第12版起保留本店原整车差异、双方独立复核、原损失、实际找回、原赔付与原款关联。实车观察不等于入库，目标不等于现金；各来源表不得合并相加。</p>');
+ if(r.definition_version>=22)basis.push('<p>本批对账凭据用于证明核对及独立复核，保留在本批原单，不再作为业务来源重复纳入；业务原单的附件仍参与来源核对。</p>');
  else if(r.source_changed&&r.definition_version>=4)html+='<div class="notice">本批沿用历史来源范围，对账凭据的私有附件也会影响来源。请明确重算新版本后继续；历史版本及其冻结来源保持原样。</div>';
  if(r.definition_version===1)html+='<div class="notice">本批次沿用历史核对范围，不含新增的库位、续会及专用发票明细。需要扩展核对时，请保留原版并重算或复开新版本。</div>';
  if(r.source_changed)html+='<div class="notice">账目已变化，请重新计算后提交。已封存的请联系店长重开。</div>';
  if(r.successor_id)html+=panel('后继版本',b('open','打开最新后继',`data-route="reconciliation/${r.successor_id}"`));
- html+=panel('核对要点',`<p>期间真实收入 ${money(r.summary.period_cash_in_cents)} 元，期间真实支出 ${money(r.summary.period_cash_out_cents)} 元。当前未收款 ${money(r.summary.current_receivable_cents)} 元。</p>${reconciliationCashBasis(r)}<p>处理差异须先在原业务完成必要纠正，再重算本期来源；备注不会替代真实账务。</p>${b('reconcile-action','下载本版本完整来源 CSV','data-key="export"')}`);
+ html+=panel('核对要点',`<p>期间真实收入 ${money(r.summary.period_cash_in_cents)} 元，期间真实支出 ${money(r.summary.period_cash_out_cents)} 元。当前未收款 ${money(r.summary.current_receivable_cents)} 元。</p><p>现金按实际收付统计，不等同经营收入或利润。处理差异须先更正原业务，再重算本期来源。</p>${b('reconcile-action','下载本版本完整来源 CSV','data-key="export"')}<details><summary>核对口径</summary>${basis.join('')}${reconciliationCashBasis(r)}<p>备注不会替代真实账务。</p></details>`);
  if(r.definition_version>=10)html+=panel('原单位待恢复负债（冻结时点）',table(['原单／原单位','种类／原有效期','C 面额 / P 对价 / S 结算（元）','可办理状态'],(r.summary.retail_group_pending_original_units||[]).map(x=>[b('open','查看原精品单',`data-route="retail/${x.case_id}"`)+` · 原单位${x.unit_id}`,E({principal:'本金',bonus:'赠金',coupon:'券',package:'套餐'}[x.kind]||x.kind)+` · ${E(x.original_expires_on||'不适用')}`,`${money(x.credit_cents)} / ${money(x.consideration_cents)} / ${money(x.settlement_cents)}`,x.restorable?'已具备原路恢复条件；恢复后仍用原有效期':'待后续实际退回凑齐原单位；当前不可消费、无需重复催办'])));
  html+=panel('逐项差异',table(['原条目／差异','依据与处理','操作'],r.issues.map(i=>[`${E(reconciliationSources[i.line_key.split(':')[0]]||'来源')} #${E(i.line_key.split(':')[1])}<br>${money(i.difference_cents)} 元`,`${E(i.reason)}<br>${i.status==='resolved'?E(i.resolution):'待核对处理'}`,i.status==='open'&&reconcileFinance()&&r.status==='draft'?b('reconcile-action','记录处理凭据',`data-key="resolve" data-id="${i.id}"`):E(i.status==='resolved'?'已记录处理结果':'待处理')])));
  const sources=r.manifest.slice(0,200);
- html+=panel('冻结来源条目',table(['来源／原条目','金额与事实','核对'],sources.map(x=>{const d=x.data;const amount=d.amount_cents??d.value_cents;return [`${E(reconciliationSources[x.source]||x.source)}<br><span class="muted">#${E(x.source_id)} · ${x.basis==='period'?'所选期间':'生成时点'}</span>`,Array.isArray(d.values)?E(d.values.join(' · ')):`${amount!==undefined?money(amount)+' 元':''}${d.quantity_milli!==undefined?' · 数量 '+(d.quantity_milli/1000):''}${d.units!==undefined?' · 原单位 '+d.units:''}${d.credit_cents!==undefined?' · C '+money(d.credit_cents)+' / P '+money(d.consideration_cents)+' / S '+money(d.settlement_cents)+' 元':''}<br>${E(d.reference||d.voucher_no||({transfer_in:'跨店调入',transfer_out:'跨店调出',purchase_in:'采购入库'}[d.purpose]||d.purpose)||d.side||d.status||'')}`,`<div class="stack">${x.case_id?b('open','查看原单',`data-route="case/${x.case_id}"`):''}${reconcileFinance()&&r.status==='draft'&&!r.successor_id?b('reconcile-action','记录差异',`data-key="issue" data-line="${E(x.key)}"`):''}</div>`];})));
+ html+=panel('冻结来源条目',table(['来源／原条目','金额与事实','核对'],sources.map(x=>{const d=x.data;const amount=d.amount_cents??d.value_cents;return [`${E(reconciliationSources[x.source]||x.source)}<br><span class="muted">#${E(x.source_id)} · ${x.basis==='period'?'所选期间':'生成时点'}</span>`,Array.isArray(d.values)?E(d.values.join(' · ')):`${amount!==undefined?money(amount)+' 元':''}${d.quantity_milli!==undefined?' · 数量 '+(d.quantity_milli/1000):''}${d.units!==undefined?' · 原单位 '+d.units:''}${d.credit_cents!==undefined?' · C '+money(d.credit_cents)+' / P '+money(d.consideration_cents)+' / S '+money(d.settlement_cents)+' 元':''}<br>${E(reconciliationFact(x.source,d))}`,`<div class="stack">${x.case_id?b('open','查看原单',`data-route="case/${x.case_id}"`):''}${reconcileFinance()&&r.status==='draft'&&!r.successor_id?b('reconcile-action','记录差异',`data-key="issue" data-line="${E(x.key)}"`):''}</div>`];})));
  if(r.manifest.length>200)html+='<p class="muted">页面显示前200条，完整冻结条目请下载CSV。</p>';return html;
 }
 async function reconciliationCreate(){

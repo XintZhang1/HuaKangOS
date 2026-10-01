@@ -4,7 +4,7 @@ import io
 from datetime import date
 from urllib.parse import quote
 from fastapi import APIRouter, Depends, Query, HTTPException, Response
-from .db import get_db
+from .db import get_db, get_audited_read_db
 from .security import get_user
 from .services import audit
 from .material_value_analytics import build_material_values
@@ -22,7 +22,7 @@ def report(date_from:date|None=None, date_to:date|None=None, source:str|None=Non
 @router.get('/export/{key}')
 def export(key:str, date_from:date|None=None, date_to:date|None=None, source:str|None=None,
            item_id:int|None=Query(None,gt=0), case_id:int|None=Query(None,gt=0),
-           db=Depends(get_db), user=Depends(get_user)):
+           db=Depends(get_audited_read_db), user=Depends(get_user)):
     result=build_material_values(db,user,date_from,date_to,source,item_id,case_id)
     if key not in result['tables']:raise HTTPException(404,'没有此物资收入成本明细')
     t=result['tables'][key];buf=io.StringIO(newline='');writer=csv.writer(buf)

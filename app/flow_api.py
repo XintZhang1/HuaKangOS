@@ -7,7 +7,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, func, or_
-from .db import get_db,get_audited_read_db,today,utcnow
+from .db import get_db,get_write_db,get_audited_read_db,today,utcnow
 from .security import get_user,require_full,ROLES
 from .models import User,Store,Vehicle,Sale,AuditLog
 from .tenancy import single_store,accessible_stores
@@ -93,7 +93,7 @@ def tasks(scope:str='mine',status:str='open',page:int=Query(1,ge=1),page_size:in
 
 
 @router.post('/tasks/{task_id}/assign')
-def assign_task(task_id:int,body:AssignInput,db=Depends(get_db),user=Depends(get_user)):
+def assign_task(task_id:int,body:AssignInput,db=Depends(get_write_db),user=Depends(get_user)):
     if user.role not in {'admin','manager'}:raise HTTPException(403,'任务转交需要主管处理')
     single_store(db);task=eng.scoped_get(db,Task,task_id)
     if not task:raise HTTPException(404,'任务不存在')
@@ -137,7 +137,7 @@ def list_cases(kind:str='',module:str='',q:str=Query('',max_length=100),state:st
 
 
 @router.post('/cases',status_code=201)
-def create_case(body:CreateInput,db=Depends(get_db),user=Depends(get_user)):
+def create_case(body:CreateInput,db=Depends(get_write_db),user=Depends(get_user)):
     single_store(db);digest=eng.request_digest('create',body.model_dump(exclude={'request_id'}))
     old=eng.prior_request(db,user,body.request_id,digest)
     if old:return describe_case(db,user,old)
@@ -169,7 +169,7 @@ def case_detail(case_id:int,db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.post('/cases/{case_id}/actions/{action}')
-def act(case_id:int,action:str,body:ActionInput,db=Depends(get_db),user=Depends(get_user)):
+def act(case_id:int,action:str,body:ActionInput,db=Depends(get_write_db),user=Depends(get_user)):
     sid=single_store(db);digest=eng.request_digest(f'{case_id}:{action}',body.model_dump(exclude={'request_id'}))
     receipt=db.scalar(select(RequestReceipt).where(RequestReceipt.store_id==sid,RequestReceipt.request_key==body.request_id))
     if receipt:
@@ -193,7 +193,7 @@ def act(case_id:int,action:str,body:ActionInput,db=Depends(get_db),user=Depends(
 
 
 @router.post('/cases/{case_id}/documents')
-def generate(case_id:int,body:DocumentInput,db=Depends(get_db),user=Depends(get_user)):
+def generate(case_id:int,body:DocumentInput,db=Depends(get_write_db),user=Depends(get_user)):
     single_store(db);row=eng.get_case(db,user,case_id)
     if user.role=='auditor':raise HTTPException(403,'审计账号仅能查看已保存文件')
     file=generate_document(db,user,row,body.kind)
@@ -203,7 +203,7 @@ def generate(case_id:int,body:DocumentInput,db=Depends(get_db),user=Depends(get_
 
 @router.post('/cases/{case_id}/files')
 async def upload(case_id:int,file:UploadFile=File(...),category:str=Form('evidence'),source_file_id:int|None=Form(None),
-                 db=Depends(get_db),user=Depends(get_user)):
+                 db=Depends(get_write_db),user=Depends(get_user)):
     single_store(db);row=eng.get_case(db,user,case_id)
     from .flow_documents import MAX_BYTES
     content=await file.read(MAX_BYTES+1);await file.close()
@@ -212,7 +212,7 @@ async def upload(case_id:int,file:UploadFile=File(...),category:str=Form('eviden
 
 
 @router.get('/files/{file_id}')
-def download(file_id:int,db=Depends(get_db),user=Depends(get_user)):
+def download(file_id:int,db=Depends(get_audited_read_db),user=Depends(get_user)):
     asset=eng.scoped_get(db,FileAsset,file_id)
     if not asset:raise HTTPException(404,'文件不存在或不可访问')
     row=eng.get_case(db,user,asset.case_id)
@@ -324,7 +324,7 @@ def master_info(db,user,kind,row):
 
 
 @router.get('/master/{kind}')
-def master_list(kind:str,q:str=Query('',max_length=100),page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):
+def master_list(kind:str,q:str=Query('',max_length=100),page:int=Query(1,ge=1),db=Depends(get_write_db),user=Depends(get_user)):
     config=MASTERS.get(kind)
     if not config or user.role not in config['read']:raise HTTPException(403,'没有查看此资料的权限')
     if kind=='templates' and db.info.get('write_store'):ensure_templates(db);db.commit()
@@ -339,7 +339,7 @@ def master_list(kind:str,q:str=Query('',max_length=100),page:int=Query(1,ge=1),d
 
 
 @router.post('/master/{kind}',status_code=201)
-def add_master(kind:str,body:MasterInput,db=Depends(get_db),user=Depends(get_user)):
+def add_master(kind:str,body:MasterInput,db=Depends(get_write_db),user=Depends(get_user)):
     single_store(db);config=MASTERS.get(kind)
     if not config or user.role not in config['write'] or kind=='templates':raise HTTPException(403,'不能新增此资料')
     v=parse_fields(config['fields'],body.values)
@@ -358,7 +358,7 @@ def add_master(kind:str,body:MasterInput,db=Depends(get_db),user=Depends(get_use
 
 
 @router.put('/master/{kind}/{record_id}')
-def edit_master(kind:str,record_id:int,body:MasterInput,db=Depends(get_db),user=Depends(get_user)):
+def edit_master(kind:str,record_id:int,body:MasterInput,db=Depends(get_write_db),user=Depends(get_user)):
     single_store(db);config=MASTERS.get(kind)
     if not config or user.role not in config['write']:raise HTTPException(403,'没有修改此资料的权限')
     row=eng.scoped_get(db,config['model'],record_id)

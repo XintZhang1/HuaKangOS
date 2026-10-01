@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,field_validator
 from sqlalchemy import select,or_,func
-from .db import get_db,today
+from .db import get_db,get_write_db,get_audited_read_db,today
 from .security import get_user
 from .tenancy import role_for_store
 from .models import User,Store
@@ -156,7 +156,7 @@ def vehicles(q:str=Query('',max_length=100),page:int=Query(1,ge=1),db=Depends(ge
 
 
 @router.post('/vehicles',status_code=201)
-def new_vehicle(body:Save,db=Depends(get_db),user=Depends(get_user)):return service.vehicle_create(db,user,body.request_id,parse(VehicleInput,body.values))
+def new_vehicle(body:Save,db=Depends(get_write_db),user=Depends(get_user)):return service.vehicle_create(db,user,body.request_id,parse(VehicleInput,body.values))
 
 
 @router.get('/vehicles/{vehicle_id}')
@@ -169,11 +169,11 @@ def vehicle_detail(vehicle_id:int,db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.put('/vehicles/{vehicle_id}')
-def edit_vehicle(vehicle_id:int,body:Update,db=Depends(get_db),user=Depends(get_user)):return service.vehicle_update(db,user,body.request_id,vehicle_id,body.version,parse(VehicleEdit,body.values))
+def edit_vehicle(vehicle_id:int,body:Update,db=Depends(get_write_db),user=Depends(get_user)):return service.vehicle_update(db,user,body.request_id,vehicle_id,body.version,parse(VehicleEdit,body.values))
 
 
 @router.post('/vehicles/{vehicle_id}/observations')
-def observation(vehicle_id:int,body:Update,db=Depends(get_db),user=Depends(get_user)):return service.observe(db,user,body.request_id,vehicle_id,body.version,parse(Observation,body.values))
+def observation(vehicle_id:int,body:Update,db=Depends(get_write_db),user=Depends(get_user)):return service.observe(db,user,body.request_id,vehicle_id,body.version,parse(Observation,body.values))
 
 
 @router.get('/vehicles/{vehicle_id}/history')
@@ -181,7 +181,7 @@ def history(vehicle_id:int,db=Depends(get_db),user=Depends(get_user)):return ser
 
 
 @router.post('/vehicles/{vehicle_id}/history-links',status_code=201)
-def link_history(vehicle_id:int,body:Save,db=Depends(get_db),user=Depends(get_user)):return service.history_link(db,user,body.request_id,vehicle_id,parse(HistoryLink,body.values))
+def link_history(vehicle_id:int,body:Save,db=Depends(get_write_db),user=Depends(get_user)):return service.history_link(db,user,body.request_id,vehicle_id,parse(HistoryLink,body.values))
 
 
 @router.get('/cases')
@@ -201,7 +201,7 @@ def cases(subtype:str='',status:str='',q:str=Query('',max_length=100),page:int=Q
 
 
 @router.post('/cases',status_code=201)
-def new_case(body:Save,db=Depends(get_db),user=Depends(get_user)):return service.case_create(db,user,body.request_id,parse(NewCare,body.values))
+def new_case(body:Save,db=Depends(get_write_db),user=Depends(get_user)):return service.case_create(db,user,body.request_id,parse(NewCare,body.values))
 
 
 @router.get('/cases/{case_id}')
@@ -211,7 +211,7 @@ def case_detail(case_id:int,db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.post('/cases/{case_id}/actions/{action}')
-def action(case_id:int,action:str,body:Update,db=Depends(get_db),user=Depends(get_user)):
+def action(case_id:int,action:str,body:Update,db=Depends(get_write_db),user=Depends(get_user)):
     schema={'start':Start,'followup':Followup,'handoff':Handoff,'cancel':Cancel,'close':Close}.get(action)
     if not schema:raise HTTPException(404,'客户服务动作不存在')
     return service.case_action(db,user,body.request_id,case_id,body.version,action,parse(schema,body.values))
@@ -223,15 +223,15 @@ def rules(db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.post('/reminders/rules',status_code=201)
-def new_rule(body:Save,db=Depends(get_db),user=Depends(get_user)):return service.rule_save(db,user,body.request_id,parse(Rule,body.values))
+def new_rule(body:Save,db=Depends(get_write_db),user=Depends(get_user)):return service.rule_save(db,user,body.request_id,parse(Rule,body.values))
 
 
 @router.put('/reminders/rules/{rule_id}')
-def update_rule(rule_id:int,body:Update,db=Depends(get_db),user=Depends(get_user)):return service.rule_save(db,user,body.request_id,parse(Rule,body.values),rule_id,body.version)
+def update_rule(rule_id:int,body:Update,db=Depends(get_write_db),user=Depends(get_user)):return service.rule_save(db,user,body.request_id,parse(Rule,body.values),rule_id,body.version)
 
 
 @router.post('/reminders/generate')
-def generate(body:Request,db=Depends(get_db),user=Depends(get_user)):return service.generate_reminders(db,user,body.request_id)
+def generate(body:Request,db=Depends(get_write_db),user=Depends(get_user)):return service.generate_reminders(db,user,body.request_id)
 
 
 @router.get('/history/grants')
@@ -241,11 +241,11 @@ def grants(db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.post('/history/grants',status_code=201)
-def new_grant(body:Save,db=Depends(get_db),user=Depends(get_user)):return service.grant_history(db,user,body.request_id,parse(Grant,body.values))
+def new_grant(body:Save,db=Depends(get_write_db),user=Depends(get_user)):return service.grant_history(db,user,body.request_id,parse(Grant,body.values))
 
 
 @router.post('/history/grants/{grant_id}/revoke')
-def revoke(grant_id:int,body:Update,db=Depends(get_db),user=Depends(get_user)):return service.revoke_grant(db,user,body.request_id,grant_id,body.version,parse(Cancel,body.values)['reason'])
+def revoke(grant_id:int,body:Update,db=Depends(get_write_db),user=Depends(get_user)):return service.revoke_grant(db,user,body.request_id,grant_id,body.version,parse(Cancel,body.values)['reason'])
 
 
 class QuestionnaireProposal(Strict):
@@ -269,13 +269,13 @@ def questionnaire_versions(db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.post('/questionnaires/versions',status_code=201)
-def questionnaire_propose(body:Save,db=Depends(get_db),user=Depends(get_user)):
+def questionnaire_propose(body:Save,db=Depends(get_write_db),user=Depends(get_user)):
     from .questionnaire_service import propose
     return propose(db,user,body.request_id,parse(QuestionnaireProposal,body.values))
 
 
 @router.post('/questionnaires/versions/{version_id}/review')
-def questionnaire_review(version_id:int,body:Save,db=Depends(get_db),user=Depends(get_user)):
+def questionnaire_review(version_id:int,body:Save,db=Depends(get_write_db),user=Depends(get_user)):
     from .questionnaire_service import review
     return review(db,user,body.request_id,version_id,parse(QuestionnaireDecision,body.values))
 
@@ -289,7 +289,7 @@ def questionnaire_report(date_from:date|None=None,date_to:date|None=None,db=Depe
 @router.get('/questionnaires/export/{table_key}')
 def questionnaire_export(table_key:str,date_from:date|None=None,date_to:date|None=None,
     version_number:str|None=None,schema_digest:str|None=None,question_key:str|None=None,
-    db=Depends(get_db),user=Depends(get_user)):
+    db=Depends(get_audited_read_db),user=Depends(get_user)):
     import csv,io
     from urllib.parse import quote
     from fastapi import Response

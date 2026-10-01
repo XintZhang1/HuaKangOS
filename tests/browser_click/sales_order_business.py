@@ -80,7 +80,7 @@ class Checkpoint:
 
     async def passed(self, evidence, conditional=()):
         self.note(evidence)
-        await self.e.snapshot(self.active["id"].lower() + "-business")
+        await self.e.snapshot(self.active["id"].lower() + "-business", business_ready=True)
         self.active["status"] = "passed"
         self.active["acceptance_checks"][0]["status"] = "passed"
         self.active["evidence_action_end"] = len(self.e.actions)
@@ -345,7 +345,7 @@ async def upload(e, case_id, actor, category, name, text, *, source_file=None):
 async def generate(e, case_id, actor, kind):
     body, view, metadata, _ = await original_write(e, f"/api/flow/cases/{case_id}/documents", 200, case_id=case_id,
         click=f'#main [data-act="generatedoc"][data-kind="{kind}"]')
-    row = e.db.rows("SELECT id,case_id,store_id,category,name,sha256,size,created_by,generated,template_version,template_approved,"
+    row = e.db.rows("SELECT id,case_id,store_id,category,name,media_type,sha256,size,created_by,generated,template_version,template_approved,"
                     "source_fingerprint,snapshot FROM flow_files WHERE id=?", (body["id"],))[0]
     row["snapshot"] = json.loads(row["snapshot"])
     require(row["case_id"] == case_id and row["created_by"] == actor["id"] and row["category"] == kind and row["generated"] and row["template_approved"], "生成文档没有可用的原模板/本人及本单来源")
@@ -359,7 +359,20 @@ async def generate(e, case_id, actor, kind):
     before = e.business_snapshot("original_before_generated_document_download")
     old_audit = {r["id"]: r for r in e.db.rows("SELECT * FROM audit_logs ORDER BY id")}
     async with e.page.expect_download() as pending:
-        await e.click(f'#main .filerecord [data-act="downloadfile"][data-id="{row["id"]}"]', "下载原生成字节核对本版报价与VIN")
+        async with e.page.expect_response(lambda r: r.request.method == "GET"
+                and urlsplit(r.url).path == f'/api/flow/files/{row["id"]}') as pending_response:
+            await e.click(f'#main .filerecord [data-act="downloadfile"][data-id="{row["id"]}"]', "下载原生成字节核对本版报价与VIN")
+        response = await pending_response.value
+        headers = await response.request.all_headers()
+        content_type = await response.header_value("content-type") or ""
+        e.observe("generated_document_native_response", {"file_id": row["id"], "status": response.status,
+            "content_type": content_type, "cookie_present": bool(headers.get("cookie")),
+            "store_id": headers.get("x-store-id")})
+        require(response.status == 200 and content_type.split(";", 1)[0] == row["media_type"]
+                == "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "原生成文档下载失败，HTTP " + str(response.status))
+        require(headers.get("cookie") and headers.get("x-store-id") == "1" and headers.get("x-app-request") == "1",
+                "原生成文档未使用本人同源当前店")
     directory = e.directory / "generated-documents"
     directory.mkdir(exist_ok=True)
     path = directory / (str(row["id"]) + ".docx")

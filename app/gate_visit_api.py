@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from fastapi import APIRouter, Depends, Query
 from pydantic import Field, field_validator, model_validator
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from .service_intake_api import Strict, Request, Command, Reason, Evidence, Slot, Arrival, values
 from . import gate_visit_service as service
@@ -74,7 +74,7 @@ def listing(page: int = Query(1, ge=1), status: Literal['planned','inside','depa
 
 
 @router.post('', status_code=201)
-def create(body: VisitCreate, db=Depends(get_db), user=Depends(get_user)):
+def create(body: VisitCreate, db=Depends(get_write_db), user=Depends(get_user)):
     return service.create(db, user, body.request_id, body.model_dump(exclude={'request_id'}))
 
 
@@ -84,21 +84,21 @@ def detail(key: int, db=Depends(get_db), user=Depends(get_user)):
 
 
 @router.post('/{key}/actions/{action}')
-def command(key: int, action: Literal['arrive','leave','cancel','handoff'], body: Command, db=Depends(get_db), user=Depends(get_user)):
+def command(key: int, action: Literal['arrive','leave','cancel','handoff'], body: Command, db=Depends(get_write_db), user=Depends(get_user)):
     schema = Handoff if action == 'handoff' else Reason if action == 'cancel' else Actual
     return service.command(db, user, key, body.request_id, body.version, action, values(schema, body.values))
 
 
 @router.post('/{key}/corrections')
-def correct(key: int, body: Command, db=Depends(get_db), user=Depends(get_user)):
+def correct(key: int, body: Command, db=Depends(get_write_db), user=Depends(get_user)):
     return service.correct(db, user, key, body.request_id, body.version, values(Correction, body.values))
 
 
 @router.post('/corrections/{key}/actions/{action}')
-def review(key: int, action: Literal['approve','reject','cancel'], body: Command, db=Depends(get_db), user=Depends(get_user)):
+def review(key: int, action: Literal['approve','reject','cancel'], body: Command, db=Depends(get_write_db), user=Depends(get_user)):
     return service.review(db, user, key, body.request_id, body.version, action, values(Reason if action == 'cancel' else Review, body.values))
 
 
 @router.post('/repair-orders/{key}/departure')
-def repair_exit(key: int, body: Command, db=Depends(get_db), user=Depends(get_user)):
+def repair_exit(key: int, body: Command, db=Depends(get_write_db), user=Depends(get_user)):
     return service.cancelled_repair_exit(db, user, key, body.request_id, body.version, values(Actual, body.values))

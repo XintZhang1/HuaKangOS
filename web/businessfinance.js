@@ -53,6 +53,7 @@ async function businessFinanceCreate(key,id){
  if(key==='advance_refund')advance=context.advances.find(a=>a.id===Number(id));
  if(key==='statement'){fields.push(F('starts_on','月结起始日期','date'),F('ends_on','月结截止日期','date'));initial.starts_on=day().slice(0,8)+'01';initial.ends_on=day();}
  if(['correction','stored_correction'].includes(key)){
+  initial.actual_business_date='';
   receipts=(await api('/api/business-finance/receipts?customer_id='+context.customerId)).items.filter(r=>key==='stored_correction'?!!r.source_kind&&r.source_kind!=='membership_fee':!r.source_kind);if(!receipts.length)throw new Error(key==='stored_correction'?'暂无可更正的本店独立预收或会员充值。组合原款按原完整份额一并更正本金和赠品。':'暂无可更正的本店业务收款；在办退款或更正须先完成或取消。');
   targets=[...context.sources];for(const r of receipts)for(const s of r.sources)if(!targets.some(t=>t.case_id===s.case_id))targets.push({case_id:s.case_id,number:s.number,due_cents:0});
   fields.push(F('original','已查明误记的原收款','select',true,receipts.map(businessFinanceReceiptLabel)),F('actual_business_date','正确真实到账日期（空白保留原日期）','date',false),F('account_id','正确实际账户（零元撤错可留空）','account',false),F('reference','正确银行流水或收款凭证号（零元可留空）','text',false));

@@ -103,7 +103,7 @@ class Checkpoint:
 
     async def passed(self, **values):
         self.note(**values)
-        await self.e.snapshot(self.active["id"].lower() + "-business")
+        await self.e.snapshot(self.active["id"].lower() + "-business", business_ready=True)
         self.active["status"] = self.active["acceptance_checks"][0]["status"] = "passed"
         self.active["evidence_action_end"] = len(self.e.actions)
         self.save()

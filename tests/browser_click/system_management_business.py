@@ -73,7 +73,7 @@ class Checkpoint:
         self.save()
 
     async def passed(self, evidence):
-        await self.e.snapshot(self.active["id"].lower() + "-business")
+        await self.e.snapshot(self.active["id"].lower() + "-business", business_ready=True)
         self.active.update(status="passed", evidence_action_end=len(self.e.actions))
         self.active["acceptance_checks"][0].update(status="passed", evidence=evidence)
         self.active = None
@@ -199,12 +199,14 @@ async def original_submit(e, path, status, *, method="POST", store_id, version=N
 
 async def open_page(e, route, title, api_path):
     if urlsplit(e.page.url).fragment == route:
+        await expect(e.page.locator("#main h1")).to_have_text(title)
         before = e.business_snapshot("before_native_system_reload")
-        async with e.page.expect_response(lambda r: r.request.method == "GET" and urlsplit(r.url).path == api_path) as pending:
+        async with e.page.expect_request(lambda r: r.method == "GET" and urlsplit(r.url).path == api_path) as pending:
             e.action("navigate", "原页面重新载入", route=route)
             await e.page.reload(wait_until="domcontentloaded")
-        response = await pending.value
-        require(response.status == 200, "原系统页面重新读取失败")
+        request = await pending.value
+        response = await request.response()
+        require(response is not None and response.status == 200, "原系统页面重新读取失败")
         body = await response.json()
         await expect(e.page.locator("#main h1")).to_have_text(title)
         e.business_unchanged(before, "after_native_system_reload")

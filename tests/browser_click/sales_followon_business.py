@@ -186,7 +186,7 @@ class Checkpoint:
 
     async def passed(self, *, conditional=(), **evidence):
         self.note(**evidence)
-        await self.e.snapshot(self.active["id"].lower() + "-business")
+        await self.e.snapshot(self.active["id"].lower() + "-business", business_ready=True)
         self.active["status"] = self.active["acceptance_checks"][0]["status"] = "passed"
         self.active["evidence_action_end"] = len(self.e.actions)
         self.active["conditional_checks"] = list(conditional)
@@ -484,6 +484,9 @@ async def addon_path(e, context, credentials, fixture, cp, source, vehicle, item
     key = body["id"]
     require(request["source_order_id"] == current["id"] and request["source_version"] == current["version"] and not request["delivery_blocking"]
             and body["flow_version"] == 3 and case(e, key)["parent_id"] == source["id"], "加装创建未绑定当前原单或误作交车前阻断")
+    await expect(e.page.locator("#main h1")).to_have_text("销售加装明细")
+    await expect(e.page.locator("#main .pagehead")).to_contain_text(view["number"])
+    e.observe("addon_created_page_ready", {"case_id": key, "number": view["number"], "original_detail_and_catalogue_rendered": True})
     sales, initial_view, quote_owner = await responsible(e, context, credentials, fixture, "addon", key, "addon_quote", "sales")
     options = initial_view["original_catalogue"]
     await form(e, "addon", "quote")

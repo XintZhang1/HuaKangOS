@@ -1,0 +1,9 @@
+# PATCH-M8-4-FINANCE-PARENT-CASH-PROJECTION-01
+
+2026-10-01，52四个关联实例全部退出后，连续点击授权内先登记。
+
+Finance02十六父全部passed，六项0动作前置失败：PDI父HK075沿原sales_order_business.facts203–204仅记录固定十列Cash投影，当前候选326却以SELECT*整行与投影比较。本轮Cash142/Payment28/Case134及第二款143原十列逐项匹配，全部当前身份/店/单/账户bank/金额/方向/ENTRY及原付款完整行也匹配。核赔139和Retail144父Cash本来全行，保持全行比较。
+
+仅finance_remaining_business.py的PDI两原款父比较：要求父keys恰为原十列，当前相同固定投影严格相等；其余两域仍完整原行相等。正款和extra_originals沿同规则核，当前完整Cash仍存original_cash供全部后继不可变旧行Guard，原金额/退款/原账户/客户/状态/付款/request/BLOB/声明SHA不动。不取最新、不补业务、不改后端、旧失败和六项not_tested保留，静态短审后新fresh原UI复验。
+
+独立增量审指出validate_correction660–662还会对PDI额外第二款全行比较。因此在该款父投影严格匹配后保留parent_cash_projection，并保存当前完整Cash到其cash字段供后继全行不可变比较；不放宽后继Guard，其他域不改。原父checkpoint对象不改写。

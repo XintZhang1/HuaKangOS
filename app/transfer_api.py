@@ -1,7 +1,7 @@
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError,StrictBool
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import transfer_service as service
 
@@ -45,12 +45,12 @@ def destinations(db=Depends(get_db),user=Depends(get_user)):return service.desti
 @router.get('')
 def list_transfers(db=Depends(get_db),user=Depends(get_user)):return service.list_transfers(db,user)
 @router.post('',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     return service.create_transfer(db,user,**body.model_dump(mode='json'))
 @router.get('/{key}')
 def detail(key:int,db=Depends(get_db),user=Depends(get_user)):return service.transfer_detail(db,user,key)
 @router.post('/{key}/actions/{action}')
-def command(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if not schema:raise HTTPException(404,'调拨动作不存在')
     if action=='return_receive' and service.action_version(db,user,key)==3:schema=ReturnReceiveV3

@@ -4,7 +4,7 @@ from typing import Literal
 from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from .db import get_db
+from .db import get_db,get_write_db, get_audited_read_db
 from .security import get_user
 from . import dossier_grant_service as service
 from . import dossier_grant_rules as rules
@@ -96,7 +96,7 @@ def listing(box: Literal['received', 'sent', 'review'] = 'received', state: str 
 
 
 @router.post('', status_code=201)
-def propose(body: Save, db=Depends(get_db), user=Depends(get_user)):
+def propose(body: Save, db=Depends(get_write_db), user=Depends(get_user)):
     return service.propose(db, user, body.request_id, body.values.model_dump())
 
 
@@ -106,22 +106,22 @@ def detail(grant_id: int, db=Depends(get_db), user=Depends(get_user)):
 
 
 @router.post('/{grant_id}/actions/{action}')
-def action(grant_id: int, action: str, body: Decision, db=Depends(get_db), user=Depends(get_user)):
+def action(grant_id: int, action: str, body: Decision, db=Depends(get_write_db), user=Depends(get_user)):
     return service.decide(db, user, body.request_id, grant_id, body.version, action, body.values.model_dump())
 
 
 @router.get('/{grant_id}/record')
-def record(grant_id: int, db=Depends(get_db), user=Depends(get_user)):
+def record(grant_id: int, db=Depends(get_audited_read_db), user=Depends(get_user)):
     return service.read_record(db, user, grant_id)
 
 
 @router.get('/{grant_id}/files')
-def files(grant_id: int, db=Depends(get_db), user=Depends(get_user)):
+def files(grant_id: int, db=Depends(get_audited_read_db), user=Depends(get_user)):
     return service.received_files(db, user, grant_id)
 
 
 @router.get('/{grant_id}/files/{file_id}')
-def download(grant_id: int, file_id: int, db=Depends(get_db), user=Depends(get_user)):
+def download(grant_id: int, file_id: int, db=Depends(get_audited_read_db), user=Depends(get_user)):
     content, name, media_type = service.download(db, user, grant_id, file_id)
     return Response(content, media_type=media_type, headers={
         'Content-Disposition': "attachment; filename*=UTF-8''" + quote(name),

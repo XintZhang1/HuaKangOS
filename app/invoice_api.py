@@ -2,7 +2,7 @@ from datetime import date
 from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import invoice_service as svc
 
@@ -50,10 +50,10 @@ def orders(page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),db=Depends
 @router.get('/orders/{key}')
 def detail(key:int,db=Depends(get_db),user=Depends(get_user)):return svc.describe(db,user,svc._order(db,user,key))
 @router.post('/orders',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     return svc.create(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.post('/orders/{key}/actions/{action}')
-def action(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def action(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schemas={'approve':Proof,'reject':Reason,'cancel':Reason,'submit':Submit,'failure':Proof,'difference':Difference,'record':Actual,'review_result':Proof}
     if action not in schemas:raise HTTPException(404,'发票动作不存在')
     try:v=schemas[action].model_validate(body.values).model_dump()

@@ -3,7 +3,7 @@ from datetime import date
 from typing import Annotated
 from fastapi import APIRouter,Depends
 from pydantic import BaseModel,ConfigDict,Field
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import sales_quote_service as service
 
@@ -35,7 +35,7 @@ class Revise(Request):
     quote:Quote
 
 @router.post('/orders',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     # Keep the existing-customer envelope identical for old request receipts.
     values=body.model_dump(mode='json',exclude={'request_id','customer_name','customer_phone','confirm_new_customer'})
     if not body.customer_id or body.customer_name or body.customer_phone or body.confirm_new_customer:
@@ -47,5 +47,5 @@ def detail(key:int,db=Depends(get_db),user=Depends(get_user)):return service.det
 @router.get('/orders/{key}/vehicles')
 def vehicles(key:int,db=Depends(get_db),user=Depends(get_user)):return service.vehicles(db,user,key)
 @router.post('/orders/{key}/quotes',status_code=201)
-def revise(key:int,body:Revise,db=Depends(get_db),user=Depends(get_user)):
+def revise(key:int,body:Revise,db=Depends(get_write_db),user=Depends(get_user)):
     return service.propose(db,user,key,body.request_id,body.version,body.quote.model_dump(mode='json'))

@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import group_benefits_service as service
 
@@ -74,7 +74,7 @@ SCHEMAS={'grant':Grant,'purchase':Purchase,'reserve':Units,'adjust':Units,'excha
 @router.get('/rules')
 def rules(db=Depends(get_db),user=Depends(get_user)):return service.rules(db,user)
 @router.post('/rules',status_code=201)
-def create_rule(body:RuleRequest,db=Depends(get_db),user=Depends(get_user)):
+def create_rule(body:RuleRequest,db=Depends(get_write_db),user=Depends(get_user)):
     return service.create_rule(db,user,body.request_id,body.values.model_dump())
 @router.get('/members')
 def member(customer_id:int,db=Depends(get_db),user=Depends(get_user)):
@@ -87,7 +87,7 @@ def reconciliation(db=Depends(get_db),user=Depends(get_user)):
     with service.group.authority(db,user,service.eng.MANAGEMENT):
         return service.analytics_rows(db,user)
 @router.post('/members/{member_id}/actions/{action}')
-def command(member_id:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(member_id:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if not schema:raise HTTPException(404,'权益动作不存在')
     try:values=schema.model_validate(body.values).model_dump()

@@ -3,7 +3,7 @@ from datetime import date
 from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError,field_validator
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import claims_service as service
 
@@ -79,7 +79,7 @@ def listing(page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):re
 @router.get('/sources')
 def sources(page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):return service.sources(db,user,page)
 @router.post('',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     return service.create(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.get('/{case_id}')
 def detail(case_id:int,db=Depends(get_db),user=Depends(get_user)):
@@ -88,7 +88,7 @@ def detail(case_id:int,db=Depends(get_db),user=Depends(get_user)):
 def action_options(case_id:int,action:str,plan_id:int|None=Query(default=None,gt=0),db=Depends(get_db),user=Depends(get_user)):
     return service.action_options(db,user,service.get_order(db,user,case_id),action,plan_id)
 @router.post('/{case_id}/actions/{action}')
-def command(case_id:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(case_id:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if not schema:raise HTTPException(404,'理赔动作不存在')
     try:values=schema.model_validate(body.values).model_dump(mode='json')

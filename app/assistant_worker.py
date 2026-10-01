@@ -31,7 +31,7 @@ from sqlalchemy import func, inspect, select, text
 from sqlalchemy.engine import make_url
 
 from .config import ROOT, settings
-from .db import SessionLocal, engine, utcnow
+from .db import SessionLocal, engine, get_write_db, utcnow
 from .models import AppMetadata
 
 log = logging.getLogger(__name__)
@@ -210,6 +210,7 @@ def beat(*, worker_id, session_factory=None, clock=None, error=None, now=None):
     key = worker_key(worker_id)
     value = _heartbeat_value(now=moment, error=error)
     with factory() as db:
+        get_write_db(db)
         row = db.get(AppMetadata, key)
         if row is None:
             db.add(AppMetadata(key=key, value=value))
@@ -227,6 +228,7 @@ def beat_cleanup(*, session_factory=None, now=None, keep=None, stale_seconds=STA
     kept = worker_key(keep) if keep else None
     removed = []
     with factory() as db:
+        get_write_db(db)
         rows = list(db.scalars(select(AppMetadata).where(
             AppMetadata.key.startswith(WORKER_KEY_PREFIX, autoescape=True))))
         for row in rows:
@@ -323,9 +325,10 @@ def health_report(*, session_factory=None, now=None, bound_engine=None):
 class Worker:
     """One slot: recover expired leases, claim at most one Run, drive it.
 
-    ``start``/``stop`` own an asyncio task on the caller's loop (the preview
-    embeds it); ``run`` owns a loop for the standalone process. Every state
-    change is stopped -> running -> stopping -> stopped, and a stop only ends
+    ``start`` embeds ``run`` in a separate thread with its own asyncio loop;
+    the caller only waits for that thread. ``run`` also owns the standalone
+    process loop. Every state change is stopped -> running -> stopping -> stopped,
+    and a stop only ends
     claiming: an execution already claimed finishes at its own safe boundary.
     """
 
@@ -352,6 +355,12 @@ class Worker:
         self.state = 'stopped'
         self._stop = stop_event or threading.Event()
         self._task = None
+        self._thread = None
+        self._thread_error = None
+        self._lifecycle_lock = threading.Lock()
+        self._owner_loop = None
+        self._serve_task = None
+        self._cancel_requested = False
         self._beater = None
         self.last_beat = None
         self.last_error = None
@@ -538,13 +547,19 @@ class Worker:
 
     # -- lifecycle ------------------------------------------------------------
     async def _serve(self, *, once=False):
-        self.state = 'running'
+        loop, task = asyncio.get_running_loop(), asyncio.current_task()
+        with self._lifecycle_lock:
+            self._owner_loop, self._serve_task = loop, task
+            self.state = 'stopping' if self._stop.is_set() else 'running'
+            # stop() may time out before this thread has installed its loop.
+            if self._cancel_requested:
+                loop.call_soon(task.cancel)
         try:
-            self._maintain(now=_clock_now(self.clock))
-        except Exception as exc:
-            self.last_error = _error_code(exc)
-        self._beater = asyncio.ensure_future(self._beat_loop())
-        try:
+            try:
+                self._maintain(now=_clock_now(self.clock))
+            except Exception as exc:
+                self.last_error = _error_code(exc)
+            self._beater = asyncio.ensure_future(self._beat_loop())
             while not self._stop.is_set():
                 began = asyncio.get_running_loop().time()
                 result = None
@@ -569,8 +584,7 @@ class Worker:
                 if await self._pause(0.0 if progress else max(0.0, self.check_seconds - spent)):
                     break
         finally:
-            if self._stop.is_set():
-                self.state = 'stopping'
+            self.state = 'stopping'
             if self._beater is not None:
                 self._beater.cancel()
                 try:
@@ -578,11 +592,16 @@ class Worker:
                 except BaseException:
                     pass
                 self._beater = None
-            self.state = 'stopped'
             try:
                 self.beat_now(error=self.last_error)
             except Exception:
                 pass
+            with self._lifecycle_lock:
+                if self._serve_task is task:
+                    self._owner_loop, self._serve_task = None, None
+                # Embedded completion is published only after thread.join().
+                if self._thread is None:
+                    self.state = 'stopped'
 
     async def _pause(self, seconds):
         """Wait up to ``seconds``; True as soon as a stop was requested."""
@@ -594,37 +613,85 @@ class Worker:
         return True
 
     def start(self, *, once=False):
-        """Schedule the loop on the caller's running event loop (preview embed)."""
-        if self._task is not None and not self._task.done():
-            return self
-        if self.state != 'stopped':
-            return self
-        self._stop.clear()
-        # Claim the state before the coroutine first runs: two immediate starts
-        # must never create two serve loops for one worker identity.
-        self.state = 'running'
-        self._task = asyncio.ensure_future(self._serve(once=once))
+        """Run the embedded worker off the Web loop; never share a Session."""
+        loop = asyncio.get_running_loop()
+        with self._lifecycle_lock:
+            if (self._thread is not None and self._thread.is_alive()
+                    or self._task is not None and not self._task.done()
+                    or self.state != 'stopped'):
+                return self
+            self._stop.clear()
+            self._cancel_requested = False
+            self._thread_error = None
+            self.state = 'running'
+            thread = threading.Thread(target=self._run_embedded, kwargs={'once': once},
+                                      name='assistant-runtime-' + self.worker_id)
+            self._thread = thread
+            try:
+                thread.start()
+            except BaseException:
+                self._thread = None
+                self.state = 'stopped'
+                raise
+            self._task = loop.create_task(self._join_embedded(thread))
         return self
 
-    async def stop(self, *, timeout=60.0):
-        """Stop claiming, let the claimed Run reach its boundary, then stop."""
-        self._stop.set()
-        if self.state == 'running':
-            self.state = 'stopping'
-        task = self._task
-        if task is None:
-            self.state = 'stopped'
-            return self.state
+    def _run_embedded(self, *, once=False):
+        """Create and close the entire worker loop inside its owning thread."""
         try:
-            await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
-        except (asyncio.TimeoutError, TimeoutError):
-            task.cancel()
-            try:
-                await task
-            except BaseException:
-                pass
-        self._task = None
-        self.state = 'stopped'
+            self.run(once=once)
+        except BaseException as exc:
+            # Do not let a thread traceback expose database arguments. stop()
+            # observes the original failure after the real thread has ended.
+            with self._lifecycle_lock:
+                self._thread_error = exc
+
+    async def _join_embedded(self, thread):
+        await asyncio.to_thread(thread.join)
+        with self._lifecycle_lock:
+            if self._thread is thread:
+                self.state = 'stopped'
+
+    async def stop(self, *, timeout=60.0):
+        """Stop claiming, then cancel on the owner loop only after the timeout.
+
+        The join proxy is never cancelled instead of the actual worker. Even
+        after forced cancellation, wait for its loop and Sessions to close.
+        """
+        self._stop.set()
+        with self._lifecycle_lock:
+            if self.state == 'running':
+                self.state = 'stopping'
+            thread = self._thread
+            if thread is None:
+                if self._serve_task is None:
+                    self.state = 'stopped'
+                return self.state
+        await asyncio.to_thread(thread.join, max(0.0, timeout))
+        if thread.is_alive():
+            with self._lifecycle_lock:
+                cancel = not self._cancel_requested
+                self._cancel_requested = True
+                loop, task = self._owner_loop, self._serve_task
+            if cancel and loop is not None and task is not None:
+                try:
+                    loop.call_soon_threadsafe(task.cancel)
+                except RuntimeError:
+                    # The owner loop may already be closing; join still proves
+                    # actual completion, never the cancellation of a proxy.
+                    pass
+            await asyncio.to_thread(thread.join)
+        with self._lifecycle_lock:
+            if self._thread is thread:
+                error = self._thread_error
+                self._thread_error = None
+                self._thread = None
+                self._task = None
+                self.state = 'stopped'
+            else:
+                error = None
+        if error is not None and not isinstance(error, asyncio.CancelledError):
+            raise error
         return self.state
 
     def run(self, *, once=False):

@@ -99,7 +99,7 @@ class Checkpoint:
     async def passed(self, evidence):
         json.dumps(evidence, ensure_ascii=False)
         self.active["acceptance_checks"][0].update(status="passed", evidence=evidence)
-        await self.e.snapshot(self.active["id"].lower() + "-business")
+        await self.e.snapshot(self.active["id"].lower() + "-business", business_ready=True)
         self.active.update(status="passed", evidence_action_end=len(self.e.actions))
         self.active = None
         self.save()

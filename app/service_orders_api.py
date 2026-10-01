@@ -3,7 +3,7 @@ from datetime import date
 from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import service_orders_service as service
 
@@ -93,15 +93,15 @@ def listing(page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):re
 @router.get('/catalog')
 def catalog(db=Depends(get_db),user=Depends(get_user)):return service.catalog(db,user)
 @router.post('/payees',status_code=201)
-def payee(body:Payee,db=Depends(get_db),user=Depends(get_user)):return service.master(db,user,body.request_id,'payees',body.model_dump(exclude={'request_id'}))
+def payee(body:Payee,db=Depends(get_write_db),user=Depends(get_user)):return service.master(db,user,body.request_id,'payees',body.model_dump(exclude={'request_id'}))
 @router.post('/income-items',status_code=201)
-def income(body:Income,db=Depends(get_db),user=Depends(get_user)):return service.master(db,user,body.request_id,'income-items',body.model_dump(exclude={'request_id'}))
+def income(body:Income,db=Depends(get_write_db),user=Depends(get_user)):return service.master(db,user,body.request_id,'income-items',body.model_dump(exclude={'request_id'}))
 @router.post('',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):return service.create(db,user,body.request_id,body.model_dump(mode='json',exclude={'request_id'}))
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):return service.create(db,user,body.request_id,body.model_dump(mode='json',exclude={'request_id'}))
 @router.get('/{case_id}')
 def detail(case_id:int,db=Depends(get_db),user=Depends(get_user)):return service.describe(db,user,service.get_order(db,user,case_id))
 @router.post('/{case_id}/actions/{action}')
-def command(case_id:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(case_id:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if not schema:raise HTTPException(404,'服务动作不存在')
     try:v=schema.model_validate(body.values).model_dump(mode='json')

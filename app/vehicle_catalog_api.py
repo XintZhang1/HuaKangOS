@@ -2,7 +2,7 @@
 from fastapi import APIRouter,Depends,Query
 from pydantic import Field
 from typing import Literal
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from .master_data import Strict
 from . import vehicle_catalog_service as service
@@ -52,7 +52,7 @@ def entry_options(db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.post('/entry')
-def entry(body:CatalogueEntry,db=Depends(get_db),user=Depends(get_user)):
+def entry(body:CatalogueEntry,db=Depends(get_write_db),user=Depends(get_user)):
     values=body.model_dump();key=values.pop('request_id')
     return service.create_entry(db,user,key,values)
 
@@ -65,10 +65,10 @@ def listing(q:str=Query('',max_length=100),brand_id:int|None=Query(None,gt=0),se
 
 
 @router.post('/model-assignment')
-def model_assignment(body:ModelAssignment,db=Depends(get_db),user=Depends(get_user)):
+def model_assignment(body:ModelAssignment,db=Depends(get_write_db),user=Depends(get_user)):
     values=body.model_dump();key=values.pop('request_id');return service.assign(db,user,key,'model',values)
 
 
 @router.post('/vehicle-assignment')
-def vehicle_assignment(body:VehicleAssignment,db=Depends(get_db),user=Depends(get_user)):
+def vehicle_assignment(body:VehicleAssignment,db=Depends(get_write_db),user=Depends(get_user)):
     values=body.model_dump();key=values.pop('request_id');return service.assign(db,user,key,'vehicle',values)

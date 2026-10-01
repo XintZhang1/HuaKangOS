@@ -1,0 +1,7 @@
+# PATCH-M8-4-BOUTIQUE-GROUP-RECEIPT-CONTRACT-01：原集团命令的单类回执
+
+2026-10-01，仅尚未注册boutique_business.py原新券会员创建与retail_group原authorize/reserve/capture命令的Guard回执数量及owned交接页。冻结455b55d9的独立静态短审发现，尚未实际运行，不登记实测失败。
+
+候选FLOW含flow_request_receipts:1；新券membership_create及精品混合权益命令实际走group_service._execute，仅新增本命令GroupReceipt。旧实测member_followon FLOW只含flow_events/audit_logs，按每原命令显式指定回执家族。最小修正只在上述明确group命令去掉额外FlowRequestReceipt新增要求，仍严格一条本人/本店/请求/摘要对应GroupReceipt；其他原采购、库位和普通Retail命令继续要求各自FlowRequestReceipt，所有旧回执/业务表及旧行仍不得改变。不全局放宽Guard，不改生产/共享helper/价格/CPS/现金/资格/任务或原提交方式。
+
+作者在原PATCH22的owned两文件中窄修并重冻结SHA、根及独立短审后才注册。当前正在运行的镜像不包含本候选，193人工及原门槛不变。

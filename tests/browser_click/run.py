@@ -25,7 +25,15 @@ SCRIPT_FILES = ("run.py", "fixture_server.py", "provider.py", "scenarios.py", "r
                 "business_acceptance_catalog.json", "vehicle_purchase_business.py", "master_data_business.py",
                 "customer_service_business.py", "sales_order_business.py", "report_business.py", "material_business.py",
                 "system_management_business.py", "repair_business.py", "membership_business.py",
-                "repair_followon_business.py", "sales_followon_business.py", "finance_business.py")
+                "repair_followon_business.py", "sales_followon_business.py", "finance_business.py", "insurance_business.py",
+                "finance_followon_business.py", "system_followon_business.py", "report_followon_business.py",
+                "member_followon_business.py", "finance_report_business.py",
+                "vehicle_operations_business.py", "warehouse_operations_business.py",
+                "boutique_business.py", "member_points_tier_business.py", "customer_followon_business.py",
+                "repair_packages_business.py", "interstore_business.py", "repair_claims_business.py", "repair_rework_business.py",
+                "report_remaining_business.py", "customer_reminders_business.py", "sales_pdi_business.py", "retail_remaining_business.py",
+                "roles_dossier_business.py", "finance_remaining_business.py", "inventory_scope_business.py", "receivables_business.py",
+                "report_complete_source_business.py")
 EXCLUDED_DIRECTORIES = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "node_modules"}
 
 
@@ -185,6 +193,7 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--browser", help="explicit browser executable; no automatic replacement")
     parser.add_argument("--serve", action="store_true", help="keep the synthetic app available for interactive browser review")
+    parser.add_argument("--review-after-tests", action="store_true", help="after successful automatic clicks, keep the same synthetic app available until its external stop request")
     parser.add_argument("--scenario", action="append", default=[], help="run a named increment only; repeated names are rejected and no full-suite acceptance is claimed")
     args = parser.parse_args()
     source = args.source.resolve()
@@ -192,6 +201,8 @@ def main():
     try:
         if args.serve and args.scenario:
             raise ValueError("Interactive review cannot be combined with a scenario selection")
+        if args.serve and args.review_after_tests:
+            raise ValueError("Post-test review cannot be combined with interactive-only mode")
         if len(args.scenario) != len(set(args.scenario)):
             raise ValueError("Scenario selection contains duplicate names")
         if not (source / "app/main.py").is_file():
@@ -289,9 +300,24 @@ def main():
             with (evidence / "scenarios.log").open("w", encoding="utf-8") as scenario_log:
                 selected_arguments = [value for name in args.scenario for value in ("--scenario", name)]
                 result = subprocess.run([sys.executable, str(scripts / "scenarios.py"), "--manifest", str(manifest_path),
-                                         "--browser", browser["executable"], *selected_arguments], cwd=scripts, env=environment, timeout=1800,
+                                         "--browser", browser["executable"], *selected_arguments], cwd=scripts, env=environment, timeout=3600,
                                         stdout=scenario_log, stderr=subprocess.STDOUT)
             state["scenario_exit_code"] = result.returncode
+            if args.review_after_tests and result.returncode == 0:
+                if server.poll() is not None:
+                    raise RuntimeError("The synthetic application stopped before post-test review")
+                state["post_test_review"] = {"requested": True, "phase": "awaiting_external_stop",
+                    "started_at": datetime.now(timezone.utc).isoformat(),
+                    "automatic_evidence_preserved": True, "manual_acceptance": "pending"}
+                write_json(evidence / "run-summary.json", state)
+                print("Post-test browser review URL: " + origin, flush=True)
+                print("Stop request: " + str(runtime / "stop-requested"), flush=True)
+                while server.poll() is None:
+                    time.sleep(0.25)
+                if not (runtime / "stop-requested").is_file() or server.returncode != 0:
+                    raise RuntimeError("The post-test synthetic application stopped without a successful stop request")
+                state["post_test_review"].update({"phase": "stopped",
+                    "stopped_at": datetime.now(timezone.utc).isoformat()})
             stop_server(server, runtime)
         report_path = evidence / "browser-click-report.json"
         if result.returncode:

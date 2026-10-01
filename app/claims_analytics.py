@@ -93,7 +93,7 @@ def build_claims_analytics(db,user,cases,stores,bounded,yuan,in_period):
     chart('claims_business_adjustments','期间已履约维修核赔减免',business,1,
         '实际责任调整按生效日期确认；先调整后交车时随交车确认。原报价及原结算日期保留，实际退款不再扣一次业务金额。')
     chart('claims_cash','期间理赔实际现金专项',cashrows,4,
-        '来自已有CashEntry/PaymentLink，只作专项明细；第三方直接付客户不在此表，不能再次加入总现金或维修收入。')
+        '来自已有现金流水及关联收付款记录，只作专项明细；第三方直接付客户不在此表，不能再次加入总现金或维修收入。')
     chart('claims_payable','当前理赔代收待转付或原退',pending,2,
         '实际收到的代收款减已实际转付，加客户实退减原第三方实退；未到账批准额度不作为现金或应付。')
     chart('claims_external_customer','期间客户直接报销事实',external,4,

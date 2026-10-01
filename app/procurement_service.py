@@ -84,8 +84,13 @@ def describe(db,user,row):
     result['returns']=[fields(r,['id','version','status','reason','requested_by','approved_by'])|
         {'lines':[fields(l,['id','receipt_id','quantity_milli']) for l in _rows(db,PurchaseReturnLine,return_id=r.id)]}
         for r in _rows(db,PurchaseReturn,case_id=row.id)]
-    result['payments']=[fields(p,['id','direction','amount_cents','account_id','original_id','reference','cash_id','evidence_id'])
-        for p in _rows(db,PurchasePayment,case_id=row.id)] if money else []
+    result['payments']=[]
+    if money:
+        for p in _rows(db,PurchasePayment,case_id=row.id):
+            cash=db.scalar(select(CashEntry).where(CashEntry.id==p.cash_id,CashEntry.store_id==row.store_id))
+            if cash is None:raise HTTPException(409,'采购付款缺少本店原现金记录，请核对原流水')
+            result['payments'].append(fields(p,['id','direction','amount_cents','account_id','original_id','reference','cash_id','evidence_id'])|
+                {'business_date':cash.business_date.isoformat(),'account_name':cash.account})
     if money:
         from .procurement_cost_models import PurchaseReturnValuation
         valuations={v.id:v for v in db.scalars(select(PurchaseReturnValuation).where(PurchaseReturnValuation.id.in_([p.id for p in returns])))}

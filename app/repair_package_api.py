@@ -2,7 +2,7 @@
 from typing import Literal,Annotated
 from fastapi import APIRouter,Depends,HTTPException,Path
 from pydantic import Field,ValidationError
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from .repair_api import Strict,Request,Command,Reason,Evidence,Line,Quote
 from . import repair_package_service as service
@@ -79,27 +79,27 @@ def values(schema,raw):
 @router.get('/rules')
 def rules(db=Depends(get_db),user=Depends(get_user)):return service.rules(db,user)
 @router.post('/rules',status_code=201)
-def rule(body:Rule,db=Depends(get_db),user=Depends(get_user)):return service.create_rule(db,user,body.request_id,body.model_dump(mode='json',exclude={'request_id'}))
+def rule(body:Rule,db=Depends(get_write_db),user=Depends(get_user)):return service.create_rule(db,user,body.request_id,body.model_dump(mode='json',exclude={'request_id'}))
 @router.post('/rules/{key}/actions/{action}')
-def decision(key:int,action:Literal['approve','reject','cancel','revoke'],body:Decision,db=Depends(get_db),user=Depends(get_user)):return service.decide_rule(db,user,body.request_id,key,action,{'reason':body.reason})
+def decision(key:int,action:Literal['approve','reject','cancel','revoke'],body:Decision,db=Depends(get_write_db),user=Depends(get_user)):return service.decide_rule(db,user,body.request_id,key,action,{'reason':body.reason})
 @router.post('/rules/{key}/mappings',status_code=201)
-def mapping(key:int,body:Map,db=Depends(get_db),user=Depends(get_user)):return service.map_component(db,user,body.request_id,key,body.model_dump(exclude={'request_id'}))
+def mapping(key:int,body:Map,db=Depends(get_write_db),user=Depends(get_user)):return service.map_component(db,user,body.request_id,key,body.model_dump(exclude={'request_id'}))
 @router.get('/members/{key}/purchases')
 def purchases(key:int,db=Depends(get_db),user=Depends(get_user)):return service.purchases(db,user,key)
 @router.get('/purchases/{key}')
 def purchase_detail(key:int=Path(gt=0),db=Depends(get_db),user=Depends(get_user)):
     return service.purchase_detail(db,user,key)
 @router.post('/purchases',status_code=201)
-def purchase(body:Purchase,db=Depends(get_db),user=Depends(get_user)):return service.create_purchase(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
+def purchase(body:Purchase,db=Depends(get_write_db),user=Depends(get_user)):return service.create_purchase(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.post('/purchases/{key}/actions/{action}')
-def purchase_action(key:int,action:Literal['authorize','issue','cancel','refund_request'],body:Command,db=Depends(get_db),user=Depends(get_user)):
+def purchase_action(key:int,action:Literal['authorize','issue','cancel','refund_request'],body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     v=values({'authorize':Authorize,'issue':Cash,'cancel':Cancel,'refund_request':Refund}[action],body.values)
     if action=='refund_request':return service.refund_request(db,user,body.request_id,key,body.version,v)
     return service.purchase_action(db,user,body.request_id,key,body.version,action,v)
 @router.post('/refunds/{key}/actions/{action}')
-def refund_action(key:int,action:Literal['approve','reject','cancel','pay'],body:Command,db=Depends(get_db),user=Depends(get_user)):return service.refund_action(db,user,body.request_id,key,body.version,action,values(RefundCash if action=='pay' else Cancel,body.values))
+def refund_action(key:int,action:Literal['approve','reject','cancel','pay'],body:Command,db=Depends(get_write_db),user=Depends(get_user)):return service.refund_action(db,user,body.request_id,key,body.version,action,values(RefundCash if action=='pay' else Cancel,body.values))
 @router.post('/orders/{key}/quote')
-def quote(key:int,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def quote(key:int,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     from .repair_service import command
     v=values(PackageQuote,body.values)
     for line in v['lines']:
@@ -108,9 +108,9 @@ def quote(key:int,body:Command,db=Depends(get_db),user=Depends(get_user)):
             if line.get(field) is None:line.pop(field,None)
     return command(db,user,key,body.request_id,body.version,'quote',v)
 @router.post('/orders/{key}/capture')
-def capture(key:int,body:Command,db=Depends(get_db),user=Depends(get_user)):return service.capture(db,user,body.request_id,key,body.version,values(Evidence,body.values))
+def capture(key:int,body:Command,db=Depends(get_write_db),user=Depends(get_user)):return service.capture(db,user,body.request_id,key,body.version,values(Evidence,body.values))
 @router.post('/aftercare/{key}/return-material')
-def material_return(key:int,body:MaterialReturn,db=Depends(get_db),user=Depends(get_user)):
+def material_return(key:int,body:MaterialReturn,db=Depends(get_write_db),user=Depends(get_user)):
     from .repair_package_aftercare import return_material
     return return_material(db,user,body.request_id,key,body.model_dump(exclude={'request_id'}))
 @router.get('/aftercare/{key}/return-targets')

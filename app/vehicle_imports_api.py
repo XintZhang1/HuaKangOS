@@ -4,7 +4,7 @@ from typing import Literal,Annotated
 from fastapi import APIRouter,Depends,HTTPException,UploadFile,File,Form,Response
 from pydantic import Field,ValidationError
 from sqlalchemy import select
-from .db import get_db,today
+from .db import get_db,get_write_db,today
 from .security import get_user
 from .master_data import Strict
 from . import vehicle_imports_service as service
@@ -81,7 +81,7 @@ def detail(batch_id:int,user=Depends(get_user),db=Depends(get_db)):
 
 
 @router.post('/batches/{batch_id}/actions/{action}')
-def command(batch_id:int,action:Literal['trial','review','confirm','cancel','reassign'],body:Action,user=Depends(get_user),db=Depends(get_db)):
+def command(batch_id:int,action:Literal['trial','review','confirm','cancel','reassign'],body:Action,db=Depends(get_write_db),user=Depends(get_user)):
     try:values=({'confirm':Confirm,'reassign':Reassign}.get(action,Reason)).model_validate(body.values).model_dump()
     except ValidationError as exc:raise HTTPException(422,'请按本动作填写本人核对说明和必要确认，不能附带其它状态或金额') from exc
     return service.command(db,user,body.request_id,batch_id,body.version,body.source_case_version,action,values)

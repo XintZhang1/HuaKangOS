@@ -1,7 +1,7 @@
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import Field, ValidationError
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from .transfer_api import Request, Command, Reason, Strict
 from . import vehicle_transfer_service as service
@@ -24,11 +24,11 @@ def destinations(db=Depends(get_db),user=Depends(get_user)):return service.desti
 @router.get('')
 def listing(db=Depends(get_db),user=Depends(get_user)):return service.list_transfers(db,user)
 @router.post('',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):return service.create(db,user,**body.model_dump(mode='json'))
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):return service.create(db,user,**body.model_dump(mode='json'))
 @router.get('/{key}')
 def detail(key:int,db=Depends(get_db),user=Depends(get_user)):return service.detail(db,user,key)
 @router.post('/{key}/actions/{action}')
-def command(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if not schema:raise HTTPException(404,'整车调拨动作不存在')
     try:values=schema.model_validate(body.values).model_dump()

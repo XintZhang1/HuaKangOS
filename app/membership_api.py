@@ -1,7 +1,7 @@
 from typing import Annotated,Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import membership_service as service
 
@@ -59,7 +59,7 @@ def validate(schema,values):
 @router.get('/rules')
 def rules(db=Depends(get_db),user=Depends(get_user)):return service.rules(db,user)
 @router.post('/rules',status_code=201)
-def rule(body:RuleRequest,db=Depends(get_db),user=Depends(get_user)):return service.create_rule(db,user,body.request_id,body.values.model_dump())
+def rule(body:RuleRequest,db=Depends(get_write_db),user=Depends(get_user)):return service.create_rule(db,user,body.request_id,body.values.model_dump())
 @router.get('/members')
 def member(customer_id:int=Query(gt=0),db=Depends(get_db),user=Depends(get_user)):return service.member_detail(db,user,customer_id)
 @router.get('/cards/lookup')
@@ -69,13 +69,13 @@ def orders(db=Depends(get_db),user=Depends(get_user)):return service.orders(db,u
 @router.get('/orders/{key}')
 def order(key:int,db=Depends(get_db),user=Depends(get_user)):return service.describe(db,user,key)
 @router.post('/orders',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     schemas={'topup':Topup,'benefit_issue':Benefit,'card_issue':Empty,'card_loss':Card,'card_replace':Card,'renew':Tier,'tier_change':Tier,'renew_refund':Refund,'points_adjust':Points}
     values=validate(schemas[body.purpose],body.values)
     if body.purpose=='points_adjust' and (values['action']=='exchange')!=bool(values.get('target_rule_id')):raise HTTPException(422,'积分兑换须选目标券包；普通扣减不得附带兑换目标')
     return service.create_order(db,user,body.request_id,body.customer_id,body.purpose,values,body.reason)
 @router.post('/orders/{key}/actions/{action}')
-def command(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema={'execute':Execute,'approve':Evidence,'cancel':Reason,'reject':Reason}.get(action)
     if not schema:raise HTTPException(404,'会员办理动作不存在')
     return service.command(db,user,key,body.request_id,body.version,body.case_version,body.member_version,action,validate(schema,body.values))

@@ -34,11 +34,43 @@ from membership_business import MEMBERSHIP_SCENARIOS
 from repair_followon_business import REPAIR_FOLLOWON_SCENARIOS
 from sales_followon_business import SALES_FOLLOWON_SCENARIOS
 from finance_business import FINANCE_SCENARIOS
+from insurance_business import INSURANCE_SCENARIOS
+from finance_followon_business import FINANCE_FOLLOWON_SCENARIOS
+from system_followon_business import SYSTEM_FOLLOWON_SCENARIOS
+from report_followon_business import REPORT_FOLLOWON_SCENARIOS
+from member_followon_business import MEMBER_FOLLOWON_SCENARIOS
+from finance_report_business import FINANCE_REPORT_SCENARIOS
+from vehicle_operations_business import VEHICLE_OPERATIONS_SCENARIOS
+from warehouse_operations_business import WAREHOUSE_OPERATIONS_SCENARIOS
+from boutique_business import BOUTIQUE_SCENARIOS
+from member_points_tier_business import MEMBER_POINTS_TIER_SCENARIOS
+from customer_followon_business import CUSTOMER_FOLLOWON_SCENARIOS
+from repair_packages_business import REPAIR_PACKAGES_SCENARIOS
+from interstore_business import INTERSTORE_SCENARIOS
+from repair_claims_business import REPAIR_CLAIMS_SCENARIOS
+from repair_rework_business import REPAIR_REWORK_SCENARIOS
+from report_remaining_business import REPORT_REMAINING_SCENARIOS
+from customer_reminders_business import CUSTOMER_REMINDERS_SCENARIOS
+from sales_pdi_business import SALES_PDI_SCENARIOS
+from retail_remaining_business import RETAIL_REMAINING_SCENARIOS
+from roles_dossier_business import ROLES_DOSSIER_SCENARIOS
+from finance_remaining_business import FINANCE_REMAINING_SCENARIOS
+from inventory_scope_business import INVENTORY_SCOPE_SCENARIOS
+from receivables_business import RECEIVABLES_SCENARIOS
+from report_complete_source_business import REPORT_COMPLETE_SOURCE_SCENARIOS
 
 BUSINESS_SCENARIOS = (PRESALES_SCENARIOS + VEHICLE_PURCHASE_SCENARIOS + MASTER_DATA_SCENARIOS
                       + CUSTOMER_SERVICE_SCENARIOS + SALES_ORDER_SCENARIOS + REPORT_SCENARIOS + MATERIAL_SCENARIOS
                       + REPAIR_SCENARIOS + SYSTEM_MANAGEMENT_SCENARIOS + MEMBERSHIP_SCENARIOS
-                      + REPAIR_FOLLOWON_SCENARIOS + SALES_FOLLOWON_SCENARIOS + FINANCE_SCENARIOS)
+                      + REPAIR_FOLLOWON_SCENARIOS + SALES_FOLLOWON_SCENARIOS + FINANCE_SCENARIOS + INSURANCE_SCENARIOS
+                      + FINANCE_FOLLOWON_SCENARIOS + SYSTEM_FOLLOWON_SCENARIOS + REPORT_FOLLOWON_SCENARIOS
+                      + MEMBER_FOLLOWON_SCENARIOS + FINANCE_REPORT_SCENARIOS
+                      + VEHICLE_OPERATIONS_SCENARIOS + WAREHOUSE_OPERATIONS_SCENARIOS
+                      + BOUTIQUE_SCENARIOS + MEMBER_POINTS_TIER_SCENARIOS + CUSTOMER_FOLLOWON_SCENARIOS
+                      + REPAIR_PACKAGES_SCENARIOS + INTERSTORE_SCENARIOS + REPAIR_CLAIMS_SCENARIOS + REPAIR_REWORK_SCENARIOS
+                      + REPORT_REMAINING_SCENARIOS + CUSTOMER_REMINDERS_SCENARIOS + SALES_PDI_SCENARIOS + RETAIL_REMAINING_SCENARIOS
+                      + ROLES_DOSSIER_SCENARIOS + FINANCE_REMAINING_SCENARIOS + INVENTORY_SCOPE_SCENARIOS + RECEIVABLES_SCENARIOS
+                      + REPORT_COMPLETE_SOURCE_SCENARIOS)
 
 
 INPUT = "#business-assistant-input"
@@ -298,7 +330,11 @@ class Evidence:
         self.action("keyboard", selector, key=key)
         await self.page.locator(selector).press(key)
 
-    async def snapshot(self, label):
+    async def snapshot(self, label, *, business_ready=False):
+        if business_ready:
+            await expect(self.page.locator("#main > .loading")).to_have_count(0)
+            await expect(self.page.locator("#main h1")).to_be_visible()
+            await expect(self.page.locator("#main > .errorpage")).to_have_count(0)
         path = self.directory / f"{len(self.observations):02d}-{label}.png"
         await self.page.screenshot(path=str(path), full_page=True)
         visible = await self.page.locator("body").inner_text()
@@ -678,6 +714,17 @@ async def slow_logout(e, context, credentials):
     require(not any(cookie["name"] in {"dealer_session", "dealer_csrf"} for cookie in await context.cookies()), "退出未清 Cookie")
     require(e.db.counts() == before, "慢查询退出产生业务写入")
     e.business_unchanged(business_before, "original_business_after_slow_logout")
+    def cancelled():
+        rows = e.db.rows("SELECT id,owner_id,session_id,status,lease_owner,lease_until,finished_at,event_seq FROM business_assistant_runs WHERE id=?", (e.latest_run,))
+        require(len(rows) == 1, "退出后的原Run不存在")
+        return rows[0] if rows[0]["status"] == "cancelled" else None
+    terminal = await e.wait(cancelled, "退出后原Run及时取消")
+    require(terminal["lease_owner"] is None and terminal["lease_until"] is None and terminal["finished_at"], "退出后的原Run未释放租约")
+    events = e.db.rows("SELECT seq,type FROM business_assistant_run_events WHERE run_id=? ORDER BY seq", (terminal["id"],))
+    require(events and events[-1]["type"] == "run.cancelled" and events[-1]["seq"] == terminal["event_seq"], "退出后的原取消事件不完整")
+    require(not e.db.proposals(terminal["owner_id"], session_id=terminal["session_id"]), "退出慢查询生成了写入卡片")
+    e.business_unchanged(business_before, "original_business_after_logout_terminal")
+    e.observe("logout_cancelled_terminal", {"run": terminal, "events": events, "card_count": 0})
     await e.snapshot("slow-logout")
 
 

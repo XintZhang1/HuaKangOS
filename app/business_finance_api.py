@@ -2,7 +2,7 @@
 from typing import Annotated,Literal
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
 from fastapi import APIRouter,Depends,HTTPException,Query
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import business_finance_service as service
 
@@ -96,13 +96,13 @@ def orders(db=Depends(get_db),user=Depends(get_user)):return service.orders(db,u
 @router.get('/orders/{key}')
 def order(key:int,db=Depends(get_db),user=Depends(get_user)):return service.describe(db,user,key)
 @router.post('/orders',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     values=validate({'advance':Advance,'advance_apply':Apply,'advance_refund':Refund,'statement':Statement,'correction':Correction,'stored_correction':StoredCorrection,'fee_correction':FeeCorrection,'other_return':OtherReturn,'other_return_adjust':ReturnAdjustment,'other_return_refund':SupplierRefund}[body.purpose],body.values)
     if body.purpose in {'correction','stored_correction'} and values['amount_cents'] and any(k not in values for k in ('account_id','reference')):
         raise HTTPException(422,'正确重记为正金额时须填写实际账户和原收款凭证；完全未到账可明确填零撤错')
     return service.create_order(db,user,body.request_id,body.customer_id,body.purpose,values,body.reason)
 @router.post('/orders/{key}/actions/{action}')
-def command(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema={'approve':Evidence,'execute':Posting,'collect':Posting,'cancel':Reason,'reject':Reason,'recalculate':Reason}.get(action)
     if not schema:raise HTTPException(404,'业务财务动作不存在')
     values=validate(schema,body.values)

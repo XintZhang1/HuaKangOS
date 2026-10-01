@@ -133,7 +133,7 @@ function uxReceiptHTML(row=null){
 function uxGroupActions(panelElement){
  const cards=[...panelElement.querySelectorAll('.actioncard')];if(!cards.length)return;
  const host=panelElement.querySelector('.panelbody');if(!host)return;
- const secondaryKeys=new Set(['cancel','cancel_request','reject','cancel_reject','revise','quote_cancel','return_cancel','termination_cancel','quote_reject','quote_withdraw']);
+ const secondaryKeys=new Set(['close','cancel','cancel_request','reject','cancel_reject','revise','quote_cancel','return_cancel','termination_cancel','quote_reject','quote_withdraw']);
  const primary=[],other=[],blocked=[];
  for(const card of cards){
   const button=card.querySelector('button');if(!button)continue;

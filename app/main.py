@@ -18,7 +18,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from pydantic import ValidationError
 from .config import settings, ROOT
 from .branding import PRODUCT_TITLE
-from .db import engine, get_db, today, utcnow
+from .db import engine, get_db, get_write_db, today, utcnow, get_audited_read_db
 from .models import Store, UserStore, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
 from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, BatchUserInput, StoreRoleInput, StoreRole
 from .security import get_user, authenticate, set_session, clear_cookies, revoke_login_session, user_info, require_full, require_module, verify_password, hash_password, ROLES
@@ -157,10 +157,11 @@ def note_refusal(request,status_code,detail):
         user_id = getattr(request.state,'user_id',None)
         store_id = getattr(request.state,'store_id',None)
         if not user_id or not store_id: return None
-        from .db import SessionLocal
+        from .db import SessionLocal, get_write_db
         from .escalation_service import record_refusal
         from .security import User
         with SessionLocal() as db:
+            get_write_db(db)
             user = db.get(User,user_id)
             if not user or not user.active: return None
             class _Principal:
@@ -237,7 +238,7 @@ def logout(request: Request,response: Response,db=Depends(get_db),user=Depends(g
 
 
 @app.post('/api/auth/password')
-def change_password(body: PasswordInput,response: Response,db=Depends(get_db),user=Depends(get_user)):
+def change_password(body: PasswordInput,response: Response,db=Depends(get_write_db),user=Depends(get_user)):
     if not verify_password(body.current_password,user.password_hash): raise HTTPException(400,'当前密码不正确')
     if body.current_password == body.new_password: raise HTTPException(422,'新密码不能与旧密码相同')
     account = db.scalar(select(User).where(User.id == user.id))
@@ -261,7 +262,7 @@ def users(db=Depends(get_db),user=Depends(get_user)):
 
 
 @app.post('/api/users',status_code=201)
-def add_user(body: UserInput,db=Depends(get_db),user=Depends(get_user)):
+def add_user(body: UserInput,db=Depends(get_write_db),user=Depends(get_user)):
     admin(user)
     new = User(username=body.username.lower(),display_name=body.display_name,role=body.role,
                password_hash=hash_password(body.password),must_change_password=True,can_group_summary=body.can_group_summary)
@@ -277,7 +278,7 @@ def batch_row_error(number,message):
 
 
 @app.post('/api/users/batch',status_code=201)
-def add_users_batch(body: BatchUserInput,db=Depends(get_db),user=Depends(get_user)):
+def add_users_batch(body: BatchUserInput,db=Depends(get_write_db),user=Depends(get_user)):
     """Several staff accounts in one transaction; only a system administrator may call this.
 
     Every row is checked before the first write, so a wrong line never leaves half the paste
@@ -323,13 +324,13 @@ def add_users_batch(body: BatchUserInput,db=Depends(get_db),user=Depends(get_use
 
 
 @app.put('/api/users/{user_id}')
-def edit_user(user_id: int,body: UserUpdate,db=Depends(get_db),user=Depends(get_user)):
+def edit_user(user_id: int,body: UserUpdate,db=Depends(get_write_db),user=Depends(get_user)):
     admin(user)
     return change_access(db,user,user_id,body,account_info,assign_stores)
 
 
 @app.post('/api/users/{user_id}/password')
-def reset_password(user_id: int,body: ResetPasswordInput,db=Depends(get_db),user=Depends(get_user)):
+def reset_password(user_id: int,body: ResetPasswordInput,db=Depends(get_write_db),user=Depends(get_user)):
     admin(user)
     target = db.get(User,user_id)
     if not target: raise HTTPException(404,'用户不存在')
@@ -423,7 +424,7 @@ def safe_csv(value):
 
 @app.get('/api/export/{module}')
 def export_csv(module:str,q:str=Query('',max_length=100),state:str='',date_from:date|None=None,date_to:date|None=None,
-               db=Depends(get_db),user=Depends(get_user)):
+               db=Depends(get_audited_read_db),user=Depends(get_user)):
     require_full(user)
     rows = list(db.scalars(filtered_query(user,module,q,state,date_from,date_to).order_by(MODULES[module].id).limit(10001)))
     if len(rows)>10000: raise HTTPException(422,'导出超过 10,000 行，请缩小日期范围；未提供截断文件')
@@ -596,7 +597,7 @@ def stores(db=Depends(get_db),user=Depends(get_user)):
 
 
 @app.post('/api/stores',status_code=201)
-def add_store(body:StoreInput,db=Depends(get_db),user=Depends(get_user)):
+def add_store(body:StoreInput,db=Depends(get_write_db),user=Depends(get_user)):
     admin(user)
     row = Store(**body.model_dump()); db.add(row); db.flush()
     audit(db,user.id,'create_store','stores',row.id,after=plain(row))
@@ -604,7 +605,7 @@ def add_store(body:StoreInput,db=Depends(get_db),user=Depends(get_user)):
 
 
 @app.put('/api/stores/{store_id}')
-def edit_store(store_id:int,body:StoreInput,db=Depends(get_db),user=Depends(get_user)):
+def edit_store(store_id:int,body:StoreInput,db=Depends(get_write_db),user=Depends(get_user)):
     admin(user)
     row = db.get(Store,store_id)
     if not row: raise HTTPException(404,'门店不存在')

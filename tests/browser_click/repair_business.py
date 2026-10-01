@@ -193,7 +193,7 @@ class Checkpoint:
 
     async def passed(self, evidence, conditional=()):
         self.note(evidence)
-        await self.e.snapshot(self.active["id"].lower() + "-business")
+        await self.e.snapshot(self.active["id"].lower() + "-business", business_ready=True)
         self.active["status"] = self.active["acceptance_checks"][0]["status"] = "passed"
         self.active["conditional_checks"] = list(conditional)
         self.active["evidence_action_end"] = len(self.e.actions)
@@ -662,9 +662,10 @@ async def repair_business(e, context, credentials):
         vehicle_label = " · ".join(str(v) for v in (customer["name"], customer["phone"], vehicle["plate"], vehicle["vin"]) if v)
         await live_choice(e, "customer_vehicle_id", vehicle["vin"], vehicle_label, expected_value=vehicle["id"])
         await live_choice(e, "resource_id", resource_name, resource_name, expected_value=resource["id"])
-        for field in ("starts_at", "ends_at"):
-            value = await e.page.locator(f'#modal [name="{field}"]').input_value()
-            await e.fill(f'#modal [name="{field}"]', value, "明确页面所列本次预约时段")
+        starts = datetime.now() + timedelta(minutes=2)
+        ends = starts + timedelta(hours=1)
+        for field, value in (("starts_at", starts), ("ends_at", ends)):
+            await e.fill(f'#modal [name="{field}"]', value.isoformat(timespec="minutes"), "填写当前真实时间之后的明确预约时段")
         await e.fill('#modal [name="reason"]', "本次合成现场检查并更换明确授权用料", "填写客户本次维修诉求")
         protection = Guard(e, "repair_original_appointment_create", service, store_id,
             append={"flow_cases", "flow_tasks", "flow_events", "audit_logs", "intake_appointments", "intake_command_receipts", "business_entity_case_contexts"},
@@ -684,11 +685,11 @@ async def repair_business(e, context, credentials):
                 "原预约没有唯一员工创建事件或选错普通接待模式")
         require(original_material == material_facts(e, item["id"]), "预约错误地产生材料收发")
         await form(e, "reschedule", intake=True)
-        starts = datetime.fromisoformat(await e.page.locator('#modal [name="starts_at"]').input_value()) + timedelta(minutes=30)
-        ends = datetime.fromisoformat(await e.page.locator('#modal [name="ends_at"]').input_value()) + timedelta(minutes=30)
+        starts = datetime.fromisoformat(await e.page.locator('#modal [name="starts_at"]').input_value()) + timedelta(minutes=1)
+        ends = datetime.fromisoformat(await e.page.locator('#modal [name="ends_at"]').input_value()) + timedelta(minutes=1)
         await e.fill('#modal [name="starts_at"]', starts.isoformat(timespec="minutes"), "明确新的预约开始")
         await e.fill('#modal [name="ends_at"]', ends.isoformat(timespec="minutes"), "明确新的预约结束")
-        await e.fill('#modal [name="reason"]', "本次合成客户要求延后半小时", "填写真实合成改约原因")
+        await e.fill('#modal [name="reason"]', "本次合成客户要求延后一分钟", "填写真实合成改约原因")
         protection = Guard(e, "repair_original_appointment_reschedule", service, store_id,
             append={"flow_events", "audit_logs", "intake_command_receipts"},
             update={**mutable(e, intake_case_id), "intake_resources": {resource["id"]: {"updated_at", "version"}},

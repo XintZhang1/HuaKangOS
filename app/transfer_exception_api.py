@@ -3,7 +3,7 @@ from datetime import date
 from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import transfer_exception_service as service
 
@@ -72,10 +72,10 @@ def recovery_catalog(db=Depends(get_db),user=Depends(get_user)):return service.r
 @router.get('/{key}')
 def detail(key:int,db=Depends(get_db),user=Depends(get_user)):return service.detail(db,user,key)
 @router.post('',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     return service.create(db,user,**body.model_dump(exclude={'confirmed'}))
 @router.post('/{key}/actions/{action}')
-def command(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if schema is None:raise HTTPException(404,'没有此调拨差异动作')
     try:values=schema.model_validate(body.values).model_dump()

@@ -1,0 +1,7 @@
+# PATCH-M8-4-REPORT-COMPLETE-REGISTER-01
+
+2026-10-01，52四关联实例全退出、三处来源窄修独立审完成，当前连续点击交付授权内先登记。
+
+仅run.py追加report_complete_source_business.py到白名单，scenarios.py导入REPORT_COMPLETE_SOURCE_SCENARIOS并尾部接线。候选f13e7c75fe8f6abeeb187a9c0196e3b8dbcb96f0974dbb7db2179806ded59056、文档2701dc734533f42436b017aa765d91c5d5704dd7bce0cbc940405bb73067556d，经独立原模型/27SELECT/原helper/零启用/完整表图CSV源审，登记为53场景45文件。BUSINESS-193-38及REPORT-ZERO-ENROLLMENT-01精确范围不扩大。
+
+HK152/153原UI新第三店、三本人原岗位新增店及恢复、真零基准、收货/原退/实际20元支出5元原账户退款，两个独立完整function check。期初未知、历史完整期间未测、193人工未验收分别保持。新鲜原UI执行无终局前不记passed；新生产/注册/runner冻结至全部关联run退出，CI默认不启用人工窗口、不跳门禁。

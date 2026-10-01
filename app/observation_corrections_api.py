@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
 from sqlalchemy import select
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from .flow_models import FileAsset
 from .customer_service_models import CustomerVehicle
@@ -55,11 +55,11 @@ def detail(case_id:int,db=Depends(get_db),user=Depends(get_user)):
         return value
 
 @router.post('/cases',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     return service.create(db,user,body.request_id,body.vehicle_id,body.vehicle_version,body.observation_id,body.base_digest,body.operation,body.proposed.model_dump(mode='json') if body.proposed else {},body.reason)
 
 @router.post('/cases/{case_id}/actions/{action}')
-def command(case_id:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(case_id:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema={'submit':Proof,'approve':Review,'reject':Review,'cancel':Reason}.get(action)
     if not schema:raise HTTPException(404,'不存在此日期里程纠正动作')
     try:values=schema.model_validate(body.values).model_dump(mode='json')
@@ -67,10 +67,10 @@ def command(case_id:int,action:str,body:Command,db=Depends(get_db),user=Depends(
     return service.command(db,user,body.request_id,case_id,body.version,action,values)
 
 @router.post('/reminders/generate')
-def generate(body:Request,db=Depends(get_db),user=Depends(get_user)):return service.generate_reminders(db,user,body.request_id)
+def generate(body:Request,db=Depends(get_write_db),user=Depends(get_user)):return service.generate_reminders(db,user,body.request_id)
 
 @router.post('/insurance/{case_id}/sync')
-def sync(case_id:int,body:SourceSync,db=Depends(get_db),user=Depends(get_user)):
+def sync(case_id:int,body:SourceSync,db=Depends(get_write_db),user=Depends(get_user)):
     def apply():
         row=service.flow.get_case(db,user,case_id)
         if row.version!=body.version:raise HTTPException(409,'原保险版本已变化，请刷新确认终止事实')

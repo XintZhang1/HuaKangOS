@@ -2,7 +2,7 @@
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import group_service as service
 
@@ -105,12 +105,12 @@ def identities(kind: str, q: str = Query(min_length=1, max_length=100), db=Depen
 
 
 @router.post('/identities/link', status_code=201)
-def link_identity(body: LinkInput, db=Depends(get_db), user=Depends(get_user)):
+def link_identity(body: LinkInput, db=Depends(get_write_db), user=Depends(get_user)):
     return service.link_identity(db, user, **body.model_dump())
 
 
 @router.post('/members', status_code=201)
-def issue_member(body: IssueInput, db=Depends(get_db), user=Depends(get_user)):
+def issue_member(body: IssueInput, db=Depends(get_write_db), user=Depends(get_user)):
     return service.issue_member(db, user, **body.model_dump())
 
 
@@ -125,7 +125,7 @@ def member_detail(member_id: int, db=Depends(get_db), user=Depends(get_user)):
 
 
 @router.post('/members/{member_id}/actions/{action}')
-def member_action(member_id: int, action: str, body: CommandInput, db=Depends(get_db), user=Depends(get_user)):
+def member_action(member_id: int, action: str, body: CommandInput, db=Depends(get_write_db), user=Depends(get_user)):
     schema = ACTION_INPUTS.get(action)
     if schema is None:
         raise HTTPException(404, '集团会员动作不存在')

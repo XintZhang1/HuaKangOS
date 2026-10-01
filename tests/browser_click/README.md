@@ -1,5 +1,30 @@
 # 浏览器实际点击验证
 
+当前入口是 `run.py`，已注册53个场景、45个指纹文件：9个助手与安全场景、4个目录覆盖场景、40个原业务场景。需求清单对应业主提供的193项原表，包含111条发布指引和70个共用原页面。脚本声明192项完整功能检查；车辆档案HK099保留真正截止日后读取的条件。声明数不是本轮实际通过数。
+
+本轮结果见 `docs/本轮浏览器验收结果.md` 与 `docs/implementation-checkpoints/M8-4-browser-click-193-coverage.md`。automatic-business17在源码76862a92/脚本06d17fb8完整53/53、原CLI0正常结束，192项已登记功能检查通过；15次合成模型、0真实/外网。193项检索、111指引、70共用页面、9代表表单实际完成，仍分别记录目录与业务范围。同实例native v3补充22站原生只读、三宽截图，原自动证据及业务保持。最后维修手机布局补丁仅两展示文件，最终生产2e4b6032/同脚本在新repair-mobile18完成三宽与原表实际横滚定向复查；不写成最终源码重跑完整53。真正Date到期、未测分支、完整人工/员工、原独立环境/模型/生产门槛保留；全部193正式业务接受仍false。新CI配置未在本轮推送或远端运行。旧失败及探针失败保留于v6，不拼成绩。
+
+```powershell
+# 全部当前注册场景；默认输出仓库外全新隔离目录。
+python tests/browser_click/run.py --browser "C:/Program Files/Google/Chrome/Application/chrome.exe"
+
+# 自动成功后保留同一实例，供实际浏览器查看结果。
+python tests/browser_click/run.py --review-after-tests --browser "C:/Program Files/Google/Chrome/Application/chrome.exe"
+
+# 独立交互审阅，不产生自动通过结论。
+python tests/browser_click/run.py --serve --browser "C:/Program Files/Google/Chrome/Application/chrome.exe"
+```
+
+`--review-after-tests` 必须启动时明确指定，自动失败不会开放窗口。窗口期间 `run-summary.json` 的 `complete/passed` 仍为false。人工审阅另存该实例外部 `evidence/manual-review/`，不改原自动报告或重复已提交业务；在其 `runtime/` 创建 `stop-requested` 文件，正常停止后才继续完整注册、193项目录与最终网络记录门禁。按Ctrl+C中断自动运行或该窗口仍失败。CI默认全自动，不等待人工窗口。
+
+统一标准在 `rubric.json`：显示正确、步骤容易理解、文案简洁、事实清楚、错误恢复和可用性。六项人工评分各至少3分并附具体观察；金额、数量、状态、任务、权限、唯一提交、旧行保护和无5xx/未处理异常另为硬门禁。原生UI点击、自动截图人工看图、补充只读API与数据库核对分别记证。真实模型101/283、PostgreSQL、独立平台、员工效率、真实外部事实及生产发布保留原条件，四生产功能开关默认关闭。
+
+旧测试及套件CI已移出工作区并在仓库外保留可恢复副本；`.github/workflows/browser-click-checks.yml` 是当前唯一验证CI，使用同一入口，只上传 `evidence/`。本轮尚未推送运行的CI不记为成功。
+
+## 历史注册、方法和运行记录
+
+下方记录均按当时的源码、脚本指纹和注册数量阅读，不作为当前成绩。
+
 最新完整结果：automatic-business09注册/执行/通过28/28、退出0，84项完整自动业务核对，5208动作/2560点击，生产1597eb7b/脚本7cc1267d、镜像稳定。页面异常与外部尝试0，16合成/0真实模型。193搜索/111指引/70共用页面/9代表表单仍只是各自UI覆盖，业务人工接受0、full193=false；保险及开票核账候选未注册。详见v5检查点，下文均按各轮原指纹理解。
 
 最新：automatic-business08完整27执行26通过/销售HK017任务页仍加载时脚本查按钮失败，75完整自动check、3局部另列；整体failed。人工02同指纹仅维修/接待显示定向六项通过，不替全部业务体验。结束实例后原等待窄修/独立短审，财务五项已注册，当前28场景automatic-business09完整运行中，无预写新结果。保险、开票/核账候选仍未镜像/注册。下文24/27/23为各阶段历史事实。

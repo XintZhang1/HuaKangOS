@@ -3,7 +3,7 @@ from datetime import date
 from typing import Annotated, Literal
 from fastapi import APIRouter,Depends,Query
 from pydantic import BaseModel,ConfigDict,Field,model_validator
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import retail_bundle_service as service
 from .member_pricing_api import Selection
@@ -46,11 +46,11 @@ class Sale(Request):
 @router.get('/rules')
 def rules(db=Depends(get_db),user=Depends(get_user)):return service.rules(db,user)
 @router.post('/rules',status_code=201)
-def publish(body:Publish,db=Depends(get_db),user=Depends(get_user)):
+def publish(body:Publish,db=Depends(get_write_db),user=Depends(get_user)):
     return service.create_rule(db,user,body.request_id,body.base_version,body.values.model_dump(mode='json'))
 @router.get('/rules/{key}/preview')
 def preview(key:int,sets:int=Query(1,ge=1,le=10000),db=Depends(get_db),user=Depends(get_user)):
     return service.preview(db,user,key,sets)
 @router.post('/sales',status_code=201)
-def sale(body:Sale,db=Depends(get_db),user=Depends(get_user)):
+def sale(body:Sale,db=Depends(get_write_db),user=Depends(get_user)):
     return service.create_sale(db,user,body.request_id,body.model_dump(exclude={'request_id'}))

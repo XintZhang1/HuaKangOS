@@ -6,7 +6,7 @@ from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
 from sqlalchemy import select,func
 from .security import get_user
-from .db import get_db
+from .db import get_db,get_write_db
 from .flow_models import Case,Customer,Item
 from .master_models import WorkItem,MemberTier
 from .membership_models import MembershipRule
@@ -74,12 +74,12 @@ def rules(page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):
     s.single_store(db);s._role(user,s.READ)
     return dict(items=[s.describe(db,user,r) for r in db.scalars(select(MemberPricingRule).order_by(MemberPricingRule.id.desc()).offset((page-1)*30).limit(30))],total=db.scalar(select(func.count()).select_from(MemberPricingRule)))
 @router.post('/rules',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):return s.create_rule(db,user,body.request_id,body.model_dump(exclude={'request_id'},mode='json'))
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):return s.create_rule(db,user,body.request_id,body.model_dump(exclude={'request_id'},mode='json'))
 @router.get('/rules/{key}')
 def detail(key:int,db=Depends(get_db),user=Depends(get_user)):
     rule,row=s.get_rule(db,user,key);return s.describe(db,user,rule)
 @router.post('/rules/{key}/actions/{action}')
-def command(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     if action not in {'submit','approve','reject','cancel'}:raise HTTPException(404,'不存在此会员价格办理动作')
     try:values=(Reason if action=='cancel' else Proof).model_validate(body.values).model_dump(mode='json')
     except ValidationError:raise HTTPException(422,'请核对本次依据、办理原因和价格版本')

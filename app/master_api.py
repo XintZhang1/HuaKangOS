@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import Field,ConfigDict
 from sqlalchemy import select, func, or_
 from .security import get_user
-from .db import get_db, today
+from .db import get_db, get_write_db, today
 from .tenancy import single_store, role_for_store
 from .models import User
 from .flow_models import Item
@@ -176,10 +176,10 @@ def list_master(kind:str,q:str=Query('',max_length=100),active:bool|None=None,fu
 
 
 @router.post('/{kind}',status_code=201)
-def add_master(kind:str,body:Save,db=Depends(get_db),user=Depends(get_user)):
+def add_master(kind:str,body:Save,db=Depends(get_write_db),user=Depends(get_user)):
     return service.save_master(db,user,kind,body.request_id,body.values)
 
 
 @router.put('/{kind}/{record_id}')
-def update_master(kind:str,record_id:int,body:Update,db=Depends(get_db),user=Depends(get_user)):
+def update_master(kind:str,record_id:int,body:Update,db=Depends(get_write_db),user=Depends(get_user)):
     return service.save_master(db,user,kind,body.request_id,body.values,record_id,body.version)

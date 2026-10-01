@@ -550,6 +550,14 @@ def _slot_lock(db):
         raise HTTPException(503, '运行队列仅支持已评审的SQLite或PostgreSQL事务')
 
 
+def _sqlite_writer(db):
+    """Reserve only the short SQLite write, retaining the principal's Engine."""
+    if db.get_bind().dialect.name == 'sqlite':
+        _clean(db)
+        db.rollback()
+        _slot_lock(db)
+
+
 def claim_next(db, lease_owner, *, clock=utcnow, read_session_factory=None):
     """Claim one global slot; commit before issuing its RuntimePrincipal."""
     return _claim_queued_run(db, lease_owner, clock=clock,
@@ -630,6 +638,7 @@ def heartbeat(db, principal, *, clock=utcnow):
     revalidate_principal(db, principal, clock=clock)
     _scope(db, principal.store_id)
     try:
+        _sqlite_writer(db)
         with db.no_autoflush:
             thread, _, run = _lock_rows(db, _principal_source(principal))
             now = _time(clock())
@@ -1120,6 +1129,7 @@ def lock_for_write(db, principal, *, clock=utcnow, control=False):
     if not principal.run_id:
         _conflict('写回必须属于已领取的真实执行')
     _scope(db, principal.store_id)
+    _sqlite_writer(db)
     with db.no_autoflush:
         thread, plan, run = _lock_rows(db, _principal_source(principal))
         now = _time(clock())
@@ -1854,6 +1864,7 @@ def release(db, principal, *, outcome='succeeded', error_code=None, clock=utcnow
     guard(db, principal, clock=clock)
     _scope(db, principal.store_id)
     try:
+        _sqlite_writer(db)
         with db.no_autoflush:
             thread, _, run = _lock_rows(db, _principal_source(principal))
             now = _time(clock())
@@ -2005,6 +2016,7 @@ def reclaim_expired(db, *, clock=utcnow, read_session_factory=None):
     source = _maintenance_snapshot(db, run_id, clock=clock, read_session_factory=read_session_factory)
     _scope(db, source['store_id'])
     try:
+        _sqlite_writer(db)
         with db.no_autoflush:
             thread, plan, run = _lock_rows(db, source)
             _source_versions(source, thread, plan, run)

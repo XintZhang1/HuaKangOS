@@ -3,7 +3,7 @@ import io
 from datetime import date
 from urllib.parse import quote
 from fastapi import APIRouter,Depends,Query,Response
-from .db import get_db
+from .db import get_db, get_audited_read_db
 from .security import get_user
 from .services import audit
 from .stock_reports import build_stock_period
@@ -17,7 +17,7 @@ def period(date_from:date|None=None,date_to:date|None=None,item_id:int|None=Quer
 
 
 @router.get('/period/export')
-def export(date_from:date|None=None,date_to:date|None=None,item_id:int|None=Query(None,gt=0),db=Depends(get_db),user=Depends(get_user)):
+def export(date_from:date|None=None,date_to:date|None=None,item_id:int|None=Query(None,gt=0),db=Depends(get_audited_read_db),user=Depends(get_user)):
     report=build_stock_period(db,user,date_from,date_to,item_id)
     buf=io.StringIO(newline='');writer=csv.writer(buf);writer.writerow(report['table']['headers'])
     def safe(value):

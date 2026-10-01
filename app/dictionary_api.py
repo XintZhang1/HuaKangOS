@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import Field
 from sqlalchemy import select,func,or_
-from .db import get_db,utcnow
+from .db import get_db,get_write_db,utcnow
 from .security import get_user
 from .tenancy import single_store
 from .flow_models import Reference
@@ -82,10 +82,10 @@ def save(db,user,group,body,record_id=None):
                     {'id':record_id,'version':version,'values':values},perform)
 
 @router.post('/{group}',status_code=201)
-def create(group:str,body:Save,db=Depends(get_db),user=Depends(get_user)):
+def create(group:str,body:Save,db=Depends(get_write_db),user=Depends(get_user)):
     return save(db,user,group,body)
 
 @router.put('/{group}/{record_id}')
-def update(group:str,record_id:int,body:Update,db=Depends(get_db),user=Depends(get_user)):
+def update(group:str,record_id:int,body:Update,db=Depends(get_write_db),user=Depends(get_user)):
     if record_id<1:raise HTTPException(422,'条目编号须为正整数')
     return save(db,user,group,body,record_id)

@@ -62,7 +62,9 @@ def source_details(db,user,key,include_reservations=True,allow_correcting=False)
         values=retail.totals(db,row);gross=values['charge_cents'];due=retail.collectable_amount(db,row) if include_reservations else values['receivable_cents']
     elif row.kind in {'order','repair','addon','agency','insurance'} and (row.flow_version in {1,2} or (row.kind=='order' and row.flow_version in {3,4})):
         action=next((a for a in flow_spec(row.kind,row.flow_version)['actions'] if a.key=='receive'),None)
-        if not action or (row.state not in action.states and not (allow_correcting and row.state=='completed')):
+        ended_correction=allow_correcting and (row.state=='completed' or
+            (row.kind=='order' and row.flow_version in {3,4} and row.state=='delivered'))
+        if not action or (row.state not in action.states and not ended_correction):
             raise HTTPException(409,'原业务当前不接受客户结算，请先完成原业务前置步骤')
         if row.kind=='repair' and row.data.get('payer') not in {None,'客户'}:raise HTTPException(409,'客户月结不能代收保险或厂家承担')
         gross=net_charge(db,row);due=gross-flow.paid_amount(db,row)

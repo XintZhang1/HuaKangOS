@@ -3,7 +3,7 @@ from fastapi import APIRouter,Depends,HTTPException,Query
 from decimal import Decimal
 from pydantic import BaseModel,ConfigDict,Field,ValidationError,model_validator
 from sqlalchemy import select,func
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from .flow_models import Case
 from . import retail_service as service
@@ -78,13 +78,13 @@ def orders(page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),db=Depends
     total=db.scalar(select(func.count()).select_from(query.subquery()))
     return {'items':[service.describe(db,user,r) for r in db.scalars(query.order_by(Case.id.desc()).offset((page-1)*page_size).limit(page_size))],'total':total,'page':page,'page_size':page_size}
 @router.post('/orders',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):
     return service.create(db,user,body.request_id,body.model_dump(exclude={'request_id'}))
 @router.get('/orders/{key}')
 def detail(key:int,db=Depends(get_db),user=Depends(get_user)):
     return service.describe(db,user,service.get_order(db,user,key))
 @router.post('/orders/{key}/actions/{action}')
-def command(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if not schema:raise HTTPException(404,'精品办理动作不存在')
     try:v=schema.model_validate(body.values).model_dump()

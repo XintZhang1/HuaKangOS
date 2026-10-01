@@ -2,7 +2,7 @@
 from datetime import date
 from fastapi import APIRouter,Depends,HTTPException
 from pydantic import BaseModel,ConfigDict,Field,ValidationError,model_validator
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import retail_group_service as service,retail_group_rules as rules
 def ready(value):
@@ -83,12 +83,12 @@ def catalog(case_id:int,db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.post('/orders/{case_id}/actions/{action}')
-def action(case_id:int,action:str,body:Envelope,db=Depends(get_db),user=Depends(get_user)):
+def action(case_id:int,action:str,body:Envelope,db=Depends(get_write_db),user=Depends(get_user)):
     return service.command(db,user,case_id,body.request_id,body.version,action,values(SCHEMAS.get(action),body))
 
 
 @router.post('/rules',status_code=201)
-def create_rule(body:RuleCreate,db=Depends(get_db),user=Depends(get_user)):
+def create_rule(body:RuleCreate,db=Depends(get_write_db),user=Depends(get_user)):
     return rules.create(db,user,body.request_id,body.rule_id)
 
 
@@ -108,5 +108,5 @@ def rule_items(store_id:int,db=Depends(get_db),user=Depends(get_user)):
 
 
 @router.post('/rules/{case_id}/actions/{action}')
-def rule_action(case_id:int,action:str,body:Envelope,db=Depends(get_db),user=Depends(get_user)):
+def rule_action(case_id:int,action:str,body:Envelope,db=Depends(get_write_db),user=Depends(get_user)):
     return rules.command(db,user,case_id,body.request_id,body.version,action,values({'submit':Submit,'approve':Decision,'reject':Decision,'cancel':Cancel}.get(action),body))

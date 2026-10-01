@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import vehicle_transport_service as service
 
@@ -124,7 +124,7 @@ SCHEMAS = {'observe': Observation, 'observe_found': FoundObservation, 'plan_resu
 
 
 @router.post('', status_code=201)
-def create(body: Create, db=Depends(get_db), user=Depends(get_user)):
+def create(body: Create, db=Depends(get_write_db), user=Depends(get_user)):
     return service.create(db, user, **body.model_dump())
 
 
@@ -134,7 +134,7 @@ def detail(key: int, db=Depends(get_db), user=Depends(get_user)):
 
 
 @router.post('/{key}/actions/{action}')
-def command(key: int, action: str, body: Command, db=Depends(get_db), user=Depends(get_user)):
+def command(key: int, action: str, body: Command, db=Depends(get_write_db), user=Depends(get_user)):
     schema = SCHEMAS.get(action)
     if schema is None: raise HTTPException(404, '原整车差异动作不存在')
     try: values = schema.model_validate(body.values).model_dump()

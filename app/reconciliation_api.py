@@ -3,7 +3,7 @@ from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from . import reconciliation_service as svc
 
@@ -56,10 +56,10 @@ def export_batch(key:int,db=Depends(get_db),user=Depends(get_user)):
         writer.writerow(["'"+v if isinstance(v,str) and v.startswith(('=','+','-','@','\t','\r')) else v for v in values])
     return Response(out.getvalue().encode('utf-8-sig'),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename="huakangos-reconciliation-{key}.csv"'})
 @router.post('/batches',status_code=201)
-def create(body:BatchCreate,db=Depends(get_db),user=Depends(get_user)):
+def create(body:BatchCreate,db=Depends(get_write_db),user=Depends(get_user)):
     return svc.create_batch(db,user,body.request_id,body.start,body.end,body.reason)
 @router.post('/batches/{key}/actions/{action}')
-def batch_action(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def batch_action(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     v=values(body,action,{'issue':Issue,'resolve':Resolve,'submit':Reason,'seal':Proof,'recalculate':Reason,'reopen':Reason})
     return svc.batch_command(db,user,key,body.request_id,body.version,body.case_version,action,v)
 @router.get('/origins')
@@ -69,9 +69,9 @@ def clearing(db=Depends(get_db),user=Depends(get_user)):return svc.list_clearing
 @router.get('/clearing/{key}')
 def clearing_detail(key:int,db=Depends(get_db),user=Depends(get_user)):return svc.list_clearing(db,user,key)
 @router.post('/clearing',status_code=201)
-def clearing_create(body:ClearingCreate,db=Depends(get_db),user=Depends(get_user)):
+def clearing_create(body:ClearingCreate,db=Depends(get_write_db),user=Depends(get_user)):
     return svc.create_clearing(db,user,body.request_id,body.model_dump(mode='json',exclude={'request_id'}))
 @router.post('/clearing/{key}/actions/{action}')
-def clearing_action(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def clearing_action(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     v=values(body,action,{'pay':Payment,'receive':Payment,'difference':Proof,'cancel':Reason,'reject':Reason})
     return svc.clearing_command(db,user,key,body.request_id,body.version,body.case_version,action,v)

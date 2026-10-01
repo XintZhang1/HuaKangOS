@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import Field
 from sqlalchemy.orm import Session
 
-from .db import get_db
+from .db import get_db,get_write_db
 from .escalation_service import act, create, listing, refusals
 from .master_data import Strict
 from .security import get_user
@@ -40,7 +40,7 @@ def refusal_index(db: Session = Depends(get_db), user=Depends(get_user)):
 
 
 @router.post('', status_code=201)
-def submit(body: CreateInput, db: Session = Depends(get_db), user=Depends(get_user)):
+def submit(body: CreateInput, db: Session = Depends(get_write_db), user=Depends(get_user)):
     return create(db, user, body)
 
 

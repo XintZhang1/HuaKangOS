@@ -249,7 +249,15 @@ def main():
             original = context.original_exception
             code = getattr(original, "sqlite_errorcode", None)
             if isinstance(code, int):
-                print(f"Synthetic database error: {type(original).__name__} code={code}", flush=True)
+                from datetime import datetime, timezone
+                from threading import get_ident
+                import re
+                statement = context.statement or ""
+                verb = statement.strip().split(None, 1)[0].upper() if statement.strip() else "unknown"
+                verb = verb if verb in {"SELECT", "INSERT", "UPDATE", "DELETE", "BEGIN", "COMMIT"} else "other"
+                match = re.search(r"\b(business_assistant_(?:runs|run_events|run_items|sessions)|app_metadata|login_sessions)\b", statement)
+                table = match.group(1) if match else "other"
+                print(f"Synthetic database error: {type(original).__name__} code={code} utc={datetime.now(timezone.utc).isoformat()} thread={get_ident()} operation={verb} table={table}", flush=True)
 
         original_lifespan = app.router.lifespan_context
         server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=manifest["port"],

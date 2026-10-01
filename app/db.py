@@ -63,7 +63,9 @@ def get_write_db(db=Depends(get_db)):
     session; no read or audit write is retried. Other reads keep get_db.
     """
     if db.get_bind().dialect.name == 'sqlite':
-        db.connection(execution_options={'huakangos_sqlite_write_transaction': True})
+        # Keep the option on this request's bind across commit/rollback.
+        db.bind = db.get_bind().execution_options(huakangos_sqlite_write_transaction=True)
+        db.connection()
     return db
 
 

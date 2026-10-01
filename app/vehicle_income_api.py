@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
 from sqlalchemy import select,func
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from .flow_models import Case
 from .master_models import Supplier
@@ -55,11 +55,11 @@ def orders(page:int=Query(1,ge=1),db=Depends(get_db),user=Depends(get_user)):
     s.single_store(db);s._role(user,s.READ);q=s.flow.case_query(user).where(Case.kind=='vehicle_income',Case.flow_version==1)
     return dict(items=[s.describe(db,user,r) for r in db.scalars(q.order_by(Case.id.desc()).offset((page-1)*30).limit(30))],total=db.scalar(select(func.count()).select_from(q.subquery())))
 @router.post('',status_code=201)
-def create(body:Create,db=Depends(get_db),user=Depends(get_user)):return s.create(db,user,body.request_id,body.model_dump(exclude={'request_id'},mode='json'))
+def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):return s.create(db,user,body.request_id,body.model_dump(exclude={'request_id'},mode='json'))
 @router.get('/{key}')
 def detail(key:int,db=Depends(get_db),user=Depends(get_user)):return s.describe(db,user,s.get_order(db,user,key))
 @router.post('/{key}/actions/{action}')
-def command(key:int,action:str,body:Command,db=Depends(get_db),user=Depends(get_user)):
+def command(key:int,action:str,body:Command,db=Depends(get_write_db),user=Depends(get_user)):
     schema=SCHEMAS.get(action)
     if not schema:raise HTTPException(404,'不存在此非客户整车收入步骤')
     try:values=schema.model_validate(body.values).model_dump(mode='json')

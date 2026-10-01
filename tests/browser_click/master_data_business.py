@@ -124,7 +124,7 @@ class Checkpoint:
         self.save()
 
     async def passed(self, evidence, *, conditional=()):
-        await self.e.snapshot(self.active["id"].lower() + "-business")
+        await self.e.snapshot(self.active["id"].lower() + "-business", business_ready=True)
         self.active["status"] = "passed"
         self.active["acceptance_checks"][0].update(status="passed", evidence=evidence)
         self.active["conditional_checks"] = list(conditional)
