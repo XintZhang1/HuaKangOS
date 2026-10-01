@@ -2,13 +2,11 @@ from datetime import timedelta
 import hashlib
 import hmac
 import secrets
-import sqlite3
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
 from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy import select, func, or_, delete
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import OperationalError
 from .config import settings
 from .db import get_db, utcnow
 from .models import User, LoginSession, LoginAttempt
@@ -45,21 +43,15 @@ def verify_password(password: str, encoded: str) -> bool:
 
 
 def authenticate(db: Session, username: str, password: str, ip: str) -> User:
-    """Restart one stale SQLite read snapshot before any login session is issued.
+    """Authenticate once inside the original login write transaction.
 
-    Password verification can overlap the Runtime worker's commit. A WAL read
-    snapshot then cannot be promoted to a writer. Only that precise pre-commit
-    failure is retried; re-read the account and throttle rather than trusting the
-    stale User. Native business requests and unknown commit outcomes are never
-    retried here. The second failure propagates normally.
+    Login writes an attempt or the audit/session. Reserve SQLite's WAL writer
+    before reading the throttle/account so concurrent worker commits cannot
+    invalidate that authentication snapshot. PostgreSQL keeps its original
+    transaction; no password, write or unknown commit is retried.
     """
-    try:
-        return _authenticate_once(db, username, password, ip)
-    except OperationalError as exc:
-        if (db.get_bind().dialect.name != 'sqlite'
-                or getattr(exc.orig, 'sqlite_errorcode', None) != sqlite3.SQLITE_BUSY_SNAPSHOT):
-            raise
-        db.rollback()
+    if db.get_bind().dialect.name == 'sqlite':
+        db.connection(execution_options={'huakangos_sqlite_write_transaction': True})
     return _authenticate_once(db, username, password, ip)
 
 

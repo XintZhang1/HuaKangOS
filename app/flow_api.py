@@ -7,7 +7,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, func, or_
-from .db import get_db,today,utcnow
+from .db import get_db,get_audited_read_db,today,utcnow
 from .security import get_user,require_full,ROLES
 from .models import User,Store,Vehicle,Sale,AuditLog
 from .tenancy import single_store,accessible_stores
@@ -433,7 +433,7 @@ def select_tables(data,tables):
 
 
 @router.get('/analytics/export')
-def analytics_export(dataset:str='orders',date_from:date|None=None,date_to:date|None=None,customer_key:str|None=None,db=Depends(get_db),user=Depends(get_user)):
+def analytics_export(dataset:str='orders',date_from:date|None=None,date_to:date|None=None,customer_key:str|None=None,db=Depends(get_audited_read_db),user=Depends(get_user)):
     require_full(user)
     from .flow_analytics import build_analytics
     data=build_analytics(db,user,date_from,date_to)

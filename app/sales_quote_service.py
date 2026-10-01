@@ -40,7 +40,7 @@ def _touch(db,row,version):
     row.updated_at=utcnow();db.flush()
 def _valid(quote):
     if quote.valid_until<today():raise HTTPException(409,'本版报价已超过确认有效期，请撤回后提交新的报价版本')
-def _event(db,user,row,key,label,values):flow.log_event(db,user,row,'sales_quote_'+key,label,detail=values)
+def _event(db,user,row,key,label,values,*,before=''):flow.log_event(db,user,row,'sales_quote_'+key,label,before=before,detail=values)
 
 def _money_holds(db,row):
     from .business_finance_sources import case_reserved_amount
@@ -121,7 +121,9 @@ def create(db,user,key,values):
             title=customer.name+' · 车辆报价与交付',owner_id=user.id,created_by=user.id,customer_id=customer.id,parent_id=lead.id if lead else None,
             amount_cents=0,business_date=today(),due_date=today(),data={})
         db.add(row);db.flush();from .business_entity_service import freeze_case_entity;freeze_case_entity(db,user,row);_new_quote(db,user,row,values['quote'])
-        if lead:lead.state='converted';flow.close_tasks(db,lead,user);_event(db,user,lead,'convert','已建立版本报价订单',{'order_id':row.id})
+        if lead:
+            before=lead.state;lead.state='converted';flow.close_tasks(db,lead,user)
+            _event(db,user,lead,'convert','已建立版本报价订单',{'order_id':row.id,'model':row.data['model']},before=before)
         from .flow_documents import generate_document
         generate_document(db,user,row,'contract');return row
     return _execute(db,user,key,'sales_quote_create',values,operation)

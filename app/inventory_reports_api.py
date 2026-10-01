@@ -4,7 +4,7 @@ import io
 from datetime import date
 from urllib.parse import quote
 from fastapi import APIRouter, Depends, Query, HTTPException, Response
-from .db import get_db
+from .db import get_db,get_audited_read_db
 from .security import get_user
 from .services import audit
 from .vehicle_period_analytics import build_vehicle_period
@@ -56,7 +56,7 @@ def report(kind: str, date_from: date | None = None, date_to: date | None = None
 
 @router.get('/{kind}/export/{table_key}')
 def export(kind: str, table_key: str, date_from: date | None = None, date_to: date | None = None,
-           vin: str | None = Query(None, max_length=17), item_id: int | None = Query(None, gt=0), warehouse_id: int | None = Query(None, gt=0), db=Depends(get_db), user=Depends(get_user)):
+           vin: str | None = Query(None, max_length=17), item_id: int | None = Query(None, gt=0), warehouse_id: int | None = Query(None, gt=0), db=Depends(get_audited_read_db), user=Depends(get_user)):
     result = build(kind, db, user, date_from, date_to, vin, item_id, warehouse_id)
     if table_key not in result['tables']: raise HTTPException(404, '当前报表没有此明细表')
     source = result['tables'][table_key]

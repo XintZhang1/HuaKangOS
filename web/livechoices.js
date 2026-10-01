@@ -2,13 +2,15 @@
 // The original select remains the form value and change-event contract.
 const liveChoiceStates=new WeakMap();
 let liveChoiceSequence=0;
+let liveChoicePointerId=null;
 function liveChoiceContext(){return typeof storeContextVersion==='undefined'?0:storeContextVersion;}
 function liveChoiceItems(select){return Array.from(select.options).filter(option=>option.value&&!option.disabled&&!option.parentElement?.disabled).map(option=>({id:option.value,label:option.label??option.textContent,create:option.hasAttribute('data-search-create')}));}
 function liveChoiceMatch(items,query){const terms=String(query).trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);return items.filter(item=>item.create||terms.every(term=>String(item.label).toLocaleLowerCase().includes(term)));}
 function liveChoiceState(root){return root&&liveChoiceStates.get(root);}
 function liveChoiceChanged(s,reason){const event=new Event('change',{bubbles:true});event.liveChoiceReason=reason;s.select.dispatchEvent(event);}
 function liveChoiceInvalidate(s){clearTimeout(s.timer);s.timer=null;s.run={};}
-function lookupClose(root){const s=liveChoiceState(root);if(!s)return;s.list.hidden=true;s.input.setAttribute('aria-expanded','false');s.input.removeAttribute('aria-activedescendant');s.active=-1;}
+function lookupClose(root){const s=liveChoiceState(root);if(!s)return;s.pointerClosePending=false;s.list.hidden=true;s.input.setAttribute('aria-expanded','false');s.input.removeAttribute('aria-activedescendant');s.active=-1;}
+function liveChoiceCancelPointer(){liveChoicePointerId=null;document.querySelectorAll('.lookup').forEach(root=>{if(liveChoiceState(root)?.pointerClosePending)lookupClose(root);});}
 function liveChoiceValidity(s){s.input.required=s.select.required||s.inputRequired;s.input.disabled=s.select.matches(':disabled');s.input.setCustomValidity(!s.input.disabled&&s.input.value&&!s.select.value?'请从列表中选择':'');}
 function liveChoiceSync(s){
  const option=s.select.selectedOptions[0],value=s.select.value;
@@ -97,7 +99,15 @@ function registerLiveChoiceLoader(target,loader){
  document.addEventListener('input',event=>{if(event.target.matches?.('[data-lookup-query]')){const s=liveChoiceState(event.target.closest('.lookup'));if(s){s.composing=event.isComposing||s.composing;lookupSearch(event.target);}}});
  document.addEventListener('change',event=>{if(event.target.tagName==='SELECT'){const s=liveChoiceState(event.target.closest('.lookup'));if(s){liveChoiceInvalidate(s);liveChoiceSync(s);if(!s.list.hidden&&!s.remote)liveChoiceLocal(s);}}});
  document.addEventListener('focusin',event=>{if(!event.target.matches?.('[data-lookup-query]'))return;const s=liveChoiceState(event.target.closest('.lookup'));if(!s||!liveChoiceCheck(s)||s.input.disabled)return;if(s.suppressFocus){s.suppressFocus=false;return;}liveChoiceSync(s);const items=liveChoiceItems(s.select);if(!s.remote)liveChoiceLocal(s);else if(items.length)lookupResults(s.root,items);else lookupSearch(s.input,true);});
- document.addEventListener('focusout',event=>{const s=liveChoiceState(event.target.closest?.('.lookup'));if(s&&!s.root.contains(event.relatedTarget)){liveChoiceInvalidate(s);lookupClose(s.root);}});
+ document.addEventListener('pointerdown',event=>{if(event.isPrimary)liveChoicePointerId=event.pointerId;},true);
+ document.addEventListener('pointerup',event=>{if(event.pointerId===liveChoicePointerId)liveChoicePointerId=null;},true);
+ document.addEventListener('pointercancel',event=>{if(event.pointerId===liveChoicePointerId)liveChoiceCancelPointer();},true);
+ window.addEventListener('blur',liveChoiceCancelPointer);
+ document.addEventListener('focusout',event=>{const s=liveChoiceState(event.target.closest?.('.lookup'));if(s&&!s.root.contains(event.relatedTarget)){liveChoiceInvalidate(s);
+  // Keep inline results in place until the pointer click activates its target.
+  // The existing outside-click handler then closes them; ordinary focus still closes now.
+  if(liveChoicePointerId!==null&&event.relatedTarget)s.pointerClosePending=true;else lookupClose(s.root);
+ }});
  document.addEventListener('keydown',event=>{
  const s=liveChoiceState(event.target.closest?.('.lookup'));if(!s||event.target!==s.input||!liveChoiceCheck(s)||event.isComposing||s.composing)return;
  if(event.key==='Escape'||event.key==='Tab'){liveChoiceInvalidate(s);lookupClose(s.root);return;}

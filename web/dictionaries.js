@@ -5,7 +5,7 @@ function clearDictionariesSession(){dictionaryUI={};}
 function dictionaryContext(group){const key=[state.user?.id,state.store,group].join(':');if(dictionaryUI.key!==key)dictionaryUI={key,group};return dictionaryUI;}
 async function dictionariesPage(group){
  const catalog=await api('/api/dictionaries/catalog');
- if(!group)return heading('分类设置',catalog.notice)+storeNotice()+`<div class="chartgrid">${Object.entries(catalog.groups).map(([key,value])=>panel(value.label,`<p>本店条目的名称、说明与启停。</p>${b('open','进入字典',`data-route="dictionaries/${E(key)}"`)}${catalog.can_write?b('dictionary-new','新增',`data-group="${E(key)}"`,'primary'):''}`)).join('')}</div>`;
+ if(!group)return heading('分类设置','')+storeNotice()+`<div class="chartgrid">${Object.entries(catalog.groups).map(([key,value])=>panel(value.label,`${b('open','进入字典',`data-route="dictionaries/${E(key)}"`)}${catalog.can_write?b('dictionary-new','新增',`data-group="${E(key)}"`,'primary'):''}`)).join('')}</div>`;
  if(!catalog.groups[group])throw new Error('字典类别不存在。');
  if(state.store==='all')return heading(catalog.groups[group].label)+storeNotice()+'<div class="notice">请选择具体门店查看和维护字典。</div>';
  const context=dictionaryContext(group),result=await api('/api/dictionaries/'+encodeURIComponent(group)+'?'+new URLSearchParams({q:state.q||'',page:state.page||1}));

@@ -10,6 +10,8 @@
 
 **2026-09-30 本轮交付收口**：业主已明确本轮完成代码与浏览器点击交付。M7.7.3/M7.7.5 详情读取、M8.1 对象接线及观察到的登录/切店/跟进版本/退出并发缺陷已实现并审阅；M8.1 恢复 `implemented`。旧测试和旧 CI 外部可恢复归档；新 `tests/browser_click/run.py` 与新 CI 已建立。automatic07 同次 13/13 通过、退出0，真实点击覆盖193检索/111指引/70页面/9表单；同指纹 IAB 人工审阅六项达最低标准。报告见 `docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md`。这是本轮交付完成，不是193完整业务、M8全门槛或生产验收；M8.3—M8.10 原状态和未完成检查保留，新远端 CI 尚未运行。
 
+**2026-09-30 用户追加目标**：继续浏览器验收并以Writing Style/其语言习惯作为文案标准，直至全部需求表项。当前任务转入193项实际业务验证，先售前真实路径，再按原依赖逐项补齐；上一轮独立交付完成保留为历史，不限制新目标。执行任务见`docs/architect/tasks/business-193.md`，范围见PATCH-M8-4-BUSINESS-193-01，193完整业务仍未验收；不修改原M8状态/门槛来制造已通过。
+
 ## R4：先完成实现，再集中测试（最高执行优先级）
 
 2026-09-28 用户将目标更新为：“按照你的计划，直接进行实施，不再依赖deepseek或者astra low。请注意我们首要目标是项目完成度，测试阶段可以整体向后挪，后续我将统一交给deepseek完成”。本节取代本文、AGENTS 与旧交接中的逐项先测通过、先扩 runner、测试条件不满足即阻止编码等执行要求；不改变下面的产品架构、业务规则或最终验收标准。用户随后明确“批准，后续授权不用再问我，都默认允许”：PATCH-M4-5-02 与后续完成既定架构必需的文件范围补齐已获持续授权，先登记精确范围、原因、异常路径并审阅，不再重复询问；这不启动后移的测试阶段或生产部署。
@@ -3582,6 +3584,10 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
+**2026-10-01 v4后续执行**：08完整27执行26通过、75完整自动check/3销售局部另列，整体退出1；sales HK017在原Case GET200、页面仍读取时按钮count0，交接POST尚未发生，失败保留。根结束人工02后按PATCH-M8-4-TASK-RENDER-01仅补原GET/Case&Task CAS/实际DOM等待，经独立短审/AST；原业务无重试或守卫变化。人工02与08同源/脚本定向维修/接待六项3/3/3/4/3/3、469表摘要不变，只有两页查看路径接受，193业务人工仍0。PATCH-M8-4-BUSINESS-193-13财务五项原合同短审后已注册，当前28场景automatic-business09在新镜像实际运行，尚无联合结果；保险七项及开票/核账两项仍未注册候选。M8.1仍in_progress，原门禁/四默认关闭开关不变，详见v4追加。
+
+**2026-10-01 新点击检查点v4与当前增量**：完整automatic-business07同次24/24、71自动业务check、3608动作/1853点击、0页面异常/0真实模型，生产SHA `68ef5e1bb4b6950deafd91466edfabadbab208d227cd3064ee059cca0d740aa6`、脚本 `60a0bef15c4a0be5b8523f25dd5e41cfc0623ad7dddc96f8c9fa7b7e47ee5bde`。同指纹人工domain01已接车维修/已转换接待仍显示错误等待文案，人工失败保留；结束实例后按PATCH-M8-1-REPAIR-DISPLAY-01仅改两页展示，独立短审/语法通过。新增销售四项/维修后继四项按PATCH-M8-4-BUSINESS-193-11/12冻结注册，当前27场景automatic-business08及人工02在新源 `1597eb7b00be508a8d876f85496c4f20131e07b5377034f19bce0bc50538ff0d`/脚本 `70a5272d4683488d47ebd52b7a53c4cb155b0d090b36621399f2ecae9d4923bf` 实际运行，尚无新联合/人工通过。PATCH-M8-4-BROWSER-TIMEOUT-01仅扩当前完整点击有限时限及CI总作业；远端CI未运行。财务五项/保险七项未注册候选不计成绩。M8.1保持in_progress，M8.4/CP-36仍todo/not_ready，193完整/人工接受及原环境、员工、live门槛未通过；四开关生产默认关闭。详细见v4检查点，旧失败/历史成绩不覆盖。
+
 **2026-09-29 接续检查点 v5（本批实测）**：在真实上游祖先恢复后，修复三个“真实数据上永不成立”的事实适配缺陷与一处界面文案缺陷，并修好挡住本地复验的离线执行器缺口；完整离线回归 `complete=true`、`scope=full`、19 条命令退出码全 0、**259 项**（后端 190＋前端 55＋Chromium 原页面 14），`browser_transport=fixture`、真实模型调用 0。生产源码指纹 `b43b0fe69bd55ecee0eae31395656d55454f9a6ea967ff75e39dd5f647dc8c7c`；测试套件指纹 `1bec0ba7ccc4d99ee634d3eac1b6e77041d7cf0ab456738c6c0f13fcf8229db3`。本批新增 `tests/assistant_offline/tests/test_repair_warehouse_grant_facts.py`（39 项，含三项真实 `/api/dossier-grants` HTTP 用例）。精确补丁见 PATCH-M8-1-WAREHOUSE-COUNT-01、DOSSIER-RECEIVER-01、CARE-CLOSED-01、WAIT-TEXT-01、OFFLINE-HARNESS-01；报告见 `docs/implementation-checkpoints/M8-1-offline-facts-labels-checkpoint-v5.md`。完整序列首跑保留一次 `test_07` 点击超时失败，同指纹单独复跑与第二次完整序列均 14/14 通过，记为资源竞争时序抖动，未删用例、未放宽断言。交付后同一提交 `361195b` 在 Linux CI 按 `--browser-mode native` 独立复跑：run `36589860689`、job `109479822120` 结论 success，artifact `11044270644` 未过期（下载与日志读取需凭据，本记录不声称其内部计数与指纹）。**本批仍未覆盖**：本地未取得原生验收条件、artifact 内部内容未核对、真实模型、PostgreSQL、Windows/Linux 恢复演练、员工试用，以及其余领域适配器的真实 HTTP 闭环；M8.1 不改为 done，不勾选全局完成检查，不放行生产。
 
 - 2026-09-29 本轮“离线执行器修复 + 待办文案中文化 + 事实适配纠错”记录见 `docs/implementation-checkpoints/M8-1-offline-facts-labels-checkpoint-v5.md`。本批只改助手显示层、三个领域适配器和仓库外执行器；M8.1 保持 `in_progress`，四个功能开关默认关闭，真实模型调用 0。
@@ -3618,7 +3624,17 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **2026-09-29 销售事实补丁范围**：接续远端 `14829c4`，按 `PATCH-M8-1-SALES-01` 核对 v3/v4、当前报价/客户签回/VIN 关系与原 deliver 证据。实现与定向验证进行中；不改 M8.1 状态或原发布检查。
 
-**状态**：implemented（2026-09-30 PATCH-M8-1-OBJECT-WIRING-01 接线及本轮真实点击修复已落盘、独立人工审阅、同次13/13复验；原清单①—⑤及历史实测保留，原完整验收未记 done）
+**状态**：in_progress（2026-10-01 最新完整automatic-business09注册/执行/通过28/28、退出0，84完整自动业务check、5208动作/2560点击、页面异常/外部尝试0，16合成/0真实模型。生产1597eb7b、脚本7cc1267d，镜像稳定；销售后续四项及财务五项首次整场景通过，见v5。原08销售任务页渲染装置失败及三个局部诊断保留，不借历史成绩；原GET/Task CAS/真实DOM等待修复已复验。人工02属前次08脚本指纹，只接受维修/接待两页显示查看路径，469表原行不变、六项3/3/3/4/3/3，不换算84项体验。保险七项、开票/核账两项仍未注册候选。193完整/全部业务人工接受false/0，M8原真实环境、模型、员工门槛未满足，未记done/released，四生产开关默认关闭。）
+
+**2026-10-01当前增量收口**：主档02同次15/15定向通过；IAB master-stock01同指纹当次采购+主档22项自动检查、原本轮VIN库龄0及背景预订标签人工正确，另发现同名资料入口和目录多余介绍。按REFERENCE-COPY-01精确修复，IAB reference-copy01原点击两入口及三宽度目录复核、六项定向评分均≥3；不假记全部业务人工接受。完整16自动03发生根把检查放在实际换店返回首页后的装置错误而failed，原资料导航后检查位置纠正，不改产品换店/断言；全新automatic-business04完整16/16退出0、1890动作/1054点击、页面异常0、17合成模型/0真实，实际29项自动检查、193业务accepted仍0。生产 `e25325fbe9f82527fa7d9ebff5750d8505fa7984c6d58e4904b631b47a488c58`、脚本 `3b52615de979ab7a4cc8731f21f6fa491126f795e00ddbdbe9b3c12adbafaf8f`，外部 `V/browser-click/automatic-business-20261001-04/evidence/`。恢复implemented，仅当前修复与自动增量完成；原M8.4/CP门槛、193正式业务/模型/PG/Linux/员工条件不变，详v3检查点。客户、销售和报表未注册候选不计业务通过；后续普通缺陷继续按精确补丁处理。
+
+**2026-10-01追加**：193项业务点击任务先售前7项正例在同次Fresh04自动通过，当前人工审阅发现未选员工候选的提示缺陷，外部manual-presales01保持未通过。原单未分派，原select/业务API/权限和确认规则不放宽；修复范围为workforms进度及原生负向点击。修复审阅和受影响实际路径通过后恢复implemented，M8原环境门槛保持不变。
+
+**2026-10-01登录追加**：Fresh05的未选候选校验及HK-001/002原生检查通过，但换销售登录真实503（服务只记录OperationalError），整轮failed。按PATCH-M8-1-LOGIN-TRANSACTION-01使原SQLite登录在认证读取前使用已有服务器短写事务，原认证/失败限流/会话提交只执行一次，不加自动重试；PostgreSQL及业务原规则不改。M8.1仍in_progress，待定向及受影响实际浏览器复验。
+
+**2026-10-01鼠标追加**：Fresh06售前七项及automatic-business01当次14/14通过（17合成模型、真实模型/外网0），但IAB manual-presales02在768px发现候选关闭使提交按钮上移44.67px，原鼠标校验未触发，键盘校验成功，人工轮次failed。按PATCH-M8-1-LOOKUP-POINTER-01仅修真实pointer期间的候选关闭时机，纯程序移焦/Tab/Escape及原select、校验、提交保持；独立源码短审阅通过。Fresh07在390/768/1440px每次全新分派表单真实鼠标负向均拒绝，无POST/原业务改变，售前7/7同次通过、退出0。此前失败和不同指纹报告均保留。采购7项候选已按PATCH-M8-4-BUSINESS-193-02接入原统一入口，当前首轮实测；M8.1继续in_progress直到当前修复IAB及受影响联合检查完成。193目录全部原合同已审阅，静态覆盖不算业务通过，原全部环境条件保留。
+
+**2026-10-01采购与显示追加**：采购01错误VIN拒绝已证明整库不变，但脚本取消未处理原丢弃草稿提示而失败；修原UI脚本关闭顺序后02真实完成两台采购，库存原审核列错用工作流同名词义而失败。按PATCH-M8-1-LEGACY-APPROVAL-LABEL-01显式原审核词义，采购03同次7/7退出0。追加service仅隔离随机身份前置后，automatic-business02同次完整注册15/15退出0，原193检索/111指引/70页面/9代表表单和实际售前/采购14项均完整执行；生产指纹 `7ce91692ffecb97951740acaa36891601fedf56518f74d704c2027eef73354ac`，脚本 `36f5ff6e4e9dbd44f1829cbc2ad86893bec093fd7c88328b98482409aeffa079`。IAB manual-vehicle-purchase01按三种宽度核对同指纹目录、库存、原详情、已结清采购及财务金额，但发现零库龄丢成空、原reserved显示工作流“订单待确认”；人工报告partial，保留外部证据并正常退出停止。按PATCH-M8-1-LEGACY-STOCK-DISPLAY-01只修原记录显示，M8.1继续in_progress，等受影响真实采购和原生人工查看后登记。Mywork多余介绍已按PATCH-M8-1-WORK-COPY-01删除，定向人工文案复核通过；此前manual-presales03仍保留原不同指纹文案未通过，不拼成193完整验收。主档15项和销售候选独立编写、未执行不计通过。四开关生产默认仍关闭，原环境/员工/live门槛全部保留。
 
 **2026-09-30 新点击交付执行记录**：精确改动见 PATCH-M7-7-READ-DETAIL-01、PATCH-M8-1-OBJECT-WIRING-01、PATCH-M6-4-LOGIN-DEFAULT-01、PATCH-M6-4-STORE-FEATURES-01、PATCH-M6-6-FOLLOWUP-VIEW-01、PATCH-M6-4-WELCOME-COPY-01、PATCH-M8-1-LOGOUT-TRANSACTION-01；旧测试/CI清理及新入口/需求覆盖见 PATCH-M8-4-BROWSER-CLICK-01、PATCH-M8-4-REQUIREMENTS-CLICK-01。生产11 Python/3 JS/能力目录已源码审阅，16 AST/3 JSON/3 JS语法与diff检查通过。新入口同次注册/执行/通过13/13，1128动作/659点击、17次合成模型/0真实，准备和只读原业务摘要不变，单次员工确认后对应原客户恰一条；CAS409保留人工核对。生产指纹 `0ade3e7a781de93a963bc341242488abf386ee7d68bed55178838cc815e22f7a`、脚本指纹 `e4265ebdc23ce75c2d1767e272da5bc37167221f380d0c14d4857735eacff921`，证据 `V/browser-click/automatic-20260930-07/evidence/`。Fresh06退出503真实失败保留；两连接探针证明SQLite读快照升写机制，Fresh07真实退出复验通过，不自动重放。人工同指纹证据 `V/browser-click/manual-20260930-02/evidence/manual-review.json`。本轮登记 implemented，原跨业务批量/故障/独立环境/live gate/员工条件待测；详情见新v2检查点。
 

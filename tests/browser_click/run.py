@@ -21,7 +21,11 @@ SOURCE_FOLDERS = ("app", "web", "migrations")
 SOURCE_FILES = ("requirements.txt", "alembic.ini")
 FORBIDDEN_SUFFIXES = {".pyc", ".pyo", ".sqlite", ".sqlite3", ".db", ".log", ".key", ".pem", ".zip"}
 SCRIPT_FILES = ("run.py", "fixture_server.py", "provider.py", "scenarios.py", "rubric.json",
-                "requirements_click.py", "requirements_manifest.json")
+                "requirements_click.py", "requirements_manifest.json", "sales_business.py",
+                "business_acceptance_catalog.json", "vehicle_purchase_business.py", "master_data_business.py",
+                "customer_service_business.py", "sales_order_business.py", "report_business.py", "material_business.py",
+                "system_management_business.py", "repair_business.py", "membership_business.py",
+                "repair_followon_business.py", "sales_followon_business.py", "finance_business.py")
 EXCLUDED_DIRECTORIES = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "node_modules"}
 
 
@@ -181,10 +185,15 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--browser", help="explicit browser executable; no automatic replacement")
     parser.add_argument("--serve", action="store_true", help="keep the synthetic app available for interactive browser review")
+    parser.add_argument("--scenario", action="append", default=[], help="run a named increment only; repeated names are rejected and no full-suite acceptance is claimed")
     args = parser.parse_args()
     source = args.source.resolve()
     output = (args.output or default_output()).resolve()
     try:
+        if args.serve and args.scenario:
+            raise ValueError("Interactive review cannot be combined with a scenario selection")
+        if len(args.scenario) != len(set(args.scenario)):
+            raise ValueError("Scenario selection contains duplicate names")
         if not (source / "app/main.py").is_file():
             raise ValueError("The selected source has no app/main.py")
         verify_output(source, output)
@@ -203,7 +212,10 @@ def main():
     exit_code = 3
     state = {"schema": 1, "mode": "interactive" if args.serve else "automatic", "complete": False,
              "passed": False, "synthetic_data_only": True, "native_transport": True,
-             "real_model_calls": 0, "output": str(output), "browser": browser}
+             "real_model_calls": 0, "output": str(output), "browser": browser,
+             "scope": "selected" if args.scenario else "full_registered",
+             "requested_scenarios": args.scenario, "full_registered_suite_complete": False,
+             "full193_business_acceptance": False}
     try:
         source_before = source_inventory(source)
         scripts_before = script_inventory(HERE)
@@ -233,7 +245,7 @@ def main():
             raise RuntimeError("Source or scripts changed while copying; refusing a mixed snapshot before application import")
         credentials_path = runtime / "credentials.json"
         users = {role: {"username": "browser_" + role + "_" + uuid4().hex[:8],
-                        "password": secrets.token_urlsafe(24)} for role in ("admin", "sales")}
+                        "password": secrets.token_urlsafe(24)} for role in ("admin", "sales", "reception", "manager", "sales_peer", "inventory", "finance", "service", "technician")}
         write_json(credentials_path, {"synthetic_data_only": True, "users": users})
         credentials_path.chmod(0o600)
         with socket.socket() as available:
@@ -275,8 +287,9 @@ def main():
                     return exit_code
                 raise RuntimeError("The interactive synthetic application stopped without a successful stop request")
             with (evidence / "scenarios.log").open("w", encoding="utf-8") as scenario_log:
+                selected_arguments = [value for name in args.scenario for value in ("--scenario", name)]
                 result = subprocess.run([sys.executable, str(scripts / "scenarios.py"), "--manifest", str(manifest_path),
-                                         "--browser", browser["executable"]], cwd=scripts, env=environment, timeout=900,
+                                         "--browser", browser["executable"], *selected_arguments], cwd=scripts, env=environment, timeout=1800,
                                         stdout=scenario_log, stderr=subprocess.STDOUT)
             state["scenario_exit_code"] = result.returncode
             stop_server(server, runtime)
@@ -294,10 +307,16 @@ def main():
                 or len(executed) != len(set(executed)) or set(expected) != set(executed)
                 or any(scenario.get("status") != "passed" for scenario in report["scenarios"])):
             raise RuntimeError("Expected and executed browser scenarios differ or include an unpassed scenario")
+        if report.get("scope") != state["scope"]:
+            raise RuntimeError("Browser report scope differs from the requested execution")
+        if args.scenario and set(expected) != set(args.scenario):
+            raise RuntimeError("Selected browser scenarios differ from the requested names")
+        if not args.scenario and report.get("full_registered_suite_complete") is not True:
+            raise RuntimeError("Full registered browser suite did not execute completely")
         coverage = report.get("requirements_coverage", {})
         expected_coverage = {"requirements_searched": 193, "guides_displayed": 111,
                              "page_targets_opened": 70, "forms_opened_cancelled": 9}
-        if (coverage.get("complete") is not True or coverage.get("passed") is not True
+        if not args.scenario and (coverage.get("complete") is not True or coverage.get("passed") is not True
                 or coverage.get("actual_counts") != expected_coverage
                 or coverage.get("business_acceptance") is not False):
             raise RuntimeError("Requirement UI coverage is incomplete, failed or misstates business acceptance")
@@ -309,7 +328,9 @@ def main():
             raise RuntimeError("Synthetic network isolation record is missing or reports unexpected traffic")
         state.update({"complete": True, "passed": True, "scenario_count": len(report["scenarios"]),
                       "synthetic_model_requests": provider["synthetic_requests"],
-                      "requirements_coverage": coverage})
+                      "requirements_coverage": coverage,
+                      "business_acceptance": report.get("business_acceptance", {}),
+                      "full_registered_suite_complete": report["full_registered_suite_complete"]})
         exit_code = 0
     except KeyboardInterrupt:
         state["stopped"] = True

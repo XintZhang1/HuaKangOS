@@ -3,7 +3,7 @@ import csv,io
 from datetime import date
 from urllib.parse import quote
 from fastapi import APIRouter,Depends,HTTPException,Query,Response
-from .db import get_db
+from .db import get_db,get_audited_read_db
 from .security import get_user
 from .services import audit
 from .visit_activity_analytics import build_visit_activity
@@ -15,7 +15,7 @@ def report(date_from:date|None=None,date_to:date|None=None,case_id:int|None=Quer
     return build_visit_activity(db,user,date_from,date_to,case_id)
 
 @router.get('/export/{key}')
-def export(key:str,date_from:date|None=None,date_to:date|None=None,case_id:int|None=Query(None,gt=0),db=Depends(get_db),user=Depends(get_user)):
+def export(key:str,date_from:date|None=None,date_to:date|None=None,case_id:int|None=Query(None,gt=0),db=Depends(get_audited_read_db),user=Depends(get_user)):
     data=build_visit_activity(db,user,date_from,date_to,case_id)
     if key not in data['tables']:raise HTTPException(404,'此统计没有该原始明细表')
     t=data['tables'][key];buf=io.StringIO(newline='');writer=csv.writer(buf)

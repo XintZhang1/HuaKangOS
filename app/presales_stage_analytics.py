@@ -16,7 +16,7 @@ STAGES = {'unassigned': '待分派接待', 'contacting': '接待沟通',
     'reminder': '接待后回访', 'intent': '意向跟进'}
 TERMINAL = {'closed', 'converted'}
 ACTIONS = {'create', 'assign', 'intent', 'remind', 'follow', 'reserve',
-    'close', 'reopen', 'callback_intent'}
+    'close', 'reopen', 'callback_intent', 'sales_quote_convert'}
 DEFINITIONS = [
     '售前阶段停留按原状态迁移事件计算自然经过时间，不是员工工时、工作量或绩效。重复回访及意向跟进没有改变阶段时，不重置起点。结束后重新开启另记轮次；结束期间不计入下一轮。',
     '已结束阶段按实际结束日纳入期间均值，包含此前开始、在本期结束的阶段。截至期间末尚未结束的阶段单列，不把观察时长混入已结束阶段均值；本期未结束不代表今天仍未结束。',
@@ -62,6 +62,7 @@ def replay(case, events, cutoff, check_current=False):
             'remind': before in {'contacting','reminder'} and after=='reminder',
             'follow': before=='intent' and after=='intent',
             'reserve': before=='intent' and after=='converted',
+            'sales_quote_convert': before=='intent' and after=='converted',
             'close': before in {'contacting','reminder','intent'} and after=='closed',
             'reopen': before=='closed' and after=='intent',
             'callback_intent': before=='unassigned' and after=='intent'

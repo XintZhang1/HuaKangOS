@@ -18,7 +18,7 @@ from .inventory_report_common import bounded, as_of, route, table
 
 READ_ROLES={'admin','manager','finance','auditor','sales','service','reception','customer_service'}
 CONTACTS={'remind':'接待沟通并安排回访','intent':'记录购车需求','follow':'记录意向沟通'}
-TRANSITIONS={'reserve':'转车辆预订','close':'结束本次跟进','reopen':'重新开启跟进'}
+TRANSITIONS={'reserve':'转车辆预订','sales_quote_convert':'转车辆预订','close':'结束本次跟进','reopen':'重新开启跟进'}
 RELEASES={1:'release',2:'release',3:'repair_v3_release',4:'repair_v4_release'}
 DEFINITIONS=[
  '非维修登记安排不计进厂，转维修沿用同一原实际进厂而不重复计算。已独立批准的纠正按当前查询快照重算有效时间，原事实和提出记录另表保留；不是当年已封存账簿的改写。',

@@ -36,7 +36,11 @@ function workFormMissing(form){
    const group=controls.filter(other=>other.type==='radio'&&(el.name?other.name===el.name:other===el));
    return group.some(other=>other.required)&&!group.some(other=>other.checked);
   }
-  return el.required&&(el.type==='checkbox'?!el.checked:el.type==='file'?!el.files?.length:!String(el.value||'').trim());
+  // Lookup text is only a search query until the original candidate is chosen.
+  // livechoices already marks that unresolved query invalid; preserve its
+  // native value and validation contract when describing form progress.
+  return el.required&&((el.type==='checkbox'?!el.checked:el.type==='file'?!el.files?.length:!String(el.value||'').trim())||
+   (el.matches('[data-lookup-query]')&&el.validity.customError));
  });
 }
 function disposeWorkForm(dialog){const form=dialog.querySelector('form'),ui=form&&workFormStates.get(form);if(ui?.dispose)ui.dispose();}

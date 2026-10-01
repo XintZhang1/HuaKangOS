@@ -21,6 +21,24 @@ from urllib.parse import urlsplit
 
 from playwright.async_api import async_playwright, expect
 from requirements_click import REQUIREMENT_SCENARIOS, finalize_requirement_report
+from sales_business import BUSINESS_SCENARIOS as PRESALES_SCENARIOS
+from vehicle_purchase_business import VEHICLE_PURCHASE_SCENARIOS
+from master_data_business import MASTER_DATA_SCENARIOS
+from customer_service_business import CUSTOMER_SERVICE_SCENARIOS
+from sales_order_business import SALES_ORDER_SCENARIOS
+from report_business import REPORT_SCENARIOS
+from material_business import MATERIAL_SCENARIOS
+from system_management_business import SYSTEM_MANAGEMENT_SCENARIOS
+from repair_business import REPAIR_SCENARIOS
+from membership_business import MEMBERSHIP_SCENARIOS
+from repair_followon_business import REPAIR_FOLLOWON_SCENARIOS
+from sales_followon_business import SALES_FOLLOWON_SCENARIOS
+from finance_business import FINANCE_SCENARIOS
+
+BUSINESS_SCENARIOS = (PRESALES_SCENARIOS + VEHICLE_PURCHASE_SCENARIOS + MASTER_DATA_SCENARIOS
+                      + CUSTOMER_SERVICE_SCENARIOS + SALES_ORDER_SCENARIOS + REPORT_SCENARIOS + MATERIAL_SCENARIOS
+                      + REPAIR_SCENARIOS + SYSTEM_MANAGEMENT_SCENARIOS + MEMBERSHIP_SCENARIOS
+                      + REPAIR_FOLLOWON_SCENARIOS + SALES_FOLLOWON_SCENARIOS + FINANCE_SCENARIOS)
 
 
 INPUT = "#business-assistant-input"
@@ -713,15 +731,72 @@ SCENARIOS = (
     ("slow-query-logout", slow_logout, 130),
     ("provider-protocol-error-no-card", protocol_error, 130),
     ("native-cookie-csrf-csp-sse", security, 130),
-) + REQUIREMENT_SCENARIOS
+) + REQUIREMENT_SCENARIOS + BUSINESS_SCENARIOS
 
 
-async def run(manifest, credentials, executable):
+def finalize_business_report(manifest, report):
+    """Map only this run's registered checkpoints to the reviewed contracts.
+
+    Automatic business results and the required human review stay separate.
+    No earlier run, navigation result or fixture row contributes a passed check.
+    """
+    catalog = json.loads((Path(__file__).parent / "business_acceptance_catalog.json").read_text(encoding="utf-8"))
+    contracts = {row["id"]: row for row in catalog["requirements"]}
+    require(len(contracts) == len(catalog["requirements"]) == 193, "193项业务目录缺失或重复")
+    contract_ids = {check["check_id"] for row in contracts.values() for check in row["acceptance_checks"]}
+    require(len(contract_ids) == sum(len(row["acceptance_checks"]) for row in contracts.values()), "业务验收check_id重复")
+    business_names = {name for name, _, _ in BUSINESS_SCENARIOS}
+    results = {}
+    for scenario in report["scenarios"]:
+        if scenario["id"] not in business_names:
+            continue
+        path = Path(manifest["evidence_root"]) / scenario["id"] / "business-checkpoint.json"
+        require(path.is_file(), "实际业务场景缺少逐项checkpoint：" + scenario["id"])
+        checkpoint = json.loads(path.read_text(encoding="utf-8"))
+        require(checkpoint.get("scenario") == scenario["id"], "业务checkpoint串场景")
+        for row in checkpoint["requirements"]:
+            require(row["id"] in contracts, "业务checkpoint含未知需求")
+            expected = {check["check_id"] for check in contracts[row["id"]]["acceptance_checks"]}
+            for check in row["acceptance_checks"]:
+                key = check["check_id"]
+                require(key in expected and key not in results, "业务checkpoint含未知、串需求或重复检查：" + key)
+                results[key] = {"check_id": key, "status": check["status"],
+                                "scenario": scenario["id"], "scenario_passed": scenario["status"] == "passed",
+                                "checkpoint": str(path)}
+    rows = []
+    for key, contract in contracts.items():
+        checks = [results.get(check["check_id"], {"check_id": check["check_id"], "status": "not_tested"})
+                  for check in contract["acceptance_checks"]]
+        complete = bool(checks) and all(check["status"] == "passed" and check.get("scenario_passed") for check in checks)
+        status = "passed" if complete else "failed" if any(check["status"] == "failed" for check in checks) else "not_tested"
+        rows.append({"id": key, "title": contract["title"], "automatic_status": status,
+                     "checks": checks, "manual_review": "pending", "business_accepted": False})
+    passed = sum(row["automatic_status"] == "passed" for row in rows)
+    value = {"schema": 1, "scope": report["scope"], "requirements": rows,
+             "catalog_requirements": 193, "automatic_requirements_passed": passed,
+             "diagnostic_checks_passed": sum(check["status"] == "passed" for check in results.values()),
+             "business_requirements_accepted": 0, "full193_business_acceptance": False,
+             "manual_review": "pending", "historical_results_reused": False,
+             "policy": "仅本次完整通过场景的所有目录检查计入自动结果；人工体验、文案和未执行异常路径仍需独立证据。"}
+    save_json(Path(manifest["evidence_root"]) / "business-acceptance-report.json", value)
+    return {key: value[key] for key in ("catalog_requirements", "automatic_requirements_passed",
+            "diagnostic_checks_passed", "business_requirements_accepted", "full193_business_acceptance", "manual_review")}
+
+
+async def run(manifest, credentials, executable, selected_names=()):
     secrets = [user["password"] for user in credentials["users"].values()]
     require(len(SCENARIOS) > 0, "空场景不能通过")
+    registered_names = [name for name, _, _ in SCENARIOS]
+    require(len(registered_names) == len(set(registered_names)), "注册场景重复")
+    require(len(selected_names) == len(set(selected_names)), "定向场景重复")
+    require(set(selected_names).issubset(registered_names), "定向场景没有对应注册实现")
+    chosen = tuple(item for item in SCENARIOS if not selected_names or item[0] in selected_names)
+    scope = "selected" if selected_names else "full_registered"
     report_path = Path(manifest["evidence_root"]) / "browser-click-report.json"
-    report = {"schema": 1, "registered": len(SCENARIOS), "executed": 0, "passed_count": 0, "failed": 0,
-              "expected_scenarios": [name for name, _, _ in SCENARIOS], "complete": False, "passed": False,
+    report = {"schema": 1, "registered": len(chosen), "executed": 0, "passed_count": 0, "failed": 0,
+              "expected_scenarios": [name for name, _, _ in chosen], "complete": False, "passed": False,
+              "scope": scope, "all_registered_scenarios": registered_names,
+              "full_registered_suite_complete": False, "full193_business_acceptance": False,
               "browser": manifest.get("browser", {}), "scenarios": [],
               "manual_review": {"status": "pending", "rubric": "rubric.json", "employee_efficiency": "not_measured"},
               "method": "当前真实 HTTP 服务；正业务原生 Playwright 点击；193需求/111指引/70共用原页面/9代表表单真实UI分层记录；3项Cookie只读API补充检查单独计数；合成模型；SQLite原业务全行摘要核对"}
@@ -729,7 +804,7 @@ async def run(manifest, credentials, executable):
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(executable_path=executable, headless=True)
         report["actual_browser_version"] = browser.version
-        for name, scenario, timeout_seconds in SCENARIOS:
+        for name, scenario, timeout_seconds in chosen:
             e = Evidence(manifest, secrets, name)
             context = await browser.new_context(viewport={"width": 1440, "height": 1000}, locale="zh-CN")
             page = await context.new_page()
@@ -768,8 +843,15 @@ async def run(manifest, credentials, executable):
         await browser.close()
     report["complete"] = report["registered"] == report["executed"] == len(report["scenarios"])
     report["passed"] = report["complete"] and report["passed_count"] == report["registered"] and report["failed"] == 0
-    report["requirements_coverage"] = finalize_requirement_report(manifest, report)
-    report["passed"] = report["passed"] and report["requirements_coverage"]["passed"]
+    report["full_registered_suite_complete"] = report["complete"] and set(report["expected_scenarios"]) == set(registered_names)
+    requirement_names = {name for name, _, _ in REQUIREMENT_SCENARIOS}
+    if requirement_names.issubset(report["expected_scenarios"]):
+        report["requirements_coverage"] = finalize_requirement_report(manifest, report)
+        report["passed"] = report["passed"] and report["requirements_coverage"]["passed"]
+    else:
+        report["requirements_coverage"] = {"status": "not_executed_in_selected_scope", "complete": False,
+                                           "passed": False, "business_acceptance": False, "full_flow_tested": False}
+    report["business_acceptance"] = finalize_business_report(manifest, report)
     report["automatic_gate"] = "passed" if report["passed"] else "failed"
     save_json(report_path, report)
     print(json.dumps({"report": str(report_path), "registered": report["registered"], "executed": report["executed"], "passed": report["passed_count"], "failed": report["failed"]}, ensure_ascii=False))
@@ -780,6 +862,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--browser")
+    parser.add_argument("--scenario", action="append", default=[])
     args = parser.parse_args()
     manifest_path = Path(args.manifest).resolve()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -795,7 +878,7 @@ def main():
     credentials_path = Path(manifest["credentials_path"]).resolve()
     credentials = json.loads(credentials_path.read_text(encoding="utf-8"))
     executable = args.browser or manifest["browser"]["executable"]
-    return asyncio.run(run(manifest, credentials, executable))
+    return asyncio.run(run(manifest, credentials, executable, args.scenario))
 
 
 if __name__ == "__main__":

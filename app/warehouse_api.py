@@ -4,7 +4,7 @@ from typing import Literal
 from fastapi import APIRouter,Depends,HTTPException,Query
 from pydantic import BaseModel,ConfigDict,Field,ValidationError
 from sqlalchemy import select,func,or_
-from .db import get_db
+from .db import get_db,get_write_db
 from .security import get_user
 from .flow_models import Case,Item
 from .warehouse_models import WarehouseDocument
@@ -91,5 +91,5 @@ def command(case_id:int,action:str,body:Envelope,db=Depends(get_db),user=Depends
 def allocation_options(case_id:int,db=Depends(get_db),user=Depends(get_user)):
     with svc.authority(db,user,svc.PHYSICAL):return svc.allocation_options(db,user,case_id)
 @router.post('/allocations/{case_id}')
-def allocate(case_id:int,body:Envelope,db=Depends(get_db),user=Depends(get_user)):
+def allocate(case_id:int,body:Envelope,db=Depends(get_write_db),user=Depends(get_user)):
     return svc.prepare_external(db,user,case_id,body.request_id,body.version,parse(Allocation,body.values))
