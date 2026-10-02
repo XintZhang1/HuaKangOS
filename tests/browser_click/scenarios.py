@@ -21,6 +21,8 @@ from urllib.parse import parse_qs, urlsplit
 
 from playwright.async_api import async_playwright, expect
 from pending_ui import review_followup_ui
+from runtime_faults import preparation_crash, inflight_stop
+from runtime_batch import batch_rule_failure, batch_result_unknown
 from requirements_click import REQUIREMENT_SCENARIOS, finalize_requirement_report
 from sales_business import BUSINESS_SCENARIOS as PRESALES_SCENARIOS
 from vehicle_purchase_business import VEHICLE_PURCHASE_SCENARIOS
@@ -925,6 +927,10 @@ async def native_browser_restart(e, original_context, credentials, user):
 
 
 SCENARIOS = (
+    ("runtime-preparation-process-crash", preparation_crash, 240),
+    ("runtime-inflight-stop-before-prepare-response", inflight_stop, 90),
+    ("runtime-batch-rule-failure-stops-remaining", batch_rule_failure, 120),
+    ("runtime-batch-native-commit-result-lost", batch_result_unknown, 120),
     ("welcome-responsive-draft-keyboard", welcome, 130),
     ("manual-module-deeplink", manual_navigation, 130),
     ("readonly-query-no-card", readonly_query, 130),

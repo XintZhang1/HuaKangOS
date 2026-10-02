@@ -88,3 +88,15 @@ IAB原CSV导出间歇503已保留真实失败证据；显式审计GET依赖在SQ
 2026-10-02 main接续：53项注册保留，脚本白名单46个文件。`pending_ui.py`在当前followup/完整来源报表内复用本轮真实卡和原来源，增加390/768/1440主卡、抽屉焦点/Tab草稿及768单次可信横滚末列；导航先点真实窄屏菜单。security以Chrome原生资源终止和实际Network.loadingFailed证明已断流，再核精确非零after_seq补读及独立Chrome重启。该装置不代表OS网卡/TCP RST演练；不替换fetch/响应/事件，不直接赋scrollLeft或改CSS。
 
 main-resume28同轮selected10/10、CLI0，完整报告与provider17/0/0在外部证据根；源码cf34fb8d、脚本2e5eb6e6。原失败、定向通过、GitHub完整53和正式193接受分别记录，详见`docs/implementation-checkpoints/M8-1-main-resume-checkpoint-v1.md`。此定向结果不代表完整53或发布验收。
+
+持续交付的当前增量按`PATCH-M8-1-PREPARATION-PROCESS-CRASH-01`追加`runtime-preparation-process-crash`，原53保留，当前注册54/脚本白名单47。无`--scenario`的完整模式及选择该故障场景时，隔离Web由独立原worker CLI进程执行，合成turn预算180秒；其它定向/`--serve`沿原嵌入worker/60秒。原90秒租约、首次30秒恢复退避和生产配置不改。故障点只在已提交真实卡后中断登记的隔离PID，不重发聊天、伪造回执、改时钟或SQL状态；子进程provider账本均汇总。新场景动态结果另登记，文件存在不等于恢复通过，原53 CI成绩不继承给新54。
+
+2026-10-02 在途停止增量按PATCH-M8-1-INFLIGHT-STOP-01注册第55场；原54顺序和名称保留。定向此场沿原embedded worker，完整55沿原process模式（先完成提交后崩溃/重启，再测原UI停止）；两个执行面分别记录，不冒充完整独立worker部署演练。生产不改，合成provider只新cancel_前缀在inspect成功后的第二轮准备响应设置有界阶段。必须原点击停止200、真实stop_requested后释放并记录returned_after_stop，最终原Run取消且无卡/准备WorkItem/确认/原业务变化；heartbeat先中断单记，不能算迟到响应已返回。新增代码实施/审阅和动态结果分别登记，不因注册即记通过。
+
+2026-10-02 虚拟候选当前注册57/48文件，新增本组自然原业务409及真实native提交后结果丢失两个故障。原UI逐张confirm而非后端batch API：真实A成功、Bfailed/uncertain后暂停C，C pending全行保持不写成skipped；后端显式skipped列表另待测。33优化前在途停止单场完整pass（4.78秒、11动作5点击、合成2/真实外部0、实际CLI0），source cf34fb8d/script afe419f2；停止前原getRun版本优化后属于新生产候选，旧局部不继承，原stop/crash核心函数保持。当前新增脚本/前端优化动态未计通过，正式发布门槛继续待测。
+
+后续34/35原批量各1/1及36同轮关键6/6已通过生产06109c76/脚本0559ff42；微秒created_at保持同秒不同微秒A/B/C原顺序，停止一次点击使用原最新版本且CAS保留。又补原卡核对按钮接线和会话迟到守卫，既有unknown场直接点击原execution-result GET：客户Master回执族unsupported不意味着失败/未提交/成功恢复，卡仍uncertain、无业务重放。迟到验证只有限暂停精确浏览器GET派发，再continue原请求，由原服务器返回；不fetch/fulfill或改headers/body/响应，切新对话仍须原待卡交接选择。原UI、DB完整行和业务摘要分别核对，新最终指纹结果另记，57注册不代表正式M8.1全部故障或193业务验收。
+
+最终Windows候选635生产/48脚本指纹5d728c524580631c079b9759126ec4a67e4b6b3a8ee5ba73c37d0cbac2987c95/de675618841a4dc4425b8fdc72a2d3bce7b9e2897570e71b1ee75494768e4b4d：sidebar39两场、critical40六场、critical41四场完整通过。两原收尾复用workspace.load，脚本仅等真实sidebar proposal key与原服务器状态，不主动load或猜总数。关键故障两个fresh实例独立重复，原业务零变与批量实际追加分别核；完整57 CI另记，不把定向局拼全量或正式故障验收。
+
+日志独立审计修正：40/41原业务断言绿色但scenarios.log SDK finished()遗留Target closed任务，使独立audit false。仅将runtime_batch迟到GET完整读取等待改为原body()，后续原JSON/断言保持，SDK及原日志不改。新48脚本指纹a51069184869f712f4fc99ceccc0208632f45fbd0d3c909c849e84ca1742aabc、生产仍5d728c52；receipt-observer42受影响两场2/2、实际CLI/服务0未强杀、provider6/0/0且无该遗留异常。最终完整57由当前Git blob的CI另验，不把旧片段改成新全量。

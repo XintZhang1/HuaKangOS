@@ -769,8 +769,10 @@
   }
 
   async function checkReceipt(sessionId, proposalId) {
-    const valid = requestGuard();
-    if (!sessionId || !proposalId) return null;
+    const contextValid = requestGuard(), page = current(), generation = page && page.generation;
+    const valid = () => contextValid() && page && current() === page && page.generation === generation
+      && String(page.session && page.session.id || '') === String(sessionId);
+    if (!sessionId || !proposalId || !valid()) return null;
     const key = String(proposalId);
     try {
       const view = await businessAssistantRequest('/sessions/' + encodeURIComponent(String(sessionId))
@@ -909,8 +911,11 @@
     if (action === 'notices-more') { await loadNotifications({ cursor: state.noticeCursor || '' }); return; }
     if (action === 'notice-open') { await openNotification(String(target.dataset.noticeId || '')); return; }
     if (action === 'receipt') {
-      const view = await checkReceipt(target.dataset.session, target.dataset.proposal);
-      if (view && typeof toast === 'function') toast(receiptText(view), view.status !== 'confirmed_success');
+      const page = current(), generation = page && page.generation, sessionId = target.dataset.session;
+      const view = await checkReceipt(sessionId, target.dataset.proposal);
+      if (view && alive() && current() === page && page.generation === generation
+          && String(page.session && page.session.id || '') === String(sessionId)
+          && typeof toast === 'function') toast(receiptText(view), view.status !== 'confirmed_success');
       return;
     }
     if (action === 'followup') {

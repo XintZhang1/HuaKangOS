@@ -321,7 +321,9 @@ def proposal_view(row):
             'questions':scrub(row.questions or []),
             'operation_id':row.operation_id,'label':row.label,'summary':row.summary,
             'details':scrub(row.payload),'display_fields':fields,'manual_route':manual_route,'digest':row.digest,'status':status,
-            'expires_at':stamp(row.expires_at),'created_at':stamp(row.created_at),'result':scrub(receipt_result_view(row))}
+            'expires_at':stamp(row.expires_at),
+            'created_at':row.created_at.isoformat(timespec='microseconds')+'Z' if row.created_at else None,
+            'result':scrub(receipt_result_view(row))}
 
 
 def session_view(db,user,session_id):

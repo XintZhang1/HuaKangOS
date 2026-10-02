@@ -3720,6 +3720,16 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 - [ ] “业务成功、通知失败”仍呈现真实业务成功；未知写入绝不重放。
 - [ ] 故障重复执行能稳定得到同一断言结果。
 
+**2026-10-02 持续交付补证 v3**：GitHub36976885886对9a6505b的完整原生点击53/53终局success，上传ZIP及635生产/46脚本与Git blob逐项核验完成；192自动业务检查、193/111/70/9覆盖通过，HK099未测/full193=false。新准备提交后独立worker崩溃按PATCH-M8-1-PREPARATION-PROCESS-CRASH-01实施，29仅执行器启动失败保留；修正Windows venv PID后30/31全新外部实例生产cf34fb8d、脚本7a9927bd、47文件相同，各selected1/1完整通过、10动作/3点击、128.66/124.66秒、页面异常0、provider各3合成/真实0/外部0。实际杀原PID非零、Gen2正常0，原90秒租约/30秒退避、同Run/fence与attempt1→2、原pending卡/prepare WorkItem/成功tool整行、连续事件及确认前原业务hash零变均成立；场景与服务0/forced=false，30宿主CLI0直接观察，31宿主退出独立记录缺失，不补造。30保留一条WinError10054关闭回调日志。此项不替完整原故障合同，新增第55场原UI在途停止按PATCH-M8-1-INFLIGHT-STOP-01待动态。审阅及准确边界见M8-1-delivery-continuation-v2。
+
+**2026-10-02 最新候选交付范围**：业主明确真实测试暂不考虑，先用虚拟数据尽可能优化后交付。按PATCH-M8-VIRTUAL-DELIVERY-01继续当前M8.1合成数据的实际浏览器/故障验证与必要修复；真实模型、真人试用、真实公司数据及生产验证暂不启动，原PG/独立环境、101/283、保留集、员工效率、真实Date和正式发布门槛仍待原条件，不标通过。原上述全局完成检查、M8.1 in_progress/M8.4 todo/CP36 not_ready及四关闭开关保持；开发候选交付不等于正式发布。
+
+**2026-10-02 虚拟候选优化 v4**：原三卡同秒时间截断排序及停止使用旧view已按精确补丁修复。生产06109c76/脚本0559ff42的batch-rule34、batch-unknown35各selected1/1原生通过；同指纹virtual-critical36一局selected6/6、CLI/服务0且未强杀，165.81秒/68动作34点击，合成16/真实0/外部0、页面异常0。真实准备提交后杀原worker，同Run自然租约与退避恢复唯一原卡；员工停止一次getRun后cancel200并拒绝迟到准备；原A/B逐张确认自然409或真实201后丢返回，C全行保留不提交、业务仅预期客户/审计追加，刷新无重放；切店/退出及恢复分别通过。随后原M6.7核对按钮模板缺接线和同店换会话迟到提示已按PATCH-M6-8-RECEIPT-CARD-WIRING-01修复，追加原GET unsupported与原UI会话切换验证，属于新指纹待复验。三份生产窄补丁均独立源码审阅、AST/Node/diff检查通过；详细产物/失败/指纹见M8-1-delivery-continuation-v2，不把此前selected局拼当前完整57。原重复请求/唤醒、双活/旧活租约晚写、准备前/冻结后/逐行中断、Flow回执与not_found/mismatch、在途撤权、outbox/通知失败、过期及事实/目标版本等合成可测合同仍待测，与暂缓真实条件分别登记；五项全局检查及唯一当前状态不变。
+
+**2026-10-02 最终虚拟候选冻结 v5**：原GET unsupported/会话迟到在37实际通过；原侧栏准备/确认后0陈旧已按PATCH-M6-3-SIDEBAR-SESSION-REFRESH-01补两个收尾只读刷新。最终635生产/48脚本指纹5d728c52/de675618，39原批量selected2/2、40关键6/6及41核心4/4各完整pass，场景/实际CLI/服务0、forced=false；40/41全新独立实例有重叠运行但无共享数据/config/profile/PID/控制，171.09/153.68秒、72/52动作、38/31点击、provider16/11合成、真实/外部/page均0、server.log空，关键四故障断言同指纹重复成立。原三卡侧栏无需手动刷新、B原回执unsupported仍uncertain、迟到GET不在新会话提示，各场原卡/冻结/业务阶段完整保护成立。此为范围明确的开发候选，GitHub最终完整57及原正式/其余合成故障仍分别待证，不勾选五项全局完成检查；源/异常/历史WinError10054和准确交付边界见M8-1-delivery-continuation-v2。
+
+**2026-10-02 观察器审计修正 v6**：40/41自动业务绿色之外，两份原 scenarios.log 均有 Playwright 1.56 Response.finished() 遗留关闭任务异常，独立原件审计 passes=false，不能继承为最终日志无异常。按原receipt补丁仅将该迟到GET完整读取等待改body()，原JSON/所有断言及生产不改。新生产5d728c52/脚本a5106918、635/48下receipt-observer42 selected2/2完整通过，合成6/真实外部0、实际CLI/服务0且未强杀、SDK异常消失；原日志与审计保留。当前最终Git blob完整57 CI待证，原M8.1剩余合成故障及正式条件、状态和完成检查全部保持。
+
 <a id="m8-2"></a>
 
 ## M8.2 原业务、助手和前端不退化验收

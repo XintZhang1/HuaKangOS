@@ -20,6 +20,8 @@ def read_instance(path):
             raise RuntimeError("Instance path escaped its new isolated directory: " + key)
     if manifest.get("synthetic_data_only") is not True:
         raise RuntimeError("Only explicitly synthetic browser instances are accepted")
+    if manifest.get("worker_mode", "embedded") not in {"embedded", "process"}:
+        raise RuntimeError("Unknown synthetic worker mode")
     if (Path(manifest["source_root"]) / ".env").exists():
         raise RuntimeError("The isolated source must never contain .env")
     return manifest
@@ -33,7 +35,7 @@ def configure_environment(manifest, initialize):
         config.write_text(json.dumps({"enabled": True, "api_key": "SYNTHETIC-NOT-A-CREDENTIAL",
                           "model": "deepseek-flash", "provider": "deepseek", "synthetic": True,
                           "tool_profile": "business_v1", "max_rounds": 8,
-                          "turn_timeout_seconds": 60}), encoding="utf-8")
+                          "turn_timeout_seconds": 180 if manifest.get("worker_mode") == "process" else 60}), encoding="utf-8")
         config.chmod(0o600)
     elif not config.is_file():
         raise RuntimeError("Synthetic initialization did not produce its model configuration")
@@ -262,6 +264,7 @@ def main():
         original_lifespan = app.router.lifespan_context
         server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=manifest["port"],
                                 log_level="warning", access_log=False))
+        lifecycle = {"finished": False}
 
         async def watch_stop_request():
             while not (Path(manifest["runtime_root"]) / "stop-requested").exists():
@@ -270,22 +273,46 @@ def main():
 
         @asynccontextmanager
         async def synthetic_lifespan(application):
-            with provider.installed():
+            from runtime_batch import batch_submission_fault
+            with provider.installed(), batch_submission_fault(manifest):
                 async with original_lifespan(application):
-                    worker = Worker()
-                    worker.start()
+                    controller = None
+                    command_loop = None
+                    if manifest.get("worker_mode") == "process":
+                        from runtime_faults import WorkerProcessController
+                        controller = WorkerProcessController(manifest, args.manifest.resolve())
+                        await controller.start()
+                        command_loop = asyncio.create_task(controller.serve_commands())
+                    else:
+                        worker = Worker()
+                        worker.start()
                     stopping = asyncio.create_task(watch_stop_request())
                     try:
                         yield
                     finally:
                         stopping.cancel()
-                        await worker.stop(timeout=5)
+                        command_error = None
+                        if controller is not None:
+                            if command_loop.done() and not command_loop.cancelled():
+                                command_error = command_loop.exception() or RuntimeError("Synthetic worker control loop stopped unexpectedly")
+                            command_loop.cancel()
+                            await asyncio.gather(command_loop, return_exceptions=True)
+                            await controller.stop()
+                            counts = controller.collect_provider_counts(provider.counts)
+                        else:
+                            await worker.stop(timeout=5)
+                            counts = provider.counts
                         (evidence / "provider.json").write_text(
-                            json.dumps(provider.counts, ensure_ascii=False, indent=2), encoding="utf-8")
+                            json.dumps(counts, ensure_ascii=False, indent=2), encoding="utf-8")
                         engine.dispose()
+                        if command_error is not None:
+                            raise command_error
+            lifecycle["finished"] = True
 
         app.router.lifespan_context = synthetic_lifespan
         server.run()
+        if not lifecycle["finished"]:
+            return 3
     return 0
 
 

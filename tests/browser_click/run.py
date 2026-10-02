@@ -33,7 +33,7 @@ SCRIPT_FILES = ("run.py", "fixture_server.py", "provider.py", "scenarios.py", "r
                 "repair_packages_business.py", "interstore_business.py", "repair_claims_business.py", "repair_rework_business.py",
                 "report_remaining_business.py", "customer_reminders_business.py", "sales_pdi_business.py", "retail_remaining_business.py",
                 "roles_dossier_business.py", "finance_remaining_business.py", "inventory_scope_business.py", "receivables_business.py",
-                "report_complete_source_business.py", "pending_ui.py")
+                "report_complete_source_business.py", "pending_ui.py", "runtime_faults.py", "runtime_batch.py")
 EXCLUDED_DIRECTORIES = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "node_modules"}
 
 
@@ -174,17 +174,20 @@ def wait_for_server(server, origin):
 
 
 def stop_server(server, runtime):
+    forced = False
     if server.poll() is None:
         (runtime / "stop-requested").write_text("Stop this synthetic instance.\n", encoding="utf-8")
         try:
             server.wait(timeout=15)
         except subprocess.TimeoutExpired:
+            forced = True
             server.terminate()
             try:
                 server.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 server.kill()
                 server.wait()
+    return {"returncode": server.returncode, "forced": forced}
 
 
 def main():
@@ -272,6 +275,8 @@ def main():
                    "port": port, "source_root": str(source_root), "runtime_root": str(runtime),
                    "evidence_root": str(evidence), "database_path": str(runtime / "synthetic.sqlite"),
                    "credentials_path": str(credentials_path), "browser": browser,
+                   "worker_mode": "process" if not args.serve and (not args.scenario or
+                       "runtime-preparation-process-crash" in args.scenario) else "embedded",
                    "users": {role: {"username": user["username"]} for role, user in users.items()}})
         environment = child_environment()
         fixture_command = [sys.executable, str(scripts / "fixture_server.py"), "--manifest", str(manifest_path)]
@@ -318,7 +323,9 @@ def main():
                     raise RuntimeError("The post-test synthetic application stopped without a successful stop request")
                 state["post_test_review"].update({"phase": "stopped",
                     "stopped_at": datetime.now(timezone.utc).isoformat()})
-            stop_server(server, runtime)
+            state["service_shutdown"] = stop_server(server, runtime)
+            if state["service_shutdown"]["returncode"] != 0 or state["service_shutdown"]["forced"]:
+                raise RuntimeError("Synthetic service did not shut down successfully without forced termination")
         report_path = evidence / "browser-click-report.json"
         if result.returncode:
             raise RuntimeError("Browser click scenarios failed")
@@ -367,7 +374,12 @@ def main():
         print("Browser click run failed: " + state["reason"], file=sys.stderr)
     finally:
         if server is not None:
-            stop_server(server, runtime)
+            shutdown = stop_server(server, runtime)
+            state.setdefault("service_shutdown", shutdown)
+            if exit_code == 0 and (shutdown["returncode"] != 0 or shutdown["forced"]):
+                state.update({"complete": False, "passed": False,
+                              "reason": "Synthetic service cleanup failed or required forced termination"})
+                exit_code = 3
         write_json(evidence / "run-summary.json", state)
         print("Evidence retained: " + str(evidence), flush=True)
     return exit_code
