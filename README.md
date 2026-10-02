@@ -1,6 +1,6 @@
 # HuaKangOS · 华慷集团
 
-当前开发分支为 `feature/assistant-agent-runtime`。核心 Runtime 实现及 M8.1/M8.2 收口记录见 [实施计划](implementation_plan.md)；历史源码候选和新实现不能混为生产验收。
+当前开发分支为 `main`；2026-10-02 已将 `feature/assistant-agent-runtime` 快进合入并推送主分支。核心 Runtime 实现及 M8.1/M8.2 收口记录见 [实施计划](implementation_plan.md)；历史源码候选和新实现不能混为生产验收。
 
 2026-09-30 按业主要求重新组织测试：旧测试与旧套件 CI 移出工作区，新验证以 [浏览器实际点击](tests/browser_click/README.md) 为入口，使用当前源码、原登录和业务 API、仓库外合成数据库及离线模型响应。GitHub Actions 使用相同入口。运行截图、日志和密码不进入仓库。PostgreSQL、真实模型、员工试用等门槛仍按计划保留。
 

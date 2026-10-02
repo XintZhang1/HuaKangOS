@@ -17,7 +17,7 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from playwright.async_api import async_playwright, expect
 from requirements_click import REQUIREMENT_SCENARIOS, finalize_requirement_report
@@ -726,6 +726,23 @@ async def slow_logout(e, context, credentials):
     e.business_unchanged(business_before, "original_business_after_logout_terminal")
     e.observe("logout_cancelled_terminal", {"run": terminal, "events": events, "card_count": 0})
     await e.snapshot("slow-logout")
+    # Exercise the employee's recovery through the same native login form.
+    # The prior Run must remain cancelled and its late text must not return.
+    await e.login(context, credentials)
+    await e.ready()
+    require(await e.page.locator(INPUT).input_value() == "", "重新登录恢复了已退出的草稿")
+    require("慢速查询退出" not in await e.page.locator("#business-assistant-messages").inner_text(), "重新登录带回迟到内容")
+    recovered_business = e.business_snapshot("original_business_before_logout_recovery_query")
+    await e.send("查询本店张姓客户")
+    recovered = e.db.rows("SELECT id,owner_id,session_id,status FROM business_assistant_runs WHERE id=?", (e.latest_run,))[0]
+    require(recovered["status"] == "succeeded" and recovered["owner_id"] == terminal["owner_id"]
+            and recovered["session_id"] != terminal["session_id"], "重新登录查询未建立本人新上下文")
+    require(e.db.rows("SELECT status FROM business_assistant_runs WHERE id=?", (terminal["id"],))[0]["status"] == "cancelled", "恢复查询改变原取消Run")
+    require(not e.db.proposals(recovered["owner_id"], session_id=recovered["session_id"]), "重新登录只读查询制造卡片")
+    e.business_unchanged(recovered_business, "original_business_after_logout_recovery_query")
+    e.observe("logout_native_recovery", {"run": recovered, "old_run_still_cancelled": True,
+                                         "empty_draft_after_login": True, "card_count": 0})
+    await e.snapshot("slow-logout-native-recovery")
 
 
 async def protocol_error(e, context, credentials):
@@ -741,6 +758,17 @@ async def protocol_error(e, context, credentials):
     require(len(e.db.proposals(user["id"])) == count and e.db.counts() == before, "协议异常产生卡片或业务")
     e.business_unchanged(business_before, "original_business_after_protocol_error")
     await e.snapshot("protocol-error")
+    failed_run = e.latest_run
+    await e.send("查询本店张姓客户")
+    recovered = e.db.rows("SELECT id,owner_id,session_id,status FROM business_assistant_runs WHERE id=?", (e.latest_run,))[0]
+    require(recovered["id"] != failed_run and recovered["owner_id"] == user["id"]
+            and recovered["status"] == "succeeded", "协议异常后原界面未能继续有效查询")
+    require(not (await e.page.locator("#business-assistant-error").inner_text()).strip(), "有效查询后仍显示旧协议错误")
+    require(len(e.db.proposals(user["id"])) == count and e.db.counts() == before, "异常恢复查询产生卡片或业务")
+    e.business_unchanged(business_before, "original_business_after_protocol_recovery")
+    e.observe("protocol_native_recovery", {"failed_run": failed_run, "recovered_run": recovered,
+                                           "old_error_cleared": True, "business_unchanged": True})
+    await e.snapshot("protocol-error-native-recovery")
 
 
 async def security(e, context, credentials):
@@ -766,6 +794,86 @@ async def security(e, context, credentials):
     require(e.db.counts() == before, "安全拒绝探测改变业务数据")
     e.observe("negative_statuses", {"missing_csrf": missing_csrf.status, "forged_identity": forged.status, "actual_user": user["id"]})
     await e.snapshot("native-security")
+    reconnect_requests = []
+    def capture_cursor(request):
+        parsed = urlsplit(request.url)
+        if request.method == "GET" and parsed.path.startswith("/api/business-assistant/runs/") and parsed.path.endswith("/events"):
+            reconnect_requests.append({"run_id": parsed.path.split("/")[-2],
+                                       "after_seq": int(parse_qs(parsed.query)["after_seq"][0])})
+    e.page.on("request", capture_cursor)
+    try:
+        await e.send("慢速查询断网补读", wait=False)
+        await e.wait(lambda: e.latest_run, "断网查询实际Run")
+        run_id = e.latest_run
+        await e.page.wait_for_function("id => globalThis.AssistantRuntime?.snapshot(id)?.lastAppliedSeq > 0", arg=run_id)
+        cursor = await e.page.evaluate("id => globalThis.AssistantRuntime.snapshot(id).lastAppliedSeq", run_id)
+        e.action("network", "原生浏览器离线", run_id=run_id, last_applied_seq=cursor)
+        await context.set_offline(True)
+        try:
+            terminal = await e.wait(lambda: next((r for r in e.db.rows("SELECT id,status,event_seq,session_id FROM business_assistant_runs WHERE id=?", (run_id,)) if r["status"] == "succeeded"), None), "离线期间服务器真实终态")
+        finally:
+            e.action("network", "原生浏览器恢复联网", run_id=run_id)
+            await context.set_offline(False)
+        await e.page.wait_for_function("id => globalThis.AssistantRuntime?.snapshot(id)?.view?.status === 'succeeded' && !document.querySelector('[data-ba-action=stop]')", arg=run_id)
+        applied = await e.page.evaluate("id => globalThis.AssistantRuntime.snapshot(id).lastAppliedSeq", run_id)
+        requests = [r for r in reconnect_requests if r["run_id"] == run_id]
+        e.observe("native_sse_reconnect_cursor_diagnostic", {"run": terminal, "before_offline_seq": cursor,
+                                                           "after_online_seq": applied, "requests": requests})
+        require(applied == terminal["event_seq"] and any(r["after_seq"] >= cursor and r["after_seq"] > 0 for r in requests), "断网恢复未按真实seq补读到终态")
+        events = e.db.rows("SELECT seq,type FROM business_assistant_run_events WHERE run_id=? ORDER BY seq", (run_id,))
+        require([r["seq"] for r in events] == list(range(1, applied + 1)) and events[-1]["type"] == "run.completed", "原事件序列不完整")
+        require(not e.db.proposals(user["id"], session_id=terminal["session_id"]), "断网只读恢复制造卡片")
+        e.business_unchanged(business_before, "original_business_after_native_sse_reconnect")
+        e.observe("native_sse_reconnect", {"run": terminal, "before_offline_seq": cursor, "after_reconnect_seq": applied,
+                                           "requests": requests, "events": events, "card_count": 0})
+        await e.snapshot("native-sse-reconnected")
+    finally:
+        e.page.remove_listener("request", capture_cursor)
+    await native_browser_restart(e, context, credentials, user)
+
+
+async def native_browser_restart(e, original_context, credentials, user):
+    """Close an actual independent Chrome; recover through native login/history."""
+    import system_management_business as SYS
+    original_page = e.page
+    actor = e.db.rows("SELECT id,username,role,active,must_change_password FROM users WHERE id=?", (user["id"],))[0]
+    password = credentials["users"]["sales"]["password"]
+    source_session = source_run = None
+    async with async_playwright() as p:
+        for phase in ("before_restart", "after_restart"):
+            browser = await p.chromium.launch(executable_path=e.manifest["browser"]["executable"], headless=True)
+            separate = await browser.new_context()
+            page = await separate.new_page()
+            await e.attach(separate, page)
+            try:
+                identity = await SYS.native_login(e, actor, password)
+                require(identity["user_id"] == user["id"] and identity["active_store_id"] == 1, "重启Chrome身份/门店不符")
+                baseline = e.business_snapshot("browser_" + phase + "_after_native_login")
+                await e.click('.sidebar a[href="#business-assistant"]', "原导航返回业务助手")
+                await e.ready()
+                if phase == "before_restart":
+                    await e.send("查询本店张姓客户")
+                    source_session, source_run = e.latest_session, e.latest_run
+                else:
+                    count = e.db.rows("SELECT count(*) AS n FROM business_assistant_runs WHERE owner_id=?", (user["id"],))[0]["n"]
+                    await e.click('[data-ba-action="history"]', "重启后本人历史对话")
+                    async with e.page.expect_response(lambda r: r.request.method == "GET" and urlsplit(r.url).path == "/api/business-assistant/sessions/" + source_session):
+                        await e.click('[data-ba-action="session"][data-id="' + source_session + '"]', "读取重启前原会话，不重新发送")
+                    await e.ready()
+                    require(e.db.rows("SELECT count(*) AS n FROM business_assistant_runs WHERE owner_id=?", (user["id"],))[0]["n"] == count, "重启恢复重发原Run")
+                    run = e.db.rows("SELECT id,owner_id,session_id,status FROM business_assistant_runs WHERE id=?", (source_run,))[0]
+                    require(run["owner_id"] == user["id"] and run["session_id"] == source_session and run["status"] == "succeeded", "重启恢复原Run归属/终态不符")
+                    await expect(e.page.locator("#business-assistant-messages")).to_contain_text("本店客户：")
+                    require(not e.db.proposals(user["id"], session_id=source_session), "重启恢复只读查询产生卡")
+                    e.observe("native_browser_restart", {"original_run": run, "native_relogin": True, "run_not_resent": True, "card_count": 0})
+                e.business_unchanged(baseline, "browser_" + phase + "_business_unchanged")
+                await e.snapshot("native-browser-" + phase)
+                if e.response_jobs:
+                    await asyncio.gather(*list(e.response_jobs))
+            finally:
+                await separate.close()
+                await browser.close()
+    e.page = original_page
 
 
 SCENARIOS = (

@@ -463,6 +463,38 @@ async def flow_chart(e, section, chart_id, data, period):
     return result
 
 
+async def finance_chart_groups(e, data):
+    """Native disclosure keeps empty finance sources available without a long page."""
+    charts = [c for c in data["charts"] if c["section"] == "finance"]
+    empty_charts = [c for c in charts if not data["tables"][c["table"]]["rows"]
+                    and not c["labels"] and all(not s["values"] for s in c["series"])]
+    folded = e.page.locator("details.analytics-empty-charts")
+    await expect(e.page.locator(".chartpanel")).to_have_count(len(charts))
+    await expect(folded).to_have_count(1 if empty_charts else 0)
+    rows = []
+    for width in (390, 768, 1440):
+        e.action("viewport", "财务专项原展示", width=width, height=1000)
+        await e.page.set_viewport_size({"width": width, "height": 1000})
+        layout = await e.page.evaluate("() => ({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight})")
+        require(layout["scrollWidth"] == width, "财务专项撑宽页面")
+        visible = await e.page.locator(".chartpanel:visible h2").all_text_contents()
+        require(visible == [c["title"] for c in charts if c not in empty_charts], "非空财务来源被折叠或空图仍铺满页面")
+        await e.snapshot("finance-nonempty-" + str(width))
+        if empty_charts:
+            summary = folded.locator(":scope > summary")
+            await summary.focus()
+            await e.key("details.analytics-empty-charts > summary", "Enter")
+            await expect(folded.locator(".chartpanel:visible")).to_have_count(len(empty_charts))
+            await expect(folded.locator(".chartpanel h2")).to_have_text([c["title"] for c in empty_charts])
+            await e.key("details.analytics-empty-charts > summary", "Space")
+            require(await folded.get_attribute("open") is None and await summary.evaluate("x=>x===document.activeElement"), "原生专项收起未保留键盘焦点")
+        rows.append(layout)
+    result = {"charts": len(charts), "empty_sources": len(empty_charts), "widths": rows,
+              "all_original_titles_preserved": True, "native_keyboard_disclosure": bool(empty_charts)}
+    e.observe("finance_empty_source_disclosure", result)
+    return result
+
+
 async def drill_original(e, data, key, row, family, case):
     index = data["tables"][key]["rows"].index(row)
     size = 50 if family == "flow" else 25
@@ -758,6 +790,7 @@ async def report_business(e, context, credentials):
                 elif key == "HK-160":
                     _, evidence["db"] = cash_facts(data, facts)
                     evidence["charts"].append(await flow_chart(e, "finance", "cash_category", data, facts["period"]))
+                    evidence["finance_disclosure"] = await finance_chart_groups(e, data)
                 else:
                     summary, detail, evidence["db"] = customer_facts(e, data, facts)
                     await first_page(e, panel(e, data, table_key, "flow"))

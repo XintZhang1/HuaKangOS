@@ -2,7 +2,7 @@ name: Browser click checks
 
 on:
   push:
-    branches: [feature/assistant-agent-runtime]
+    branches: [main, feature/assistant-agent-runtime]
     paths:
       - 'app/**'
       - 'web/**'

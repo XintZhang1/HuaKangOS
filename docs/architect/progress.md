@@ -294,3 +294,5 @@ PATCH-M8-4-SYSTEM-RELOAD-REQUEST-01事前登记后仅SYS.open_page同route分支
 原完整53/53、192项已登记功能检查、原CLI0和同实例native22完成；最终两文件维修手机展示补丁另有新隔离服务三宽/真实表内横滚定向通过，后端及脚本与原完整53候选字节相同。不继承193全部验收或最后源码完整53成绩。
 
 结果与每项待测条件见 docs/本轮浏览器验收结果.md、docs/implementation-checkpoints/M8-4-browser-click-193-coverage.md、tasks/business-193.md；独立最后源码复核见tasks/repair-mobile-layout-review.md。M8.1仍唯一in_progress，原Date/员工/独立环境/模型/生产条件、M8.4/CP36与四关闭开关保持。当前范围已收口，无需继续扩建或重复测试；完整正式验收留待原条件。
+
+2026-10-02 主分支及云端交接：feature 已快进合入并推送 main176088e。main 新增财务空专项折叠与恢复/断网/重启点击检查；selected2/2通过，selected3为2过1（SSE游标失败），pending22于M06窄屏原导航超时、M16未收口。相关本地测试均关闭；按业主要求转云端，当前未测/失败详见 docs/云端续测交接-20261002.md 和 tasks/main-pending-ui.md。原193/正式门槛、M8.1唯一in_progress、M8.4 todo/CP36及四关闭开关保持。
