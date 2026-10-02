@@ -33,6 +33,12 @@ main-resume28 是修正落点及生产依赖后的全新10项联合运行。当�
 
 server.log仍有20条后台SQLite code5/517记录，原件保留；不宣称worker并发完全修复。生产依赖独立只读审阅确认FastAPI0.128.2/Starlette0.50.0先完整接收暂存multipart再解依赖，锁不覆盖客户端上传等待；仍可能等待/BUSY。正式Linux53项结果由推送后的同原CI另记，不继承Windows定向通过。
 
+### GitHub交付事实
+
+生产和测试代码已提交 `9a6505be785a7eb0f5f7a3baea060c92ef42a799` 并正常推送origin/main，`ls-remote`核对同一HEAD，工作树干净；六个改动Python文件AST及staged diff检查通过，生产/测试分别独立只读审阅无阻塞。本地main-resume28相关Python/Chrome进程及62191监听均已停止，原证据保留外部。
+
+[新CI36976885886](https://github.com/XintZhang1/HuaKangOS/actions/runs/36976885886) 对应上述代码提交，2026-10-02T07:07:47Z已进入原53项真实浏览器点击步骤；本记录核对时status=in_progress、conclusion为空，不能记远端passed或完整53通过。此后追加本交付事实仅改文档，不改变该CI的生产/测试候选字节，也不另触发或取消运行。HK099跨日及原正式门槛继续按下节保留。
+
 ## 原未满足条件
 
 53注册场景仍保留，脚本白名单由45增为46。定向10项不是完整53或193正式业务接受；人工阅图不是员工试用。HK099旧授权截止2026-10-02且已主动撤销，不可拿它证明到期；真正次日到期须独立active授权并跨真实日期（最早10/3），不能改钟/回填日期/恢复旧grant。原OS输入法、HTTPS、PG、Linux独立进程恢复、101/283真实模型、员工效率及生产门槛仍各自待真实条件。四生产开关默认关闭；M8.1仍唯一in_progress，M8.4 todo/CP-36 not_ready，不上线。
