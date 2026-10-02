@@ -20,6 +20,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from playwright.async_api import async_playwright, expect
+from pending_ui import review_followup_ui
 from requirements_click import REQUIREMENT_SCENARIOS, finalize_requirement_report
 from sales_business import BUSINESS_SCENARIOS as PRESALES_SCENARIOS
 from vehicle_purchase_business import VEHICLE_PURCHASE_SCENARIOS
@@ -671,6 +672,7 @@ async def followup(e, context, credentials):
     require(sorted(card["status"] for card in cards) == ["pending", "succeeded"], "结束跟进取消或覆盖已有卡")
     e.observe("followup_database", {"plan_id": plan_id, "steps": steps, "cases": [e.db.case(case_id) for case_id in ids], "cards": cards})
     await e.snapshot("followup-revoked")
+    await review_followup_ui(e, session_id, plan_id, second_card["id"], ids[1])
 
 
 async def slow_switch(e, context, credentials):
@@ -784,6 +786,7 @@ async def security(e, context, credentials):
     csp = [item["csp"] for item in e.network if item["event"] == "response" and item["path"] == "/"]
     require(csp and all("script-src 'self'" in value and "connect-src 'self'" in value and "object-src 'none'" in value for value in csp), "同源 CSP 未保留")
     sessions_before = e.db.rows("SELECT count(*) AS n FROM business_assistant_sessions")[0]["n"]
+    old_refusals = e.db.rows("SELECT * FROM escalation_refusals ORDER BY id")
     e.action("security_negative", "缺 CSRF 的建会话写请求")
     missing_csrf = await context.request.post(e.origin + "/api/business-assistant/sessions", data={}, headers={"X-Store-ID": str(e.manifest["stores"][0]["id"]), "X-App-Request": "1"})
     require(missing_csrf.status == 403, "缺 CSRF 的写请求未拒绝")
@@ -791,10 +794,43 @@ async def security(e, context, credentials):
     e.action("security_negative", "普通销售伪造 Runtime/Admin 身份头")
     forged = await context.request.get(e.origin + "/api/users", headers={"X-Store-ID": str(e.manifest["stores"][0]["id"]), "X-User-ID": str(e.manifest["users"]["admin"]["id"]), "X-Role": "admin", "X-Assistant-Runtime": "1"})
     require(forged.status == 403, "伪造身份头绕过真实销售权限")
+    refusal_response = await forged.json()
+    refusals = e.db.rows("SELECT * FROM escalation_refusals ORDER BY id")
+    require(refusals[:len(old_refusals)] == old_refusals and len(refusals) == len(old_refusals) + 1,
+            "故意权限拒绝没有仅追加唯一原拒绝记录")
+    refusal = refusals[-1]
+    require(refusal["id"] == refusal_response["refusal"]["id"] and refusal["user_id"] == user["id"]
+            and refusal["store_id"] == e.manifest["stores"][0]["id"] and refusal["role"] == "sales"
+            and refusal["method"] == "GET" and refusal["path"] == "/api/users" and refusal["status_code"] == 403
+            and refusal["message"] == refusal_response["detail"] and refusal["category"] == refusal_response["refusal"]["category"] == "rule"
+            and refusal_response["refusal"]["can_escalate"] is False
+            and refusal["source"] == "page" and refusal["consumed_at"] is None and refusal["consumed_by_id"] is None,
+            "原403拒绝记录未绑定真实本人门店与服务器refusal")
+    after_negative = e.business_snapshot("original_business_after_deliberate_security_refusal")
+    require({k: v for k, v in business_before["tables"].items() if k != "escalation_refusals"}
+            == {k: v for k, v in after_negative["tables"].items() if k != "escalation_refusals"},
+            "安全拒绝改写原拒绝记录以外的业务事实")
+    e.observe("original_security_refusal", {"id": refusal["id"], "path": refusal["path"],
+        "user_id": refusal["user_id"], "store_id": refusal["store_id"], "old_rows_unchanged": True,
+        "all_other_business_tables_unchanged": True})
+    business_before = after_negative
     require(e.db.counts() == before, "安全拒绝探测改变业务数据")
     e.observe("negative_statuses", {"missing_csrf": missing_csrf.status, "forged_identity": forged.status, "actual_user": user["id"]})
     await e.snapshot("native-security")
-    reconnect_requests = []
+    reconnect_requests, interrupted_requests, native_requests = [], [], {}
+    cdp = await context.new_cdp_session(e.page)
+    await cdp.send("Network.enable")
+    def capture_native_request(event):
+        parsed = urlsplit(event["request"]["url"])
+        if parsed.path.startswith("/api/business-assistant/runs/") and parsed.path.endswith("/events"):
+            native_requests[event["requestId"]] = parsed.path.split("/")[-2]
+    def capture_interruption(event):
+        run_id = native_requests.get(event["requestId"])
+        if run_id:
+            interrupted_requests.append({"run_id": run_id, "request_id": event["requestId"],
+                                         "error": event["errorText"], "cancelled": event.get("canceled", False)})
+    cdp.on("Network.requestWillBeSent", capture_native_request)
+    cdp.on("Network.loadingFailed", capture_interruption)
     def capture_cursor(request):
         parsed = urlsplit(request.url)
         if request.method == "GET" and parsed.path.startswith("/api/business-assistant/runs/") and parsed.path.endswith("/events"):
@@ -810,7 +846,18 @@ async def security(e, context, credentials):
         e.action("network", "原生浏览器离线", run_id=run_id, last_applied_seq=cursor)
         await context.set_offline(True)
         try:
+            # Offline mode alone leaves an already-open SSE fetch alive in Chrome.
+            # Stop actual resource loading, preserving the page and Runtime memory.
+            await cdp.send("Page.stopLoading")
+            await e.wait(lambda: any(r["run_id"] == run_id for r in interrupted_requests), "原事件请求真实中断")
+            await e.page.wait_for_function("id => globalThis.AssistantRuntime?.snapshot(id)?.connectionState === 'reconnecting'", arg=run_id)
+            disconnected = await e.page.evaluate("id => globalThis.AssistantRuntime.snapshot(id).lastAppliedSeq", run_id)
+            e.observe("native_sse_interruption", {"run_id": run_id, "cursor_before_offline": cursor,
+                "disconnected_cursor": disconnected, "failed_requests": interrupted_requests.copy(),
+                "method": "Chrome Page.stopLoading while offline; original document retained"})
             terminal = await e.wait(lambda: next((r for r in e.db.rows("SELECT id,status,event_seq,session_id FROM business_assistant_runs WHERE id=?", (run_id,)) if r["status"] == "succeeded"), None), "离线期间服务器真实终态")
+            offline_seq = await e.page.evaluate("id => globalThis.AssistantRuntime.snapshot(id).lastAppliedSeq", run_id)
+            require(offline_seq == disconnected < terminal["event_seq"], "离线已中断原流却仍收到后继事件或未留下补读缺口")
         finally:
             e.action("network", "原生浏览器恢复联网", run_id=run_id)
             await context.set_offline(False)
@@ -819,7 +866,7 @@ async def security(e, context, credentials):
         requests = [r for r in reconnect_requests if r["run_id"] == run_id]
         e.observe("native_sse_reconnect_cursor_diagnostic", {"run": terminal, "before_offline_seq": cursor,
                                                            "after_online_seq": applied, "requests": requests})
-        require(applied == terminal["event_seq"] and any(r["after_seq"] >= cursor and r["after_seq"] > 0 for r in requests), "断网恢复未按真实seq补读到终态")
+        require(applied == terminal["event_seq"] and any(r["after_seq"] == disconnected and r["after_seq"] > 0 for r in requests), "断网恢复未按真实seq补读到终态")
         events = e.db.rows("SELECT seq,type FROM business_assistant_run_events WHERE run_id=? ORDER BY seq", (run_id,))
         require([r["seq"] for r in events] == list(range(1, applied + 1)) and events[-1]["type"] == "run.completed", "原事件序列不完整")
         require(not e.db.proposals(user["id"], session_id=terminal["session_id"]), "断网只读恢复制造卡片")
@@ -829,6 +876,7 @@ async def security(e, context, credentials):
         await e.snapshot("native-sse-reconnected")
     finally:
         e.page.remove_listener("request", capture_cursor)
+        await cdp.detach()
     await native_browser_restart(e, context, credentials, user)
 
 

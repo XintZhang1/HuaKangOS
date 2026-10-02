@@ -33,7 +33,7 @@ SCRIPT_FILES = ("run.py", "fixture_server.py", "provider.py", "scenarios.py", "r
                 "repair_packages_business.py", "interstore_business.py", "repair_claims_business.py", "repair_rework_business.py",
                 "report_remaining_business.py", "customer_reminders_business.py", "sales_pdi_business.py", "retail_remaining_business.py",
                 "roles_dossier_business.py", "finance_remaining_business.py", "inventory_scope_business.py", "receivables_business.py",
-                "report_complete_source_business.py")
+                "report_complete_source_business.py", "pending_ui.py")
 EXCLUDED_DIRECTORIES = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "node_modules"}
 
 

@@ -19,6 +19,7 @@ import uuid
 from zoneinfo import ZoneInfo
 
 from playwright.async_api import expect
+from pending_ui import review_report_table
 
 from sales_business import login_as, require, employee_choice
 from sales_order_business import fixed_dependency, checkpoint_evidence
@@ -1008,6 +1009,8 @@ def warehouse_oracle(e, data, sid, store, source, activation, purchase, period):
 
 async def procurement_check(e, cp, context, credentials, fixture, store, source, purchase, period):
     actor = await login_current(e, context, credentials, fixture["manager_key"], fixture["store_id"])
+    e.action("viewport", "M05原菜单与报表", width=768, height=1000)
+    await e.page.set_viewport_size({"width": 768, "height": 1000})
     data = await open_report(e, fixture["store_id"], "HK-153", "procurement", period)
     before = e.business_snapshot("before_complete_procurement_oracle")
     facts = procurement_oracle(e, data, fixture["store_id"], store, source, purchase, period)
@@ -1022,15 +1025,19 @@ async def procurement_check(e, cp, context, credentials, fixture, store, source,
     chart_panel = e.page.locator("#main > section.panel").filter(has=e.page.get_by_role("heading", name="订货履约数量（升）", exact=True))
     files.append(await export(e, fixture["store_id"], actor, data, "procurement", "procurement_cohort_unit_0", period,
         locator=chart_panel.locator('[data-act="inventory-report-export"][data-key="procurement_cohort_unit_0"]')))
+    right_columns = [await review_report_table(e, panel(e, data, key, "procurement").locator(".tablewrap"), "M05-" + key)
+                     for key in ("procurement_cohort_lines", "procurement_cohort_postings")]
     drill = await drill_original(e, data, "procurement_cohort_postings", data["tables"]["procurement_cohort_postings"]["rows"][0], "procurement", facts["case"])
     await cp.passed(actual_api=data, independent_db_oracle=facts, visible_whole_tables=shown, chart=graphic,
         actual_csv=files, original_drill=drill, whole_store_complete=True, legacy_purchase_removed=False,
-        artificial_date_or_scope_changes=False, human_acceptance="pending")
+        artificial_date_or_scope_changes=False, narrow_native_right_columns=right_columns, human_acceptance="pending")
 
 
 async def warehouse_check(e, cp, context, credentials, fixture, store, source, activation, purchase, period):
     cp.start("HK-152")
     actor = await login_current(e, context, credentials, fixture["manager_key"], fixture["store_id"])
+    e.action("viewport", "M06原菜单与报表", width=768, height=1000)
+    await e.page.set_viewport_size({"width": 768, "height": 1000})
     data = await open_report(e, fixture["store_id"], "HK-152", "warehouses", period)
     unfiltered = warehouse_oracle(e, data, fixture["store_id"], store, source, activation, purchase, period)
     before = e.business_snapshot("before_complete_warehouse_filters")
@@ -1056,12 +1063,15 @@ async def warehouse_check(e, cp, context, credentials, fixture, store, source, a
         shown.append(await verify_table(e, data, key, "warehouses"))
         files.append(await export(e, fixture["store_id"], actor, data, "warehouses", key, period, filters=filters))
     graphic = await graph(e, data, "warehouse_period_closing")
+    right_columns = [await review_report_table(e, panel(e, data, key, "warehouses").locator(".tablewrap"), "M06-" + key)
+                     for key in ("warehouse_period_balances", "warehouse_period_baselines", "warehouse_period_entries")]
     current_case = M.facts(e, activation["case_id"])["case"]
     drill = await drill_original(e, data, "warehouse_period_baselines", data["tables"]["warehouse_period_baselines"]["rows"][0], "warehouses", current_case)
     await cp.passed(actual_api=data, independent_db_oracle=facts, unfiltered_whole_store_oracle=unfiltered,
         native_filters=reads, visible_whole_tables=shown, actual_csv=files, original_drill=drill, closing_chart=graphic,
         unknown_period_notice_visible=True, original_period_complete=False, closing_complete=True,
-        complete_functional_branches=True, complete_historical_period="not_tested", human_acceptance="pending")
+        complete_functional_branches=True, complete_historical_period="not_tested", narrow_native_right_columns=right_columns,
+        human_acceptance="pending")
 
 
 async def session_pages(e, context, credentials, fixture, actors, contexts, *, third=False):

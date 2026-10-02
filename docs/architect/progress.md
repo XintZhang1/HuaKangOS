@@ -296,3 +296,6 @@ PATCH-M8-4-SYSTEM-RELOAD-REQUEST-01事前登记后仅SYS.open_page同route分支
 结果与每项待测条件见 docs/本轮浏览器验收结果.md、docs/implementation-checkpoints/M8-4-browser-click-193-coverage.md、tasks/business-193.md；独立最后源码复核见tasks/repair-mobile-layout-review.md。M8.1仍唯一in_progress，原Date/员工/独立环境/模型/生产条件、M8.4/CP36与四关闭开关保持。当前范围已收口，无需继续扩建或重复测试；完整正式验收留待原条件。
 
 2026-10-02 主分支及云端交接：feature 已快进合入并推送 main176088e。main 新增财务空专项折叠与恢复/断网/重启点击检查；selected2/2通过，selected3为2过1（SSE游标失败），pending22于M06窄屏原导航超时、M16未收口。相关本地测试均关闭；按业主要求转云端，当前未测/失败详见 docs/云端续测交接-20261002.md 和 tasks/main-pending-ui.md。原193/正式门槛、M8.1唯一in_progress、M8.4 todo/CP36及四关闭开关保持。
+
+
+2026-10-02 main接续补测：main-resume28在cf34fb8d/2e5eb6e6同轮selected10/10完整通过、CLI0，2467动作/1056点击、页面异常0、合成17/真实0/外部0。SSE实际断流/精确非零seq补读、独立Chrome重启、M16三宽主卡/抽屉/键盘草稿、M05/M06窄屏菜单及五表右列完成；原CI HK028并发409仅补齐prepare鉴权前writer依赖，同轮导入链通过，后台锁日志仍保留。生产与测试独立源审通过，原23–27失败分别留证，完整Linux53由推送后的原CI另记。详见tasks/main-pending-ui.md及M8-1-main-resume-checkpoint-v1.md；HK099真实次日/PG/员工/模型/生产及原M8.1/M8.4/CP36/四关闭开关保持。

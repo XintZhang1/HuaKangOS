@@ -222,6 +222,10 @@ async def rejected_submit(e, path, status, text, *, method="POST"):
 
 
 async def nav(e, route, title, path):
+    sidebar = e.page.locator(".sidebar")
+    if not await sidebar.is_visible():
+        await e.click('[data-act="menu"]', "打开原窄屏业务导航")
+        await expect(sidebar).to_be_visible()
     link = e.page.locator('.sidebar a[href="#' + route + '"]')
     await expect(link).to_have_count(1)
     parent = link.locator("xpath=ancestor::details[1]")

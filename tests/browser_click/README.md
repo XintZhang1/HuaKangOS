@@ -83,3 +83,8 @@ python tests/browser_click/run.py --scenario sales-presales-hk001-007 --browser 
 IAB原CSV导出间歇503已保留真实失败证据；显式审计GET依赖在SQLite鉴权/报表读取前保留writer，普通GET及PG沿原路径，不重试。无app的外部scratch只用于定位读快照升级并发原因，不计业务成绩；原IAB未记录扩展错误码，不冒称原517。修复后IAB单次原点击成功、后台恰好一条审计；三类导出的全CSV与业务保护仍须同指纹完整注册复验。
 
 退出码：`0` 自动点击完成且证据完整，或交互服务正常被停止；`2` 预检拒绝；`3` 执行、超时、空场景或证据失败。自动通过以 `evidence/run-summary.json` 的 `complete=true` 且 `passed=true` 为准。
+
+
+2026-10-02 main接续：53项注册保留，脚本白名单46个文件。`pending_ui.py`在当前followup/完整来源报表内复用本轮真实卡和原来源，增加390/768/1440主卡、抽屉焦点/Tab草稿及768单次可信横滚末列；导航先点真实窄屏菜单。security以Chrome原生资源终止和实际Network.loadingFailed证明已断流，再核精确非零after_seq补读及独立Chrome重启。该装置不代表OS网卡/TCP RST演练；不替换fetch/响应/事件，不直接赋scrollLeft或改CSS。
+
+main-resume28同轮selected10/10、CLI0，完整报告与provider17/0/0在外部证据根；源码cf34fb8d、脚本2e5eb6e6。原失败、定向通过、GitHub完整53和正式193接受分别记录，详见`docs/implementation-checkpoints/M8-1-main-resume-checkpoint-v1.md`。此定向结果不代表完整53或发布验收。

@@ -69,7 +69,7 @@ def example(case_id:int,kind:Literal['funds','ship','receive'],user=Depends(get_
 async def prepare(case_id:int,file:Annotated[UploadFile,File()],kind:Annotated[Literal['funds','ship','receive'],Form()],
     request_id:Annotated[str,Form(min_length=16,max_length=80,pattern=r'^[A-Za-z0-9_-]+$')],version:Annotated[int,Form(gt=0)],
     source_reference:Annotated[str,Form(min_length=1,max_length=100)],replacement_batch_id:Annotated[int|None,Form(gt=0)]=None,
-    user=Depends(get_user),db=Depends(get_db)):
+    db=Depends(get_write_db),user=Depends(get_user)):
     content=await file.read(MAX_BYTES+1)
     if not source_reference.strip() or source_reference!=source_reference.strip():raise HTTPException(422,'来源清单编号不能为空或带首尾空格')
     return service.prepare(db,user,case_id,request_id,version,kind,source_reference,file.filename or '',content,replacement_batch_id)
