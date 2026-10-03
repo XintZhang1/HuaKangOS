@@ -760,3 +760,6 @@ app.include_router(assistant_runtime_router)
 
 from .workflow_guides_api import router as workflow_guides_router
 app.include_router(workflow_guides_router)
+
+from .ops_feedback_api import router as ops_feedback_router
+app.include_router(ops_feedback_router)

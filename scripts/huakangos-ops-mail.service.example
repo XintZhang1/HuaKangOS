@@ -1,0 +1,29 @@
+[Unit]
+Description=HuaKangOS bounded Cutie review mail MCP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=huakangos-ops-mail
+Group=huakangos-ops-mail
+ExecStart=/opt/dsh-im-codex-runtime/node-v24.21.0-linux-x64/bin/node /opt/huakangos/current/scripts/huakangos_ops_mail.mjs --config /run/credentials/huakangos-ops-mail.service/mail-config
+LoadCredential=mail-config:/etc/huakangos/mail-server.json
+LoadCredential=qq-mail:/etc/dsh-codex-status/qq-mail.credentials.json
+StateDirectory=huakangos-ops-mail
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/huakangos-ops-mail
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
