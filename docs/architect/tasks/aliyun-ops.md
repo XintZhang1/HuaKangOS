@@ -13,3 +13,5 @@
 **下一步**：切换修正后的完整源码候选，完成既有意见的 DeepSeek 分析、真实 MCP/邮件投递以及提交候选向 Cutie 交接。
 
 **验证与实际阻塞**：基础部署、浏览器收集、邮件桥三组隔离HTTP/合成发送器及通知并发复现/修复已验证；当前邮件桥首次真实启动发现符号链接入口退出问题，源码已修待新发布。DeepSeek真实全链及真实邮件尚待执行。证据外置 `C:/Users/tiefu/.codex/HuaKangOS-agent-validation/aliyun-trial-20261003-0112`、`aliyun-ops-20261003-01`、`runtime-v1/mail-bridge-379bef99658648abb6cd1394778000dc`；不继承公司生产、原全量业务与真实模型评测成绩。
+
+2026-10-03 实测追加：候选 c50c456 / context ffc2d75f 的邮件 MCP 已真实启动并核对三工具；部署后HTTP/MCP安全检查33/33通过，没有新增意见或发信。首次真实 DeepSeek 分析在工具预算上限处 `tool_budget_exceeded`，原job保留needs_attention、report/mail均空，未发信。修正为向模型明确剩余预算并在最后阶段强制JSON收束；增加仅元数据的provider请求/usage事件及reviewer显式失败重试，仍不增加调用上限、不重试不明邮件。worker已停止，等待修正候选复验；未将该失败写成模型验收通过。

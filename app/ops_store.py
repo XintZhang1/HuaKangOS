@@ -161,6 +161,32 @@ class OpsStore:
                 raise RuntimeError('Analysis lease was lost')
             self.event(db, job_id, status, {'error_code': error} if error else {'release_id': report['release_id']})
 
+    def model_event(self, job_id, token, kind, detail):
+        if kind not in {'provider_request', 'provider_usage'}:
+            raise ValueError('Invalid model event')
+        with self.connect(True) as db:
+            row = db.execute("SELECT id FROM jobs WHERE id=? AND status='analyzing' AND lease_token=? AND lease_until>?",
+                             (job_id, token, time.time())).fetchone()
+            if not row:
+                raise RuntimeError('Analysis lease was lost')
+            self.event(db, job_id, kind, detail)
+
+    def retry_analysis(self, job_id, expected_error, reason):
+        # Explicit reviewer action after a code/config correction, never automatic
+        # retry of a mailed proposal or an uncertain external side effect.
+        if not isinstance(reason, str) or not 10 <= len(reason) <= 1000:
+            raise ValueError('A concrete correction reason is required')
+        with self.connect(True) as db:
+            row = db.execute('SELECT * FROM jobs WHERE id=?', (job_id,)).fetchone()
+            if (not row or row['status'] != 'needs_attention' or row['report'] or row['mail']
+                    or row['error_code'] != expected_error or row['attempts'] >= 3):
+                raise ValueError('Only an unmailed failed analysis may be explicitly retried')
+            self.event(db, job_id, 'analysis_retry_requested', {'previous_release_id': row['release_id'],
+                'previous_error': expected_error, 'reason': reason, 'actor': 'authenticated_reviewer'})
+            db.execute("UPDATE jobs SET status='received',release_id=NULL,error_code=NULL,lease_token=NULL,lease_until=NULL,updated_at=? WHERE id=?",
+                       (stamp(), job_id))
+            return {'id': job_id, 'status': 'received'}
+
     def notification_jobs(self):
         with self.connect() as db:
             return [dict(r) for r in db.execute("SELECT id,status FROM jobs WHERE status IN ('review_ready','notifying') ORDER BY created_at LIMIT 10")]

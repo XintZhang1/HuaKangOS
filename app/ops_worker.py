@@ -58,7 +58,7 @@ def validate_report(value, context, reads):
     return value | {'release_id': context.release_id, 'base_sha': context.manifest['base_sha']}
 
 
-async def analyze(config, job, context):
+async def analyze(config, job, context, audit=None):
     key_path = Path(config['deepseek_key_file'])
     if key_path.is_symlink() or key_path.stat().st_size > 4000:
         raise AnalysisError('invalid_provider_credential_file')
@@ -79,13 +79,19 @@ async def analyze(config, job, context):
     reads, used_ids, tool_count, usage = {}, set(), 0, {'calls': 0, 'prompt_tokens': 0, 'completion_tokens': 0}
     async with httpx.AsyncClient(timeout=httpx.Timeout(100, connect=15), follow_redirects=False, trust_env=False) as client:
         for turn in range(6):
+            finalize = tool_count >= 10 or turn >= 4
+            messages.append({'role': 'system', 'content': (
+                '代码查询预算已结束。现在根据已有证据返回最终JSON建议；未证实的问题必须标明待验证，禁止再调用工具。'
+                if finalize else f'剩余模型轮次{6-turn}，剩余工具预算{15-tool_count}。优先读本次运维相关文件；已有充分依据就返回最终JSON。')})
             if len(json.dumps(messages, ensure_ascii=False)) > 90_000:
                 raise AnalysisError('context_budget_exceeded')
+            if audit:
+                audit('provider_request', {'call': turn + 1, 'model': config.get('model', 'deepseek-flash')})
             response = await client.post('https://api.deepseek.com/chat/completions',
                 headers={'Authorization': 'Bearer ' + key}, json={
                     'model': config.get('model', 'deepseek-flash'), 'messages': messages,
                     'tools': tools, 'max_tokens': 5000, 'thinking': {'type': 'disabled'},
-                    'stream': False})
+                    'stream': False, **({'tool_choice': 'none', 'response_format': {'type': 'json_object'}} if finalize else {})})
             usage['calls'] += 1
             if response.status_code != 200:
                 raise AnalysisError('provider_http_' + str(response.status_code))
@@ -101,6 +107,8 @@ async def analyze(config, job, context):
                 amount = raw.get('usage', {}).get(field, 0)
                 if type(amount) is int and amount >= 0:
                     usage[field] += amount
+            if audit:
+                audit('provider_usage', dict(usage))
             choice = raw['choices'][0]
             result = choice['message']
             calls = result.get('tool_calls', [])
@@ -163,7 +171,8 @@ async def tick(config, store, context):
     if not job:
         return False
     try:
-        report = await asyncio.wait_for(analyze(config, job, context), timeout=720)
+        report = await asyncio.wait_for(analyze(config, job, context,
+            audit=lambda kind, detail: store.model_event(job['id'], job['lease_token'], kind, detail)), timeout=720)
         store.analysis_result(job['id'], job['lease_token'], report=report)
         print(json.dumps({'event': 'review_ready', 'job_id': job['id'], 'usage': report['usage']}), flush=True)
     except (AnalysisError, httpx.HTTPError, ValueError, KeyError, TypeError, RuntimeError, OSError, asyncio.TimeoutError) as exc:

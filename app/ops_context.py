@@ -4,7 +4,7 @@ import json
 from pathlib import Path, PurePosixPath
 
 
-ROOT_DOCS = {'AGENTS.md', 'README.md', 'PROJECT_SPEC.md', 'ARCHITECTURE.md'}
+ROOT_DOCS = {'AGENTS.md', 'README.md', 'PROJECT_SPEC.md', 'ARCHITECTURE.md', 'docs/阿里云试运行与运维助手.md'}
 SOURCE_SUFFIXES = {'.py', '.js', '.mjs', '.css', '.html', '.md', '.json'}
 
 
@@ -60,7 +60,8 @@ class SourceContext:
                 'source_files': len(self.files), 'roots': sorted(ROOT_DOCS),
                 'components': ['app/main.py', 'web/app.js', 'app/ops_feedback_api.py',
                                'app/ops_store.py', 'app/ops_worker.py', 'app/ops_mcp.py'],
-                'architecture': self._text('ARCHITECTURE.md')[:7000],
+                'architecture': self._text('docs/阿里云试运行与运维助手.md')[:7000],
+                'business_contract': self._text('ARCHITECTURE.md')[:2500],
                 'boundary': 'Read-only deployed source; code proposals require Cutie review and a user-merged GitHub PR.'}
 
     def read(self, path, start_line=1, line_count=70):

@@ -39,6 +39,8 @@ REVIEW_TOOLS = [
     tool('record_change_review', 'Append Cutie review result; records a PR, never merges or deploys.',
          {'job_id': TEXT, 'verdict': {'type': 'string', 'enum': ['pr_opened', 'needs_information', 'declined']},
           'summary': TEXT, 'pr_url': TEXT}, ['job_id', 'verdict', 'summary', 'pr_url']),
+    tool('retry_analysis', 'Explicitly retry a failed, unmailed analysis after correcting its cause. Never retries mail.',
+         {'job_id': TEXT, 'expected_error': TEXT, 'reason': TEXT}, ['job_id', 'expected_error', 'reason']),
 ]
 SEND_TOOL = tool('enqueue_change_review', 'Deliver only an already validated durable proposal to the configured Cutie mailbox.',
                  {'job_id': TEXT}, ['job_id'])
@@ -138,6 +140,8 @@ async def dispatch(name, args, role):
         return store.get(str(uuid.UUID(args['job_id'])))
     if name == 'record_change_review' and role == 'reviewer':
         return store.record_review(**args)
+    if name == 'retry_analysis' and role == 'reviewer':
+        return store.retry_analysis(**args)
     if name == 'enqueue_change_review' and role == 'worker':
         return await deliver(config, store, str(uuid.UUID(args['job_id'])))
     raise ValueError('Tool is not available for this role')
