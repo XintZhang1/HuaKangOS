@@ -267,6 +267,8 @@ class CustomerCareAdapter(FlowCaseAdapter):
             raise
         if data['subtype'] != 'questionnaire':
             return _unknown(fact_key, '本单不是问卷，不能作为问卷发放或回答事实')
+        if not _positive_id(data.get('version')):
+            return _unknown(fact_key, '原关怀版本暂不能核对，请到原问卷核对')
         try:
             binding = self._questionnaire_binding(data)
             response = None if fact_key == 'questionnaire.binding_frozen' else self._questionnaire_response(

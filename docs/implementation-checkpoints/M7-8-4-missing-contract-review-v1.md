@@ -1,0 +1,5 @@
+# M7.8.4 缺失合同回补：编码审阅 v1
+
+2026-10-04新clearing_order.py SHA53689b002c283ad65fc038b98b81f4ea613fc0feb4820e424a82d18efdfea233、root registry57be67354ee5cb9d8371e6a7203b9f69a64ae963aec65a1cbac2c29492837252（52静态spec）。订单及本店Case/版本/任务/本店方向/现金事件/paid与settled分离，Order无number故display_number=None。原C56524f308f2e492d5a46beed04147512d96522e496d98b3aada129a32f80b620保持旧15函数仅追加一个当前原HTTP组合，100/-100原往来→60付款→未到账差异→实际收款/余40、真实cash/account/证据/跨店404均为待执行候选。生产独立f5194d8e8e0a67d838f9a4fbc0855174b1e69a376439f47d57f71d3b3017bf67、原C独立45acde354d052f98a915646ac54673c408d97bdf1444b02f51c2cda72527036b无确定静态阻断。原Case.number混投影/非hashable测试DTO草稿保留并精确修正，未改原业务或旧节点。app import/collect/test/model=0，实际完成检查不勾，最终ReconciliationReceipt/统一回归及PG恢复仍待；见M7-8-4-missing-contract-review-v1。
+
+来源与候选保存于外部 m784-clearing-provider-candidate-20261003T220236Z-cb8b727f2f/，原C组合/两草稿/精确差异保存于 m784-clearing-original-http-20261003T220607Z-f745bb0f7f/。root registry AST审阅 b7bcee666e9bfd7ac80201d388af4a889c07c8b3f661151ce7ed2daa0a8b674e；原其它注册AST保持，仅两个已登记追加provider。当前只是implemented，CP28 not_ready，紧邻M7.8.5编码，M8.2 blocked、main未上传。

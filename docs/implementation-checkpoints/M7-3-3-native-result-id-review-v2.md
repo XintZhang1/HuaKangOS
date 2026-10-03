@@ -1,0 +1,7 @@
+# M7.3.3 原返修结果ID窄修：编码审阅 v2
+
+2026-10-04；按PATCH-M7-3-3-NATIVE-RESULT-ID-01。原申请id=ReworkRequest而case_id=实际本店Case，严格原extension definition1/grantID才提取Case；报价按原RepairCase v3/v4/state/store/version返回真实Case，不要求原不存在的status。Grant READ/CREATE/ACTION和原全部快照/事实/回执保留；同factory结果spec仅两operation、case对象，无facts/selector/fallback，通用Case读取保留。
+
+production SHA4d8314a7c9df274ee4001f9398cd6952847942fe75841c9c766eaff00f25ac27；registry e36e2be9cd1d4ab7fc997fcef8057bb62e293f135cfed7af4e147429ec2f31d0；外部旧10节点overlay1256c8623bc13df013b6c4ca58c71f93c0f25ca579cef24a518a34987f344174。仅registration/results两个旧节点窄修，原10名/顺序/原Grant断言AST前缀完整保留；原件/差异/11原handler与registry源均在V/closeout-20261003/m733-native-result-id-candidate-20261003T234147Z-f83f2f3d13。
+
+作者static-review.json SHA624f00f4c4de265f64000f95bc52ad98f21c72a87bbf8504ed3aa030d0e0caaa；独立independent-mobile-static-review.json SHA31d8ca4555c67af9d2d78c03648bba7888d044aff450d7836a8eade2077573f6，无确定合同阻断。仅静态AST和原源码对照：app导入/collect/test/HTTP/model0，不能记实际通过；状态implemented、CP19仅implementation_released。随后统一M8.2集采/同指纹完整回归，原跨店守卫/未知或混族结果拒绝/原Grant映射与全部原业务回归仍待，main未上传。

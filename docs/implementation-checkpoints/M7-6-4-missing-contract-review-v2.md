@@ -1,0 +1,7 @@
+# M7.6.4 未知原版本增量：编码审阅 v2
+
+2026-10-04。原v1/fcd53673和全部失败/源报告保留。本次仅 _questionnaire_fact 两行严格正整数Case.version守卫，缺失或非法版本的三个新事实unknown，无版本列的immutable QuestionnaireVersion不造number/policy版本。旧三Care事实、快照和其它方法不变。
+
+当前customer_care.py SHA28055474a65572411f3bc2e54d634fb7138cb32959e689cffb79eb56de5f6a55。外部 m764-case-version-guard-20261003T215343Z-52b45b69f4 保存原/候选/diff。删除唯一增量后原bytes/AST全等；root报告3efc25173f0bfa6eac27b05964525419394bee14bbe5b0691681200ca0689ecf，独立报告b508df3ff96388455cf25ca32a548a390cd8e1560b9a170f5ae936a7d0423f9a。
+
+结论implemented，仅放行紧邻M7.8.4编码。app/collect/test/model=0，v1所有实际HTTP/迁移/回执与完整回归待测保持，原完成检查不勾，CP24仅implementation_released，M8.2 blocked、main未上传。

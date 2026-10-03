@@ -154,8 +154,27 @@ class ReworkGrantAdapter(FlowCaseAdapter):
                 or not 200 <= response['status'] < 300 or response.get('truncated')):
             return []
         data = response.get('data')
-        if (type(data) is not dict or data.get('truncated') or not _positive_id(data.get('id'))
-                or type(data.get('status')) is not str or not data['status'].strip()):
+        if (type(data) is not dict or data.get('truncated') or not _positive_id(data.get('id'))):
+            return []
+        if operation_id == GRANT_REQUEST:
+            extension = data.get('rework_extension')
+            if (not _positive_id(data.get('case_id'))
+                    or type(data.get('status')) is not str or not data['status'].strip()
+                    or type(extension) is not dict or extension.get('truncated')
+                    or type(extension.get('definition_version')) is not int
+                    or extension['definition_version'] != 1
+                    or not _positive_id(extension.get('grant_id'))):
+                return []
+            # id is ReworkRequest.id; only its original associated Case is a result object.
+            return [BusinessObjectRef(type='case', id=data['case_id'])]
+        if operation_id == GRANT_QUOTE:
+            if (type(data.get('flow_version')) is not int or data['flow_version'] not in {3, 4}
+                    or not _positive_id(data.get('store_id')) or not _positive_id(data.get('version'))
+                    or type(data.get('state')) is not str or not data['state'].strip()):
+                return []
+            # The original repair detail provides state, not the Grant's status.
+            return [BusinessObjectRef(type='case', id=data['id'])]
+        if type(data.get('status')) is not str or not data['status'].strip():
             return []
         return [BusinessObjectRef(type=GRANT_OBJECT_TYPE, id=data['id'])]
 

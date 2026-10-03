@@ -1525,7 +1525,7 @@ def confirmation_view(db,user,session_id,outcomes):
     return view
 
 
-def receipt_success_result(previous, confirmation_id, submission_digest, lookup):
+def receipt_success_result(previous, confirmation_id, submission_digest, lookup, *, submission=None):
     """Append a typed receipt observation without fabricating an HTTP response.
 
     Authorization and the original frozen confirmation are checked by the
@@ -1533,13 +1533,19 @@ def receipt_success_result(previous, confirmation_id, submission_digest, lookup)
     This pure mapper never submits, saves, or grants permission to retry.
     """
     from copy import deepcopy
-    from .assistant_runtime_schemas import ReceiptLookup
+    from .assistant_runtime_schemas import ReceiptLookup, SubmissionSnapshot
     checked=ReceiptLookup.model_validate(lookup)
-    if (checked.status!='confirmed_success' or not checked.object_refs or not checked.evidence_refs
+    if (checked.status!='confirmed_success' or submission is None and not checked.object_refs
+            or not checked.evidence_refs
             or type(confirmation_id) is not str or type(submission_digest) is not str
             or not re.fullmatch(r'[0-9a-f]{64}',submission_digest)
             or previous is not None and type(previous) is not dict):
         raise HTTPException(409,'原回执依据不完整，不能更新办理结果')
+    if submission is not None:
+        from .assistant_runtime_receipts import validate_success_lookup
+        snapshot=SubmissionSnapshot.model_validate(submission)
+        if not validate_success_lookup(snapshot,checked):
+            raise HTTPException(409,'原回执依据不完整，不能更新办理结果')
     result=deepcopy(previous) if previous is not None else {}
     if 'reconciliation' in result:
         raise HTTPException(409,'原回执核对记录已经存在，不能覆盖')

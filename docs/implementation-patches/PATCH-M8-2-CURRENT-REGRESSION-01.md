@@ -1,5 +1,7 @@
 # PATCH-M8-2-CURRENT-REGRESSION-01
 
+2026-10-04 当前前置实修收口后范围补充：既有generate_current_matrix.py将questionnaires/observation-corrections/clearing/vehicle-income准确映射真实M7 provider，移除已实现三合同的旧unregistered记录，保留所有真正未知及193/111来源。中央core原Flow+三固定helper的有限OPERATIONS精确唯一family集合替代历史Flow-only；原test_current_capability_matrix.py仅同节点该一条旧集合断言更新为当前四族全等/唯一归属及实际来源SHA，不弱化为subset，仍reader unbound/facts未知/零业务调用/业务未验收。外部原overlay与C来源SHA更新后由原统一collector实际产生ordered节点，再登记全部节点级合成授权/清单。旧源/差异/失败保留；不新建runner或改变原业务门槛。
+
 2026-10-03；M8.1原五条故障门禁已收口。当前唯一M8.2 in_progress。补齐当前候选的原适用基线、新Runtime/domain合同及已implemented早期原检查，保留历史证据与每项原标准，不恢复旧app或退休浏览器桥接。
 
 精确范围：V/run_validation.py；V/harness/isolation.py、baseline.py、baseline_results.py、baseline_aggregate.py、verdict.py、fixture_profiles.py（实际collector与groups逻辑在run_validation.py，不新建同名假模块）；V/validation-manifest.json、archive/baseline-restoration.json及本轮独占依赖锁/平台绑定；原18 unittest及fixture_env/fake_provider/build_base最少辅助源码仅恢复在V的独立执行域；新增共享原合同测试、当前capability-matrix生成/审阅脚本仅在V本轮目录。CI必要接线限新增 `.github/workflows/full-regression-checks.yml` 与源码-only外部验收输入胶囊包装脚本，具体文件名在写入前补记。根正式实施计划、当前architect任务/索引及本检查点允许维护；total_plan不改。生产代码未授权宽改，真实缺陷先登记必要精确补丁。

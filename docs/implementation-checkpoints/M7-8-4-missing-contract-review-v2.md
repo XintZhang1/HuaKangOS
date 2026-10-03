@@ -1,0 +1,7 @@
+# M7.8.4 原C账户岗位增量：编码审阅 v2
+
+仅原C的account()从财务创建账户改同店主管办理，原两店manager显式membership和账户write守卫源码已核；财务收付款、M785后缀及其余全部函数不变。作者/root静读无该窄修确定阻断；独立窄审另追加。C SHA4e042cb8a62a5cd676ebb0dd6da39e5cee698b011c359fbf39014e4b158dbedc，差异e8af7225f472f5562f6f188a93a32b633b8db707e41b53f895f3192db546f2f6、作者4a98f0d2c1d01caea4ba89bee5721ac9463b9f5b3980ba5dac4d1a3cb5cdc7c9外置m784-account-role-adapter-20261003T224745Z-b563671fad。旧56524/f54源及旧静审漏核岗位结论均保留，更正不冒称当时通过。
+
+M7.8.4/5 implemented，CP28只implementation_released；实际执行/最终回执/恢复等仍待，app/collect/test/model=0，main未上传。
+
+独立窄审完成：同一外部m784-account-role-adapter-20261003T224745Z-b563671fad独立报告SHA cdba982d121bb98f4c6b0d3ef39b6bb5a5e7964781eb8c918005bb694d593c9f，无该确定岗位阻断，仅静态。随后M2.6追加C有独立报告及新SHA，不覆盖本版原件。

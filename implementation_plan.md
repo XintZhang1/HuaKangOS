@@ -1,6 +1,6 @@
 # HuaKangOS 实施计划：单项实施与检查点审阅版
 
-**2026-10-04 当前验证执行点**：M8.1原五条故障门禁已逐项完成；独立自然日期追加已在同原实例实际10-03→10-04完成，HK099/HK152技术子范围通过。M8.2因原索引四项缺正文/实际 provider 及最终原生回执接线缺失暂记 blocked；依原顺序回补，M7.6.4 已 implemented，唯一 in_progress 为 M7.6.5。员工试用之外技术总目标尚未完成，main未上传，其余技术项、193整体业务及生产发布条件不被本次子范围替代。
+**2026-10-04 当前验证执行点**：M8.1原故障门禁及自然D/D+1完成；四个缺失业务合同、M2.6最终回执及M7.3.3真实结果ID窄修均implemented/独立静审。唯一in_progress恢复M8.2，同指纹完整隔离回归；CP24/28仍仅implementation_released，实际技术门槛及main上传继续完成，员工试用保留人工验收。
 
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
@@ -100,11 +100,11 @@
 | CP-21 | M7.4.1—M7.4.3 | 精品销售、套餐核销、零售集团 | implementation_released | docs/implementation-checkpoints/M7-4-1-review-v1.md；M7-4-2-review-v1.md；M7-4-3-review-v1.md | M7.4.1（9 项）、M7.4.2（9 项）、M7.4.3（7 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.5.1（CP-22） |
 | CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | implementation_released | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md；M7-5-3-review-v1.md | M7.5.1（8 项）、M7.5.2（8 项）、M7.5.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.6.1（CP-23） |
 | CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | implementation_released | docs/implementation-checkpoints/M7-6-1-review-v1.md；M7-6-2-review-v1.md；M7-6-3-review-v1.md | M7.6.1（9 项）、M7.6.2（9 项）、M7.6.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.1（CP-24） |
-| CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | not_ready（原合同回补中） | docs/implementation-patches/PATCH-M7-MISSING-DOMAIN-CONTRACTS-01.md；docs/implementation-checkpoints/M7-6-4-missing-contract-review-v1.md | 历史：原正文只有M7.6.1—3，曾登记“缺条目/计划内部不一致”，未实施这两项，不覆盖历史失败与成绩。2026-10-04依业主完成全部技术目标及持续授权，按原索引/原业务补齐两条正文；M7.6.4已implemented并独立静审，M7.6.5唯一in_progress，真实验证/最终回执待完成，不改total_plan或新增业务规则。 |
+| CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | implementation_released | docs/implementation-patches/PATCH-M7-MISSING-DOMAIN-CONTRACTS-01.md；docs/implementation-checkpoints/M7-6-4-missing-contract-review-v1.md；docs/implementation-checkpoints/M7-6-5-missing-contract-review-v1.md | 历史：原正文只有M7.6.1—3，曾登记“缺条目/计划内部不一致”，未实施这两项，不覆盖历史失败与成绩。2026-10-04依业主完成全部技术目标及持续授权，按原索引/原业务补齐两条正文；两项连同未知版本增量均implemented/独立静审，仅放行后续编码，真实验证/最终回执待完成，不改total_plan或新增业务规则。 |
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益 | implementation_released | docs/implementation-checkpoints/M7-7-1-review-v1.md；M7-7-2-review-v1.md；M7-7-3-review-v1.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M7.7.1（8 项）、M7.7.2（9 项）、M7.7.3（6 项）均已落盘并实测通过；**M7.7.3 权益快照/事实因 member↔customer 维度不匹配待评审补齐**（已如实登记，未伪造）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.4（CP-26）；2026-09-30追加：前述读取缺口已按PATCH-M7-7-READ-DETAIL-01实现、原权限审阅及automatic07同Cookie详情/DB对照通过，历史6项成绩不继承；新证据见v2浏览器检查点，完整业务/真实环境仍待。 |
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | implementation_released | docs/implementation-checkpoints/M7-7-4-review-v1.md；M7-7-5-review-v1.md；M7-7-6-review-v1.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M7.7.4（8 项）、M7.7.5（6 项）、M7.7.6（9 项）均已落盘并实测通过；**M7.7.5 套餐事实因 purchase↔member 维度不匹配待评审补齐**（已如实登记）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.8.1（CP-27）；2026-09-30追加：前述purchase读取缺口已按PATCH-M7-7-READ-DETAIL-01实现、原权限/零价取消语义审阅及automatic07详情/DB对照通过，历史6项成绩不继承；新证据见v2浏览器检查点，完整退款/核销/真实环境仍待。 |
 | CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | implementation_released | docs/implementation-checkpoints/M7-8-1-review-v1.md；M7-8-2-review-v1.md；M7-8-3-review-v1.md | M7.8.1（7 项）、M7.8.2（7 项）、M7.8.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.9.1（CP-28） |
-| CP-28 | M7.8.4—M7.8.5 | 店间清算、其他收入 | **计划内部不一致（待业主确认）** | docs/implementation-checkpoints/M7-9-1-review-v1.md | 本表引用的 M7.8.4/M7.8.5 在正文中不存在（M7.8 组只有 M7.8.1—M7.8.3）；按正文编号继续，M7.9.1（inventory_report，6 项）已 implemented 并实测通过 |
+| CP-28 | M7.8.4—M7.8.5 | 店间清算、其他收入 | implementation_released | docs/implementation-checkpoints/M7-8-4-missing-contract-review-v2.md；M7-8-5-missing-contract-review-v1.md | 两原缺失合同implemented/源码审阅，原C账户fixture权限与现金快照版本窄修保留旧件；仅继续编码，实际原HTTP/最终原生回执/集中验证/PG恢复未通过，不记released。 |
 | CP-29 | M7.9.1—M7.9.3 | 库存仓储、期间入出存、维修领料 | implementation_released | docs/implementation-checkpoints/M7-9-1-review-v1.md；M7-9-2-review-v1.md；M7-9-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 2026-09-29 统一 runner 重绑到 `E:\HuaKangOS` 后在当前源码上复验：M7.9.2、M7.9.3 与已登记的 M7.9.1 均 passed，指纹 `5e6fce5e…`、`phase_complete=true`；仅放行后续编码，不表示深度测试或生产验收；继续 M7.9.4—M7.9.6（CP-30） |
 | CP-30 | M7.9.4—M7.9.6 | 收入成本、活动、汇总统计 | implementation_released | docs/implementation-checkpoints/M7-9-4-review-v1.md；M7-9-5-review-v1.md；M7-9-6-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.9.4、M7.9.5、M7.9.6 均 passed（指纹 `5e6fce5e…`）；只读报表面不注册事实键的边界保留；继续 M7.10.1—M7.10.3（CP-31） |
 | CP-31 | M7.10.1—M7.10.3 | 物资整车调拨、运输差异 | implementation_released | docs/implementation-checkpoints/M7-10-1-review-v1.md；M7-10-2-review-v1.md；M7-10-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.10.1、M7.10.2、M7.10.3 均 passed；`unlocated 不等于 recovered`、计划不等于处置的边界保留；继续 M7.10.4—M7.10.6（CP-32） |
@@ -1116,9 +1116,9 @@ py -3.13 -m venv "$V/.venv"
 
 ## M2.6 只读回执解析框架与通用 Flow 回执
 
-**状态**：implemented
+**状态**：implemented（2026-10-04 最终有限原生回执接线、纯成功映射及原C四参数候选完成独立源码审阅；实际隔离验证待M8.2同指纹全量执行，旧阶段记录保留。）
 
-**验证状态**：deferred_to_deepseek；本项仅只读回执服务，不接HTTP路由或后台身份。
+**验证状态**：当前按用户完整技术验收授权实现后经原V隔离入口实际验证；原阶段集中测试记录保留。本项不增加HTTP路由或后台身份。
 
 **全局顺序前置**：M2.5 done。
 
@@ -1131,7 +1131,7 @@ py -3.13 -m venv "$V/.venv"
 
 **涉及文件（必读）**：app/flow_engine.py:request_digest/prior_request；app/flow_models.py；app/flow_api.py；M2.4冻结；ARCH B1。
 
-**允许修改**：app/assistant_runtime_receipts.py 回执分派/通用flow实现；仅为复用原纯digest helper调整flow_engine导出（行为不变）。外部测试和本项实施记录为共同允许项。
+**允许修改**：原阶段app/assistant_runtime_receipts.py 回执分派/通用flow实现及纯digest导出保持；本轮精确增量见docs/implementation-patches/PATCH-M2-6-FINAL-NATIVE-RECEIPTS-01.md：三固定专用helper、共同只读证据工具、纯receipt_success_result映射及原中央接线；原业务API/DTO/模型/迁移不改。外部原C验证与本项实施记录为共同允许项。
 
 **禁止修改**：不新增自由表名/actor/request_id查询参数，不把PurchaseReceipt/收款明细当命令幂等回执，不尝试POST。
 
@@ -1159,6 +1159,10 @@ py -3.13 -m venv "$V/.venv"
 - [ ] 缺回执不自动生成新请求号或重试确认。
 - [ ] 本项定向测试及manifest列出的受影响原回归通过，记录本次源码指纹、命令、退出码和证据路径。
 - [ ] diff只涉及允许范围；未触碰公司库/原预览库、未擅自调用真实模型；状态更新有实际证据。
+
+**2026-10-04 接续执行点**：四缺失领域已implemented/静审，CP24/28仅implementation_released；M8.2尚blocked于可靠原回执最终实现。按事前PATCH单独回开本项，三固定family helper共享唯一原confirmation查询入口，原source前后fresh重验/本人GET/有限零多对象证据贯通，不把receipt误称后续到账完成。生产开始前已精确登记；实际测试/collect/model尚0。
+
+**2026-10-04 编码审阅收口**：三个固定族、共同工具、中央source前后重验/当前身份/冻结confirmation及纯映射经独立静审无确定阻断；89仅静态模板数，非业务验收数。原C追加一个四参数真实HTTP候选函数覆盖原提交后响应丢失、本人只读恢复、失权及合法空提醒，尚未采集或执行。源码SHA、独立报告及待测范围见docs/implementation-checkpoints/M2-6-final-native-receipts-review-v2.md；app导入/collect/test/model均0，原验收框未勾，CP05不提升技术released。紧邻回开M7.3.3修正Request/Grant/RepairCase ID混用，M8.2等此前置实修，不删减门槛。
 
 <a id="m3-1"></a>
 
@@ -3133,7 +3137,11 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.3.3 维修领退料与返修
 
-**状态**：implemented（2026-09-28 实现并完成外部实测；10 项通过）
+**状态**：implemented（2026-10-04 原返修派生结果ID窄修完成独立源码审阅；当前实际回归待M8.2，历史10项成绩不继承。）
+
+**2026-10-04 精确窄修**：见PATCH-M7-3-3-NATIVE-RESULT-ID-01，仅原extract_result、根静态operation注册拆分、外部原10节点中registration/results两个节点及本项记录。授权READ/CREATE/ACTION、Grant事实/原Grant fallback保留；REQUEST按真实case_id和授权关联、QUOTE按原repair v3/v4形状返回真实Case，不以请求ID冒充授权或要求原不存在的status。同factory派生结果spec无facts/selector/fallback，不抢Case读取。原业务API/模型/迁移/权限不改；实际collector/回归待M8.2，CP19仅implementation_released。
+
+编码审阅收口：production SHA4d8314a7c9df274ee4001f9398cd6952847942fe75841c9c766eaff00f25ac27，根registry e36e2be9cd1d4ab7fc997fcef8057bb62e293f135cfed7af4e147429ec2f31d0，原overlay1256c8623bc13df013b6c4ca58c71f93c0f25ca579cef24a518a34987f344174。作者624f00f4、独立31d8ca45无确定阻断，完整指纹/范围/待测见M7-3-3-native-result-id-review-v2.md。原10名及顺序/旧Grant断言保持；仅静态，app/collect/test/HTTP/model0。
 
 **全局顺序前置**：M7.3.2 done。
 
@@ -3273,7 +3281,7 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ### M7.6.4 客户问卷版本与真实答卷
 
-**状态**：implemented（2026-10-04 原索引缺正文已补，代码及实际原HTTP验证候选经独立静审；实际测试、迁移旧答卷及中央CareReceipt最终接线待完成，不记done。）
+**状态**：implemented（2026-10-04 原实现及未知Case版本两行增量均完成独立静审；实际原验证/迁移/最终回执仍待。）
 
 **全局顺序前置**：M7.6.3 implemented/done；本轮按既有编码依赖规则补回，M8.2 暂停完整验证直至缺失依赖实现。
 
@@ -3293,11 +3301,13 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-10-04 新questionnaire_version.py SHA b044457bfe677480f997bdd89182efb23c569465924a63d9b1326e491707514c；customer_care.py fcd53673abe41cc494c61889ca6be6dc38c48923b25650bd709dda346b566ccc；当次root显式registry eebb9a6d8d0e202914112a3bf8ac906057f38f3b1c136606d9b1c76a28ade089，共50 spec。三处经root/独立源审阅，旧care常量/方法（仅固定三facts dispatch追加）与冻结read_receipt保持；root静态报告1b024d397c0dbff8eda7fa482a93e9f2ee8cf23e425716651467c9335a12fcbf、mobile独立c653e426bb9a970ca69d3aa9578c2dcdf9346ba18bbe3e6500cf715d0db47e89。外部原C只追加一个真实HTTP问卷组合节点（含原200目录边界），末版5fcbb937906d28d2c5ab0c4aa14c887ead9a2216e00d04ec2b6ba838a900f80d经独立AST/源审阅；旧care overlay仅同原登记节点事实union/独立type断言修正，原9 names/order/其余节点不变，SHAf7da94fbe023a201a00a951bdae0ee4fdb45adcf2fd873b5512546ebc31bce74。实际collect/test/model=0；统一完整回归、真实非空旧迁移、最终CareReceipt仍待，所有完成检查暂不勾选。详见M7-6-4-missing-contract-review-v1；CP-24旧历史及total_plan保持。
 
+**版本守卫增量**：原fcd53673字节保留，当前customer_care SHA28055474a65572411f3bc2e54d634fb7138cb32959e689cffb79eb56de5f6a55。删除唯一两行后原字节/AST全等，三条新增问卷Case事实缺失或非法native version均unknown，无版本列的immutable questionnaire_version b044457b完全不变。root3efc25173f0bfa6eac27b05964525419394bee14bbe5b0691681200ca0689ecf、独立b508df3ff96388455cf25ca32a548a390cd8e1560b9a170f5ae936a7d0423f9a，外部m764-case-version-guard-20261003T215343Z-52b45b69f4。app/collect/test/model仍0，所有原完成检查保留待实际验收。
+
 <a id="m7-6-5"></a>
 
 ### M7.6.5 车辆日期里程观察纠正
 
-**状态**：in_progress（2026-10-04 前项implemented且独立静审，按原索引单独实施本项；真实验证与最终回执门槛保留。）
+**状态**：implemented（2026-10-04 生产、显式注册及原HTTP组合候选完成独立静审；实际验证与最终CorrectionReceipt仍待。）
 
 **全局顺序前置**：M7.6.4 implemented/done；原编码依赖规则适用，实际验证和最终可靠回执不省略。
 
@@ -3315,7 +3325,7 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 - [ ] 原 CorrectionReceipt 按冻结 submission 在最终统一 resolver 中可靠核对，读取不重放或办理业务。
 - [ ] 当前候选外置隔离真实 API 验证及相关回归完成，来源/失败/指纹留存。
 
-**执行记录**：仅登记原缺正文合同及只读源审阅，生产实现/测试/回执最终接线待完成。
+**执行记录**：2026-10-04生产SHA aaa809a49b6e30ae3fafdcbfb37b04eb9a2b0780a0d89f7347ad3ff697a60351，registry6477a4db270c7fc18bb929771d0a2f7e94d093abbc7083c67647379673ee5e02（51静态spec）；原C最终3bd912b00dc09609517691ed1aac276c0828ba1596da5eff7d4ad7018898dafe，保留旧14函数仅追加一组合，实际节点数待收集。独立生产增量9fd58ffcc06d70c956cb9e33cda3c15a02d18ade458ce8509146228f916261b3及最终C59c988b35aa89023f4da6ece0d81b14a3d34430097cf783001d484fd8b0d596e无确定静态阻断。原409文案/403合法审计候选失败留存，原业务和整图守卫保持。app import/collect/test/model=0，原完成检查不勾，详见M7-6-5-missing-contract-review-v1。
 
 ## M7.7 会员、本金、权益与套餐
 
@@ -3416,6 +3426,50 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 **验证状态**：映射/快照/三条事实/回执合同在隔离夹具中通过；真实原库与真实模型属 M8.x。
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/reconciliation_batch.py`（`ReconciliationBatchAdapter`，`object_types=('reconciliation_batch',)`：快照单次只读 `GET /api/reconciliation/batches/{key}`（**key 即原批次 id**），ID 不一致 502，动作可用性一律 `unknown`；`extract_result` 覆盖只读批次与写路径；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `reconciliation.sealed`（原 `status='sealed'`）、`reconciliation.superseded`（原状态被取代，理由带后继批次并明确**取代不冲销原差异记录**）、`reconciliation.issue_recorded`（原 `ReconciliationIssue`，理由给出条数与未解决条数并明确**issue 存在不等于差异已解决**）），`__init__.py` 显式注册（import/`__all__`/`operation_ids` 三处含 `POST /api/reconciliation/batches` 与批次动作）且 `fallback_object_types=()`。**实测发现并修复**：① 我据截断输出误判"无写 operation"，套件失败后按完整目录修正为登记真实写路径；② 一次补丁把字面 `\n` 写进源码，`ast.parse` 立即拦截、仓库未被污染，已还原；③ 首次安装的"已注册"跳过导致 spec 缺写 operation，已显式补齐；④ 直改覆盖层套件被 `VALIDATION_REJECTED:overlay_addition_changed` 拒绝（冻结机制按设计生效），重新登记哈希后通过。外部套件 `$ValidationRoot/tests/runtime_domains/test_reconciliation_batch.py`（7 项），run `20260928T140158Z-7bdbde8e27` passed。详见 `docs/implementation-checkpoints/M7-8-3-review-v1.md`。源码指纹 `7f77ae424f3698ad0a45a77d7a5447678b627eb33db2406597ac2c2c8117d9ea`。下一项 M7.9.1。
+
+<a id="m7-8-4"></a>
+
+### M7.8.4 店间内部清算
+
+**状态**：implemented（2026-10-04 原C账户fixture岗位窄修经作者与root源码核对；独立窄审记录追加，实际验收仍待。）
+
+**全局顺序前置**：M7.8.3 implemented/done，先完成本轮 M7.6.4—5 回补；原编码依赖规则和全部实际验收边界保持。
+
+**目标/写入边界**：原 ClearingOrder.id 作为 `clearing_order`，只经原当前 party 专用 GET 与真实本店 Case 读取核对，不用两边 Case ID 冒用订单 ID。原创建/支付/收款/差异/撤销权限、原单/文件、双方同事务偏移和版本/锁不改。允许文件见 PATCH-M7-MISSING-DOMAIN-CONTRACTS-01 精确 M7.8.4 段；不新增银行到账审批或借 store_id 调拨。
+
+**有限事实**：`clearing.local_cash_recorded`、`clearing.settled`、`clearing.difference_recorded`，分别核真实本店现金与整数分/源链、原 settled+同本店 completed Case+真实本店现金、同本店原 clearing_difference 事件。paid 只表示付款已记，不是收款到账；受门店过滤的 cash 不冒充全体双方来源，关键源缺失 unknown。
+
+**完成检查**：
+
+- [ ] 原对象/精确操作/事实/真实结果 ID sealed 注册，本店 side/party/Case/version 关系无猜填。
+- [ ] 实际原双方清算 HTTP 链、付款后未到账、最终结清、本店差异和现金关系通过；原授权/事务/锁/整数分不退化。
+- [ ] 最终统一 ReconciliationReceipt 核对冻结 native submission，GET 不重放/业务提交。
+- [ ] 外部当前完整适用回归及对应 PostgreSQL/恢复源关系验证通过，证据与指纹留存。
+
+**执行记录**：2026-10-04新clearing_order.py SHA53689b002c283ad65fc038b98b81f4ea613fc0feb4820e424a82d18efdfea233、root registry57be67354ee5cb9d8371e6a7203b9f69a64ae963aec65a1cbac2c29492837252（52静态spec）。订单及本店Case/版本/任务/本店方向/现金事件/paid与settled分离，Order无number故display_number=None。原C56524f308f2e492d5a46beed04147512d96522e496d98b3aada129a32f80b620保持旧15函数仅追加一个当前原HTTP组合，100/-100原往来→60付款→未到账差异→实际收款/余40、真实cash/account/证据/跨店404均为待执行候选。生产独立f5194d8e8e0a67d838f9a4fbc0855174b1e69a376439f47d57f71d3b3017bf67、原C独立45acde354d052f98a915646ac54673c408d97bdf1444b02f51c2cda72527036b无确定静态阻断。原Case.number混投影/非hashable测试DTO草稿保留并精确修正，未改原业务或旧节点。app import/collect/test/model=0，实际完成检查不勾，最终ReconciliationReceipt/统一回归及PG恢复仍待；见M7-8-4-missing-contract-review-v1。
+
+<a id="m7-8-5"></a>
+
+**账户fixture窄修追加**：2026-10-04 原C最终4e042cb8a62a5cd676ebb0dd6da39e5cee698b011c359fbf39014e4b158dbedc；仅account()改真实manager与finance当前真实门店请求header，manager永久头不写，finance两笔现金操作不变。原Stock seed实际为manager配置第二店本人岗位；原账户write守卫manager/admin保持。f54完整原件及精确差异e8af7225f472f5562f6f188a93a32b633b8db707e41b53f895f3192db546f2f6、作者4a98f0d2c1d01caea4ba89bee5721ac9463b9f5b3980ba5dac4d1a3cb5cdc7c9均外置；root对原API及精确调用源码核对，无本窄修确定阻断，原M785后缀9add63f0及全部原测试名字/顺序保持。旧静审漏核岗位结论保留并更正；collect/test/model0，CP28只允许继续编码。
+
+### M7.8.5 厂家供应商整车其他收入
+
+**状态**：implemented（2026-10-04 生产、登记与原HTTP候选完成独立静审；原实际验证与最终回执条件保留。）
+
+**全局顺序前置**：M7.8.4 implemented/done；原编码依赖规则与最终实际验证/回执不省略。
+
+**目标/写入边界**：Case.id/kind=vehicle_income/v1 明确 snapshot/fact selector，原专用 GET/创建/动作的真实 flat ID 绑定；sources 的 case_id 是原来源单，不冒用当前收入单。原当前店财务/主管/审计读取及 supplier/source 版本、独立复核/整数分/原款账户/日期/实体守卫保持。精确允许范围见 PATCH-M7-MISSING-DOMAIN-CONTRACTS-01；原 API/模型/状态/账务/历史报表不改。
+
+**有限事实**：`vehicle_income.target_approved`、`vehicle_income.receipt_recorded`、`vehicle_income.refund_recorded` 核当前原批准修订/Decision/真实8字段摘要及源、至少一笔历史合法批准修订的真实 in、同单同原款账户的真实 out/累计界限。pending 不当批准，收到一笔不当全部结清，历史现金不强绑最新修订。原未披露字段/未知成本不猜填或 SQL 旁读；compact Task 未披露 status/role/version 保持 None。
+
+**完成检查**：
+
+- [ ] 实际专用 snapshot selector/原操作/事实/结果 ID 注册，供应商/原来源/金额/任务关系保留。
+- [ ] 实际原提案和另一合法主管独立批准、真实到账与原款退回关系、未知/角色/门店/版本拒绝通过。
+- [ ] 最终统一 VehicleIncomeReceipt 按原 DTO/date/default/native digest 核对，读取不提交或重放。
+- [ ] 当前适用回归、真实非空迁移与完整性/恢复源关系通过；来源/失败/指纹留存。
+
+**执行记录**：2026-10-04 生产vehicle_income.py SHA972022c9a84020a2e8aea827512962a612061ec4a9e3cced69354e6c327ec926、root登记00515732c675e300a8b09b1751591ec4cfc87e02d03afcaf6689c8d7a30cebd2（53静态spec）完成源码审阅。供应商/来源/8字段批准摘要/独立Decision、历史现金所属批准版、原款退款及六整数合计分别核对；Case/Task未披露字段保持未知。原C新增一个真实员工HTTP组合最终f54fd9d166f70b1cee868891fc617ccef12b488be1580c525f4f578f67ed579b：1000批准→600实际到账→450待复核保原1000→另一主管批准450→同原款账户退款150；原16函数保持。账户由真实manager维护，两个现金时点账户版本各以原GET核对；旧d778及差异保留。生产独立0a1a404de2d5f4bcb7bcd403913dee0ce66c3c93b357c98ca1b09be704f75e06、C作者a928455f9d1d0d5d86064d3e229609e2bc26983bec8a17451fe7e9425c1deb4e及独立6417e0625f763d60797d89f56b08557ff8f6fd83deb51e708581d10e21318b8d无本项确定静态阻断。app/import/collect/test/model=0，完成检查不勾；最终VehicleIncomeReceipt及统一实际验证/PG/恢复待。原M784同C账户fixture另确认财务维护岗位不符，将仅该项回开窄修。见M7-8-5-missing-contract-review-v1。
 
 ### M7.9.1 库存报表查询
 
@@ -3816,7 +3870,9 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 ## M8.2 原业务、助手和前端不退化验收
 
-**状态**：blocked（2026-10-04 真实前置实现缺口：原索引 M7.6.4/M7.6.5/M7.8.4/M7.8.5 缺正文及专用 provider，可靠原命令回执尚未完成中央接线。依 PATCH-M7-MISSING-DOMAIN-CONTRACTS-01 单项顺序回补，完成后恢复当前候选完整验证；历史3336/1skip不继承，不能以静态定义数、旧成绩或CI绿灯替代。）
+**状态**：in_progress（2026-10-04 四个缺失领域、最终可靠原生回执及返修派生ID窄修均implemented/独立静审；恢复当前候选完整隔离验证。原缺口/失败历史保留，实际集采/strict/101全命令待新指纹执行，不继承旧成绩或以静态数量代替。）
+
+**2026-10-04 当前冻结准备**：仅现有matrix generator及同原单节点Flow-only断言按当前中央+三固定helper精确原模板集合更新；四真实provider/原193需求111发布流程来源完整保留，reader仍unbound、fact未知、业务acceptance未验证。修改的原领域overlay/原C只更新实际来源SHA，不凭AST猜新parameter节点；经统一入口真实collector登记全部有序节点和节点级合成授权后，新两平台同五指纹strict及全部101命令实际执行。旧v7/v8失败和旧输入保留，原V/日期库/公司库/密钥不进入GitHub胶囊。
 
 **2026-10-04 v8终局及真实API投影窄修**：CI37149849322/HEAD0a68c27822aab62e9b7f04ecd069f5c72e999a83两平台整体failed、相关进程均终局。Linuxrun195934Z-87fc160d14 strict22及四ownedPGID证明实际通过；M8.2 run195944Z-4f2f43a371完整3398收集通过，矩阵临时Question缺options在generator539→原forms209触发KeyError，正常排空2/101，inputs_unchanged=true、模型0。Linux官方/ZIP SHA8456c48d9edd2f1c27af6ce2181f63fddca4d1bccbaa16e4c929509fe2af03f9、独立失败审阅e4c38fa44923f090b6d0d542f5b134d90e4fff0b897db0dd3d6e54b334f8b45e；Windows官方/ZIPae97cb910c9958b5ba02737270536519c0ed4e583318f70ee9d6f9c76fde90f4安全逐字节留存，独立审阅待核，不能继承为full通过。root仅原generator补完整临时Question输入options=[]，生产描述合同不改。另静态对照49个已登记provider的原GET返回，确认customer_vehicle/aftercare/vehicle_operation三处既有领域投影接线缺陷，原9项等mock成绩不证明真实返回已接通；范围与异常路径事前登记PATCH-M7-NATIVE-PROJECTION-01，仅三个原适配器/三个相关旧外部夹具与现有C一个真实HTTP组合节点，不删原业务/节点/门槛，未执行新测试。四缺失正文合同及原生可靠专用回执的最终中央接线义务继续待完成，不以阶段性unsupported豁免；M8.2保持in_progress，main仍7a4f872。
 

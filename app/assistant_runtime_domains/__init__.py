@@ -51,6 +51,9 @@ from .customer_care import (CARE_ACTION, CARE_ACTIONS, CARE_CREATE, CARE_FACTS, 
 from .questionnaire_version import (QUESTIONNAIRE_FACTS, QUESTIONNAIRE_OBJECT_TYPE,
                                     QUESTIONNAIRE_PROPOSE, QUESTIONNAIRE_READ, QUESTIONNAIRE_REVIEW,
                                     QuestionnaireVersionAdapter)
+from .observation_correction import (CORRECTION_ACTION, CORRECTION_CREATE, CORRECTION_FACTS,
+                                     CORRECTION_OBJECT_TYPE, CORRECTION_READ,
+                                     ObservationCorrectionAdapter)
 from .care_reminder import (REMINDER_FACTS, REMINDER_GENERATE, REMINDER_KINDS,
                             REMINDER_OBJECT_TYPE, REMINDER_RULE_SAVE, REMINDER_RULES,
                             CareReminderAdapter)
@@ -79,6 +82,10 @@ from .invoice import (INVOICE_ACTION, INVOICE_ACTIONS, INVOICE_CREATE, INVOICE_F
 from .reconciliation_batch import (BATCH_ACTION, BATCH_CLEARING, BATCH_CREATE, BATCH_FACTS,
                                    BATCH_OBJECT_TYPE, BATCH_ORIGINS, BATCH_READ,
                                    ReconciliationBatchAdapter)
+from .clearing_order import (CLEARING_ACTION, CLEARING_CREATE, CLEARING_FACTS,
+                            CLEARING_OBJECT_TYPE, CLEARING_READ, ClearingOrderAdapter)
+from .vehicle_income import (VINC_ACTION, VINC_CREATE, VINC_FACTS, VINC_FLOW_VERSION,
+                             VINC_KIND, VINC_READ, VehicleIncomeAdapter)
 from .inventory_report import (REPORT_FACTS, REPORT_OBJECT_TYPE, REPORT_OPTIONS,
                                REPORT_READ, InventoryReportAdapter)
 from .stock_period_report import (PERIOD_FACTS, PERIOD_OBJECT_TYPE, PERIOD_PARAMS,
@@ -170,6 +177,12 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'CARE_QUESTIONNAIRE_FACTS', 'QUESTIONNAIRE_FACTS', 'QUESTIONNAIRE_OBJECT_TYPE',
            'QUESTIONNAIRE_PROPOSE', 'QUESTIONNAIRE_READ', 'QUESTIONNAIRE_REVIEW',
            'QuestionnaireVersionAdapter',
+           'CORRECTION_ACTION', 'CORRECTION_CREATE', 'CORRECTION_FACTS',
+           'CORRECTION_OBJECT_TYPE', 'CORRECTION_READ', 'ObservationCorrectionAdapter',
+           'CLEARING_ACTION', 'CLEARING_CREATE', 'CLEARING_FACTS',
+           'CLEARING_OBJECT_TYPE', 'CLEARING_READ', 'ClearingOrderAdapter',
+           'VINC_ACTION', 'VINC_CREATE', 'VINC_FACTS', 'VINC_FLOW_VERSION',
+           'VINC_KIND', 'VINC_READ', 'VehicleIncomeAdapter',
            'REMINDER_FACTS', 'REMINDER_GENERATE', 'REMINDER_KINDS', 'REMINDER_OBJECT_TYPE',
            'REMINDER_RULE_SAVE', 'REMINDER_RULES', 'CareReminderAdapter',
            'MEMBERSHIP_ACTION', 'MEMBERSHIP_ACTIONS', 'MEMBERSHIP_CREATE', 'MEMBERSHIP_FACTS',
@@ -402,6 +415,23 @@ def register_adapters(registry):
         fact_keys=(),
         fallback_object_types=(),
     ))
+    # M7.8.5：原车辆收益 Case/v1；来源单号不冒用本单编号。
+    registry.register(DomainAdapterSpec(
+        name='vehicle_income', factory=VehicleIncomeAdapter, object_types=('case',),
+        operation_ids=(VINC_READ, VINC_CREATE, VINC_ACTION),
+        fact_keys=VINC_FACTS,
+        kind_versions=(('case', VINC_KIND, VINC_FLOW_VERSION),),
+        fact_kind_versions=(('case', VINC_KIND, VINC_FLOW_VERSION),),
+        fallback_object_types=(),
+    ))
+    # M7.8.4：原店间清算；订单编号与本店/对方 Case 编号分别核对。
+    registry.register(DomainAdapterSpec(
+        name='clearing_order', factory=ClearingOrderAdapter,
+        object_types=(CLEARING_OBJECT_TYPE,),
+        operation_ids=(CLEARING_READ, CLEARING_CREATE, CLEARING_ACTION),
+        fact_keys=CLEARING_FACTS,
+        fallback_object_types=(CLEARING_OBJECT_TYPE,),
+    ))
     # M7.8.3：月结冻结（reconciliation_batch）静态注册；key 即原 ReconciliationBatch.id。
     # 只读批次读取 + 已评审的 create 与批次动作。
     registry.register(DomainAdapterSpec(
@@ -486,6 +516,14 @@ def register_adapters(registry):
         operation_ids=(REMINDER_RULES, REMINDER_RULE_SAVE, REMINDER_GENERATE),
         fact_keys=REMINDER_FACTS,
         fallback_object_types=(REMINDER_OBJECT_TYPE,),
+    ))
+    # M7.6.5：原日期里程纠正；其主键是原纠正 Case.id。
+    registry.register(DomainAdapterSpec(
+        name='observation_correction', factory=ObservationCorrectionAdapter,
+        object_types=(CORRECTION_OBJECT_TYPE,),
+        operation_ids=(CORRECTION_READ, CORRECTION_CREATE, CORRECTION_ACTION),
+        fact_keys=CORRECTION_FACTS,
+        fallback_object_types=(CORRECTION_OBJECT_TYPE,),
     ))
     # M7.6.4：原问卷版本；目录 CAS/题目序号不是对象版本。
     registry.register(DomainAdapterSpec(
@@ -583,9 +621,17 @@ def register_adapters(registry):
     registry.register(DomainAdapterSpec(
         name='rework_grant', factory=ReworkGrantAdapter,
         object_types=(GRANT_OBJECT_TYPE,),
-        operation_ids=(GRANT_READ, GRANT_CREATE, GRANT_ACTION, GRANT_REQUEST, GRANT_QUOTE),
+        operation_ids=(GRANT_READ, GRANT_CREATE, GRANT_ACTION),
         fact_keys=GRANT_FACTS,
         fallback_object_types=(GRANT_OBJECT_TYPE,),
+    ))
+    # 派生申请/报价返回真实 Case，不属于责任授权对象；不注册 Case 事实或 fallback。
+    registry.register(DomainAdapterSpec(
+        name='rework_derivative_results', factory=ReworkGrantAdapter,
+        object_types=('case',),
+        operation_ids=(GRANT_REQUEST, GRANT_QUOTE),
+        fact_keys=(),
+        fallback_object_types=(),
     ))
     # M7.3.2：维修工单接车与施工进度（repair_order）静态注册。
     registry.register(DomainAdapterSpec(

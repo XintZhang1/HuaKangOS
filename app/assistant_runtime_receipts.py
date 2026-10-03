@@ -149,6 +149,47 @@ _FLOW_READ = 'GET /api/flow/cases/{case_id}'
 _FLOW_RECEIPT_OPERATIONS = frozenset({_FLOW_CREATE, _FLOW_ACTION})
 
 
+def _native_family(operation_id):
+    """Select only the fixed, server-reviewed native operation templates."""
+    from . import assistant_runtime_receipts_commercial as commercial
+    from . import assistant_runtime_receipts_care as care
+    from . import assistant_runtime_receipts_inventory as inventory
+    matches = [family for family in (commercial, care, inventory)
+               if family.supports(operation_id)]
+    if len(matches) > 1:
+        _conflict()
+    return matches[0] if matches else None
+
+
+def _receipt_read_operations(snapshot):
+    family = _native_family(snapshot.operation_id)
+    operations = family.read_operations(snapshot) if family else (
+        (_FLOW_READ,) if snapshot.operation_id in _FLOW_RECEIPT_OPERATIONS else ())
+    if (type(operations) is not tuple or len(set(operations)) != len(operations)
+            or any(type(operation) is not str or not operation.startswith('GET ')
+                   for operation in operations)):
+        _conflict()
+    return operations
+
+
+def validate_success_lookup(snapshot, lookup):
+    """Validate a finite family's recovery evidence without querying or writing."""
+    from .assistant_runtime_receipts_common import validate_evidence
+    family = _native_family(snapshot.operation_id)
+    if family is not None:
+        return family.validate_lookup(snapshot, lookup)
+    if snapshot.operation_id not in _FLOW_RECEIPT_OPERATIONS:
+        return False
+    if not validate_evidence(snapshot, lookup, ('case',), min_objects=1, max_objects=1):
+        return False
+    try:
+        command = _flow_submission(snapshot)
+    except (HTTPException, ValueError, TypeError):
+        return False
+    return (command is not None and (command.target_case_id is None
+            or lookup.object_refs[0].id == command.target_case_id))
+
+
 @dataclass(frozen=True)
 class _FlowSubmission:
     request_key: str
@@ -306,6 +347,21 @@ async def _lookup_receipt_once(db, user, session_id, proposal_id, *, native_read
                     or (work.owner_id, work.store_id, work.session_id)
                     != (proposal.owner_id, proposal.store_id, proposal.session_id)):
                 return _lookup_result('mismatch', 'confirmation_source_mismatch')
+        family = _native_family(snapshot.operation_id)
+        if family is not None:
+            try:
+                found = await family.lookup_visible(db, user, snapshot, native_reader)
+                found = ReceiptLookup.model_validate(found)
+                _owned_lookup_proposal(db, user, session_id, proposal_id)
+            except HTTPException as exc:
+                if exc.status_code in {401, 403, 404}:
+                    return _lookup_result('inaccessible', 'native_object_not_accessible')
+                if exc.status_code == 409:
+                    return _lookup_result('mismatch', 'invalid_native_submission')
+                raise
+            if found.status == 'confirmed_success' and not validate_success_lookup(snapshot, found):
+                return _lookup_result('mismatch', 'native_object_mismatch')
+            return found
         try:
             command = _flow_submission(snapshot)
         except HTTPException:
@@ -365,11 +421,20 @@ def _lookup_source(db, user, session_id, proposal_id):
     work = (db.scalar(select(WorkItem).where(WorkItem.id == proposal.source_work_item_id)
             .execution_options(populate_existing=True)) if proposal.source_work_item_id else None)
     receipts = []
+    native_source = None
     if len(items) == 1:
         try:
             submission = _checked_snapshot(items[0])
-            command = _flow_submission(submission)
-        except HTTPException:
+            family = _native_family(submission.operation_id)
+            if family is not None:
+                native_source = (family.__name__, family.read_source(db, user, submission))
+                command = None
+            else:
+                command = _flow_submission(submission)
+        except HTTPException as exc:
+            if exc.status_code != 409:
+                raise
+            native_source = ('invalid_native_submission',)
             command = None
         if command is not None:
             receipts = list(db.scalars(select(RequestReceipt).where(
@@ -378,8 +443,9 @@ def _lookup_source(db, user, session_id, proposal_id):
     return (proposal.version, proposal.status, proposal.digest, proposal.source_work_item_id,
         tuple((item.id, item.version, item.status, item.work_item_id, item.submission_digest)
               for item in items), (work.id, work.version) if work else None,
-        tuple((row.id, row.store_id, row.actor_id, row.request_key, row.digest, row.case_id)
-              for row in receipts))
+        native_source if native_source is not None else tuple(
+            (row.id, row.store_id, row.actor_id, row.request_key, row.digest, row.case_id)
+            for row in receipts))
 
 
 def _lookup_identity(user, store_id=None):
@@ -446,14 +512,7 @@ def _reconciliation_record(proposal, item):
     stored = ReceiptLookup.model_validate({**{key: deepcopy(record[key]) for key in
         ('status', 'checked_at', 'object_refs', 'evidence_refs')}, 'reason_code': None})
     snapshot = _checked_snapshot(item)
-    if (len(stored.object_refs) != 1 or stored.object_refs[0].type != 'case'
-            or len(stored.evidence_refs) != 2
-            or {value.source_type for value in stored.evidence_refs} != {'receipt', 'object'}
-            or not any(value.source_type == 'receipt'
-                       and value.source_id.operation_id == snapshot.operation_id
-                       and value.native_version is None for value in stored.evidence_refs)
-            or not any(value.source_type == 'object' and value.source_id == stored.object_refs[0]
-                       for value in stored.evidence_refs)):
+    if not validate_success_lookup(snapshot, stored):
         _conflict()
     return stored
 
@@ -632,7 +691,8 @@ def _persist_reconciliation(db, principal, token, *, clock):
                 or work is not None and work.status not in {'prepared', 'uncertain', 'settled'}):
             _conflict()
         lookup = ReceiptLookup.model_validate(state['lookup'])
-        card.result = service.receipt_success_result(card.result, item.id, item.submission_digest, lookup)
+        card.result = service.receipt_success_result(card.result, item.id, item.submission_digest, lookup,
+                                                     submission=_checked_snapshot(item))
         now = _time(clock())
         card.status, card.finished_at = 'succeeded', now
         item.status, item.finished_at, item.error_code = 'succeeded', now, None
@@ -674,8 +734,9 @@ async def _read_reconciliation(db, principal, proposal_id, *, clock, client_fact
             if proposal.status != 'succeeded' or item.status != 'succeeded' or item.finished_at is None:
                 return _lookup_result('mismatch', 'reconciliation_state_mismatch'), None
         item_id = item.id
+        read_operations = _receipt_read_operations(_checked_snapshot(item))
     _condition_scope(db, principal)
-    native = native_reader_for_principal(db, principal, (_FLOW_READ,), client_factory=client_factory)
+    native = native_reader_for_principal(db, principal, read_operations, client_factory=client_factory)
     lookup = await lookup_receipt(db, principal, principal.session_id, proposal_id, native_reader=native)
     revalidate_principal(db, principal, clock=clock)
     with _reader(db, principal._read_session_factory) as source_db:
