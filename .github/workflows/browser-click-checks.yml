@@ -21,16 +21,32 @@ on:
       - 'tests/browser_click/**'
       - '.github/workflows/browser-click-checks.yml'
   workflow_dispatch:
+    inputs:
+      regression_capsule_asset_id:
+        description: Optional frozen source-only regression capsule asset ID
+        required: false
+        type: string
+      regression_capsule_sha256:
+        description: Frozen regression capsule SHA-256 when an asset is supplied
+        required: false
+        type: string
+      regression_mode:
+        description: Current regression inventory preparation or full registered run
+        required: false
+        default: prepare
+        type: choice
+        options: [prepare, full]
 
 permissions:
   contents: read
 
 concurrency:
-  group: browser-click-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.regression_capsule_asset_id != '' && 'current-regression' || 'browser-click' }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' || inputs.regression_capsule_asset_id == '' }}
 
 jobs:
   browser-click:
+    if: github.event_name != 'workflow_dispatch' || inputs.regression_capsule_asset_id == ''
     runs-on: ubuntu-latest
     timeout-minutes: 165
     steps:
@@ -56,3 +72,10 @@ jobs:
           path: ${{ runner.temp }}/browser-click-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
           retention-days: 7
           if-no-files-found: warn
+  current-regression:
+    if: github.event_name == 'workflow_dispatch' && inputs.regression_capsule_asset_id != ''
+    uses: ./.github/workflows/full-regression-checks.yml
+    with:
+      capsule_asset_id: ${{ inputs.regression_capsule_asset_id }}
+      capsule_sha256: ${{ inputs.regression_capsule_sha256 }}
+      mode: ${{ inputs.regression_mode }}

@@ -1,6 +1,17 @@
 name: Current isolated regression
 
 on:
+  workflow_call:
+    inputs:
+      capsule_asset_id:
+        required: true
+        type: string
+      capsule_sha256:
+        required: true
+        type: string
+      mode:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       capsule_asset_id:
@@ -51,10 +62,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CAPSULE_ASSET_ID: ${{ inputs.capsule_asset_id }}
           CAPSULE_SHA256: ${{ inputs.capsule_sha256 }}
+          VALIDATION_MODE: ${{ inputs.mode }}
         run: |
           $ErrorActionPreference = 'Stop'
           if ($env:CAPSULE_ASSET_ID -notmatch '^[1-9][0-9]*$') { throw 'Invalid asset ID' }
           if ($env:CAPSULE_SHA256 -notmatch '^[a-f0-9]{64}$') { throw 'Invalid capsule SHA-256' }
+          if ($env:VALIDATION_MODE -notin @('prepare', 'full')) { throw 'Invalid validation mode' }
           $taskArchive = Join-Path $env:RUNNER_TEMP 'validation-inputs.zip'
           $taskRoot = Join-Path $env:RUNNER_TEMP 'v'
           python -B scripts/package_validation_inputs.py download --asset-id $env:CAPSULE_ASSET_ID --sha256 $env:CAPSULE_SHA256 --output $taskArchive
