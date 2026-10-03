@@ -54,6 +54,8 @@ class SourceContext:
     def snapshot(self):
         return {'release_id': self.release_id, 'base_sha': self.manifest['base_sha'],
                 'source_directory': str(self.root),
+                'candidate_bundle': '/opt/huakangos/handoff/candidate.bundle',
+                'candidate_branch': 'codex/aliyun-ops-assistant',
                 'review_handoff': 'Read deployed files through MCP; authenticated Cutie may retrieve this exact release over SSH. Apply changes in a GitHub checkout, verify base SHA and open a PR; the owner merges.',
                 'source_files': len(self.files), 'roots': sorted(ROOT_DOCS),
                 'components': ['app/main.py', 'web/app.js', 'app/ops_feedback_api.py',
