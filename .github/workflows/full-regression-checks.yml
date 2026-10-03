@@ -12,6 +12,10 @@ on:
       mode:
         required: true
         type: string
+      linux_only:
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       capsule_asset_id:
@@ -28,6 +32,11 @@ on:
         default: prepare
         type: choice
         options: [prepare, full]
+      linux_only:
+        description: Retry Linux preparation without repeating Windows inventory
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -43,7 +52,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2025, ubuntu-24.04]
+        os: ${{ fromJSON(inputs.linux_only && '["ubuntu-24.04"]' || '["windows-2025","ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 180
     defaults:
@@ -83,7 +92,9 @@ jobs:
           $taskBasePython = (python -c "import pathlib,sys; print(pathlib.Path(sys.executable).resolve())").Trim()
           & $taskBasePython -m venv --copies (Join-Path $taskRoot '.venv')
           if ($LASTEXITCODE -ne 0) { throw 'Independent venv creation failed' }
-          $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python' }
+          $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python3.11' }
+          & $taskPython -c "import json,pathlib,sys; print(json.dumps({k:{'path':v,'is_symlink':pathlib.Path(v).is_symlink()} for k,v in {'executable':sys.executable,'base_executable':sys._base_executable}.items()}))" | Out-File -FilePath (Join-Path $taskRoot 'capsule-runtime-identity.json') -Encoding utf8NoBOM
+          if ($LASTEXITCODE -ne 0) { throw 'Actual interpreter identity failed' }
           & $taskPython -m pip install -r (Join-Path $taskRoot 'dependencies.lock.txt')
           if ($LASTEXITCODE -ne 0) { throw 'Frozen dependency installation failed' }
           & $taskPython -B scripts/package_validation_inputs.py platform --validation-root $taskRoot --repo $env:GITHUB_WORKSPACE
@@ -92,14 +103,14 @@ jobs:
         if: inputs.mode == 'prepare'
         run: |
           $taskRoot = Join-Path $env:RUNNER_TEMP 'v'
-          $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python' }
+          $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python3.11' }
           & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M8.2 --prepare-collection
           if ($LASTEXITCODE -ne 0) { throw 'Actual collection failed' }
       - name: Verify strict binding and complete regression
         if: inputs.mode == 'full'
         run: |
           $taskRoot = Join-Path $env:RUNNER_TEMP 'v'
-          $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python' }
+          $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python3.11' }
           & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M0.1
           if ($LASTEXITCODE -ne 0) { throw 'Current strict validation failed' }
           & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M8.2
@@ -118,6 +129,7 @@ jobs:
             ${{ runner.temp }}/v/capsule-platform-source.json
             ${{ runner.temp }}/v/capsule-validation-manifest-source.json
             ${{ runner.temp }}/v/capsule-repository-rebinding.json
+            ${{ runner.temp }}/v/capsule-runtime-identity.json
             ${{ runner.temp }}/v/latest*.json
           retention-days: 7
           if-no-files-found: warn

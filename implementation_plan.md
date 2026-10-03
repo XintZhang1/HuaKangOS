@@ -3772,6 +3772,8 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 **2026-10-04 当前准备实录**：新外置v3/v4各自43依赖与schema2平台绑定完成，统一 `--milestone M8.2 --prepare-collection` 分别在 `20261003T163608Z-ae10e93684`/`20261003T164239Z-6cf1ffdc72` 自然CLI1；首collector退出2、3305收集/2及5导入错误，无超时且owned生命周期drained=true，源码/镜像/执行器/外部输入/依赖指纹未变。错误为新增测试镜像包名接线，18原套件尚未启动，不计测试通过。CI准备37137950279在Python/草稿资产启动阶段失败、未执行回归；原件均保留。按PATCH-M8-2-CURRENT-REGRESSION-01窄修namespace及双平台固定Python/草稿访问接线，v5仍为待实际collector的候选，未登记full/released。
 
+01:35追加实际结果：local v5 `20261003T170911Z-3f952e468d` 已完整prepared，3385 pytest及203原独立节点、19命令退出0/no-timeout/drained=true，五输入指纹不变、模型0，phase/milestone_complete仍false、测试执行0。独立CI37139457298 Windows prepare成功待原件精确核对，Linux在任何命令前linked_path_rejected；保留失败，按同补丁改物理版本解释器并实际记录路径，不降低守卫或继承测试通过。M8.2继续in_progress，双平台full未执行。
+
 **历史状态（2026-09-30）**：implemented（2026-09-30 在原业务/助手/前端三面取得工作区内证据；归档基线 3336 passed / 0 failed /
 1 skipped 且六项未变指纹全为 true。**不记 `done`**：唯一 skip 为宿主符号链接环境缺口，真实模型、
 PostgreSQL、独立 Linux 与员工试用按计划仍属 M8.3—M8.9）

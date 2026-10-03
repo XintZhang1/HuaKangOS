@@ -1,5 +1,7 @@
 # 助手计划收口至待人工验收
 
+2026-10-04 01:35 M8.2：local v5实际3385 pytest/203原独立节点、19收集命令完整自然0，五输入不变，prepared且测试执行0；CI37139457298 Windows prepare成功、Linux启动路径守卫失败且尚无测试命令。两个旧job终局；按已登记补丁仅修Linux物理python3.11调用与固定Linux-only准备重试，保留所有clean_path，实际解释器证据待新CI。双平台full、真实PG/live/部署等原门槛仍待完成，main未变。
+
 2026-10-04 当前：原M8.1五条故障完成检查由本轮11/19/80及同输入独立26满足，登记done；外层milestone_complete=false原值保留。追加真实Date已在同原native实际10-03→10-04 verify通过，225动作108点击、CLI/service0、0worker/init/model，两个技术子范围通过；原stage false及193/人工/部署边界保留，终局SHA7571093f。23:41 Linux原80及nine-kill/自然30分钟/8原事务/32worker退出原件核验通过，SHA ddec055f、独立Linux环境/evidence-only限制保留。唯一M8.2 in_progress，按CURRENT-REGRESSION-01补早期原合同及完整当前基线；main待全部技术目标完成，四生产开关false。
 
 
