@@ -39,6 +39,8 @@ event_id 和规范化 payload hash 在同一事务持久去重；同 ID 改内�
 
 ## 验证边界
 
+2026-10-03 实测：`current` 符号链接触发入口guard退出的问题已用 `realpathSync` 修复，最终 mjs SHA256=`ec3f1f49f3bb6ff44ae5cfa636c43346b5da83e46a12075e70b26fe45c123d0b`。新外置3组HTTP/fake发送器通过；最终真实服务 active/running/enabled。root经意见→DeepSeek→运维MCP投递一封，outbox=`sent`、SMTP有250接受凭据；重启仍一封，没有重发。它不证明Gmail收件或Cutie已审阅，后续查看review记录/真实PR。
+
 使用仓库外 SQLite 与注入 fake sender 验证实际 HTTP MCP 入队、相同内容去重、内容冲突、失败/不明结果和重启恢复；该检查不发真实邮件。本轮真实邮件由 root 在反馈 → DeepSeek → 运维 MCP 的完整路径中触发并记录，不能继承原服务历史 sent 数为本组件验收。
 
 2026-10-03 实现审阅完成：状态先落库再调用 SMTP；未知结果不重发；固定邮件模板和认证边界；原服务未修改。Node 24.19.0 语法检查及 3 组外置隔离 probe 通过：实际 HTTP MCP 鉴权/缺失查询/入队/去重/冲突/模板，确定失败与不明结果均不重发，sending 重启后保留 uncertain。一次复用外置 probe 库导致列表计数断言失败，记录保留；随后全新外置目录完整执行通过。当前 probe 根为 `C:/Users/tiefu/.codex/HuaKangOS-agent-validation/runtime-v1/mail-bridge-6f7ea84cb76b4e7f972b505bd7ba0b03`。此时邮件桥源码 SHA256 为 `566df1aaddb162914ea5b5716539ed221c7fc91787961b44157f5d93faa0fc3e`；尚未部署本桥或调用真实 SMTP。部署及联合实测由主任务继续登记。
