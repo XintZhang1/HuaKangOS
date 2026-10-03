@@ -285,7 +285,20 @@ async def authorize(e, src, admin, actor, roles, label):
             and wake["topic"] == "access.changed" and all(wake[k] is None for k in ("object_ref", "proposal_id", "task_id", "plan_id"))
             and decoded(wake["source_ref"]) == {"type": "user_access_receipt", "id": receipt["id"], "version": current["access_version"]}, "原访问信号内容不符合回执")
     current_wakes = {r["id"]: r for r in e.db.rows("SELECT * FROM business_assistant_wake_events ORDER BY id")}
-    require(all(current_wakes.get(r["id"]) == r for r in old_wakes)
+    mutable_dispatch = {"state", "attempt", "version", "next_attempt_at", "dispatched_at"}
+    def retained_signal(prior):
+        row = current_wakes.get(prior["id"])
+        if row is None or {k: v for k, v in row.items() if k not in mutable_dispatch} != {
+                k: v for k, v in prior.items() if k not in mutable_dispatch}:
+            return False
+        if prior["state"] == "dispatched":
+            return row == prior
+        return (prior["state"] == "pending" and row["state"] in {"pending", "dispatched"}
+                and row["attempt"] >= prior["attempt"]
+                and row["version"] - prior["version"] == row["attempt"] - prior["attempt"]
+                and (row["dispatched_at"] is not None) == (row["state"] == "dispatched")
+                and (row["state"] != "pending" or row["next_attempt_at"] >= prior["next_attempt_at"]))
+    require(all(retained_signal(r) for r in old_wakes)
         and {k for k in current_wakes if k not in {r["id"] for r in old_wakes}} == {r["id"] for r in wakes}, "原授权覆盖旧信号或追加了无关门店信号")
     return {"native": native, "original_access_version": target["access_version"], "current_access_version": current["access_version"],
         "roles": roles, "receipt_id": receipt["id"], "audit_id": audit["id"], "wakes": wakes, "guard": protection,

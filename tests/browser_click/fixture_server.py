@@ -234,7 +234,16 @@ def main():
     args = parser.parse_args()
     manifest = read_instance(args.manifest)
     credentials = configure_environment(manifest, args.initialize)
-    provider = SyntheticProvider(manifest)
+    from runtime_queue_closeout import extend_provider as extend_queue_provider
+    from runtime_followup_closeout import extend_followup_provider
+    from runtime_context_closeout import extend_context_provider
+    from runtime_goal_closeout import extend_goal_provider
+    from runtime_access_closeout import extend_access_provider
+    provider = extend_queue_provider(SyntheticProvider(manifest))
+    extend_followup_provider(provider)
+    extend_context_provider(provider)
+    extend_goal_provider(provider)
+    extend_access_provider(provider)
     evidence = Path(manifest["evidence_root"])
     with local_network_only(provider.counts):
         if args.initialize:
@@ -274,17 +283,25 @@ def main():
         @asynccontextmanager
         async def synthetic_lifespan(application):
             from runtime_batch import batch_submission_fault
-            with provider.installed(), batch_submission_fault(manifest):
-                async with original_lifespan(application):
+            from sqlite_outbox_closeout import observe_outbox
+            from runtime_receipt_closeout import receipt_faults, extend_provider as extend_receipt_provider
+            from runtime_followup_closeout import observe_followup
+            from runtime_context_closeout import observe_context_proof
+            from runtime_outbox_closeout import outbox_transaction_faults
+            from runtime_source_hooks_closeout import source_hook_faults
+            from runtime_queue_closeout import queue_emitter_control, queue_stream_runner
+            with extend_receipt_provider(provider), provider.installed(), batch_submission_fault(manifest), \
+                    receipt_faults(manifest), observe_outbox(manifest), observe_followup(manifest), observe_context_proof(manifest), outbox_transaction_faults(manifest), source_hook_faults(manifest):
+                async with original_lifespan(application), queue_emitter_control(manifest):
                     controller = None
                     command_loop = None
                     if manifest.get("worker_mode") == "process":
-                        from runtime_faults import WorkerProcessController
-                        controller = WorkerProcessController(manifest, args.manifest.resolve())
+                        from runtime_queue_closeout import QueueCloseoutController
+                        controller = QueueCloseoutController(manifest, args.manifest.resolve())
                         await controller.start()
                         command_loop = asyncio.create_task(controller.serve_commands())
                     else:
-                        worker = Worker()
+                        worker = Worker(runner=queue_stream_runner(manifest))
                         worker.start()
                     stopping = asyncio.create_task(watch_stop_request())
                     try:

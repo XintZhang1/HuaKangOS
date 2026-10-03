@@ -547,7 +547,7 @@ async def dispatch_one(db, *, clock=utcnow, read_session_factory=None, client_fa
     """
     from .assistant_runtime_principal import _reader, _time
     from .assistant_runtime_queue import (_fresh_worker_session, _scope, _commit, _failure,
-        persist_followup_runs, validate_followup_resolution)
+        persist_followup_runs, validate_followup_resolution, _sqlite_writer)
     from .assistant_runtime_workspace import (
         resolve_event_notifications, persist_event_notifications, validate_event_notifications,
     )
@@ -568,6 +568,7 @@ async def dispatch_one(db, *, clock=utcnow, read_session_factory=None, client_fa
         notification = (await resolve_event_notifications(db, event, clock=clock,
             read_session_factory=read_session_factory, client_factory=client_factory)) if modes[1] else None
         db.rollback()  # Native reads must not leave an old database snapshot.
+        _sqlite_writer(db)
         _scope(db, event['store_id'])
         if _dispatch_modes() != modes:
             raise HTTPException(503, '提醒或跟进配置已变化，请稍后重新分发')
@@ -589,6 +590,7 @@ async def dispatch_one(db, *, clock=utcnow, read_session_factory=None, client_fa
         # already-committed native business outcome. CAS cannot resurrect an
         # event dispatched by a concurrent worker.
         try:
+            _sqlite_writer(db)
             _scope(db, event['store_id'])
             attempt = _event_cas(db, event, state='pending', now=_time(clock()))
             _commit(db)
@@ -627,7 +629,7 @@ def _due_plan(reader, now, *, expected=None):
 def _defer_due_plan(db, seed, *, clock, read_session_factory):
     """Retry metadata only; no Step evidence, status, or private content writes."""
     from .assistant_runtime_principal import _enabled, _time, principal_for_grant_probe, revalidate_principal
-    from .assistant_runtime_queue import _scope, _version_cas, _commit
+    from .assistant_runtime_queue import _scope, _version_cas, _commit, _sqlite_writer
     from .business_assistant_models import AssistantSession, AssistantWorkPlan
     principal = principal_for_grant_probe(db, seed['grant_id'], clock=clock,
                                          read_session_factory=read_session_factory)
@@ -636,6 +638,7 @@ def _defer_due_plan(db, seed, *, clock, read_session_factory):
             seed['owner_id'], seed['store_id'], seed['session_id'], seed['plan_id'],
             seed['goal_version'], seed['grant_version']):
         _conflict()
+    _sqlite_writer(db)
     _scope(db, seed['store_id'])
     table = AssistantWorkPlan.__table__
     grant_table = FollowupGrant.__table__
@@ -689,7 +692,7 @@ async def poll_due_plan(db, *, clock=utcnow, read_session_factory=None, client_f
     from .assistant_runtime_principal import _enabled, _reader, _time, principal_for_grant_probe
     from .assistant_runtime_receipts import reconcile_plan_confirmations
     from .assistant_runtime_queue import (_fresh_worker_session, _scope, _commit, _failure,
-        resolve_followup_runs, persist_followup_runs, validate_followup_resolution)
+        resolve_followup_runs, persist_followup_runs, validate_followup_resolution, _sqlite_writer)
     _enabled('grant')
     _fresh_worker_session(db)
     with _reader(db, read_session_factory) as reader:
@@ -718,6 +721,7 @@ async def poll_due_plan(db, *, clock=utcnow, read_session_factory=None, client_f
         check = await resolve_followup_check(db, principal, clock=clock, client_factory=client_factory)
         resolved = resolve_followup_runs(db, (check,), clock=clock, read_session_factory=read_session_factory)
         db.rollback()
+        _sqlite_writer(db)
         _scope(db, seed['store_id'])
         handles = persist_followup_runs(db, resolved, clock=clock)
         validate_followup_resolution(db, resolved, clock=clock)

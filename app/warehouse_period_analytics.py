@@ -13,8 +13,8 @@ DEFINITION = ('库位历史从主管实际批准启用的桥接时刻开始；�
               '午夜期初与全期间收发未知，只列有据片段和可核对期末。店内在途归发出仓并单列，不能重复计入目的仓。'
               '价值为门店均价分配到各库位的账面值；收发价值保留原有符号，零数量的均价分摊调整单列，不视为实物进货或销售成本。')
 REASONS = {'activation':'库位启用基准','local_dispatch':'店内实际移出','local_accept':'店内实际接收','local_return':'店内拒收原退',
-           'average_revaluation':'均价分摊调整','wh_other_in':'其他实际入库','wh_other_in_return':'其他入库原退',
-           'wh_consumable':'耗材实际领用','wh_consumable_return':'耗材原单退回','wh_gift':'礼品实际发出','wh_gift_return':'礼品原单退回',
+           'average_revaluation':'均价分摊调整','wh_other_in':'其他实际入库','wh_other_in_return':'其他入库原退','wh_other_return':'其他入库原退',
+           'wh_consumable':'耗材实际领用','wh_consumable_return':'耗材原单退回','wh_consume_return':'耗材原单退回','wh_gift':'礼品实际发出','wh_gift_return':'礼品原单退回',
            'wh_disposal':'物资实际处置','wh_count':'盘点差异实际过账','procurement_receipt':'采购实际验收','procurement_return':'采购实际退回',
            'transfer_out':'跨店实际发出','transfer_in':'跨店实际接收','transfer_return':'跨店原退接收','repair_issue_v3':'维修实际领料',
            'repair_return_v3':'维修原料退回','retail_dispatch':'精品实际出库','retail_return':'精品原单退货',

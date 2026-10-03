@@ -954,7 +954,7 @@ def _notification_post_guard(db, request, identity, ident):
 async def mark_notification_read(db, request, user, notification_id):
     """Only unread→read; repeated reads and resolved records are unchanged."""
     from .assistant_runtime_models import Notification
-    from .assistant_runtime_queue import _scope
+    from .assistant_runtime_queue import _scope, _sqlite_writer
     from .business_assistant_service import commit
     identity = _capture(db, request, user)
     if identity.aggregate:
@@ -963,6 +963,7 @@ async def mark_notification_read(db, request, user, notification_id):
     actor = _NoticeActor(identity.actor_id, identity.store_id, identity.role,
                          identity.account_role, identity.access_version)
     try:
+        _sqlite_writer(db)
         _scope(db, identity.store_id)
         with db.no_autoflush:
             row = db.scalar(select(Notification).where(Notification.id == notification_id,

@@ -1,0 +1,11 @@
+# PATCH-M8-1-CONTEXT-CLOSEOUT-01
+
+2026-10-03，当前M8.1，补14表13的有限原合同证据。仅新增 `tests/browser_click/runtime_context_closeout.py` 和本任务记录；生产、已冻结followup脚本、shared provider/fixture/注册/runner不改。root集成独立扩展/观察器/场景并从新外部镜像执行。
+
+真正摘要：复用当前场景原UI创建的独立Case、完整真实Plan及首卡，本人原UI暂停Grant；通过原输入框发送31轮合成员工资料，前16轮正文约968字符、后15轮约1848字符，不调用额外业务工具、也不插入消息SQL。每轮实际Run均须succeeded/nullerror、唯一对应31条真实user消息并零工具；按当前实际schema重读object_ref/form_ref及完整步骤语义，保持Plan goal/goal_version，不冻结合法snapshot指针/version。除真实消息数量超过30、总字符超过24000和append-only ContextSnapshot外，读取每轮真实RuntimeContext及summary最后排除的原消息；分别要求实际添加该消息只超30消息边界的窗口、只超24000字符边界的窗口，不能仅会话累计总字数冒充字符截断分支。随后原业务页真实分派首Case，原原子事务推进Case/Task/Customer/Event及版本；返回同会话发新查询，合成provider仅观察真实RuntimeContext中的当前fresh_facts，要求当前原单状态/版本，查询Run成功零工具，旧snapshot逐行保持。不把合成文字当事实或摘要模型实测，不代替真实模型与员工验收。
+
+60秒凭据：对唯一 `mode=proof` 输入产生的当前原Grant，正常 `resolve_followup_check` 完成真实原GET后，在返回已签发内存凭据与消费前固定异步等待61秒；不改monotonic、clock或内部issued_at。原 `_followup_state` 必须实际409拒绝过期凭据，记录该时刻零新卡/零Grant Run；随后仅靠真实新核查恢复并准备唯一原卡，不换员工请求号/重放原业务。该证据只覆盖FollowupCheck的60秒原TTL，不能推定所有其它凭据或目标版本窗口。
+
+已识别未覆盖接线：当前原UI sendRuntime未携plan_id，unbound user Run按原守卫不能编辑既有plan；本补丁不把新建另一Plan当旧goal变化。原goal结构改变、旧goal在途Run停止/本人重读resume、管理员撤权及全source-map hook仍须其它明确路径证据，不由本局部推定。
+
+2026-10-03 `closeout-contracts-03` 真实结果保留：自然61秒凭据场通过；摘要场在第一轮资料前因装置读取不存在的PlanStep.case_id抛KeyError，未产生31轮或窗口边界证据。现改用实际规范化object_ref/form_ref schema，且修正原等长输入只能跨消息窗口、不能覆盖24000字符窗口的覆盖缺口；以上仍待新镜像复验。旧goal接线说明为发现时状态，root已按独立精确补丁完成原UI当前active Plan安全绑定，goal验证以独立模块实际请求和工具结果为准。

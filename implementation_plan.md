@@ -3584,6 +3584,30 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
+**2026-10-03 19:33 精确合入与最终完整复验候选**：`fd4v2-20261003T112525Z-2faa82bb` 原四場同次4/4、CLI0/service0/forced=false，18合成/真实外部0；实际worker交接旧fence、原目标/本人新Grant、8原source整事务回滚、依赖事项控制完整通过。首次候选四场2/4的新增身份JOIN误判已按原tenancy修正：真实admin不需UserStore，普通员工仍需本人当前店关联，完整身份行逐次不变。第二轮全部protected_conflicts=[]、原revoke首次200；新增409后只读drain未动态触发，明确未计分支通过。root已保留原件并按完整指纹守卫合入API1e4ca698/两mutexd6a66352与89e0dff2/scenarios50111baf；生产635文件bbe95959、精确60脚本0c343d58。候选分支用于Linux独立点击，主分支仍待全部技术项完成；接续重新执行正式原11+19合同及全部80场、同指纹完整26故障重复，两个run期间全部仓库及V已登记输入冻结。当前唯一in_progress和原完成检查不变。
+
+**2026-10-03 当前完整复验终局与窄修**：正式 `20261003T091007Z-d9d0e4c819` 自然收尾 CLI1；原后端合同11/11、19/19通过，浏览器完整80场75通过/5失败，service3/forced=false。关闭日志确证 worker-state 原子替换 WinError5，监督任务退出导致restart ACK与三个后续队列场景未完成；dependent 原一次员工重核的第二次POST仍409，原报告未保存第二次detail，不伪造原因。原失败均保留，整体不通过。独立 `closeout-fault-repeat-02` 在旧生产6fcabf8e/60脚本23aae285条件下26/26、CLI0/service0/forced=false，仅独立选中范围成绩。新增 PATCH-M8-1-CANCEL-WRITER-01、WORKER-STATE-MUTEX-01、FOLLOWUP-SOURCE-DRAIN-01 先登记；原单张cancel实际code5/503使用既有短写依赖修复，候选生产bbe95959/规范脚本6a381599五场5/5、一次原生取消200、原业务469表1842行不变。mutex纯文件协议9/9；组合只读来源收尾验证器仅原active revoke首次409后等待同真实owned worker的到期源/Run，再原一次员工重核，保留原全部版本/授权边界。精确组合四场及新完整正式/独立26重复尚待执行；当前唯一in_progress与完成检查不变，不拼历史片段。
+
+**2026-10-03 正式入口第二轮收尾及精确归因**：`V/runs/20261003T064631Z-7769222357` 的原两个后端合同11/19通过，真实Chrome完整80执行40过40败、CLI1/service0/forced=false；`V/browser-click/closeout-fault-repeat-01` 完整26执行25过1败、CLI1/service0/forced=false。5个独立失败及35个零动作依赖级联分别保留：回执UI尚busy、Windows PID观察JSON读取PermissionError、真实30分钟过期卡的错误disabled断言、新员工表单错误沿用初始门店数、265字符原采购上传路径失败。35项中34项同守卫文字、1项报表不同守卫文字，不能将其误记成35个新业务缺陷。原自然期限、失败及完整报告不改写。
+
+精确验证器补丁见 PATCH-M8-1-RECEIPT-UI-SETTLED-01、EXPIRED-CARD-UI-01、OBSERVATION-MUTEX-01、CURRENT-STORE-CANDIDATES-01、WINDOWS-NATIVE-PATH-01；生产源码不变。独立mutex六项纯协议检查退出0；Windows原生同字节长短路径上传探测在160字符路径POST200/字节一致、265字符路径requestfailed/服务器收件0，不能当业务链通过。外部候选 `closeout-validator-targets-12` 六场通过，真实30分钟第七场仍执行；仓库对应脚本修复、外部正式adapter短布局及独立审阅后仍须完整正式入口和同指纹故障重复，不继承片段成绩。当前唯一in_progress及原所有完成检查、CP和生产默认关闭开关不变。
+
+**接续实际复验与再次冻结**：12 已自然退出0，完整所选7/7、service0/forced=false，真实30分钟原过期409及全部剩余合同通过；30合成/真实外部0，生产6fcabf8e/候选60脚本54cc36db稳定。对应receipt/followup精确字节已合入，当前门店候选仅原GET响应/全集/无重复/sales/全部未选，独立审阅通过。13 同次原管理员撤权、8来源事务回滚、9代表表单及原采购7需求链完整所选4/4、CLI0/service0/forced=false，包含此前UI新建启用门店后的准确候选和原真实文件控件上传。当前60脚本指纹23aae285，生产仍6fcabf8e；正式V Windows输出缩至当前标记run/native，原件和精确登记历史在 `binding-history/20261003T085951Z-7fdc2ccadb-m81-windows-native-path`。root独立审阅唯一output赋值、same-run/root/command/manifest/provenance守卫均保留，adapter SHA6c1c66db/restoration SHA6faf7123。接续新正式原11+19合同与全部80场，以及新全26场独立故障重复；该两run期间全部仓库及V已登记输入冻结。全局完成检查待实际终局，不拼局部成绩。
+
+**2026-10-03 当前连续收口授权与记录**：业主要求全部助手按本计划达到待人工验收，修复 Cutie #14/#15，并在全部内容完成后统一上传 main；进一步明确“除了员工试用其他都要完成”，指定外部 API 文件用于本轮真实模型。原真实模型、PostgreSQL、独立 Windows/Linux、HTTPS/ClamAV、恢复及自然日期门槛纳入技术候选；员工实际试用及正式生产发布仍分别留门槛，生产部署未授权。历史虚拟交付范围与成绩保留，不代替本轮条件。当前仍唯一 in_progress，未新增 done/released，四个生产开关仍默认 false。
+
+本轮精确补丁记录位于 `docs/implementation-patches/PATCH-M8-1-*-01.md`：实际 SQLite outbox 短写边界、发送 Run/跟进/通知已读短写边界；售前手机转交展示；原当前事项 Run 绑定；Plan 刷新 loading 与同授权范围确认意图保护；原库位退回名称展示。原权限、门店、版本/CAS、同事务、请求编号和逐张原确认不变。新增队列/回执/跟进/上下文/目标/来源事务/管理员撤权脚本；独立人工代码审阅及 Python AST、Node 语法、差异检查通过，不能当动态验收。
+
+外部 `V/browser-click/closeout-cutie-06` 的真实原页面16次并发主档/Flow写与outbox定向通过，手机五宽度原转交也有独立实测；未推定所有并发容量。`closeout-contracts-03` 为15执行8过7败，04为7执行2过5败，05为6执行4过2败，06为3执行2过1败，07为5执行1过4败；各 CLI1、服务0/forced=false，原件保留，不拼片段为全量。05真实摘要窗口/当前事实、目标改变与本人新 Grant、取消和201后结果保存故障通过；06真实CAS/notice整事务回滚与自然恢复通过；07真实登出 Grant、20同worker tick与后继准备通过。07双存活worker旧fence拒写等核心断言后原UI卡显示失败，管理员撤权错误分类/来源500后表单关闭/原通知已读失败分别待定位修复；当前整项未通过。
+
+07 镜像源码 `5ec461de9fd06815955c02abd3cc7d30230b35d27a4147bbbfcb24275b2af8c1`、脚本 `59d20690b3c56e652f66d431d6886a5856276af1ba773e1d9bd6ae983b3831c9`；该历史58脚本镜像保留。08 为4执行2过2败，旧存活租约和实际管理员撤权整场通过；09 为2执行1过1败，真实空体+JSON类型头通知已读200并持久read/原任务open，source七类及额外Plan关闭8次真实HTTP500/唯一注入/整行回滚断言完成但被普通零5xx全局门禁判失败。root修正精准故障登记，只此固定场景的8独立scope/8种故障各1、全部完整回滚及实际5xx多重集完全相等才能接纳，其他5xx继续失败；08/09 CLI1/service0且未强杀，原失败不改写。10为1场失败，第二个500后原20秒等待未观察到确认意图清除，CLI1/service0且未强杀。迟到GET使用捕获的旧arm恢复意图为请求时序与代码支持的推断，尚无直接赋值轨迹；loadPlan追加当前arm仍为true的条件，不复活已清除意图。脚本只补超时纯读状态/同Plan与Grant/原员工截图，谓词、20秒和原失败重抛不变。11三场来源回滚、原201/outbox CAS自然恢复、目标变更本人恢复待实跑。上述修复均独立静态审阅、AST/Node/diff通过。
+
+当前60精确镜像脚本/80唯一常规场景，跨日业务及窄phase入口只镜像、不在同日常规场景伪造D+1。完整注册、九边界kill与自然30分钟卡片到期尚未执行。本轮模型只完成固定 DeepSeek models/余额认证 GET200、生成调用0；PG16.15已缓存并真实 version 探测，未建库/迁移，不算PG通过。HK099真实上海D+1授权截止及HK152历史完整期间候选未执行，不能以UTC期限或当日期间代替。外部 V 正式入口迁移到同Git当前工作树并保留原档，58→59→60精确白名单及每版原字节历史已封存，原绑定/隔离/复制/网络/结果守卫不变；完整入口 adapter独立审阅通过，待实跑。不访问原E盘预览库、公司数据、密钥或附件。后续 M8.2–M8.10 仍按各项原依赖和当前证据登记。
+
+11定向三场同次全部通过，CLI0、service0/forced=false，时长20.95/50.67/28.17秒；原目标变更/本人恢复、原201后outbox CAS自然恢复、8真实来源500整行回滚及精准5xx账本均完整成立。源码`6fcabf8ec64e694fd04779fd8b23137fc89fed0fad5fa9a1c5222074c005fa4d`、60脚本`de3b8cb113ef954815d948f958e32293204b7b0d1226f6ed8b190e05f8756b33`，镜像稳定；16合成模型/真实0/外部0，证据`V/browser-click/closeout-contracts-11/evidence`，固定故障日志原件保留。接续正式V M8.1原合同+完整80场和独立同指纹故障重复；全部仓库与V输入冻结，仍不把定向片段等同整项通过。
+
+正式`20261003T063440Z-a81cad3a6a`整体失败且CLI1已退出：旧两后端合同11/19节点实际通过，Chrome启动拒绝使80场执行0。配对纯ctypes fresh进程证明fake USERPROFILE缺AppData/Local与Roaming；按PATCH-M8-1-WINDOWS-SHELL-PROFILE-01仅补V adapter的当前独占profile输出目录及其登记指纹，保留原env/Chrome/隔离守卫。独立26故障复跑使用原生产/60脚本继续冻结，不依赖该adapter；正式修复审阅后整体重跑，不拼旧部分成绩。
+
 **2026-10-01 本轮51场景接续**：49/c9c4e36b/5df15f59四run全收尾，新套餐/PDI/精品报表各整场通过；返修接车后同hash与HK190集团首页两个装置误配已精确修正，回访close仅恢复次要展示。金融6/库存1独立静态审查后注册51/43，源9a989e45/脚本088aab82；新四闭包17/10/11/6待终局，生产/注册/runner冻结。三正应收及152/153新真实来源候选未注册；旧partial及失败原样保留。M8.1仍in_progress，业务人工0/full193false，M8.4/CP36及原外部门槛保持，详情v6最新。
 
 **2026-10-01 本轮49场景接续（结果仍按各run独立）**：48场景上一四轮全部收尾；三提醒、四零售、精品六、核赔五实际整场通过，PDI保管version/套餐默认payer_name/精品报表唯一安装来源脚本三窄修后待复验；允许原已交付销售更正仅静态审查尚未执行。HK190独立审查后接线49/41，源c9c4e36b/脚本5df15f59，新四个最小闭包13/11/8/6待终局，registered/生产冻结至全收尾。详情见v6最新条目；M8.1仍in_progress、M8.4 todo/CP36 not_ready、业务人工0/全193=false，原环境/模型/员工/生产门槛与默认关闭开关保持。

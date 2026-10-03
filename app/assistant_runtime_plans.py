@@ -1109,6 +1109,7 @@ def followup_transition(db, request, user, plan_id, args, *, clock=utcnow, read_
         _reader, _time, _enabled, principal_for_followup_request, revalidate_principal,
     )
     from .business_assistant_models import AssistantSession
+    from .assistant_runtime_queue import _sqlite_writer
     from .tenancy import set_scope
     service.require_preparation_read_phase(db)
     try:
@@ -1136,6 +1137,7 @@ def followup_transition(db, request, user, plan_id, args, *, clock=utcnow, read_
         projection = project_legacy_plan(snapshot_db, principal, sid, snapshot_plan)
         step_versions = {step.id: step.version for step in _steps(snapshot_db, snapshot_plan)}
     try:
+        _sqlite_writer(db)
         revalidate_principal(db, principal)
         with db.no_autoflush:
             thread = db.scalar(select(AssistantSession).where(AssistantSession.id == sid,

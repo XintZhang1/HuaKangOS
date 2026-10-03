@@ -6,7 +6,7 @@ from fastapi.responses import Response
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
-from .db import get_db
+from .db import get_db, get_write_db
 from .config import settings
 from .security import get_user
 from .tenancy import single_store
@@ -140,7 +140,7 @@ async def confirm(session_id:str,proposal_id:str,body:Confirmation,request:Reque
 
 
 @router.post('/sessions/{session_id}/proposals/{proposal_id}/cancel')
-async def cancel(session_id:str,proposal_id:str,body:Confirmation,request:Request,db=Depends(get_db),user=Depends(get_user)):
+async def cancel(session_id:str,proposal_id:str,body:Confirmation,request:Request,db=Depends(get_write_db),user=Depends(get_user)):
     return await service.confirm_proposal(db,request,user,session_id,proposal_id,body.digest,True,body.answers)
 
 

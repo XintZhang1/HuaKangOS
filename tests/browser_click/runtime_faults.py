@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from contextlib import ExitStack, contextmanager, nullcontext
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -31,23 +32,84 @@ def _utc():
     return datetime.now(timezone.utc).isoformat()
 
 
+class _ObservationMutexError(RuntimeError):
+    def __init__(self, reason, status):
+        super().__init__(reason)
+        self.wait_status = status
+
+
+@contextmanager
+def _file_mutex(path):
+    path = Path(path).resolve()
+    if path.name != "worker-state.json" and not re.fullmatch(r"followup-observations-[1-9][0-9]*\.json", path.name):
+        raise ValueError("File mutex only accepts worker state or the exact PID report name")
+    name = "Local\\HKOSBrowserFollowupObservation-" + hashlib.sha256(
+        os.path.normcase(str(path)).encode("utf-8")).hexdigest()
+    if os.name != "nt":
+        yield
+        return
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+    kernel.CreateMutexW.restype = wintypes.HANDLE
+    kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel.WaitForSingleObject.restype = wintypes.DWORD
+    kernel.ReleaseMutex.argtypes = [wintypes.HANDLE]
+    kernel.ReleaseMutex.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    handle = kernel.CreateMutexW(None, False, name)
+    if not handle:
+        raise ctypes.WinError(ctypes.get_last_error())
+    owned = False
+    try:
+        state = kernel.WaitForSingleObject(handle, 10000)
+        owned = state in (0, 0x80)
+        if state == 0x80:
+            raise _ObservationMutexError("observation_mutex_abandoned", state)
+        if state == 0x102:
+            error = TimeoutError("observation_mutex_timeout")
+            error.wait_status = state
+            raise error
+        if state == 0xFFFFFFFF:
+            error = ctypes.WinError(ctypes.get_last_error())
+            error.wait_status = state
+            raise error
+        if state != 0:
+            raise _ObservationMutexError("observation_mutex_unexpected_wait", state)
+        yield
+    finally:
+        try:
+            if owned and not kernel.ReleaseMutex(handle):
+                raise ctypes.WinError(ctypes.get_last_error())
+        finally:
+            if not kernel.CloseHandle(handle):
+                raise ctypes.WinError(ctypes.get_last_error())
+
+
+
 def _load(path):
+    if Path(path).name == "worker-state.json":
+        with _file_mutex(path):
+            return json.loads(Path(path).read_text(encoding="utf-8"))
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def _atomic_json(path, value):
     path = Path(path)
-    temporary = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
-    try:
-        with temporary.open("x", encoding="utf-8") as stream:
-            json.dump(value, stream, ensure_ascii=False, indent=2)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
+    with (_file_mutex(path) if path.name == "worker-state.json" else nullcontext()):
+        temporary = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
+        try:
+            with temporary.open("x", encoding="utf-8") as stream:
+                json.dump(value, stream, ensure_ascii=False, indent=2)
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, path)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
 
 
 def _rows(database, sql, values=()):
@@ -649,7 +711,17 @@ def _worker_main(args):
              and state["generation"] == (1 if args.arm_crash else 2),
              "Worker CLI was not registered by its owning controller")
     generation = state["generation"]
-    provider = SyntheticProvider(manifest)
+    from runtime_queue_closeout import extend_provider as extend_queue_provider
+    from runtime_followup_closeout import extend_followup_provider
+    from runtime_context_closeout import extend_context_provider
+    from runtime_goal_closeout import extend_goal_provider
+    from runtime_access_closeout import extend_access_provider
+    from runtime_receipt_closeout import extend_provider as extend_receipt_provider
+    provider = extend_queue_provider(SyntheticProvider(manifest))
+    extend_followup_provider(provider)
+    extend_context_provider(provider)
+    extend_goal_provider(provider)
+    extend_access_provider(provider)
     ledger = evidence / ("provider-worker-" + args.worker_id + ".json")
 
     def save_counts():
@@ -668,11 +740,22 @@ def _worker_main(args):
     save_counts()
     watcher_done = threading.Event()
     watchers = []
-    with local_network_only(provider.counts), provider.installed():
+    with extend_receipt_provider(provider), local_network_only(provider.counts), provider.installed(), ExitStack() as adapters:
         from app.main import app  # noqa: F401 - preserve the original model import order.
         from app import assistant_worker, assistant_runtime_runner as runner
         from app.assistant_runtime_principal import RuntimePrincipal
         from app.db import engine
+        from runtime_followup_closeout import observe_followup
+        from runtime_context_closeout import observe_context_proof
+        from runtime_outbox_closeout import outbox_transaction_faults
+        from runtime_source_hooks_closeout import source_hook_faults
+        from sqlite_outbox_closeout import observe_outbox
+        from runtime_queue_closeout import queue_stream_runner
+        adapters.enter_context(observe_followup(manifest))
+        adapters.enter_context(observe_context_proof(manifest))
+        adapters.enter_context(outbox_transaction_faults(manifest))
+        adapters.enter_context(source_hook_faults(manifest))
+        adapters.enter_context(observe_outbox(manifest))
 
         original_save, original_worker = runner._save_preparations, assistant_worker.Worker
         armed = [args.arm_crash]
@@ -701,6 +784,8 @@ def _worker_main(args):
             return result
 
         def watched_worker(*values, **keywords):
+            _require('runner' not in keywords, 'Synthetic runner dependency already replaced')
+            keywords['runner'] = queue_stream_runner(manifest)
             worker = original_worker(*values, **keywords)
             stop = runtime / ("worker-stop-" + args.worker_id)
 

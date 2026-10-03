@@ -1,0 +1,11 @@
+# PATCH-M8-1-OUTBOX-CLOSEOUT-01
+
+2026-10-03，当前 M8.1 表10有限事务分发故障增量。仅新增 `tests/browser_click/runtime_outbox_closeout.py`，root 接线独立观察器、白名单与场景；生产和共享文件不在本子任务写范围。复用回执脚本的原本人UI首卡、真实201原Flow及独立后继Case，不重用已消费fixture。
+
+对原确认真实201已返回后的该原Case/首卡/Plan真实source，分别在通知原flush之后、原dispatched CAS之后固定抛出故障；每个实际source各仅注入一次，每场实际次数和逐source账本单列，不称每场只有一次。正常处理保留原接口/身份/事务，原Run/Plan/Step/Grant/notice以及该会话所有RunEvent、门店所有派生WakeEvent完整回滚；只有原source的version/attempt/state/next_attempt_at/dispatched_at合法重试字段差异单列，其余原Wake行及新增行必须保持。event独立pending退避30秒。来源已成功而原助手结果仍保存时，只在数据库读阶段等待原首卡保存，避免“卡尚executing”提前分发冒充后继故障；没有更改事实、時計、deadline或next_attempt_at。重复来源按真实原signal_key复用既有事件，不SQL造WakeEvent、不重新确认业务。严格记录各实际event的原source、真实插入Run/notice、失败前后完整Runtime行、实际自然退避时间及唯一后继/通知；恢复核查终点明确解除该scope的外部故障文件，后续本人revoke按原路径正常执行，不能再额外注入未核验故障。不能由本局部Flow/proposal证明全部source-map hook。
+
+两个场景均保留原后台查询与原计划依赖求值；首业务成功只以实际Flow receipt、Case/Task/Event/Customer/Audit和原native201为准，后继仍pending。未动态运行前状态为待验证。原7类source-map hook的原事务回滚及管理员撤权由独立后续脚本留证，不能本补丁一次推定全部通过。
+
+2026-10-03 `closeout-contracts-03` 原失败保留后修正装置等待：notice场首条失败账本来自合法Grant source，装置尚未等后续真实Flow source就即时断言并终止；现在须真实Flow source、依赖Run实际flush、notice模式实际通知flush全部出现后再继续，不排除Grant source、不降低全Runtime回滚核查。自然恢复后卡commit也须由真实RunItem映射等待原准备Run终态，严格唯一Grant Run且succeeded/nullerror，避免同类卡commit/Run终态窗口误判。CAS场共享原回执helper的独立后继员工归属断言失败由root维护共享helper修正，本模块不掩盖或替代；两个场景均待新镜像复验。
+
+`closeout-contracts-04` CAS原失败保留后的装置修正：原首卡27ad47…step_order=1/succeeded，唯一后继33ef42…step_order=0/pending；step_order仅各自Run内排序，按其跨Run排序错认身份。现直接绑定原prepared.card ID与另唯一后继ID，严格两卡状态/原payload，等待真实后继proposal_ready耐久后核全集通知唯一。各原故障source仍必须原next_attempt_at之后真实dispatched/attempt+1；允许另一个原due-plan poll基于同一真实事实合法准备唯一后继，不将其混写为该故障source提前恢复或更改原业务退避。notice场当前失败在共享原Task按钮前置，root维护的helper需按实际页面渲染等待，本模块不代造Task。

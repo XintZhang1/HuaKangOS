@@ -2137,11 +2137,11 @@ class _LoopBudget(Exception):
         super().__init__(reason)
 
 
-def _cancel_fragment(db, principal, *, clock):
+def _cancel_fragment(db, principal, *, clock, error_code='precondition_conflict'):
     from .assistant_runtime_queue import release
     service.require_preparation_read_phase(db)
     db.rollback()
-    handle = release(db, principal, outcome='cancelled', error_code='precondition_conflict', clock=clock)
+    handle = release(db, principal, outcome='cancelled', error_code=error_code, clock=clock)
     return RunExecution(handle.id, handle.status, 'stopped')
 
 
@@ -2251,8 +2251,9 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
             return RunExecution(yielded.id, yielded.status, 'yielded_to_user')
         try:
             revalidate_principal(db, principal, clock=clock)
-        except HTTPException:
-            return _cancel_fragment(db, principal, clock=clock)
+        except HTTPException as authority_error:
+            return _cancel_fragment(db, principal, clock=clock,
+                error_code='permission_denied' if authority_error.status_code in {401, 403} else 'precondition_conflict')
         facts = _actual_outcomes(db, principal, clock=clock)
         reason = ('preparation_budget' if facts['pending_rows'] and
             ('preparation_budget' in facts['row_reasons'] or remaining_preparations() == 0)
@@ -2427,10 +2428,11 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
             raise
         try:
             revalidate_principal(db, principal, clock=clock)
-        except HTTPException:
+        except HTTPException as authority_error:
             # This path can only close its own valid lease. A lost lease raises
             # without clearing another worker's busy token or returning data.
-            return _cancel_fragment(db, principal, clock=clock)
+            return _cancel_fragment(db, principal, clock=clock,
+                error_code='permission_denied' if authority_error.status_code in {401, 403} else 'precondition_conflict')
         if isinstance(exc, ModelProtocolError):
             return finish_reason('runtime_unavailable')
         if exc.status_code >= 500:
@@ -2442,8 +2444,9 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
         db.rollback()
         try:
             revalidate_principal(db, principal, clock=clock)
-        except HTTPException:
-            return _cancel_fragment(db, principal, clock=clock)
+        except HTTPException as authority_error:
+            return _cancel_fragment(db, principal, clock=clock,
+                error_code='permission_denied' if authority_error.status_code in {401, 403} else 'precondition_conflict')
         # No automatic replay on programming/shape errors. If the database or
         # lease is unavailable this guarded save raises and recovery owns it.
         return finish_reason('runtime_unavailable')

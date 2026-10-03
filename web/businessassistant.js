@@ -65,7 +65,7 @@ async function businessAssistantRequest(path,{method='GET',body}={}){
  if(method!=='GET'){headers['X-CSRF-Token']=csrf();if(!multipart)headers['Content-Type']='application/json';}
  const check=()=>{requireStoreContext(version,method);if(current!==businessAssistantState||context!==businessAssistantContext())throw Object.assign(new Error('门店或账号已切换。'),{staleContext:true});};
  try{
-  const response=await fetch('/api/business-assistant'+path,{method,credentials:'same-origin',headers,signal:controller.signal,body:method==='GET'?undefined:multipart?body:JSON.stringify(body||{})});
+  const response=await fetch('/api/business-assistant'+path,{method,credentials:'same-origin',headers,signal:controller.signal,body:method==='GET'||body===undefined?undefined:multipart?body:JSON.stringify(body||{})});
   check();let value;try{value=await response.json();}catch(error){if(error.name==='AbortError')throw error;throw new Error('暂时无法读取结果，请刷新对话。');}check();
   if(!response.ok){if(response.status===401){state.user=null;loginPage();}throw Object.assign(new Error(typeof value.detail==='string'?value.detail:'操作未完成，请检查填写内容。'),{status:response.status});}
   return value;
@@ -491,13 +491,18 @@ async function businessAssistantSendRuntime(text){
  if(!globalThis.AssistantRuntime?.submitRun)throw new Error('本页执行客户端未就绪，请刷新后重试。');
  await businessAssistantTask(async(current,generation)=>{
   if(!current.session){const session=await businessAssistantRequest('/sessions',{method:'POST',body:{}});if(!businessAssistantAlive(current,generation))return;businessAssistantRememberSession(session);}
-  if(!current.retry||current.retry.session_id!==current.session.id)current.retry={session_id:current.session.id,request_id:requestKey(),content:text,thinking:current.thinking};
+  if(!current.retry||current.retry.session_id!==current.session.id){
+   const workspace=businessAssistantWorkspaceModule()?.snapshot?.(),selected=workspace?.plan;
+   const planId=!current.workLoading&&!current.workError&&!workspace?.planLoading&&!workspace?.followupPending&&!workspace?.planError&&selected?.status==='active'&&selected.id===current.workPlanId&&current.workboard?.plan?.id===selected.id&&current.session.work_plans?.some(plan=>plan.id===selected.id)?selected.id:null;
+   current.retry={session_id:current.session.id,request_id:requestKey(),content:text,thinking:current.thinking,plan_id:planId};
+  }
   const request=current.retry;current.thinking=request.thinking;current.draft=request.content;
   current.stream={request_id:request.request_id,content:request.content,text:'',phase:request.thinking?'thinking':'responding',round:0};paintBusinessAssistant();
   let view;
   const handoff=businessAssistantWorkspaceModule()?.pendingHandoff?.()||null;
   // M6.5：只有员工真的发送才把 entry_context 交给服务器；服务器仍重新读取全部事实。
   const payload={request_id:request.request_id,content:request.content,thinking:request.thinking};
+  if(request.plan_id)payload.plan_id=request.plan_id;
   if(handoff&&handoff.entry_context)payload.entry_context=handoff.entry_context;
   try{view=await globalThis.AssistantRuntime.submitRun(current.session.id,payload);}
   catch(error){current.stream=null;throw error;}  // 结果未知时保留同一 request_id 的提交记录供重试

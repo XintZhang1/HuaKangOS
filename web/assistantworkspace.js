@@ -449,12 +449,14 @@
 
   async function loadPlan(planId) {
     const valid = requestGuard();
+    const previous = state.plan, armed = state.revokeArmed === true;
     if (!planId || state.plan?.id !== planId) {
       state.plan = null; state.revokeArmed = false; state.followupPending = ''; state.followupToken = null;
     }
     const serial = (state.planSerial || 0) + 1;
     state.planSerial = serial; state.planLoading = true; state.planError = '';
     if (!planId) { state.plan = null; state.planLoading = false; patchCurrent(); return null; }
+    patchCurrent();
     let view;
     try {
       view = await businessAssistantRequest('/plans/' + encodeURIComponent(String(planId)));
@@ -462,6 +464,7 @@
       if (!valid() || state.planSerial !== serial) return null;
       state.planLoading = false;
       state.plan = null;
+      state.revokeArmed = false;
       state.planError = (error && error.message) || '读取事项进度失败，请稍后重试。';
       patchCurrent();
       return null;
@@ -469,7 +472,10 @@
     if (!valid() || state.planSerial !== serial) return null;
     state.plan = view || null;
     state.planLoading = false;
-    state.revokeArmed = false;
+    state.revokeArmed = !!(armed && state.revokeArmed === true && previous && view && previous.id === view.id
+      && Number.isSafeInteger(previous.goal_version) && view.goal_version === previous.goal_version
+      && view.status === previous.status && JSON.stringify(view.grant) === JSON.stringify(previous.grant)
+      && Array.isArray(view.allowed_actions) && view.allowed_actions.includes('revoke'));
     patchCurrent();
     return state.plan;
   }
@@ -520,6 +526,7 @@
       return { ok: true, plan: updated };
     } catch (error) {
       if (!valid()) return { ok: false, reason: '当前事项已切换。' };
+      state.revokeArmed = false;
       const status = error && error.status;
       if (status === 409) {
         // 版本冲突：不重放动作，读回当前 Plan 让员工重新核对；提示在读回之后仍然可见。
@@ -734,7 +741,7 @@
       if (item.status === 'unread') {
         const serial = ++state.noticeSerial; // Invalidate polls started before this read.
         const updated = await businessAssistantRequest('/notifications/' + encodeURIComponent(String(item.id)) + '/read',
-          { method: 'POST', body: {} });
+          { method: 'POST' });
         if (!valid()) return false;
         const latest = state.notices.find(notice => notice.id === item.id);
         state.notices = state.notices.map(notice => notice.id === item.id
@@ -1015,6 +1022,7 @@
         plan: state.plan ? { id: state.plan.id, status: state.plan.status, version: state.plan.version,
           grant: (state.plan.grant && state.plan.grant.status) || null, revokeArmed: state.revokeArmed } : null,
         planError: state.planError || '',
+        planLoading: state.planLoading, followupPending: !!state.followupPending,
         notificationsOn: notificationsOn(),
         noticeUnread: Number(state.noticeUnread || 0) || 0,
         noticeIds: state.notices.map((item) => item && item.id).filter(Boolean),

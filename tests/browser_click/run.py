@@ -33,7 +33,12 @@ SCRIPT_FILES = ("run.py", "fixture_server.py", "provider.py", "scenarios.py", "r
                 "repair_packages_business.py", "interstore_business.py", "repair_claims_business.py", "repair_rework_business.py",
                 "report_remaining_business.py", "customer_reminders_business.py", "sales_pdi_business.py", "retail_remaining_business.py",
                 "roles_dossier_business.py", "finance_remaining_business.py", "inventory_scope_business.py", "receivables_business.py",
-                "report_complete_source_business.py", "pending_ui.py", "runtime_faults.py", "runtime_batch.py")
+                "report_complete_source_business.py", "pending_ui.py", "runtime_faults.py", "runtime_batch.py",
+                "mobile_handoff.py", "sqlite_outbox_closeout.py", "runtime_queue_closeout.py",
+                "runtime_receipt_closeout.py", "runtime_followup_closeout.py",
+                "runtime_context_closeout.py", "runtime_goal_closeout.py", "runtime_outbox_closeout.py",
+                "runtime_access_closeout.py", "runtime_source_hooks_closeout.py", "day_boundary_business.py",
+                "day_boundary_entry.py")
 EXCLUDED_DIRECTORIES = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "node_modules"}
 
 
@@ -276,7 +281,8 @@ def main():
                    "evidence_root": str(evidence), "database_path": str(runtime / "synthetic.sqlite"),
                    "credentials_path": str(credentials_path), "browser": browser,
                    "worker_mode": "process" if not args.serve and (not args.scenario or
-                       "runtime-preparation-process-crash" in args.scenario) else "embedded",
+                       any(name in args.scenario for name in ("runtime-preparation-process-crash",
+                           "runtime-old-lease-late-write", "runtime-batch-transaction-kills"))) else "embedded",
                    "users": {role: {"username": user["username"]} for role, user in users.items()}})
         environment = child_environment()
         fixture_command = [sys.executable, str(scripts / "fixture_server.py"), "--manifest", str(manifest_path)]
@@ -305,7 +311,7 @@ def main():
             with (evidence / "scenarios.log").open("w", encoding="utf-8") as scenario_log:
                 selected_arguments = [value for name in args.scenario for value in ("--scenario", name)]
                 result = subprocess.run([sys.executable, str(scripts / "scenarios.py"), "--manifest", str(manifest_path),
-                                         "--browser", browser["executable"], *selected_arguments], cwd=scripts, env=environment, timeout=3600,
+                                         "--browser", browser["executable"], *selected_arguments], cwd=scripts, env=environment, timeout=9000,
                                         stdout=scenario_log, stderr=subprocess.STDOUT)
             state["scenario_exit_code"] = result.returncode
             if args.review_after_tests and result.returncode == 0:

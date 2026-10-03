@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections import Counter
 import hashlib
 import json
 import sqlite3
@@ -22,6 +23,16 @@ from urllib.parse import parse_qs, urlsplit
 from playwright.async_api import async_playwright, expect
 from pending_ui import review_followup_ui
 from runtime_faults import preparation_crash, inflight_stop
+from mobile_handoff import MOBILE_HANDOFF_SCENARIOS
+from sqlite_outbox_closeout import SQLITE_OUTBOX_SCENARIOS
+from runtime_receipt_closeout import RECEIPT_SCENARIOS
+from runtime_followup_closeout import FOLLOWUP_CLOSEOUT_SCENARIOS, FOLLOWUP_LONG_SCENARIOS
+from runtime_context_closeout import CONTEXT_CLOSEOUT_SCENARIOS
+from runtime_goal_closeout import GOAL_CLOSEOUT_SCENARIOS
+from runtime_outbox_closeout import OUTBOX_CLOSEOUT_SCENARIOS
+from runtime_access_closeout import ACCESS_CLOSEOUT_SCENARIOS
+from runtime_source_hooks_closeout import SOURCE_HOOK_CLOSEOUT_SCENARIOS
+from runtime_queue_closeout import duplicate_request_and_wake, old_lease_late_write, batch_transaction_kills, stream_protocol_closeout
 from runtime_batch import batch_rule_failure, batch_result_unknown
 from requirements_click import REQUIREMENT_SCENARIOS, finalize_requirement_report
 from sales_business import BUSINESS_SCENARIOS as PRESALES_SCENARIOS
@@ -174,6 +185,7 @@ class Evidence:
         self.latest_run = None
         self.workspace_features = None
         self.protected_conflicts = []
+        self.injected_http_failures = []
         self.page = None
 
     def scrub(self, value):
@@ -291,10 +303,63 @@ class Evidence:
         return await pending.value
 
     async def followup_click(self, action, label):
+        from datetime import datetime, timezone
+        from runtime_faults import _load
+
+        selected = await self.page.evaluate("() => AssistantWorkspace.snapshot().plan")
+        require(isinstance(selected, dict) and selected.get("id"), "原跟进按钮没有唯一当前事项")
+        plan_id = selected["id"]
+        plan_sql = "SELECT id,owner_id,store_id,session_id,engine_version,goal_version,status FROM business_assistant_work_plans WHERE id=?"
+        plan_before = self.db.rows(plan_sql, (plan_id,))
+        require(len(plan_before) == 1 and plan_before[0]["session_id"] == self.latest_session,
+                "当前事项与原本人会话不一致")
+        scope = plan_before[0]
+        full_grant_sql = "SELECT * FROM business_assistant_followup_grants WHERE plan_id=? ORDER BY id"
+        full_grants_before = self.db.rows(full_grant_sql, (plan_id,))
+        authority_sql = ("SELECT u.id,u.role,u.active,u.must_change_password,u.access_version,s.id AS store_id,"
+                         "s.active AS store_active,us.role AS store_role,us.user_id AS membership_user_id "
+                         "FROM users u JOIN stores s ON s.id=? LEFT JOIN user_stores us "
+                         "ON us.user_id=u.id AND us.store_id=s.id WHERE u.id=?")
+        active_grants = [row for row in full_grants_before if row["status"] == "active" and row["revoked_at"] is None]
+        drain_active_revoke = action == "revoke" and scope["status"] == "active" and len(active_grants) == 1
+        authority_before = self.db.rows(authority_sql, (scope["store_id"], scope["owner_id"])) if drain_active_revoke else []
+        if drain_active_revoke:
+            require(all(active_grants[0][key] == scope[key] for key in ("owner_id", "store_id", "session_id", "goal_version")),
+                    "原有效授权与本人事项范围不一致")
+            require(len(authority_before) == 1
+                    and (authority_before[0]["role"] == "admin" or authority_before[0]["membership_user_id"] == scope["owner_id"])
+                    and authority_before[0]["active"] == 1 and authority_before[0]["store_active"] == 1
+                    and authority_before[0]["must_change_password"] == 0,
+                    "原本人或门店已失效")
+        plan_reads = []
+
+        def capture_plan_read(read):
+            if read.request.method == "GET" and urlsplit(read.url).path == "/api/business-assistant/plans/" + plan_id:
+                plan_reads.append(read)
+
+        async def protocol_facts(reply, reads):
+            request = reply.request.post_data_json
+            require(urlsplit(reply.url).path == "/api/business-assistant/plans/" + plan_id + "/followup"
+                    and isinstance(request, dict) and set(request) == {"action", "expected_version"}
+                    and request["action"] == action and type(request["expected_version"]) is int,
+                    "原UI跟进请求不是原动作与整数版本")
+            values = []
+            for read in reads:
+                item = {"status": read.status}
+                if read.status == 200:
+                    value = await read.json()
+                    item.update({key: value.get(key) for key in ("id", "version", "goal_version", "status", "grant")})
+                values.append(item)
+            return {"actual_request": request, "actual_plan_reads": values}
+
         grant_sql = "SELECT id,plan_id,status,version,goal_version,revoked_at,stop_reason FROM business_assistant_followup_grants WHERE session_id=? ORDER BY id"
         grants_before = self.db.rows(grant_sql, (self.latest_session,))
         business_before = self.business_snapshot(f"original_business_before_{action}_click")
-        response = await self.followup_submit_click(action, label)
+        self.page.on("response", capture_plan_read)
+        try:
+            response = await self.followup_submit_click(action, label)
+        finally:
+            self.page.remove_listener("response", capture_plan_read)
         if response.status == 200:
             return
         require(response.status == 409, f"{label}真实请求未成功，HTTP {response.status}")
@@ -309,8 +374,172 @@ class Evidence:
         require(grants_before == grants_after, "409 拒绝后授权被改写")
         self.business_unchanged(business_before, f"original_business_after_{action}_conflict")
         self.observe(f"protected_{action}_conflict", {**conflict, "grants_before": grants_before, "grants_after": grants_after,
-                                                       "grants_unchanged": True, "business_unchanged": True})
+                                                       "grants_unchanged": True, "business_unchanged": True,
+                                                       **(await protocol_facts(response, plan_reads))})
         await self.snapshot(f"followup-{action}-protected-conflict")
+
+        if drain_active_revoke:
+            # The original card may precede its Run's terminal source dispatch.
+            # Only active-grant revocation needs a future check. Other actions,
+            # including paused-grant revocation, retain their original NULL contract.
+            # Observe actual same-worker progress; never stop it or change a deadline.
+            def db_time(value):
+                moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+                return moment.astimezone(timezone.utc).replace(tzinfo=None) if moment.tzinfo else moment
+
+            worker_sql = "SELECT key,value FROM app_metadata WHERE key LIKE 'assistant_runtime_worker:%' ORDER BY key"
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            fresh = []
+            for row in self.db.rows(worker_sql):
+                value = json.loads(row["value"])
+                age = (now - db_time(value["at"])).total_seconds()
+                if 0 <= age <= 60 and value.get("error") is None:
+                    fresh.append((row["key"], value))
+            runtime = Path(self.manifest["runtime_root"])
+            worker_path = runtime / "worker-state.json"
+            queue_path = runtime / "queue-closeout-state.json"
+
+            def owned_worker():
+                if queue_path.is_file():
+                    queue = _load(queue_path)
+                    alive = [row for row in queue["workers"] if row["alive"] is True and row["returncode"] is None]
+                    require(len(alive) == 1 and alive[0]["role"] == "idle"
+                            and queue["spec"]["stage_id"] == alive[0]["stage_id"]
+                            and queue["last_command"]["action"] == "idle" and queue["last_command"]["status"] == "complete",
+                            "原队列owner没有唯一已就绪idle worker")
+                    row = alive[0]
+                    descriptor_path = runtime / ("queue-worker-" + row["worker_id"] + ".json")
+                    descriptor = _load(descriptor_path)
+                    require(descriptor["schema"] == 1 and descriptor["hold_rival"] is False
+                            and all(descriptor[key] == row[key] for key in ("pid", "worker_id", "role", "stage_id"))
+                            and descriptor["phase"] == queue["spec"]["phase"], "原队列worker描述与owner身份不一致")
+                    require(_load(runtime / ("worker-ready-" + row["worker_id"] + ".json"))
+                            == {"schema": 1, "pid": row["pid"], "worker_id": row["worker_id"]}, "原队列worker真实ready身份不一致")
+                    return {"kind": "queue_idle", **{key: descriptor[key] for key in ("pid", "worker_id", "role", "stage_id", "phase")},
+                            "descriptor_sha256": hashlib.sha256(descriptor_path.read_bytes()).hexdigest()}
+                state = _load(worker_path)
+                require(state.get("alive") is True and state.get("returncode") is None, "原worker进程已停止")
+                require(_load(runtime / ("worker-ready-" + state["worker_id"] + ".json"))
+                        == {"schema": 1, **{key: state[key] for key in ("pid", "worker_id", "generation", "armed")}},
+                        "原base worker真实ready身份不一致")
+                return {"kind": "base", **{key: state[key] for key in ("pid", "worker_id", "generation", "armed")}}
+
+            worker_identity = None
+            if self.manifest.get("worker_mode") == "process":
+                worker_identity = owned_worker()
+                fresh = [row for row in fresh if row[0] == "assistant_runtime_worker:" + worker_identity["worker_id"]]
+            require(len(fresh) == 1, "原worker没有唯一有效真实心跳")
+            worker_key, worker_before = fresh[0]
+            objects, tasks, proposals = set(), set(), set()
+            for step in self.db.rows("SELECT object_ref,proposal_id,conditions,completion_conditions,last_evidence FROM business_assistant_plan_steps WHERE plan_id=?", (plan_id,)):
+                ref = json.loads(step["object_ref"]) if step["object_ref"] else None
+                if ref is not None:
+                    require(type(ref) is dict and set(ref) == {"type", "id"}, "原Step对象来源形状无效")
+                    objects.add((ref["type"], ref["id"]))
+                if step["proposal_id"]:
+                    proposals.add(step["proposal_id"])
+                conditions, completion = json.loads(step["conditions"]), json.loads(step["completion_conditions"])
+                require(type(conditions) is list and type(completion) is list, "原Step条件必须是真实对象列表")
+                for condition in conditions + completion:
+                    require(type(condition) is dict and condition.get("type") in {"native_action_available", "fact_exists", "native_task_state", "proposal_succeeded", "due_at"},
+                            "原Step条件形状无效")
+                    if condition["type"] in {"native_action_available", "fact_exists"}:
+                        require(type(condition.get("object_ref")) is dict and set(condition["object_ref"]) == {"type", "id"},
+                                "原Step条件对象来源形状无效")
+                        objects.add((condition["object_ref"]["type"], condition["object_ref"]["id"]))
+                    elif condition["type"] == "native_task_state":
+                        require(type(condition.get("task_id")) is int and condition["task_id"] > 0, "原Step任务来源不是正整数")
+                        tasks.add(condition["task_id"])
+                    elif condition["type"] == "proposal_succeeded":
+                        require(type(condition.get("proposal_id")) is str, "原Step卡片来源不是UUID文本")
+                        proposals.add(condition["proposal_id"])
+                proofs = json.loads(step["last_evidence"]) if step["last_evidence"] is not None else None
+                require(proofs is None or type(proofs) is list, "原Step证据必须是真实对象列表或null")
+                for evidence in proofs or []:
+                    require(type(evidence) is dict and evidence.get("source_type") in {"object", "task", "proposal", "message", "receipt"},
+                            "原Step证据形状无效")
+                    source_id = evidence.get("source_id")
+                    if evidence["source_type"] == "object":
+                        require(type(source_id) is dict and set(source_id) == {"type", "id"}, "原对象证据来源形状无效")
+                        objects.add((evidence["source_id"]["type"], evidence["source_id"]["id"]))
+                    elif evidence["source_type"] == "task":
+                        require(type(source_id) is int and source_id > 0, "原任务证据来源不是正整数")
+                        tasks.add(source_id)
+                    elif evidence["source_type"] == "proposal":
+                        require(type(source_id) is str, "原卡片证据来源不是UUID文本")
+                        proposals.add(source_id)
+                    elif evidence["source_type"] == "message":
+                        require(type(source_id) is int and source_id > 0, "原消息证据来源不是正整数")
+                    else:
+                        require(type(source_id) is dict and set(source_id) == {"operation_id", "id"}, "原回执证据来源形状无效")
+            for task_id in tasks:
+                objects.update(("case", row["case_id"]) for row in self.db.rows(
+                    "SELECT case_id FROM flow_tasks WHERE id=? AND store_id=?", (task_id, scope["store_id"])) if row["case_id"])
+            proposals.update(row["proposal_id"] for row in self.db.rows(
+                "SELECT ri.proposal_id FROM business_assistant_run_items ri JOIN business_assistant_work_items wi ON wi.id=ri.work_item_id "
+                "WHERE wi.plan_id=? AND wi.owner_id=? AND wi.store_id=? AND wi.session_id=? AND ri.proposal_id IS NOT NULL",
+                (plan_id, scope["owner_id"], scope["store_id"], scope["session_id"])))
+            due_ids, last = set(), {}
+            run_sql = ("SELECT id,status,error_code,version,grant_id FROM business_assistant_runs WHERE owner_id=? AND store_id=? AND session_id=? AND "
+                       "(plan_id=? OR id IN (SELECT ri.run_id FROM business_assistant_run_items ri JOIN business_assistant_work_items wi ON wi.id=ri.work_item_id WHERE wi.plan_id=?)) ORDER BY id")
+            run_values = (scope["owner_id"], scope["store_id"], scope["session_id"], plan_id, plan_id)
+            initial_runs = {row["id"]: row["status"] for row in self.db.rows(run_sql, run_values)}
+            deadline = time.monotonic() + 25
+
+            def drained():
+                require(self.db.rows(plan_sql, (plan_id,)) == plan_before, "重新核对期间原事项身份、目标或状态已变化")
+                require(self.db.rows(full_grant_sql, (plan_id,)) == full_grants_before, "重新核对期间原完整授权已变化")
+                require(self.db.rows(authority_sql, (scope["store_id"], scope["owner_id"])) == authority_before,
+                        "重新核对期间原本人岗位或门店已变化")
+                if worker_identity is not None:
+                    require(owned_worker() == worker_identity, "重新核对期间原owned worker停止、替换或描述被改写")
+                heartbeat = self.db.rows("SELECT value FROM app_metadata WHERE key=?", (worker_key,))
+                require(len(heartbeat) == 1, "原worker心跳消失")
+                heartbeat = json.loads(heartbeat[0]["value"])
+                current_time = datetime.now(timezone.utc).replace(tzinfo=None)
+                require(all(heartbeat.get(key) == worker_before.get(key) for key in ("source", "instance"))
+                        and heartbeat.get("error") is None and 0 <= (current_time - db_time(heartbeat["at"])).total_seconds() <= 60,
+                        "原worker真实心跳失效或出现错误")
+                runs = self.db.rows(run_sql, run_values)
+                related = []
+                for event in self.db.rows("SELECT id,plan_id,object_ref,proposal_id,task_id,state,attempt,next_attempt_at FROM business_assistant_wake_events WHERE store_id=? ORDER BY id", (scope["store_id"],)):
+                    ref = json.loads(event["object_ref"]) if event["object_ref"] else None
+                    matches = (event["plan_id"] == plan_id if event["plan_id"] is not None else
+                               bool(ref and (ref["type"], ref["id"]) in objects or event["task_id"] in tasks or event["proposal_id"] in proposals))
+                    if not matches:
+                        continue
+                    related.append(event)
+                    if db_time(event["next_attempt_at"]) <= current_time:
+                        due_ids.add(event["id"])
+                waiting = [row for row in related if row["id"] in due_ids and row["state"] != "dispatched"]
+                require(due_ids <= {row["id"] for row in related}, "原已到期关联Wake证据消失")
+                scheduled = self.db.rows("SELECT version,next_check_at FROM business_assistant_work_plans WHERE id=?", (plan_id,))[0]
+                last.update(runs=runs, due_wakes=[row for row in related if row["id"] in due_ids],
+                            future_unwaited=[row for row in related if row["id"] not in due_ids],
+                            next_check_at=scheduled["next_check_at"], plan_version=scheduled["version"], heartbeat=heartbeat,
+                            same_worker_key=worker_key, original_owned_worker=worker_identity)
+                require(all(row["state"] in {"pending", "dispatched"} for row in last["due_wakes"]),
+                        "原已到期关联Wake出现未知失败状态")
+                require(all(row["status"] in {"queued", "running", "succeeded", "failed", "cancelled"} for row in runs),
+                        "原关联Run出现未知状态")
+                require(not any(row["status"] == "failed" and (row["grant_id"] == active_grants[0]["id"] or initial_runs.get(row["id"]) != "failed")
+                                for row in runs), "原关联Run在收尾期间实际失败，不能当完成")
+                return (not waiting and all(row["status"] in {"succeeded", "failed", "cancelled"} for row in runs)
+                        and scheduled["next_check_at"] is not None and db_time(scheduled["next_check_at"]) > current_time
+                        and db_time(heartbeat["at"]) > db_time(worker_before["at"]))
+
+            try:
+                await self.wait(drained, "原同worker完成已到期关联来源，保留未来预约", timeout=25)
+                await self.page.wait_for_function("arg => { const x=AssistantWorkspace.snapshot(); return !x.planLoading && !x.followupPending && x.plan && x.plan.id===arg.id && x.plan.status===arg.status; }",
+                                                 arg={"id": plan_id, "status": scope["status"]}, timeout=max(1, int((deadline-time.monotonic())*1000)))
+                require(drained(), "原UI读回后后台来源再次变化")
+                self.business_unchanged(business_before, f"original_business_after_{action}_conflict_drain")
+            except Exception as error:
+                self.observe(f"failed_{action}_conflict_drain", {"scope": scope, "whole_grants": full_grants_before,
+                                                               "reason": self.scrub(error), **last})
+                raise
+            self.observe(f"original_{action}_conflict_drained", {"scope": scope, "whole_grants": full_grants_before,
+                                                                 "read_only": True, "business_unchanged": True, **last})
         self.action("employee_conflict_review", "员工核对服务器新状态后重新点击", action=action, max_new_attempts=1)
         conflict["employee_rechecks"] = 1
         if action == "revoke":
@@ -319,8 +548,24 @@ class Evidence:
             await expect(self.page.locator('[data-baws-followup="revoke"]')).to_have_text("结束这件事")
             await self.click('[data-baws-followup="revoke"]', "重新核对结束这件事")
             await expect(self.page.locator('[data-baws-followup="revoke"]')).to_have_text("确认结束这件事")
-        reviewed_response = await self.followup_submit_click(action, "员工重新核对后：" + label)
+        plan_reads.clear()
+        self.page.on("response", capture_plan_read)
+        try:
+            reviewed_response = await self.followup_submit_click(action, "员工重新核对后：" + label)
+        finally:
+            self.page.remove_listener("response", capture_plan_read)
         conflict["reviewed_status"] = reviewed_response.status
+        reviewed_facts = {**conflict, **(await protocol_facts(reviewed_response, plan_reads))}
+        if reviewed_response.status != 200:
+            try:
+                rejected = await reviewed_response.json()
+                if isinstance(rejected, dict):
+                    reviewed_facts["detail"] = self.scrub(rejected.get("detail", ""))
+                else:
+                    reviewed_facts["detail_read_error"] = "unexpected_response_shape"
+            except (ValueError, TypeError) as error:
+                reviewed_facts["detail_read_error"] = type(error).__name__
+        self.observe(f"employee_{action}_reviewed_response", reviewed_facts)
         require(reviewed_response.status == 200, f"重新核对后 {label}未成功，HTTP {reviewed_response.status}；停止")
         conflict["outcome"] = "covered_protected_conflict"
         self.observe(f"covered_{action}_conflict", conflict.copy())
@@ -926,8 +1171,13 @@ async def native_browser_restart(e, original_context, credentials, user):
     e.page = original_page
 
 
-SCENARIOS = (
+SCENARIOS = MOBILE_HANDOFF_SCENARIOS + SQLITE_OUTBOX_SCENARIOS + (
     ("runtime-preparation-process-crash", preparation_crash, 240),
+    ("runtime-duplicate-request-wake", duplicate_request_and_wake, 100),
+    ("runtime-old-lease-late-write", old_lease_late_write, 260),
+    ("runtime-batch-transaction-kills", batch_transaction_kills, 2000),
+    ("runtime-stream-protocol-closeout", stream_protocol_closeout, 150),
+) + RECEIPT_SCENARIOS + FOLLOWUP_CLOSEOUT_SCENARIOS + FOLLOWUP_LONG_SCENARIOS + CONTEXT_CLOSEOUT_SCENARIOS + GOAL_CLOSEOUT_SCENARIOS + OUTBOX_CLOSEOUT_SCENARIOS + ACCESS_CLOSEOUT_SCENARIOS + SOURCE_HOOK_CLOSEOUT_SCENARIOS + (
     ("runtime-inflight-stop-before-prepare-response", inflight_stop, 90),
     ("runtime-batch-rule-failure-stops-remaining", batch_rule_failure, 120),
     ("runtime-batch-native-commit-result-lost", batch_result_unknown, 120),
@@ -1030,7 +1280,19 @@ async def run(manifest, credentials, executable, selected_names=()):
                 require(not e.page_errors, "出现未处理页面异常：" + "; ".join(e.page_errors))
                 require(not e.external_requests, "浏览器尝试外部请求")
                 failures = [item for item in e.network if item["event"] == "response" and item["status"] >= 500]
-                require(not failures, "真实应用请求返回 5xx")
+                if name == "runtime-original-source-map-seven-producer-transaction-rollbacks":
+                    expected = e.injected_http_failures
+                    require(len(expected) == len({row["scope"] for row in expected}) == 8
+                        and {row["kind"] for row in expected} == {"flow", "task", "proposal", "grant", "plan_close", "access", "security", "store"}
+                        and all(row["status"] == 500 and row["unique_injection_proven"] is True
+                            and row["whole_transaction_rollback_proven"] is True for row in expected),
+                        "八次原source固定故障与完整事务回滚未逐项留证")
+                    actual_keys = Counter((row["path"], row["method"], row["status"]) for row in failures)
+                    expected_keys = Counter((row["path"], row["method"], row["status"]) for row in expected)
+                    require(actual_keys == expected_keys, "原生5xx与八次已验证固定注入不完全一致")
+                    result["injected_http_failures"] = expected
+                else:
+                    require(not e.injected_http_failures and not failures, "真实应用请求返回 5xx")
                 result["status"] = "passed"
                 report["passed_count"] += 1
             except Exception as error:

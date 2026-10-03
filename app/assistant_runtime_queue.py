@@ -495,8 +495,10 @@ async def enqueue_run(db, request, user, session_id, args, *, clock=utcnow,
     entry = await _validate_entry(db, principal, payload['entry_context'], client_factory=client_factory)
     source = _principal_source(principal)
     source['plan_id'] = body.plan_id
-    _scope(db, principal.store_id)
     try:
+        _sqlite_writer(db)
+        revalidate_principal(db, principal, clock=clock)
+        _scope(db, principal.store_id)
         with db.no_autoflush:
             thread, plan, _ = _lock_rows(db, source)
             if plan is not None and (plan.engine_version != 2 or plan.status != 'active'):

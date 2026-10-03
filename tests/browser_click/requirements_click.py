@@ -438,7 +438,14 @@ async def representative_forms(e, context, credentials):
             workflow = workflows[workflow_id]
             await open_article(e, workflow)
             await expect(e.page.locator(f'.wf-article [data-wf-action="form"][data-id="{workflow_id}"]')).to_be_enabled()
-            await e.click(f'.wf-article [data-wf-action="form"][data-id="{workflow_id}"]', "打开原表单：" + workflow["title"])
+            employee_candidates_response = None
+            if workflow_id == "wf-employee-store-roles":
+                async with e.page.expect_response(lambda response: response.request.method == "GET"
+                                                  and response.url == e.manifest["origin"] + "/api/users") as pending:
+                    await e.click(f'.wf-article [data-wf-action="form"][data-id="{workflow_id}"]', "打开原表单：" + workflow["title"])
+                employee_candidates_response = await pending.value
+            else:
+                await e.click(f'.wf-article [data-wf-action="form"][data-id="{workflow_id}"]', "打开原表单：" + workflow["title"])
             await expect(e.page.locator("#modal[open]")).to_be_visible()
             await expect(e.page.locator("#modal-title")).to_contain_text(title)
             await expect(e.page.locator("#modal form")).to_be_visible()
@@ -454,9 +461,42 @@ async def representative_forms(e, context, credentials):
             if workflow_id == "wf-employee-store-roles":
                 role = await e.page.locator('#modal select[name="role"]').input_value()
                 checks = await e.page.locator('#modal input[name="store_ids"]').evaluate_all("xs => xs.map(x=>({store_id:x.value,checked:x.checked}))")
+                candidate_json_valid = True
+                try:
+                    candidate_body = await employee_candidates_response.json()
+                except ValueError:
+                    candidate_body = None
+                    candidate_json_valid = False
+                candidate_rows = candidate_body.get("stores") if isinstance(candidate_body, dict) else None
+                candidates = [{"id": row.get("id"), "active": row.get("active")}
+                              for row in candidate_rows if isinstance(row, dict)] if isinstance(candidate_rows, list) else []
+                candidate_shape_valid = (isinstance(candidate_rows, list) and len(candidates) == len(candidate_rows)
+                                         and all(type(row["id"]) is int and row["id"] > 0
+                                                 and type(row["active"]) is bool for row in candidates))
+                expected_ids = [str(row["id"]) for row in candidates if row["active"] is True]
+                actual_ids = [row["store_id"] for row in checks]
+                store_evidence = {"workflow_id": workflow_id, "candidate_source": {
+                    "path": urlsplit(employee_candidates_response.url).path,
+                    "method": employee_candidates_response.request.method,
+                    "status": employee_candidates_response.status, "same_origin": True,
+                    "json_valid": candidate_json_valid, "stores": candidates, "shape_valid": candidate_shape_valid},
+                    "expected_active_store_ids": expected_ids, "default_role": role,
+                    "default_store_checks": checks}
+                candidate_path = e.directory / "employee-current-store-candidates.json"
+                save_json(candidate_path, store_evidence)
+                e.observe("new_employee_current_store_candidates", store_evidence)
+                evidence.update(default_role=role, default_store_checks=checks,
+                                expected_active_store_ids=expected_ids, candidate_source=store_evidence["candidate_source"],
+                                candidate_evidence_path=str(candidate_path))
+                item["evidence"] = evidence.copy()
+                checkpoint.write()
+                require(employee_candidates_response.status == 200 and candidate_shape_valid,
+                        "新增员工原页面门店候选响应无效")
+                require(len(expected_ids) == len(set(expected_ids)), "原页面启用门店候选重复")
                 require(role == "sales", "新增员工默认岗位不是普通销售")
-                require(len(checks) == len(e.manifest["stores"]) and all(not row["checked"] for row in checks), "新增员工默认门店被勾选/漏掉可用门店")
-                evidence.update(default_role=role, default_store_checks=checks)
+                require(len(actual_ids) == len(set(actual_ids)) and set(actual_ids) == set(expected_ids),
+                        "新增员工门店候选缺失/多余/重复")
+                require(all(not row["checked"] for row in checks), "新增员工默认门店被勾选")
             evidence.update(await capture_ui(e, "form-" + workflow_id, "#modal"))
             # The original header close is available on every original form,
             # including procurement forms that have no footer cancel button.

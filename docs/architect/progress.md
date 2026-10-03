@@ -1,5 +1,11 @@
 # 当前交付任务
 
+2026-10-03 19:33 当前冻结候选：原四场第二轮4/4、CLI/service0自然结束，生产bbe95959/60脚本0c343d58，精确源码已合入；首次revoke200，新增409 drain分支本轮未触发，边界保留。候选分支提交仅供Linux独立验证，main待全部技术项完成。重新执行正式原11+19+80及独立26故障重复，期间全部仓库/V登记输入冻结；唯一M8.1仍in_progress。
+
+2026-10-03 19:00 接续终局：正式原后端11/11、19/19通过，完整原生80场75通过/5失败，CLI1、服务3自然关闭未强杀；日志确证worker-state替换WinError5，整体未放行。独立旧指纹26故障重复全部通过，不继承到新源码。取消卡片实际code5缺陷的既有get_write_db窄候选五场5/5；worker观察锁与一次员工重核前的只读来源收尾候选正在同M8.1组合复验。全部技术门槛纳入用户最新范围，仅实际员工试用待人工；详见主任务和实施计划，不并行实施其它里程碑。
+
+2026-10-03 接续：业主要求按实施计划收口全部助手当前计划至待人工验收，修复 Cutie #14/#15，最终统一上传 main。当前唯一进行项仍 M8.1；实际起点7a4f872/origin main、工作树干净。入口 [assistant-human-acceptance](tasks/assistant-human-acceptance.md)，分别委派同项队列、确认回执和跟进缺口，不并开里程碑。当前正在补14类可合成合同及窄屏/SQLite复验，未预写完整通过；原PG/live/员工/生产门槛保留。下方各日期记录是各轮历史。
+
 2026-10-01最新终局（各run独立，不拼成绩）：source919e35d6/script e4fdd8a9 四实例均complete、镜像稳定且已退出；vehicle03 selected3为2过1、22完整/26诊断、1018动作/488点击/141.51秒，030实际交接及025其它出库后，other_return原hidden标签仍显示选车而failed；member-boutique02 selected9为8过1、59完整check、3014/1376/395.92秒，会员积分等级六项整场passed，但精品0动作FlowCustomer无active字段的脚本KeyError；customer-followon01 selected8为7过1、52完整check、1983/945/287.84秒，原其它收入已履约，弹窗实际“客户实际到账”与脚本标题不符而failed，未收款；system-audit-viewport01 selected3/3、11完整check、559/199/113.53秒通过，原筛选/详情及390/768/1440三张真实Chrome截图已生成。四run均0页面异常/外部尝试/真实及合成模型调用，业务人工仍0、full193=false。全部进程关闭后根按三个精确补丁仅修四个车辆标签hidden样式、精品真实客户归属/可联系字段、收款原弹窗标题；AST/差异通过，独立短审中。当前39注册/32文件，source96389ffc1a82b5874df3f237149d12750258f3563a0a5760656af67b79597c67、script5fc0d8dd8d9baaaab1fc4e4c7555951427f8e2fcf8905630f018e627feefa6e7，新镜像尚未执行无新成绩。套餐四/跨店五/维修索赔五为owned未注册候选，M8.1唯一in_progress，M8.4/CP-36及原环境/模型/员工/生产门槛不变。
 
 最新：warehouse02 selected4/4、39完整自动check退出0（八新项整场passed）；vehicle02仍failed，019/027/028局部后030原employee接线404；member-boutique01两脚本边界/身份缺口failed，manual04截图接口缺像素incomplete/六标准pending，旧失败与各run独立保留见v6。关联全部关闭后root三窄修及系统三宽度像素证据helper已静态/独立审阅，客户七项c3b/5a8审阅后注册，当前39/32、source919e35d6/script e4fdd8a9。新vehicle03（3）、member-boutique02（9）、customer-followon01（8）、system-audit-viewport01（3）已启动，生产/注册脚本/runner冻结，无预写新成绩；套餐四/跨店五为未注册owned候选，高级维修为owned只读scope研究，M8.1唯一进行项、全部193与人工仍false/0。
@@ -309,3 +315,13 @@ PATCH-M8-4-SYSTEM-RELOAD-REQUEST-01事前登记后仅SYS.open_page同route分支
 最后日志审计修正：40/41业务断言虽绿，原scenarios.log SDK finished()遗留任务异常使独立审计false，原件保留。只修迟到GET观察器body等待，新脚本a5106918、生产仍5d728c52；42两场2/2、实际CLI/服务0未强杀、合成6/真实外部0且SDK异常消失。独立生产三文件源审无阻断；当前候选提交与完整57 CI继续由root收口，M8.1状态/其余待测及正式门槛保持。
 
 原虚拟故障完整性已只读审计：当前bc19e56/57场仍有原M8.1明确的14组有限合成证据缺口，详 M8-1-virtual-delivery-gaps-v1。新问题明确区分批量单事务flush/commit、确认Web/准备worker、原UI/后端API合同与可核对Flow/unsupported，不伪造事实求绿。CI37000183906正在执行此候选，源码/脚本冻结；后续原Flow及故障补测由root按原顺序继续，真实条件暂缓而原范围/状态不改。
+
+2026-10-03 当前收口按业主“除员工试用其他都完成”接续，root任务 assistant-human-acceptance 统一维护M8.1，真实模型/PG/Windows/Linux/安全部署验证纳入原后续顺序；仅员工实际试用留人工，生产上线未授权。Cutie窄屏及SQLite并发已有有限定向证据；08旧活租约/管理员撤权、09通知原空体与已读整场通过，其余故障/全部常规入口待最终同指纹。source7类+无Grant关闭8原事务回滚已核，09因普通零5xx门禁整体失败；精准期望故障接线独立审阅后10复验，旧失败保留。当前60镜像脚本/80常规场景，跨日两项只镜像，须真实上海D+1；V正式绑定及白名单历史可追溯。API认证/余额GET200但生成0、PG仅二进制version；不改done/released/CP36，四生产开关默认关闭。所有相关任务在正式完整验证期间冻结仓库和外部harness输入。
+
+2026-10-03 11三场复验同次完整通过：原目标/本人恢复、201后outbox CAS自然恢复、8来源真实500/同事务全行回滚/精准故障账本。CLI0/service0且未强杀，生产6fcabf8e/60脚本de3b8cb1；16合成/真实外部0。10原20秒确认清除失败保留；loadPlan只保留当前仍存在确认意图的窄修独立静态审阅通过。接续正式M8.1原合同+完整80场和同指纹故障重复，所有repo/V输入冻结；M8.1仍唯一in_progress，不登记整项通过。
+
+2026-10-03 正式入口首轮20261003T063440Z-a81cad3a6a已退出1，两个原后端合同11/19通过，Chrome启动前失败导致80执行0。纯ctypes配对定位外置profile缺AppData子目录，按PATCH-M8-1-WINDOWS-SHELL-PROFILE-01只补V adapter当前run两个目录；root独立审阅7行差异，环境/Chrome参数/manifest/isolation和生产/60脚本不变。原字节和限定AST审阅保存在V独占history；修复后正式全量重跑。独立26故障重复继续，不继承首轮部分成绩或改done/released。
+
+2026-10-03 正式第二轮已自然退出1：两个原后端合同11/19通过，80场40过40败；独立26场25过1败。独立归因逐项核对为5个验证器/路径失败+35个零动作依赖级联，原失败保留。按5份窄补丁修回执settle、Windows观察文件竞争、过期UI合同、原API当前门店候选及正式Windows短布局，生产不变。外部12七场同次7/7、CLI/service0未强杀、30合成/真实外部0，包含完整实际30分钟/原409/后续依赖阻断；对应2脚本精确合入仓库。正式80场和26独立重复仍待最后新指纹全量，M8.1唯一in_progress，全部原真实环境/模型/员工与生产门槛保持。
+
+13 同次所选4/4完整通过，CLI/service0未强杀；原新增店后9表单和真实文件控件采购链复验成功。root独立审阅外部adapter仅Windows run/native赋值、原守卫和精确登记；当前6fcabf8e/23aae285冻结，正式11+19+80与独立26全重跑。协作后续M8.2/PG/原生IME只读准备，未开始新milestone/部署/付费调用。main仍7a4f872，Cutie两issue未关闭，不提前交付或继承旧失败。
