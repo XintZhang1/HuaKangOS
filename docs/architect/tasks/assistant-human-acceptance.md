@@ -1,5 +1,9 @@
 # 助手计划收口至待人工验收
 
+v8输入已静态收口：801逐SHA核对，仅generator与两处来源登记改变；原74节点数组/92授权/10NA/101命令与其它字段逐叶保持，draft31a9b226。root与独立负责人审阅通过，准备同新输入的双平台strict/full；未继承旧局部结果。
+
+2026-10-04 v7完整执行终局：CI37147898241/HEADf06ab13双平台strict18/22实际通过，Linux四项真实进程组故障均排空；M8.2在完整3398收集之后，矩阵唯一节点因不存在的M7.8.5合同引用失败，正常停止2/101，整体failed/incomplete。Windows/Linux原artifact与独立失败审阅已验真（d2ced6c5/f0985df9），五输入不变、模型0。按已登记补丁仅修generator三条同根错误映射，保留未登记合同的源、理由、审阅责任及全部111/193原入口，原断言/节点/runner不改；修订后须新同输入strict与101完整复跑。M8.2继续唯一in_progress，main保持7a4f872。
+
 2026-10-04 v6收集终局：CI37145607290/HEAD6619651两平台各19命令自然0、owned排空、各自五输入不变；实际3398 pytest/245文件及原18组203 unittest ordered全等，测试/真实模型0。双artifact原始ZIP哈希及独立终局审阅已核（Windows18b1c1b5/Linux7f96826c），完整报告外置保留。按本次实际节点仅登记v7 manifest：74共同精确数组、92节点级合成配置、Linux10原NA；其它800输入、319归档、34supp与101命令全集保持。root独立核对完整801 SHA及数组，注册仅定义齐全，接续同候选双平台strict18/22→完整101命令；实际Linux四故障排空/skipreason/symlink仍待full。M8.2唯一in_progress，main仍7a4f872；原PG/live/运行环境与员工边界保持。
 
 2026-10-04 02:08 M8.2：v5 Windows与Linux实际3385/203 ordered全等，19收集命令完整自然0、五输入不变，Linux物理python3.11路径和owned PGID排空已实证。两平台独立审阅SHA77a62e74/89f98ca6，测试执行0、phase/milestonefalse，旧Linux失败保留。原早期32项待执行表已按实际节点核对，补最少原边界于现ABC/D/E，strict18/22和18pair执行器窄修已审；新v6待实际双平台collector/full，不拼v5成绩。远端main仍7a4f872，后续技术门槛及员工待人工边界保持。
