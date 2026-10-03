@@ -3,6 +3,7 @@
 | 任务 id | 目标 | 负责人 | 记录 |
 |---|---|---|---|
 | aliyun-ops | 阿里云独立试运行及后台运维队列，Cutie review/PR | root | [aliyun-ops](tasks/aliyun-ops.md) |
+| ops-first-review | 原job/release核验、独立修复、合成测试及draft PR | Cutie/Codex root | [ops-first-review](tasks/ops-first-review.md) |
 
 2026-10-01最新终局（各run独立，不拼成绩）：source919e35d6/script e4fdd8a9 四实例均complete、镜像稳定且已退出；vehicle03 selected3为2过1、22完整/26诊断、1018动作/488点击/141.51秒，030实际交接及025其它出库后，other_return原hidden标签仍显示选车而failed；member-boutique02 selected9为8过1、59完整check、3014/1376/395.92秒，会员积分等级六项整场passed，但精品0动作FlowCustomer无active字段的脚本KeyError；customer-followon01 selected8为7过1、52完整check、1983/945/287.84秒，原其它收入已履约，弹窗实际“客户实际到账”与脚本标题不符而failed，未收款；system-audit-viewport01 selected3/3、11完整check、559/199/113.53秒通过，原筛选/详情及390/768/1440三张真实Chrome截图已生成。四run均0页面异常/外部尝试/真实及合成模型调用，业务人工仍0、full193=false。全部进程关闭后根按三个精确补丁仅修四个车辆标签hidden样式、精品真实客户归属/可联系字段、收款原弹窗标题；AST/差异通过，独立短审中。当前39注册/32文件，source96389ffc1a82b5874df3f237149d12750258f3563a0a5760656af67b79597c67、script5fc0d8dd8d9baaaab1fc4e4c7555951427f8e2fcf8905630f018e627feefa6e7，新镜像尚未执行无新成绩。套餐四/跨店五/维修索赔五为owned未注册候选，M8.1唯一in_progress，M8.4/CP-36及原环境/模型/员工/生产门槛不变。
 

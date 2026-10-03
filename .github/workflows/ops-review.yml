@@ -1,0 +1,40 @@
+name: Operations review checks
+
+on:
+  pull_request:
+    paths:
+      - 'app/ops_*.py'
+      - 'scripts/huakangos_ops_mail.mjs'
+      - 'scripts/verify_ops_source.py'
+      - 'tests/ops_review/**'
+      - '.github/workflows/ops-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-operations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install application and review dependencies
+        run: python -m pip install -r requirements.txt pytest==8.4.2
+      - name: Run source-only synthetic checks
+        run: python tests/ops_review/run_isolated.py --output "$RUNNER_TEMP/ops-review-${{ github.run_id }}-${{ github.run_attempt }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ops-review-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/ops-review-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
+          retention-days: 7
+          if-no-files-found: warn

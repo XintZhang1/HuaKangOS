@@ -117,6 +117,10 @@ async def analyze(config, job, context, audit=None):
             if not isinstance(calls, list) or result.get('content') is not None and not isinstance(result['content'], str):
                 raise AnalysisError('invalid_provider_envelope')
             if calls:
+                # Enforce the finalization boundary even if a provider ignores
+                # tool_choice=none; never execute tools from that response.
+                if finalize:
+                    raise AnalysisError('tools_after_finalize')
                 if choice['finish_reason'] != 'tool_calls' or not isinstance(calls, list) or len(calls) > 5:
                     raise AnalysisError('incomplete_tool_calls')
                 checked = []

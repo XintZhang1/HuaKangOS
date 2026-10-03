@@ -134,6 +134,10 @@ class OpsStore:
             for row in expired:
                 db.execute("UPDATE jobs SET status='needs_attention',error_code='analysis_attempts_exhausted',updated_at=? WHERE id=?", (stamp(), row['id']))
                 self.event(db, row['id'], 'needs_attention', {'reason': 'analysis_attempts_exhausted'})
+            # BEGIN IMMEDIATE makes this shared slot check and the claim atomic
+            # across worker instances, including after a process restart.
+            if db.execute("SELECT 1 FROM jobs WHERE status='analyzing' AND lease_until>=? LIMIT 1", (now,)).fetchone():
+                return None
             row = db.execute("""SELECT * FROM jobs WHERE status='received' OR
                 (status='analyzing' AND lease_until<? AND attempts<3)
                 ORDER BY created_at,id LIMIT 1""", (now,)).fetchone()
