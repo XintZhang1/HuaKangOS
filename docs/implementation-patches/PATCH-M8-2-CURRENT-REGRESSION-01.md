@@ -33,3 +33,5 @@ ABC精确函数为A `test_all_frozen_dto_fields_roundtrip_exact_wire`；B `test_
 32项最后原边界补充：A现有文件增加一个纯核心 `test_sealed_tool_registry_enforces_schema_kind_and_handler`，原ToolRegistry与DomainRegistry分别核验，不把后者替代前者；D前述原条件组合同时覆盖通用Case fallback、未知业务version保持null及错误TaskID绑定拒绝，复用原Case/Task API与原拒绝，不改事实提供器/规则。仍只上述测试文件，新节点待本轮实际collector，收集不算通过。
 
 v6/v7完整命令顺序的最小调整：完整pytest collector仍第一；其后先运行现有matrix及A–F七组新增核心合同，再按原相对顺序执行其余93命令，101命令全集及每节点/每pair不减少、不改原B其它命令合同。仅新增七组使用已有continue_after_failure=false，真实失败正常收尾后整个full保持failed/incomplete，先修该已观察原因再重新完整执行，避免未关闭核心路径时扩到长原回归。prepare过滤仍为原collector+18独立collector共19条；不新增诊断入口、额外runner或通过豁免。
+
+2026-10-04 fresh v6双平台collector完成后，final v7精确登记仅改变 `V/validation-manifest.json`：74数组取本次3398/203实际有序节点，92配置授权仅本次已收集的91共享fixture节点及原1项，Cstatus唯一共享config-probe；Linux10原junction/PowerShell预期绑定实际ID、原源/overlay SHA与原字面reason，实际skip仍须full核对，通用symlink不豁免。801路径只这一件SHA变化，原其它milestone、27声明、800输入和所有业务代码/测试/执行器均保持。root审阅v7完整draft与差异后封包，双平台各自当前strict五指纹参照再执行101全集；registration_complete仅定义状态，不替代实际验收。
