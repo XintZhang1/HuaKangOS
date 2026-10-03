@@ -10,6 +10,8 @@
 
 ## 2026-10-03 当前定向证据
 
+20:10：最新正式113528原11/19合同通过，80场仅15执行14过/1败；关闭日志确证queue-closeout-state WinError5、compete无ACK。服务自然3后root核对并停止唯一原场景树，CLI1。独立fr3中断后4过22败、只5/9终止、service0/CLI1、无残留；Linux37120178085取消。原件保留，均不记完整通过。对应进程收尾后登记QUEUE-STATE-MUTEX窄补丁，四行精确queue文件guard，外部原九项纯文件协议9/9、CLI0；生产不变。新正式80、独立26及Linux同指纹完整复验待执行，后续milestone未启动，main未变。
+
 仓库外 `V/browser-click/closeout-cutie-06`：SQLite 原页面8主档+8Flow实际并发写入及真实outbox分发通过1/1；此前窄屏360/390/414/768/1440原转交显示也实测通过。均为有限定向覆盖，待最终同指纹完整注册入口和Linux复跑，不推定所有并发容量。
 
 `closeout-contracts-02` 实际10场4通过6失败；`closeout-contracts-03` 实际15场8通过7失败，均CLI1、service0/forced=false。原失败未覆盖：03的 storage/outbox 前置误假定原自动分派必为本人（实为另一合成接待）；logout检查在第二卡commit与原Run终态之间误计；取消/目标发送使用仍busy的提前刷新投影；摘要字段与当前Step结构不一致。修正真实前置、完整终态等待和实际结构后复验。03已通过实际重复request/wake、重复tool/truncated stream、冻结前原调用0/not_found、真实Flow丢返回可靠receipt与唯一后继、两类后端batch stop/skipped、本人撤销后迟到prepare，以及真实61秒求值凭据过期。该局部结果不替代整项验收。

@@ -297,6 +297,8 @@ PATCH-M8-4-SYSTEM-RELOAD-REQUEST-01事前登记后仅SYS.open_page同route分支
 
 ## 2026-10-02 本轮代码与浏览器交付收口
 
+2026-10-03 20:10 当前接续：cc42f40候选已推工作分支，main未变。最新正式80仅15执行14过/1败时中断，关闭日志确证queue-closeout-state WinError5；服务自然3后仅停止核对后的原场景树。独立26重复服务正常收尾、5/9终止未完，Linux CI取消；原件保留，均不记完整通过。M8.1登记QUEUE-STATE-MUTEX四行验证器窄修，外部原九项纯文件协议9/9。新同指纹正式、独立重复及Linux复验待执行，后续里程碑只读准备，四生产开关和主分支边界不变。
+
 原完整53/53、192项已登记功能检查、原CLI0和同实例native22完成；最终两文件维修手机展示补丁另有新隔离服务三宽/真实表内横滚定向通过，后端及脚本与原完整53候选字节相同。不继承193全部验收或最后源码完整53成绩。
 
 结果与每项待测条件见 docs/本轮浏览器验收结果.md、docs/implementation-checkpoints/M8-4-browser-click-193-coverage.md、tasks/business-193.md；独立最后源码复核见tasks/repair-mobile-layout-review.md。M8.1仍唯一in_progress，原Date/员工/独立环境/模型/生产条件、M8.4/CP36与四关闭开关保持。当前范围已收口，无需继续扩建或重复测试；完整正式验收留待原条件。

@@ -3584,6 +3584,8 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
+**2026-10-03 20:10 当前中断与queue窄修**：候选cc42f40已推工作分支，main未变。正式113528原11/19合同通过，80场仅15执行14过/1败；queue-closeout-state替换WinError5使compete无ACK。服务自然3后root核对并停止唯一原场景树，CLI1；独立fr3中断后4过22败、只5/9终止、service0/CLI1，Linux37120178085取消。原件保留，均不记完整通过。全部对应进程收尾后登记PATCH-M8-1-QUEUE-STATE-MUTEX-01，精确四行验证器候选复用原mutex，外部原九项纯文件协议9/9、CLI0；生产不变，新规范60脚本b1ef43a5。新正式80、独立26及Linux完整复验待执行；当前唯一in_progress和原门槛不变。
+
 **2026-10-03 19:33 精确合入与最终完整复验候选**：`fd4v2-20261003T112525Z-2faa82bb` 原四場同次4/4、CLI0/service0/forced=false，18合成/真实外部0；实际worker交接旧fence、原目标/本人新Grant、8原source整事务回滚、依赖事项控制完整通过。首次候选四场2/4的新增身份JOIN误判已按原tenancy修正：真实admin不需UserStore，普通员工仍需本人当前店关联，完整身份行逐次不变。第二轮全部protected_conflicts=[]、原revoke首次200；新增409后只读drain未动态触发，明确未计分支通过。root已保留原件并按完整指纹守卫合入API1e4ca698/两mutexd6a66352与89e0dff2/scenarios50111baf；生产635文件bbe95959、精确60脚本0c343d58。候选分支用于Linux独立点击，主分支仍待全部技术项完成；接续重新执行正式原11+19合同及全部80场、同指纹完整26故障重复，两个run期间全部仓库及V已登记输入冻结。当前唯一in_progress和原完成检查不变。
 
 **2026-10-03 当前完整复验终局与窄修**：正式 `20261003T091007Z-d9d0e4c819` 自然收尾 CLI1；原后端合同11/11、19/19通过，浏览器完整80场75通过/5失败，service3/forced=false。关闭日志确证 worker-state 原子替换 WinError5，监督任务退出导致restart ACK与三个后续队列场景未完成；dependent 原一次员工重核的第二次POST仍409，原报告未保存第二次detail，不伪造原因。原失败均保留，整体不通过。独立 `closeout-fault-repeat-02` 在旧生产6fcabf8e/60脚本23aae285条件下26/26、CLI0/service0/forced=false，仅独立选中范围成绩。新增 PATCH-M8-1-CANCEL-WRITER-01、WORKER-STATE-MUTEX-01、FOLLOWUP-SOURCE-DRAIN-01 先登记；原单张cancel实际code5/503使用既有短写依赖修复，候选生产bbe95959/规范脚本6a381599五场5/5、一次原生取消200、原业务469表1842行不变。mutex纯文件协议9/9；组合只读来源收尾验证器仅原active revoke首次409后等待同真实owned worker的到期源/Run，再原一次员工重核，保留原全部版本/授权边界。精确组合四场及新完整正式/独立26重复尚待执行；当前唯一in_progress与完成检查不变，不拼历史片段。

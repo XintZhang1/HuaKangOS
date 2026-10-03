@@ -41,8 +41,8 @@ class _ObservationMutexError(RuntimeError):
 @contextmanager
 def _file_mutex(path):
     path = Path(path).resolve()
-    if path.name != "worker-state.json" and not re.fullmatch(r"followup-observations-[1-9][0-9]*\.json", path.name):
-        raise ValueError("File mutex only accepts worker state or the exact PID report name")
+    if path.name not in {"worker-state.json", "queue-closeout-state.json"} and not re.fullmatch(r"followup-observations-[1-9][0-9]*\.json", path.name):
+        raise ValueError("File mutex only accepts worker/queue state or the exact PID report name")
     name = "Local\\HKOSBrowserFollowupObservation-" + hashlib.sha256(
         os.path.normcase(str(path)).encode("utf-8")).hexdigest()
     if os.name != "nt":
@@ -90,7 +90,7 @@ def _file_mutex(path):
 
 
 def _load(path):
-    if Path(path).name == "worker-state.json":
+    if Path(path).name in {"worker-state.json", "queue-closeout-state.json"}:
         with _file_mutex(path):
             return json.loads(Path(path).read_text(encoding="utf-8"))
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -98,7 +98,7 @@ def _load(path):
 
 def _atomic_json(path, value):
     path = Path(path)
-    with (_file_mutex(path) if path.name == "worker-state.json" else nullcontext()):
+    with (_file_mutex(path) if path.name in {"worker-state.json", "queue-closeout-state.json"} else nullcontext()):
         temporary = path.with_name(path.name + "." + uuid.uuid4().hex + ".tmp")
         try:
             with temporary.open("x", encoding="utf-8") as stream:
