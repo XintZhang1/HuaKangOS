@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from pydantic import ValidationError
 
+from ..questionnaire_schema import (LEGACY_NAME, LEGACY_QUESTIONS, answers, digest, questions)
 from ..assistant_runtime_schemas import (AvailableAction, BusinessObjectRef, BusinessObjectSnapshot,
                                          EvidenceRef, FactSnapshot, ReceiptLookup, SubmissionSnapshot)
 from .flow_case import FlowCaseAdapter, _positive_id
@@ -25,6 +26,8 @@ CARE_ACTIONS = ('start', 'followup', 'handoff', 'close', 'cancel')
 CARE_RESULT_OPERATIONS = frozenset({CARE_READ, CARE_CREATE, CARE_ACTION})
 CARE_RECEIPT_OPERATIONS = frozenset({CARE_CREATE, CARE_ACTION})
 CARE_FACTS = ('care.followup_recorded', 'care.handoff_recorded', 'care.closed')
+CARE_QUESTIONNAIRE_FACTS = ('questionnaire.binding_frozen', 'questionnaire.response_recorded',
+                          'questionnaire.answers_completed')
 RECORD_DISCRIMINATORS = ('action', 'kind', 'type')
 # 原关怀服务单的结案状态沿用原业务状态机：`close` 动作置 `completed`，`cancel` 置 `cancelled`。
 # 不另外发明 `closed` 这类未在原业务出现过的状态名。
@@ -115,6 +118,8 @@ class CustomerCareAdapter(FlowCaseAdapter):
         return None
 
     async def fact_snapshot(self, principal, ref, fact_key):
+        if fact_key in CARE_QUESTIONNAIRE_FACTS:
+            return await self._questionnaire_fact(principal, ref, fact_key)
         if fact_key not in CARE_FACTS:
             try:
                 return FactSnapshot(fact_key=fact_key, satisfied=None, evidence_refs=[],
@@ -168,6 +173,122 @@ class CustomerCareAdapter(FlowCaseAdapter):
                             reason='本单还没有原' + ('跟进' if want == 'followup' else '交接') +
                                    '记录，请在原页面核对；' + contact_note)
 
+    def _questionnaire_binding(self, data):
+        binding = data.get('questionnaire')
+        if (type(binding) is not dict or not _positive_id(binding.get('binding_id'))
+                or 'version_id' not in binding
+                or type(binding.get('number')) is not int
+                or type(binding.get('name')) is not str or not binding['name'].strip()
+                or type(binding.get('issued_at')) is not str):
+            raise ValueError('原冻结发放来源缺失')
+        self._questionnaire_time(binding['issued_at'])
+        schema = questions(binding.get('questions'))
+        if schema != binding.get('questions') or digest(schema) != binding.get('schema_digest'):
+            raise ValueError('原冻结题目摘要不一致')
+        if binding.get('version_id') is None:
+            if (binding['number'] != 1 or binding['name'] != LEGACY_NAME
+                    or schema != LEGACY_QUESTIONS):
+                raise ValueError('原旧题目来源不一致')
+        elif not _positive_id(binding['version_id']) or binding['number'] < 2:
+            raise ValueError('原发放版本主键不完整')
+        return binding
+
+    def _questionnaire_time(self, value):
+        if type(value) is not str or not value.strip():
+            raise ValueError('原时间来源缺失')
+        result = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return result.replace(tzinfo=timezone.utc) if result.tzinfo is None else result.astimezone(timezone.utc)
+
+    def _questionnaire_response(self, data, binding, store_id):
+        records = data['records']
+        if any(type(row) is not dict for row in records):
+            raise ValueError('原关怀记录不完整')
+        closed = [row for row in records if row.get('action') == 'close']
+        if 'response' not in binding:
+            raise ValueError('原答卷来源未披露')
+        response = binding.get('response')
+        if response is None:
+            if closed or data.get('state') not in {'pending', 'working', 'cancelled'}:
+                raise ValueError('原关闭和答卷来源不一致')
+            return None
+        if (type(response) is not dict or not _positive_id(response.get('id'))
+                or type(response.get('binding_id')) is not int
+                or response['binding_id'] != binding['binding_id']
+                or data.get('state') != 'completed' or len(closed) != 1
+                or data.get('result') not in {'resolved', 'appointment', 'declined', 'no_response', 'renewed'}):
+            raise ValueError('原答卷与本次发放不一致')
+        record = closed[0]
+        if (not _positive_id(record.get('id')) or type(record.get('case_id')) is not int
+                or record['case_id'] != data['id'] or not _positive_id(record.get('actor_id'))
+                or type(response.get('record_id')) is not int or response['record_id'] != record['id']
+                or type(response.get('actor_id')) is not int or response['actor_id'] != record['actor_id']
+                or type(response.get('store_id')) is not int or response['store_id'] != store_id
+                or type(record.get('store_id')) is not int or record['store_id'] != store_id):
+            raise ValueError('原答卷没有本单同经办结案来源')
+        detail = record.get('details')
+        if type(detail) is not dict or detail.get('result') != data['result']:
+            raise ValueError('原结案结果来源不一致')
+        value = response.get('answers')
+        normalized = answers(binding['questions'], value, completed=data['result'] == 'resolved')
+        if normalized != value:
+            raise ValueError('原答卷值不完整')
+        if response.get('origin') == 'migration':
+            if binding.get('version_id') is not None or binding['number'] != 1:
+                raise ValueError('新题目不能冒充旧答卷迁移')
+            expected = {key: detail[key] for key in ('satisfaction', 'recommend')
+                        if detail.get(key) is not None}
+        elif response.get('origin') == 'runtime':
+            if (type(detail.get('questionnaire_binding_id')) is not int
+                    or detail['questionnaire_binding_id'] != binding['binding_id']
+                    or type(detail.get('questionnaire_version')) is not int
+                    or detail['questionnaire_version'] != binding['number']
+                    or detail.get('questionnaire_schema_digest') != binding['schema_digest']):
+                raise ValueError('原答卷未引用本次冻结发放')
+            expected = detail.get('answers')
+        else:
+            raise ValueError('原答卷来源未知')
+        answers(binding['questions'], expected, completed=data['result'] == 'resolved')
+        if digest(expected) != digest(value):
+            raise ValueError('原答卷与原结案回答不一致')
+        frozen = {'binding_id': binding['binding_id'], 'record_id': record['id'],
+                  'schema_digest': binding['schema_digest'], 'answers': value}
+        if (digest(frozen) != response.get('digest')
+                or self._questionnaire_time(record.get('created_at')) < self._questionnaire_time(binding['issued_at'])
+                or self._questionnaire_time(response.get('created_at')) < self._questionnaire_time(record['created_at'])):
+            raise ValueError('原答卷摘要或时间来源不一致')
+        return response
+
+    async def _questionnaire_fact(self, principal, ref, fact_key):
+        try:
+            data = await self._care_detail(principal, ref)
+        except HTTPException as exc:
+            if exc.status_code == 409:
+                return _unknown(fact_key, '原发放来源暂不能核对，不能套用当前新题目')
+            raise
+        if data['subtype'] != 'questionnaire':
+            return _unknown(fact_key, '本单不是问卷，不能作为问卷发放或回答事实')
+        try:
+            binding = self._questionnaire_binding(data)
+            response = None if fact_key == 'questionnaire.binding_frozen' else self._questionnaire_response(
+                data, binding, getattr(principal, 'store_id', None))
+        except (ValueError, TypeError, OverflowError):
+            return _unknown(fact_key, '本次冻结题目或原答卷来源不完整，请到原问卷核对')
+        evidence = EvidenceRef(source_type='object',
+            source_id=BusinessObjectRef(type=CARE_OBJECT_TYPE, id=data['id']),
+            native_version=data.get('version') if _positive_id(data.get('version')) else None,
+            observed_at=_now())
+        if fact_key == 'questionnaire.binding_frozen':
+            return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=[evidence],
+                                reason='本单保留原发放冻结题目，不套用当前版本')
+        if fact_key == 'questionnaire.response_recorded':
+            return FactSnapshot(fact_key=fact_key, satisfied=response is not None, evidence_refs=[evidence],
+                reason='已记录本次原答卷；未响应或部分回答不等于完整回答' if response is not None
+                       else '本单尚无原答卷记录')
+        completed = response is not None and data.get('state') == 'completed' and data.get('result') == 'resolved'
+        # _questionnaire_response validates every required frozen question for resolved.
+        return FactSnapshot(fact_key=fact_key, satisfied=completed, evidence_refs=[evidence],
+            reason='原冻结题目已逐题真实完成' if completed else '尚未按原冻结题目完成全部必答题')
+
     def extract_result(self, operation_id, response):
         if (type(operation_id) is not str or operation_id not in CARE_RESULT_OPERATIONS
                 or type(response) is not dict or type(response.get('status')) is not int
@@ -199,6 +320,6 @@ class CustomerCareAdapter(FlowCaseAdapter):
             _invalid()
 
 
-__all__ = ['CARE_ACTION', 'CARE_ACTIONS', 'CARE_CREATE', 'CARE_FACTS', 'CARE_OBJECT_TYPE',
+__all__ = ['CARE_ACTION', 'CARE_ACTIONS', 'CARE_CREATE', 'CARE_FACTS', 'CARE_QUESTIONNAIRE_FACTS', 'CARE_OBJECT_TYPE',
            'CARE_READ', 'CARE_RECEIPT_OPERATIONS', 'CARE_RESULT_OPERATIONS', 'CARE_SUBTYPES',
            'CustomerCareAdapter']

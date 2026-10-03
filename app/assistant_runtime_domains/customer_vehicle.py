@@ -7,7 +7,7 @@
   观察记录只在原详情确实提供时判定，否则未知，不猜。
 - 原 native version 取原详情的 version；缺失即 None，不造版本。
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -20,12 +20,12 @@ VEHICLE_OBJECT_TYPE = 'customer_vehicle'
 VEHICLE_READ = 'GET /api/customer-service/vehicles/{vehicle_id}'
 VEHICLE_HISTORY = 'GET /api/customer-service/vehicles/{vehicle_id}/history'
 VEHICLE_CREATE = 'POST /api/customer-service/vehicles'
-VEHICLE_UPDATE = 'POST /api/customer-service/vehicles'
+VEHICLE_UPDATE = 'PUT /api/customer-service/vehicles/{vehicle_id}'
 VEHICLE_OBSERVATION = 'POST /api/customer-service/vehicles/{vehicle_id}/observations'
 VEHICLE_HISTORY_LINK = 'POST /api/customer-service/vehicles/{vehicle_id}/history-links'
-VEHICLE_RESULT_OPERATIONS = frozenset({VEHICLE_READ, VEHICLE_HISTORY, VEHICLE_CREATE,
+VEHICLE_RESULT_OPERATIONS = frozenset({VEHICLE_READ, VEHICLE_CREATE, VEHICLE_UPDATE,
                                        VEHICLE_OBSERVATION, VEHICLE_HISTORY_LINK})
-VEHICLE_RECEIPT_OPERATIONS = frozenset({VEHICLE_CREATE, VEHICLE_OBSERVATION, VEHICLE_HISTORY_LINK})
+VEHICLE_RECEIPT_OPERATIONS = frozenset({VEHICLE_CREATE, VEHICLE_UPDATE, VEHICLE_OBSERVATION, VEHICLE_HISTORY_LINK})
 VEHICLE_FACTS = ('customer_vehicle.customer_linked', 'customer_vehicle.observation_recorded',
                  'customer_vehicle.history_link_recorded')
 
@@ -74,15 +74,26 @@ class CustomerVehicleAdapter(FlowCaseAdapter):
             raise HTTPException(status, '原业务暂不能读取此客户车辆，请到原页面核对')
         if not 200 <= status < 300:
             raise HTTPException(503, '原业务查询暂时不可用，请稍后重试')
+        if response.get('truncated'):
+            _invalid()
         return response.get('data')
 
     async def _vehicle_detail(self, principal, ref):
         values = self._vehicle_ref(ref)
         data = await self._read(principal, VEHICLE_READ, {'vehicle_id': values['id']})
-        if (type(data) is not dict or data.get('truncated') or not _positive_id(data.get('id'))
-                or data['id'] != values['id']):
+        if type(data) is not dict or data.get('truncated'):
             _invalid()
-        return data
+        vehicle = data.get('vehicle')
+        if (type(vehicle) is not dict or vehicle.get('truncated')
+                or not _positive_id(vehicle.get('id')) or vehicle['id'] != values['id']):
+            _invalid()
+        # The native envelope separates immutable observations from their
+        # effective correction/insurance projection. Do not merge the two.
+        detail = dict(vehicle)
+        for key in ('observations', 'effective_observations'):
+            if key in data:
+                detail[key] = data[key]
+        return detail
 
     async def read_snapshot(self, principal, ref):
         data = await self._vehicle_detail(principal, ref)
@@ -131,20 +142,31 @@ class CustomerVehicleAdapter(FlowCaseAdapter):
 
         if fact_key == 'customer_vehicle.history_link_recorded':
             history = await self._read(principal, VEHICLE_HISTORY, {'vehicle_id': data['id']})
-            links = history.get('items') if type(history) is dict and isinstance(history.get('items'), list) \
-                else history if isinstance(history, list) else None
+            links = history.get('items') if type(history) is dict and not history.get('truncated') \
+                and type(history.get('items')) is list else None
             if links is None:
                 return _unknown(fact_key, '原历史关联读取未返回可判定的清单，请在原页面核对')
+            incomplete = False
             for link in links:
-                if (type(link) is dict and _positive_id(link.get('id'))
-                        and link.get('vehicle_id') in (None, data['id'])):
-                    if link.get('vehicle_id') is None and not _positive_id(data.get('id')):
-                        continue
+                if type(link) is not dict or type(link.get('external')) is not bool:
+                    incomplete = True
+                    continue
+                # The authorized vehicle history GET includes local Case IDs;
+                # external summaries deliberately convey no original Case access.
+                if link['external']:
+                    continue
+                if _positive_id(link.get('case_id')):
+                    source = EvidenceRef(source_type='object',
+                        source_id=BusinessObjectRef(type='case', id=link['case_id']),
+                        native_version=None, observed_at=observed_at)
                     return FactSnapshot(
-                        fact_key=fact_key, satisfied=True, evidence_refs=[from_vehicle],
+                        fact_key=fact_key, satisfied=True, evidence_refs=[from_vehicle, source],
                         reason='存在原历史关联且与该车辆一致；**历史关联不证明仍能读取关联原单正文**')
+                incomplete = True
+            if incomplete:
+                return _unknown(fact_key, '原历史摘要缺少明确的本店来源，请在原页面核对')
             return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_vehicle],
-                                reason='本车还没有原历史关联，请在原页面核对')
+                                reason='本车还没有可读本店历史关联；跨店摘要不授予原单正文权限')
 
         # customer_vehicle.observation_recorded：必须原 VehicleObservation，并保留观察类型/日期/来源；
         # 车辆详情未提供观察清单时返回未知，不猜。
@@ -154,10 +176,20 @@ class CustomerVehicleAdapter(FlowCaseAdapter):
                                       '请在原页面核对观察记录')
         for item in observations:
             if (type(item) is dict and _positive_id(item.get('id'))
+                    and type(item.get('vehicle_id')) is int and item['vehicle_id'] == data['id']
                     and type(item.get('kind')) is str and item.get('kind').strip()
-                    and type(item.get('observed_at')) is str and item['observed_at'].strip()):
+                    and type(item.get('observed_date')) is str
+                    and type(item.get('source_reference')) is str and item['source_reference'].strip()):
+                try:
+                    date.fromisoformat(item['observed_date'])
+                except ValueError:
+                    continue
                 return FactSnapshot(fact_key=fact_key, satisfied=True, evidence_refs=[from_vehicle],
-                                    reason='已登记原车辆观察（类型/日期保留）')
+                                    reason=f"已登记原车辆观察 #{item['id']}（{item['kind']}，"
+                                           f"{item['observed_date']}，来源：{item['source_reference']}）；"
+                                           '原记录存在不代表当前有效观察或实测里程')
+        if observations:
+            return _unknown(fact_key, '原车辆观察缺少本车来源、类型或真实观察日期，请在原页面核对')
         return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_vehicle],
                             reason='本车还没有完整的原车辆观察记录，请在原页面核对')
 
@@ -169,7 +201,10 @@ class CustomerVehicleAdapter(FlowCaseAdapter):
         data = response.get('data')
         if type(data) is not dict or data.get('truncated'):
             return []
-        vehicle_id = data.get('vehicle_id') if _positive_id(data.get('vehicle_id')) else data.get('id')
+        vehicle = data.get('vehicle')
+        if type(vehicle) is not dict or vehicle.get('truncated'):
+            return []
+        vehicle_id = vehicle.get('id')
         if not _positive_id(vehicle_id):
             return []
         return [BusinessObjectRef(type=VEHICLE_OBJECT_TYPE, id=vehicle_id)]
@@ -193,4 +228,4 @@ class CustomerVehicleAdapter(FlowCaseAdapter):
 
 __all__ = ['VEHICLE_CREATE', 'VEHICLE_FACTS', 'VEHICLE_HISTORY', 'VEHICLE_HISTORY_LINK',
            'VEHICLE_OBJECT_TYPE', 'VEHICLE_OBSERVATION', 'VEHICLE_READ', 'VEHICLE_RECEIPT_OPERATIONS',
-           'VEHICLE_RESULT_OPERATIONS', 'CustomerVehicleAdapter']
+           'VEHICLE_RESULT_OPERATIONS', 'VEHICLE_UPDATE', 'CustomerVehicleAdapter']

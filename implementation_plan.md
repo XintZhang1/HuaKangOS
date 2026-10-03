@@ -1,6 +1,6 @@
 # HuaKangOS 实施计划：单项实施与检查点审阅版
 
-**2026-10-04 当前验证执行点**：M8.1原五条故障门禁已逐项完成；独立自然日期追加已在同原实例实际10-03→10-04完成，HK099/HK152技术子范围通过。唯一in_progress为M8.2当前候选完整回归。员工试用之外技术总目标尚未完成，main未上传，其余技术项、193整体业务及生产发布条件不被本次子范围替代。
+**2026-10-04 当前验证执行点**：M8.1原五条故障门禁已逐项完成；独立自然日期追加已在同原实例实际10-03→10-04完成，HK099/HK152技术子范围通过。M8.2因原索引四项缺正文/实际 provider 及最终原生回执接线缺失暂记 blocked；依原顺序回补，M7.6.4 已 implemented，唯一 in_progress 为 M7.6.5。员工试用之外技术总目标尚未完成，main未上传，其余技术项、193整体业务及生产发布条件不被本次子范围替代。
 
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
@@ -100,7 +100,7 @@
 | CP-21 | M7.4.1—M7.4.3 | 精品销售、套餐核销、零售集团 | implementation_released | docs/implementation-checkpoints/M7-4-1-review-v1.md；M7-4-2-review-v1.md；M7-4-3-review-v1.md | M7.4.1（9 项）、M7.4.2（9 项）、M7.4.3（7 项）均已 implemented 并实测通过，同指纹回归通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.5.1（CP-22） |
 | CP-22 | M7.5.1—M7.5.3 | 物资采购、预付、仓储 | implementation_released | docs/implementation-checkpoints/M7-5-1-review-v1.md；M7-5-2-review-v1.md；M7-5-3-review-v1.md | M7.5.1（8 项）、M7.5.2（8 项）、M7.5.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.6.1（CP-23） |
 | CP-23 | M7.6.1—M7.6.3 | 客户档案、服务单、提醒来源 | implementation_released | docs/implementation-checkpoints/M7-6-1-review-v1.md；M7-6-2-review-v1.md；M7-6-3-review-v1.md | M7.6.1（9 项）、M7.6.2（9 项）、M7.6.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.1（CP-24） |
-| CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | **计划内部不一致（待业主确认）** | — | 本表引用的 M7.6.4/M7.6.5 在计划正文中**没有对应条目**（正文 M7.6 组只有 M7.6.1—M7.6.3，其后直接为 M7.7.1）；按正文编号顺序继续实施 M7.7.1，不自行虚构缺失条目；此不一致由实施者如实登记，不擅自改动业主计划的分组意图 |
+| CP-24 | M7.6.4—M7.6.5 | 问卷与真实里程日期 | not_ready（原合同回补中） | docs/implementation-patches/PATCH-M7-MISSING-DOMAIN-CONTRACTS-01.md；docs/implementation-checkpoints/M7-6-4-missing-contract-review-v1.md | 历史：原正文只有M7.6.1—3，曾登记“缺条目/计划内部不一致”，未实施这两项，不覆盖历史失败与成绩。2026-10-04依业主完成全部技术目标及持续授权，按原索引/原业务补齐两条正文；M7.6.4已implemented并独立静审，M7.6.5唯一in_progress，真实验证/最终回执待完成，不改total_plan或新增业务规则。 |
 | CP-25 | M7.7.1—M7.7.3 | 会员、集团本金、权益 | implementation_released | docs/implementation-checkpoints/M7-7-1-review-v1.md；M7-7-2-review-v1.md；M7-7-3-review-v1.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M7.7.1（8 项）、M7.7.2（9 项）、M7.7.3（6 项）均已落盘并实测通过；**M7.7.3 权益快照/事实因 member↔customer 维度不匹配待评审补齐**（已如实登记，未伪造）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.7.4（CP-26）；2026-09-30追加：前述读取缺口已按PATCH-M7-7-READ-DETAIL-01实现、原权限审阅及automatic07同Cookie详情/DB对照通过，历史6项成绩不继承；新证据见v2浏览器检查点，完整业务/真实环境仍待。 |
 | CP-26 | M7.7.4—M7.7.6 | 组合退回、履约、价格候选 | implementation_released | docs/implementation-checkpoints/M7-7-4-review-v1.md；M7-7-5-review-v1.md；M7-7-6-review-v1.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M7.7.4（8 项）、M7.7.5（6 项）、M7.7.6（9 项）均已落盘并实测通过；**M7.7.5 套餐事实因 purchase↔member 维度不匹配待评审补齐**（已如实登记）；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.8.1（CP-27）；2026-09-30追加：前述purchase读取缺口已按PATCH-M7-7-READ-DETAIL-01实现、原权限/零价取消语义审阅及automatic07详情/DB对照通过，历史6项成绩不继承；新证据见v2浏览器检查点，完整退款/核销/真实环境仍待。 |
 | CP-27 | M7.8.1—M7.8.3 | 预收、发票、月结冻结 | implementation_released | docs/implementation-checkpoints/M7-8-1-review-v1.md；M7-8-2-review-v1.md；M7-8-3-review-v1.md | M7.8.1（7 项）、M7.8.2（7 项）、M7.8.3（7 项）均已 implemented 并实测通过；真实原库/真实模型/浏览器/员工试用仍属 M8.x，故不记 released；继续 M7.9.1（CP-28） |
@@ -111,7 +111,7 @@
 | CP-32 | M7.10.4—M7.10.6 | 原损失找回、跨店原单授权 | implementation_released | docs/implementation-checkpoints/M7-10-4-review-v1.md；M7-10-5-review-v1.md；M7-10-6-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.10.4、M7.10.5、M7.10.6 均 passed。M7.10.6 首轮失败根因为外部合同夹具缺 `source_side`，已按真实 `/api/dossier-grants` 形状对齐并保留原件；适配器本身未因此放宽；继续 M7.11.1—M7.11.4（CP-33） |
 | CP-33 | M7.11.1—M7.11.4 | 基础资料、系统管理、评审边界 | implementation_released | docs/implementation-checkpoints/M7-11-1-review-v1.md；M7-11-2-review-v1.md；M7-11-3-review-v1.md；M7-11-4-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.11.1—M7.11.4 全部 passed；系统管理只读面与“人工办理不由助手代办”的边界保留；继续 M7.12.1—M7.12.3（CP-34） |
 | CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | implementation_released | docs/implementation-checkpoints/M7-12-1-review-v1.md；M7-12-2-review-v1.md；M7-12-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验通过，过程中发现并修复真实缺陷：`service.external_approved` 要求原模型不存在的 `results[].case_id`，使该事实在真实数据上永不成立（见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）；外部合同夹具另按真实形状对齐六处并保留原件。M7 章节收口，继续 M8.1（CP-35） |
-| CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | implementation_released | docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md；M8-1-closeout-checkpoint-v1.md；M8-2-regression-checkpoint-v1.md；M8-2-closeout-checkpoint-v1.md；docs/implementation-patches/PATCH-CP-00B-09.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M8.1 记 **`implemented`**：清单①—⑤全部落地，工作区门禁两次完整运行逐套件计数与双指纹一致（293 项、`accepted=true`），完成检查 4 条满足、1 条部分满足（完整批量行逐行核对依赖归档组）。M8.2 记 **`implemented`**：归档基线 M0.2.B 在 `7211e7f`（`working_tree` 干净）上 **3336 passed / 0 failed / 1 skipped**，`inventory/coverage_complete` 均 true、`missing/extra/duplicate` 全 0、六项未变指纹全 true；逐项比较声明 193 模块、声明未执行 0、执行未声明 0；193/111 契约检查与 293 项当前适用回归通过；唯一 skip 为已登记符号链接环境缺口。业主批准的 `PATCH-CP-00B-09` 两处归档断言已对齐（第一版被真实运行否证后修正，均如实登记）。**仅放行后续编码**：真实模型、PostgreSQL、独立 Linux、员工试用仍属 M8.3—M8.9，故不记 `released`，不勾选整体验收；2026-09-30新点击交付：上述293/3336为各自历史指纹证据，不继承到新代码；M8.1对象接线及本轮观察缺陷实现审阅，恢复implemented。automatic07同次13/13及同指纹IAB评分达到标准，193完整业务false，原M8未满足条件保留；仅implementation_released。；2026-10-03本轮原M8.1五条完成检查已done，Windows11/19/80及同输入独立26、Linux原80实际证据已核；新增真实Date已实际同原实例10-03→10-04 verify完成，两个技术子范围通过，原stage false及193/人工/部署边界保留。当前M8.2唯一in_progress，原3336等只作历史，当前全量未通过故本CP仍仅implementation_released，见M8-1-human-acceptance-closeout-v1及PATCH-M8-2-CURRENT-REGRESSION-01。 |
+| CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | implementation_released | docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md；M8-1-closeout-checkpoint-v1.md；M8-2-regression-checkpoint-v1.md；M8-2-closeout-checkpoint-v1.md；docs/implementation-patches/PATCH-CP-00B-09.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M8.1 记 **`implemented`**：清单①—⑤全部落地，工作区门禁两次完整运行逐套件计数与双指纹一致（293 项、`accepted=true`），完成检查 4 条满足、1 条部分满足（完整批量行逐行核对依赖归档组）。M8.2 记 **`implemented`**：归档基线 M0.2.B 在 `7211e7f`（`working_tree` 干净）上 **3336 passed / 0 failed / 1 skipped**，`inventory/coverage_complete` 均 true、`missing/extra/duplicate` 全 0、六项未变指纹全 true；逐项比较声明 193 模块、声明未执行 0、执行未声明 0；193/111 契约检查与 293 项当前适用回归通过；唯一 skip 为已登记符号链接环境缺口。业主批准的 `PATCH-CP-00B-09` 两处归档断言已对齐（第一版被真实运行否证后修正，均如实登记）。**仅放行后续编码**：真实模型、PostgreSQL、独立 Linux、员工试用仍属 M8.3—M8.9，故不记 `released`，不勾选整体验收；2026-09-30新点击交付：上述293/3336为各自历史指纹证据，不继承到新代码；M8.1对象接线及本轮观察缺陷实现审阅，恢复implemented。automatic07同次13/13及同指纹IAB评分达到标准，193完整业务false，原M8未满足条件保留；仅implementation_released。；2026-10-03本轮原M8.1五条完成检查已done，Windows11/19/80及同输入独立26、Linux原80实际证据已核；新增真实Date已实际同原实例10-03→10-04 verify完成，两个技术子范围通过，原stage false及193/人工/部署边界保留。当时M8.2唯一in_progress，原3336等只作历史；2026-10-04已因缺失M7正文/provider及最终回执真实前置暂停为blocked，按原顺序回补；当前全量未通过故本CP仍仅implementation_released，见M8-1-human-acceptance-closeout-v1及PATCH-M8-2-CURRENT-REGRESSION-01。 |
 | CP-36 | M8.3—M8.4 | 独立PG升级/恢复、真实HTTP浏览器 | not_ready | docs/implementation-checkpoints/M8-4-browser-pipeline-checkpoint-v1.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M8.4 仍 `todo`：真实浏览器流水线单一入口已交付并在 Windows 本机真实 Chrome 上实测（277 项、`verified=true`、14 页原生流量非零、`page_errors_total=0`），但三种宽度/IME、断网重连按 `seq` 补读、伪造身份 header、缺 CSRF 写与 HTTPS 会话仍未覆盖；M8.3 因缺独立 PostgreSQL 测试服务按计划待判 `blocked`，其全局顺序前置未满足，故不记 `released`；2026-09-30新入口补充：上述旧run未覆盖项已有三宽度/中文/焦点草稿/切店退出/伪造身份与缺CSRF本轮证据，automatic07原生HTTP13/13，193/111/70/9分层覆盖及IAB评分。原PG前置、HTTPS、OS IME候选、断网按seq、浏览器重启/完整批量仍缺，M8.4仍todo、门禁not_ready，不以本轮交付释放原验收。 |
 | CP-37 | M8.5—M8.6 | 经live gate授权的真实模型和保留集 | not_ready | — | — |
 | CP-38 | M8.7—M8.8 | 隔离Windows/Linux恢复演练 | not_ready | — | — |
@@ -3269,6 +3269,54 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **执行记录**：2026-09-28 新增 `app/assistant_runtime_domains/care_reminder.py`（`CareReminderAdapter`，`object_types=('reminder_rule',)`：快照只读 `GET /api/customer-service/reminders/rules`，**集合读取按真实 ID 精确匹配**（同名不同 ID 不匹配，找不到即 404），未登记 kind 502，动作可用性一律 `unknown`；`extract_result` 覆盖规则保存与生成写接口（清单读不绑定结果）；`read_receipt` 由已评审 resolver 绑定并保持冻结 `request_id`；事实 `reminder.rule_active`（原 `active=true` 且 ID 精确匹配）、`reminder.generated_case_recorded`（**原读法不暴露周期/来源与已生成案件关联时一律未知，不从文字/日期自行断言已生成**）），`__init__.py` 显式注册且 `fallback_object_types=()`；未新增 signal hook、未调用原生成写接口。外部套件 `$ValidationRoot/tests/runtime_domains/test_care_reminder.py`（7 项），run `20260928T134539Z-db53035e2c` passed。详见 `docs/implementation-checkpoints/M7-6-3-review-v1.md`。源码指纹 `68e6089bbfa2eaba873ffe4ef4dd38ca720e5b1c5d6378bac9b1f1c4972dde97`。**遗留**：已生成关联需评审补只读路径。下一项 M7.7.1。
 
+<a id="m7-6-4"></a>
+
+### M7.6.4 客户问卷版本与真实答卷
+
+**状态**：implemented（2026-10-04 原索引缺正文已补，代码及实际原HTTP验证候选经独立静审；实际测试、迁移旧答卷及中央CareReceipt最终接线待完成，不记done。）
+
+**全局顺序前置**：M7.6.3 implemented/done；本轮按既有编码依赖规则补回，M8.2 暂停完整验证直至缺失依赖实现。
+
+**目标与原合同**：原问卷版本提案、独立复核、冻结发放和真实回答。仅原 GET `/api/customer-service/questionnaires/versions` 的 Version.id 映射 `questionnaire_version`；number 为序号、policy_version 为目录 CAS，不冒充对象版本。原 Case.id 映射 `care_case` 且 subtype=questionnaire；读取沿用原关怀详情。目录最近 200 条无完整分页证明，目标未出现保持未知/不可取得，不猜选、不 SQL 旁读。
+
+**允许修改**：PATCH-M7-MISSING-DOMAIN-CONTRACTS-01 精确首项范围。原 API/模型/迁移/独立复核与确认接口不改；原 CareReceipt 的统一可靠回执接线仍为后续最终合同义务。
+
+**有限事实**：`questionnaire.version_published` 只由同 ID 的真实独立 approve Review、原 schema digest 和批准员工证明（superseded 仍可证明曾发布，不代表当前生效）；`questionnaire.binding_frozen` 核本 Case 原 Binding 的冻结题目/digest；`questionnaire.response_recorded` 核真实 Response 与本 Case 原 close CareRecord、原 actor/answers/digest，runtime/migration 分支保持原契约；`questionnaire.answers_completed` 在真实回应基础上还要求 completed/resolved 和原冻结题目逐题满足。no_response 的合法空白/部分回答不当完整答卷，旧 legacy version_id=null/number=1 不造版本主键，false/0 不丢失。源不完整/不适用保持 unknown。
+
+**完成检查**：
+
+- [ ] 原版本提案和独立复核经本人原确认接口；自批、旧版发布冲突和原 CAS/权限不退化。
+- [ ] 真实原目录/关怀详情通过显式 registry 提供快照、事实、响应 ID；无猜测版本或旁读。
+- [ ] 旧发放冻结题目在新版本发布后保持；记录未回应与完整有效答卷分别验证，迁移来源保留。
+- [ ] 原业务权限/门店、冻结 submission 和真实 CareReceipt 最终统一核对；读取不办理业务提交。
+- [ ] 当前候选外置隔离实际验证通过，原失败与源码/测试/执行器/依赖指纹可追溯。
+
+**执行记录**：2026-10-04 新questionnaire_version.py SHA b044457bfe677480f997bdd89182efb23c569465924a63d9b1326e491707514c；customer_care.py fcd53673abe41cc494c61889ca6be6dc38c48923b25650bd709dda346b566ccc；当次root显式registry eebb9a6d8d0e202914112a3bf8ac906057f38f3b1c136606d9b1c76a28ade089，共50 spec。三处经root/独立源审阅，旧care常量/方法（仅固定三facts dispatch追加）与冻结read_receipt保持；root静态报告1b024d397c0dbff8eda7fa482a93e9f2ee8cf23e425716651467c9335a12fcbf、mobile独立c653e426bb9a970ca69d3aa9578c2dcdf9346ba18bbe3e6500cf715d0db47e89。外部原C只追加一个真实HTTP问卷组合节点（含原200目录边界），末版5fcbb937906d28d2c5ab0c4aa14c887ead9a2216e00d04ec2b6ba838a900f80d经独立AST/源审阅；旧care overlay仅同原登记节点事实union/独立type断言修正，原9 names/order/其余节点不变，SHAf7da94fbe023a201a00a951bdae0ee4fdb45adcf2fd873b5512546ebc31bce74。实际collect/test/model=0；统一完整回归、真实非空旧迁移、最终CareReceipt仍待，所有完成检查暂不勾选。详见M7-6-4-missing-contract-review-v1；CP-24旧历史及total_plan保持。
+
+<a id="m7-6-5"></a>
+
+### M7.6.5 车辆日期里程观察纠正
+
+**状态**：in_progress（2026-10-04 前项implemented且独立静审，按原索引单独实施本项；真实验证与最终回执门槛保留。）
+
+**全局顺序前置**：M7.6.4 implemented/done；原编码依赖规则适用，实际验证和最终可靠回执不省略。
+
+**目标与合同**：沿原日期里程纠正业务，`observation_correction` 原编号为 Case.id，版本为 Case.version。GET `/api/observation-corrections/cases/{case_id}` 的专用 flat 投影及原 POST 创建/动作响应 `{case:detail}` 显式绑定；原详情不披露 kind/store/tasks 时不猜填。原客户/门店/岗位、当前原观察、vehicle→Case 锁、CAS、base_digest、原附件与独立主管批准均不改变。
+
+**允许修改**：PATCH-M7-MISSING-DOMAIN-CONTRACTS-01 的 M7.6.5 精确范围。
+
+**有限事实**：`correction.submitted`、`correction.approved` 核本 Case 全原事件的真实 id/case_id/actor/action/evidence，批准还须原 completed 和独立于提出人的 actor。未知关键源不当否定；当前 effect_id 不披露 Case 归属，不假称本单仍是当前头或将保险失效冒作撤销。原批准同事务的历史效果与当前有效值分开，原观察不可改写。
+
+**完成检查**：
+
+- [ ] 显式原对象/操作/事实/结果注册，ID 与版本来自真实专用详情，不冒用观察或 effect 主键。
+- [ ] 实际原创建、提交、独立批准/拒绝、重复/CAS/原附件/权限与 effective 投影验证通过；raw 原观察保留。
+- [ ] 保险来源不制造实测里程，未知/当前头归属/后续纠正边界保持。
+- [ ] 原 CorrectionReceipt 按冻结 submission 在最终统一 resolver 中可靠核对，读取不重放或办理业务。
+- [ ] 当前候选外置隔离真实 API 验证及相关回归完成，来源/失败/指纹留存。
+
+**执行记录**：仅登记原缺正文合同及只读源审阅，生产实现/测试/回执最终接线待完成。
+
 ## M7.7 会员、本金、权益与套餐
 
 本组只作目录，下列小项才是可领取、实施和打勾的任务。
@@ -3768,9 +3816,13 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 ## M8.2 原业务、助手和前端不退化验收
 
-**状态**：in_progress（2026-10-03 当前候选全量复验；历史3336/1skip不继承。补齐已implemented早期原合同、新增及原业务/助手/前端精确清单，以实际收集/执行及各平台适用项核对；不能以静态定义数、旧成绩或CI绿灯替代。）
+**状态**：blocked（2026-10-04 真实前置实现缺口：原索引 M7.6.4/M7.6.5/M7.8.4/M7.8.5 缺正文及专用 provider，可靠原命令回执尚未完成中央接线。依 PATCH-M7-MISSING-DOMAIN-CONTRACTS-01 单项顺序回补，完成后恢复当前候选完整验证；历史3336/1skip不继承，不能以静态定义数、旧成绩或CI绿灯替代。）
 
-v8窄修静态审阅：原generator及其两处来源SHA外其它801清单字段/74数组/92授权/10NA/101命令不变，原matrix断言与节点入口保留。root逐SHA核对实际801文件、逐叶核对manifest/restoration差异通过，完整draft31a9b226fab95247e353990a59eda55e11dcab45d2145099dcb913ed94065ad6，静态审阅905ae21922bf191f63dc5a4b4c1ff12081bcf0f4acd66ce429cc7703ebff2048；仅定义登记齐全，新双平台strict/full未执行，保持in_progress。
+**2026-10-04 v8终局及真实API投影窄修**：CI37149849322/HEAD0a68c27822aab62e9b7f04ecd069f5c72e999a83两平台整体failed、相关进程均终局。Linuxrun195934Z-87fc160d14 strict22及四ownedPGID证明实际通过；M8.2 run195944Z-4f2f43a371完整3398收集通过，矩阵临时Question缺options在generator539→原forms209触发KeyError，正常排空2/101，inputs_unchanged=true、模型0。Linux官方/ZIP SHA8456c48d9edd2f1c27af6ce2181f63fddca4d1bccbaa16e4c929509fe2af03f9、独立失败审阅e4c38fa44923f090b6d0d542f5b134d90e4fff0b897db0dd3d6e54b334f8b45e；Windows官方/ZIPae97cb910c9958b5ba02737270536519c0ed4e583318f70ee9d6f9c76fde90f4安全逐字节留存，独立审阅待核，不能继承为full通过。root仅原generator补完整临时Question输入options=[]，生产描述合同不改。另静态对照49个已登记provider的原GET返回，确认customer_vehicle/aftercare/vehicle_operation三处既有领域投影接线缺陷，原9项等mock成绩不证明真实返回已接通；范围与异常路径事前登记PATCH-M7-NATIVE-PROJECTION-01，仅三个原适配器/三个相关旧外部夹具与现有C一个真实HTTP组合节点，不删原业务/节点/门槛，未执行新测试。四缺失正文合同及原生可靠专用回执的最终中央接线义务继续待完成，不以阶段性unsupported豁免；M8.2保持in_progress，main仍7a4f872。
+
+2026-10-04 v8 Windows审阅终局追加：官方/ZIP ae97cb910c9958b5ba02737270536519c0ed4e583318f70ee9d6f9c76fde90f4；独立46fece3b228e5046e0fd34cdf3c6b553ea2744a69ebbe25fcc620a1975988ff6。strict18/18及完整3398有序收集实际通过，矩阵同 options 输入失败，整体 failed/2 of 101，五输入同参照且前后不变、自然排空、真实模型0。上文待核为当时历史。三原业务投影/root登记/三旧9节点夹具与现有C追加一个真实HTTP组合节点已静态独立审阅；实际新节点与新来源SHA统一注册和执行尚未进行。按原顺序补四项缺失实现及最终回执后再恢复M8.2，不拼历史通过。
+
+v8窄修静态审阅：原generator及其两处来源SHA外其它801清单字段/74数组/92授权/10NA/101命令不变，原matrix断言与节点入口保留。root逐SHA核对实际801文件、逐叶核对manifest/restoration差异通过，完整draft31a9b226fab95247e353990a59eda55e11dcab45d2145099dcb913ed94065ad6，静态审阅905ae21922bf191f63dc5a4b4c1ff12081bcf0f4acd66ce429cc7703ebff2048；仅定义登记齐全，新双平台strict/full未执行，当时in_progress。
 
 **2026-10-04 v7实际完整执行失败及窄修**：CI37147898241/HEADf06ab1389d665e385276a697bff60b34571a46c6两平台已终局。Windows strict18与Linux strict22实际通过，Linux四个owned POSIX组覆盖正常/非零/超时/leader先退持pipe并真实排空；此成绩只属原v7输入。M8.2两平台完整collector3398有序相同，随后matrix唯一节点在generator第347行KeyError: M7.8.5，setup/teardown通过、按失败合同正常收尾2/101，整体failed/incomplete，不继承为基线通过。各自同五输入strict参照一致、前后输入不变、真实模型0；官方与ZIP SHA Windows3ba76de37af159df4368190ceb1e752ac5839dad89900baf089be427f4187342/Linuxb84de08b1b7ce94e96c9943c53b6c12a22eccd4ae8e28f0fa9aae24e8a0248f6，独立失败审阅SHAd2ced6c587e94d8b8e4d5bcdd2085911c578a4098474a4374a2cc298c5d083ea/f0985df9e0855f06cf33556e6dedf61a80d222d1babd4c7b9dd8c5477f631969，原件外置保存。PATCH-M8-2-CURRENT-REGRESSION-01已事前登记仅原generator三条错误ENTRY_OWNERS窄修，缺失M7.6.4/M7.8.4/M7.8.5正文合同仍显式保留索引及CP来源、理由和审阅责任，不冒认相邻adapter；全部111/193原人工入口与API证据、原matrix断言/节点/runner保留。只同步该源SHA与现有来源登记，新同五输入strict和101全集待实际复跑；M8.2继续in_progress，main保持7a4f872。
 

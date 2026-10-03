@@ -84,16 +84,28 @@ class VehicleOperationAdapter(FlowCaseAdapter):
 
     async def read_snapshot(self, principal, ref):
         data = await self._operation_detail(principal, ref)
+        raw_tasks = data.get('tasks')
+        if not isinstance(raw_tasks, list):
+            _invalid()
+        tasks = []
+        for raw in raw_tasks:
+            if (type(raw) is not dict or ('case_id' in raw
+                    and (type(raw['case_id']) is not int or raw['case_id'] != data['id']))):
+                _invalid()
+            # 原 describe 从同 Case 的 Task 查询生成此摘要；只补该已证明关系，
+            # key/status/version 未披露，保持 None，不能猜完成状态或版本。
+            task = {key: raw[key] for key in ('id', 'title', 'role', 'assignee_id', 'due_date')
+                    if key in raw}
+            task['case_id'] = data['id']
+            tasks.append(task)
         record = {
             'id': data['id'], 'store_id': getattr(principal, 'store_id', None), 'kind': OPERATION_KIND,
             'flow_version': OPERATION_FLOW_VERSION, 'version': data.get('version'),
             'number': data.get('number'), 'state': data.get('state'),
-            'tasks': data.get('tasks') or [],
+            'tasks': tasks,
             'actions': [key for key in (data.get('actions') or []) if type(key) is str],
             'data': {}, 'observed_at': _now(),
         }
-        if not isinstance(record['tasks'], list):
-            _invalid()
         return self.snapshot_from_record(ref, record)
 
     async def fact_snapshot(self, principal, ref, fact_key):

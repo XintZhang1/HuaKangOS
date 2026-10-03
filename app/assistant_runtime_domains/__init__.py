@@ -45,9 +45,12 @@ from .warehouse_document import (WH_COMMAND, WH_CREATE, WH_FACTS, WH_OPERATIONS,
                                 WH_READ, WarehouseDocumentAdapter)
 from .customer_vehicle import (VEHICLE_CREATE, VEHICLE_FACTS, VEHICLE_HISTORY,
                                VEHICLE_HISTORY_LINK, VEHICLE_OBJECT_TYPE, VEHICLE_OBSERVATION,
-                               VEHICLE_READ, CustomerVehicleAdapter)
-from .customer_care import (CARE_ACTION, CARE_ACTIONS, CARE_CREATE, CARE_FACTS,
+                               VEHICLE_READ, VEHICLE_UPDATE, CustomerVehicleAdapter)
+from .customer_care import (CARE_ACTION, CARE_ACTIONS, CARE_CREATE, CARE_FACTS, CARE_QUESTIONNAIRE_FACTS,
                             CARE_OBJECT_TYPE, CARE_READ, CARE_SUBTYPES, CustomerCareAdapter)
+from .questionnaire_version import (QUESTIONNAIRE_FACTS, QUESTIONNAIRE_OBJECT_TYPE,
+                                    QUESTIONNAIRE_PROPOSE, QUESTIONNAIRE_READ, QUESTIONNAIRE_REVIEW,
+                                    QuestionnaireVersionAdapter)
 from .care_reminder import (REMINDER_FACTS, REMINDER_GENERATE, REMINDER_KINDS,
                             REMINDER_OBJECT_TYPE, REMINDER_RULE_SAVE, REMINDER_RULES,
                             CareReminderAdapter)
@@ -160,10 +163,13 @@ __all__ = ['FLOW_ACTION', 'FLOW_CREATE', 'FLOW_READ', 'FlowCaseAdapter',
            'WH_COMMAND', 'WH_CREATE', 'WH_FACTS', 'WH_OPERATIONS', 'WH_READ',
            'WarehouseDocumentAdapter',
            'VEHICLE_CREATE', 'VEHICLE_FACTS', 'VEHICLE_HISTORY', 'VEHICLE_HISTORY_LINK',
-           'VEHICLE_OBJECT_TYPE', 'VEHICLE_OBSERVATION', 'VEHICLE_READ',
+           'VEHICLE_OBJECT_TYPE', 'VEHICLE_OBSERVATION', 'VEHICLE_READ', 'VEHICLE_UPDATE',
            'CustomerVehicleAdapter',
            'CARE_ACTION', 'CARE_ACTIONS', 'CARE_CREATE', 'CARE_FACTS', 'CARE_OBJECT_TYPE',
            'CARE_READ', 'CARE_SUBTYPES', 'CustomerCareAdapter',
+           'CARE_QUESTIONNAIRE_FACTS', 'QUESTIONNAIRE_FACTS', 'QUESTIONNAIRE_OBJECT_TYPE',
+           'QUESTIONNAIRE_PROPOSE', 'QUESTIONNAIRE_READ', 'QUESTIONNAIRE_REVIEW',
+           'QuestionnaireVersionAdapter',
            'REMINDER_FACTS', 'REMINDER_GENERATE', 'REMINDER_KINDS', 'REMINDER_OBJECT_TYPE',
            'REMINDER_RULE_SAVE', 'REMINDER_RULES', 'CareReminderAdapter',
            'MEMBERSHIP_ACTION', 'MEMBERSHIP_ACTIONS', 'MEMBERSHIP_CREATE', 'MEMBERSHIP_FACTS',
@@ -481,19 +487,27 @@ def register_adapters(registry):
         fact_keys=REMINDER_FACTS,
         fallback_object_types=(REMINDER_OBJECT_TYPE,),
     ))
-    # M7.6.2：客户关怀服务单（customer_care）静态注册。
+    # M7.6.4：原问卷版本；目录 CAS/题目序号不是对象版本。
+    registry.register(DomainAdapterSpec(
+        name='questionnaire_version', factory=QuestionnaireVersionAdapter,
+        object_types=(QUESTIONNAIRE_OBJECT_TYPE,),
+        operation_ids=(QUESTIONNAIRE_READ, QUESTIONNAIRE_PROPOSE, QUESTIONNAIRE_REVIEW),
+        fact_keys=QUESTIONNAIRE_FACTS,
+        fallback_object_types=(QUESTIONNAIRE_OBJECT_TYPE,),
+    ))
+    # M7.6.2/4：原关怀服务单及限定 questionnaire subtype 的原冻结答卷。
     registry.register(DomainAdapterSpec(
         name='customer_care', factory=CustomerCareAdapter,
         object_types=(CARE_OBJECT_TYPE,),
         operation_ids=(CARE_READ, CARE_CREATE, CARE_ACTION),
-        fact_keys=CARE_FACTS,
+        fact_keys=CARE_FACTS + CARE_QUESTIONNAIRE_FACTS,
         fallback_object_types=(CARE_OBJECT_TYPE,),
     ))
     # M7.6.1：客户档案与服务单（customer_vehicle）静态注册。
     registry.register(DomainAdapterSpec(
         name='customer_vehicle', factory=CustomerVehicleAdapter,
         object_types=(VEHICLE_OBJECT_TYPE,),
-        operation_ids=(VEHICLE_READ, VEHICLE_HISTORY, VEHICLE_CREATE, VEHICLE_OBSERVATION,
+        operation_ids=(VEHICLE_READ, VEHICLE_HISTORY, VEHICLE_CREATE, VEHICLE_UPDATE, VEHICLE_OBSERVATION,
                        VEHICLE_HISTORY_LINK),
         fact_keys=VEHICLE_FACTS,
         fallback_object_types=(VEHICLE_OBJECT_TYPE,),
@@ -602,6 +616,7 @@ def register_adapters(registry):
     registry.register(DomainAdapterSpec(
         name='vehicle_operation', factory=VehicleOperationAdapter, object_types=('case',),
         operation_ids=(OPERATION_READ, OPERATION_CREATE, OPERATION_ACTION),
+        fact_keys=OPERATION_FACTS,
         kind_versions=(('case', OPERATION_KIND, OPERATION_FLOW_VERSION),),
         fact_kind_versions=(('case', OPERATION_KIND, OPERATION_FLOW_VERSION),),
         fallback_object_types=(),
@@ -610,6 +625,7 @@ def register_adapters(registry):
     registry.register(DomainAdapterSpec(
         name='vehicle_purchase', factory=VehiclePurchaseAdapter, object_types=('case',),
         operation_ids=(PURCHASE_READ, PURCHASE_CREATE, PURCHASE_ACTION),
+        fact_keys=PURCHASE_FACTS,
         kind_versions=(('case', PURCHASE_KIND, PURCHASE_FLOW_VERSION),),
         fact_kind_versions=(('case', PURCHASE_KIND, PURCHASE_FLOW_VERSION),),
         fallback_object_types=(),
@@ -618,6 +634,7 @@ def register_adapters(registry):
     registry.register(DomainAdapterSpec(
         name='aftercare', factory=AftercareAdapter, object_types=('case',),
         operation_ids=(AFTERCARE_READ, AFTERCARE_CREATE, AFTERCARE_ACTION),
+        fact_keys=AFTERCARE_FACTS,
         kind_versions=(('case', AFTERCARE_KIND, AFTERCARE_FLOW_VERSION),),
         fact_kind_versions=(('case', AFTERCARE_KIND, AFTERCARE_FLOW_VERSION),),
         fallback_object_types=(),

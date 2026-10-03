@@ -1,9 +1,9 @@
 """退订退车及维修退款纠正（aftercare）适配器：原售后单的只读投影。
 
-- 只读 `GET /api/aftercare/orders/{case_id}`（reviewed catalog 内），不调用任何业务 command。
+- 只读原售后详情及已登记的原 Flow GET；后者核验门店、类型、流程版本和原任务。
 - 方案生效（AftercareApplication）、客户确认（AftercareConsent）与实际退款（AftercareCashRefund）
   是三件不同的事：批准或生效不满足实际退款键，集团本金/权益退回也不冒充现金。
-- 原 native version 取原详情的 version；缺失即 None，不造版本。
+- 原 native version 取本人原 GET 的真实 version；没有可读版本时保持 None，不造版本。
 - 本适配器只声明可准备的原 operation，不执行、不生成卡、不改原状态机。
 """
 from datetime import datetime, timezone
@@ -24,9 +24,6 @@ AFTERCARE_RESULT_OPERATIONS = frozenset({AFTERCARE_READ, AFTERCARE_CREATE, AFTER
 AFTERCARE_RECEIPT_OPERATIONS = frozenset({AFTERCARE_CREATE, AFTERCARE_ACTION})
 AFTERCARE_FACTS = ('aftercare.plan_applied', 'aftercare.cash_refund_recorded',
                    'aftercare.customer_consent_recorded')
-_CASH_KEYS = ('cash_refund_id', 'refund_id')
-_CONSENT_KEYS = ('consent_id', 'aftercare_consent_id')
-_PLAN_KEYS = ('plan_id', 'applied_plan_id')
 
 
 def _now():
@@ -73,31 +70,27 @@ class AftercareAdapter(FlowCaseAdapter):
         data = response.get('data')
         if type(data) is not dict or data.get('truncated') or response.get('truncated'):
             _invalid()
-        if not _positive_id(data.get('store_id')) or data['store_id'] != store_id:
-            raise HTTPException(404, '原业务不存在或当前账号不可查看')
-        if data.get('kind') not in (None, AFTERCARE_KIND):
-            raise HTTPException(422, '这不是原退订退车或维修退款单据，请到对应业务页面办理')
-        if not _positive_id(data.get('id')) or data.get('id') != values['id'] or data.get('kind') != AFTERCARE_KIND:
+        if not _positive_id(data.get('id')) or data.get('id') != values['id']:
             _invalid()
         if data.get('scenario') not in AFTERCARE_SCENARIOS:
             _invalid()
-        return data
+        if data.get('version') is not None and not _positive_id(data['version']):
+            _invalid()
+        # 原售后 describe 不提供 store_id/kind/flow_version/tasks；这些事实
+        # 只能取本人原 Flow GET，不向专用详情补模拟字段或猜原任务。
+        record = await self.read_record(principal, ref)
+        if record['kind'] != AFTERCARE_KIND or record['flow_version'] != AFTERCARE_FLOW_VERSION:
+            raise HTTPException(422, '这不是原退订退车或维修退款单据，请到对应业务页面办理')
+        if (data.get('version') is not None and record['version'] is not None
+                and data['version'] != record['version']):
+            raise HTTPException(409, '原售后单在读取期间已变化，请重新核对')
+        return data, record
 
     async def read_snapshot(self, principal, ref):
-        data = await self._aftercare_detail(principal, ref)
-        native = data.get('data') if type(data.get('data')) is dict else {}
-        record = {
-            'id': data['id'], 'store_id': data['store_id'], 'kind': data['kind'],
-            'flow_version': AFTERCARE_FLOW_VERSION, 'version': data.get('version'),
-            'number': data.get('number'), 'state': data.get('state'),
-            'tasks': data.get('tasks') or [],
+        data, original = await self._aftercare_detail(principal, ref)
+        record = dict(original, **{
             'actions': [key for key in (data.get('actions') or []) if type(key) is str],
-            'data': {key: value for key, value in native.items()
-                     if key.endswith('_id') and _positive_id(value)},
-            'observed_at': _now(),
-        }
-        if not isinstance(record['tasks'], list):
-            _invalid()
+        })
         return self.snapshot_from_record(ref, record)
 
     async def fact_snapshot(self, principal, ref, fact_key):
@@ -107,52 +100,43 @@ class AftercareAdapter(FlowCaseAdapter):
                                     reason='退订退车与维修退款未登记此事实，请按对应业务能力核对')
             except (ValidationError, ValueError, TypeError):
                 raise HTTPException(422, '事实标识不正确') from None
-        data = await self._aftercare_detail(principal, ref)
+        data, _ = await self._aftercare_detail(principal, ref)
         observed_at = _now()
         version = data.get('version') if _positive_id(data.get('version')) else None
         case_ref = BusinessObjectRef(type='case', id=data['id'])
         from_case = EvidenceRef(source_type='object', source_id=case_ref,
                                 native_version=version, observed_at=observed_at)
-        native = data.get('data') if type(data.get('data')) is dict else {}
         plans = data.get('plans') if isinstance(data.get('plans'), list) else []
+        plan_id = data.get('plan_id')
+        current = [plan for plan in plans if type(plan) is dict
+                   and _positive_id(plan_id) and _positive_id(plan.get('id'))
+                   and plan['id'] == plan_id]
+        current_plan = current[0] if len(current) == 1 and current[0].get('cancelled') is False else None
 
         if fact_key == 'aftercare.plan_applied':
             # 方案已生效必须有原 AftercareApplication；已批准但未生效不算。
             if data.get('applied') is not True:
                 return FactSnapshot(fact_key=fact_key, satisfied=False, evidence_refs=[from_case],
                                     reason='当前方案尚未在原售后单生效，请先在原页面完成方案生效')
-            plan_id = native.get('plan_id')
-            for plan in plans:
-                if type(plan) is dict and _positive_id(plan.get('id')) and plan_id is None:
-                    plan_id = plan['id']
-                    break
-            if not _positive_id(plan_id):
+            if current_plan is None:
                 return _unknown(fact_key, '原详情没有可引用的方案编号，请在原页面核对方案')
             return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[from_case])
 
         if fact_key == 'aftercare.customer_consent_recorded':
-            consent_id = None
-            for key in _CONSENT_KEYS:
-                if _positive_id(native.get(key)):
-                    consent_id = native[key]
-                    break
-            if consent_id is None:
-                for plan in plans:
-                    if type(plan) is dict and _positive_id(plan.get('consent_id')):
-                        consent_id = plan['consent_id']
-                        break
-            if consent_id is None:
+            # 原 describe 对当前方案的布尔值来自 AftercareConsent；不要求
+            # API 未披露的 consent_id，也不借旧方案或已取消方案证明当前同意。
+            if current_plan is None or current_plan.get('customer_confirmed') is not True:
                 return _unknown(fact_key, '需要原客户确认记录，请在原页面核对客户签署')
             return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[from_case])
 
         # aftercare.cash_refund_recorded：必须本单存在原 AftercareCashRefund 及其关联现金来源；
         # 方案批准/生效、集团本金或权益退回都不能替代实际退款。
-        refund_id = None
-        for key in _CASH_KEYS:
-            if _positive_id(native.get(key)):
-                refund_id = native[key]
-                break
-        if refund_id is None:
+        refunds = data.get('refunds')
+        if not isinstance(refunds, list) or not any(
+                type(refund) is dict and _positive_id(refund.get('id'))
+                and _positive_id(refund.get('tender_id')) and _positive_id(refund.get('payment_link_id'))
+                and type(refund.get('amount_cents')) is int and refund['amount_cents'] > 0
+                for refund in refunds):
             return _unknown(fact_key, '需要原现金退款记录及其关联来源，请在原单核对退款结果')
         return FactSnapshot(fact_key=fact_key, satisfied=True, reason=None, evidence_refs=[from_case])
 
@@ -163,7 +147,8 @@ class AftercareAdapter(FlowCaseAdapter):
             return []
         data = response.get('data')
         if (type(data) is not dict or data.get('truncated') or not _positive_id(data.get('id'))
-                or not _positive_id(data.get('store_id')) or data.get('kind') != AFTERCARE_KIND):
+                or data.get('scenario') not in AFTERCARE_SCENARIOS
+                or data.get('kind') not in (None, AFTERCARE_KIND)):
             return []
         return [BusinessObjectRef(type='case', id=data['id'])]
 

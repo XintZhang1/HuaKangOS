@@ -1,5 +1,15 @@
 # 助手计划收口至待人工验收
 
+2026-10-04 接续编码：M7.6.4已implemented，生产b044457b/fcd53673及root登记eebb9a6d分别静审，独立c653e426和root1b024d39；外部原C末版5fcbb937仍原14节点，单新增问卷含实际API候选200目录边界，独立9e46fb91；旧care overlay f7da94fb仍原9节点。app import/collect/test/model0，M8.3非空旧迁移与最终Care回执、统一回归待实际通过。唯一M7.6.5 in_progress，mobile生产/day原C/root登记各独占，同项协作；其余未来内容只读准备，M8.2 blocked，main未上传。
+
+2026-10-04 当前接续：M8.2 因实际未实现的四索引条目及最终中央回执合同暂 blocked，唯一 M7.6.4 in_progress。按事前登记 PATCH-M7-MISSING-DOMAIN-CONTRACTS-01 回补原问卷版本/独立发布/冻结题目/真实回应/完整回答；原合法 no_response 与 migration 分支保持，不新建业务流程或降低门槛。生产两文件、root sealed registry、原 C 文件追加一个实际 HTTP 组合节点分别独占协作，先实现与静审再统一冻结入口验证。
+
+上一窄修静审终局：客户车辆/售后/整车作业三原适配器、root fact_keys/PUT 登记、三个旧领域夹具（各原 9 节点保持）及 C 追加一个实际 HTTP 组合节点均完成独立源审阅。C SHA8d409a0f93f0dbccbc795aba9fc543837c95652a9be51bc4920433ee40fdd19f；独立组合审阅238150a9e86e67038937066fcaccce712d61ba3a1d7d922cb034fdcfa5892a34；三领域交叉审阅5b7fa0982c7a17b7a09b042de08981968b297662a78f634ab937e0b43206ef21，客户末版94db23d554d1e33652637eead8f6bcc41a4797f41d0ca26871ec16bd5c737a5f。app imports/collections/tests/model=0，不当测试通过。
+
+Windows v8 原件审阅终局：strict18/18 与3398有序收集实际通过，随后矩阵缺 options 同 Linux，整体 failed/2 of 101；输入不变、自然排空、模型0。独立审阅46fece3b228e5046e0fd34cdf3c6b553ea2744a69ebbe25fcc620a1975988ff6，官方及 ZIP SHAae97cb910c9958b5ba02737270536519c0ed4e583318f70ee9d6f9c76fde90f4；下文“待核”为当时历史，未继承全量通过。
+
+2026-10-04 v8终局与原接线缺陷：CI37149849322两平台整体failed，Linuxstrict22/四PGID及3398收集通过后矩阵临时Question缺options停2/101；Windows原件已安全验真，独立审计待核。原v8源/ZIP/报告保留，root只给generator临时问题补原options=[]。只读配对49已登记provider另确认客户车辆、售后、整车操作三个既有适配器与真实GET投影不符，已按PATCH-M7-NATIVE-PROJECTION-01限定修复及一条真实HTTP组合验证，当前静态实施中，测试未执行。四缺失正文合同与已有可靠专用原回执的中央接线义务仍待完成，不能以历史“52项implemented”或mock成绩收口；M8.2唯一in_progress、main保持7a4f872。
+
 v8输入已静态收口：801逐SHA核对，仅generator与两处来源登记改变；原74节点数组/92授权/10NA/101命令与其它字段逐叶保持，draft31a9b226。root与独立负责人审阅通过，准备同新输入的双平台strict/full；未继承旧局部结果。
 
 2026-10-04 v7完整执行终局：CI37147898241/HEADf06ab13双平台strict18/22实际通过，Linux四项真实进程组故障均排空；M8.2在完整3398收集之后，矩阵唯一节点因不存在的M7.8.5合同引用失败，正常停止2/101，整体failed/incomplete。Windows/Linux原artifact与独立失败审阅已验真（d2ced6c5/f0985df9），五输入不变、模型0。按已登记补丁仅修generator三条同根错误映射，保留未登记合同的源、理由、审阅责任及全部111/193原入口，原断言/节点/runner不改；修订后须新同输入strict与101完整复跑。M8.2继续唯一in_progress，main保持7a4f872。
