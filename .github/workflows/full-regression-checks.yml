@@ -38,6 +38,8 @@ concurrency:
 
 jobs:
   regression:
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -53,7 +55,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11.14'
+          python-version: '3.11.9'
       - uses: actions/setup-node@v4
         with:
           node-version: '24.19.0'

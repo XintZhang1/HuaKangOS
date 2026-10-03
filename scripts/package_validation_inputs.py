@@ -216,6 +216,7 @@ def download(args):
         response = opener.open(request, timeout=120)
     except urllib.error.HTTPError as error:
         if error.code != 302:
+            print(json.dumps({'asset_api_status': error.code, 'asset_id': args.asset_id}))
             raise ValueError('asset_api_status') from None
         signed = error.headers['Location']
     else:

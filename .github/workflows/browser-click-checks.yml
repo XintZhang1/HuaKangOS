@@ -74,6 +74,8 @@ jobs:
           if-no-files-found: warn
   current-regression:
     if: github.event_name == 'workflow_dispatch' && inputs.regression_capsule_asset_id != ''
+    permissions:
+      contents: write
     uses: ./.github/workflows/full-regression-checks.yml
     with:
       capsule_asset_id: ${{ inputs.regression_capsule_asset_id }}
