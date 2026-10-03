@@ -1,5 +1,8 @@
 # HuaKangOS 实施计划：单项实施与检查点审阅版
 
+**2026-10-03 当前验证执行点**：M8.1原五条故障门禁已逐项完成，独立自然日期追加仍waiting_real_D+1；唯一in_progress为M8.2当前候选完整回归。员工试用之外技术总目标尚未完成，main未上传，原各技术项、自然日期及生产发布条件不被旧成绩替代。
+
+
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
 
 **当前工作**：集中测试阶段接手 Codex 未完成批次。M5.5—M5.8、M1.4 已完成实现/审阅与外部实测并登记 `implemented`，CP-12、CP-13 记 `implementation_released`。2026-09-28 完成集中测试首轮完整基线归因（38 项过时测试合同 + 2 项产品缺陷，见 PATCH-CP-00B-08）并复跑全绿：41 条命令全部执行，`baseline_pytest` **2780 passed / 0 failed / 1 skipped**（唯一 skip 仍是符号链接环境缺口），18 条脚本命令（含 5 项 Node 前端检查）全部 successful。随后完成 M6.1（Runtime 客户端 15+7）、M6.2（发送/恢复/显式停止接入持久 Run 9+7）、M6.3（真实事项侧栏与两列工作台 10+6）、M6.4（默认进入助手与人工导航保持 6+6）、M6.5（统一交接守卫与入口 13+8）、M6.6（持续跟进与生命周期控制 12+7）、M6.7（通知/协作/回执核对 11+9）、M6.8（兼容/窄屏/开关收口 21 条命令），三者均 passed，CP-14 记 `implementation_released`。M7.1.1—M7.12.3 的 52 个适配小项均 `implemented`。
@@ -108,7 +111,7 @@
 | CP-32 | M7.10.4—M7.10.6 | 原损失找回、跨店原单授权 | implementation_released | docs/implementation-checkpoints/M7-10-4-review-v1.md；M7-10-5-review-v1.md；M7-10-6-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.10.4、M7.10.5、M7.10.6 均 passed。M7.10.6 首轮失败根因为外部合同夹具缺 `source_side`，已按真实 `/api/dossier-grants` 形状对齐并保留原件；适配器本身未因此放宽；继续 M7.11.1—M7.11.4（CP-33） |
 | CP-33 | M7.11.1—M7.11.4 | 基础资料、系统管理、评审边界 | implementation_released | docs/implementation-checkpoints/M7-11-1-review-v1.md；M7-11-2-review-v1.md；M7-11-3-review-v1.md；M7-11-4-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.11.1—M7.11.4 全部 passed；系统管理只读面与“人工办理不由助手代办”的边界保留；继续 M7.12.1—M7.12.3（CP-34） |
 | CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | implementation_released | docs/implementation-checkpoints/M7-12-1-review-v1.md；M7-12-2-review-v1.md；M7-12-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验通过，过程中发现并修复真实缺陷：`service.external_approved` 要求原模型不存在的 `results[].case_id`，使该事实在真实数据上永不成立（见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）；外部合同夹具另按真实形状对齐六处并保留原件。M7 章节收口，继续 M8.1（CP-35） |
-| CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | implementation_released | docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md；M8-1-closeout-checkpoint-v1.md；M8-2-regression-checkpoint-v1.md；M8-2-closeout-checkpoint-v1.md；docs/implementation-patches/PATCH-CP-00B-09.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M8.1 记 **`implemented`**：清单①—⑤全部落地，工作区门禁两次完整运行逐套件计数与双指纹一致（293 项、`accepted=true`），完成检查 4 条满足、1 条部分满足（完整批量行逐行核对依赖归档组）。M8.2 记 **`implemented`**：归档基线 M0.2.B 在 `7211e7f`（`working_tree` 干净）上 **3336 passed / 0 failed / 1 skipped**，`inventory/coverage_complete` 均 true、`missing/extra/duplicate` 全 0、六项未变指纹全 true；逐项比较声明 193 模块、声明未执行 0、执行未声明 0；193/111 契约检查与 293 项当前适用回归通过；唯一 skip 为已登记符号链接环境缺口。业主批准的 `PATCH-CP-00B-09` 两处归档断言已对齐（第一版被真实运行否证后修正，均如实登记）。**仅放行后续编码**：真实模型、PostgreSQL、独立 Linux、员工试用仍属 M8.3—M8.9，故不记 `released`，不勾选整体验收；2026-09-30新点击交付：上述293/3336为各自历史指纹证据，不继承到新代码；M8.1对象接线及本轮观察缺陷实现审阅，恢复implemented。automatic07同次13/13及同指纹IAB评分达到标准，193完整业务false，原M8未满足条件保留；仅implementation_released。 |
+| CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | implementation_released | docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md；M8-1-closeout-checkpoint-v1.md；M8-2-regression-checkpoint-v1.md；M8-2-closeout-checkpoint-v1.md；docs/implementation-patches/PATCH-CP-00B-09.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M8.1 记 **`implemented`**：清单①—⑤全部落地，工作区门禁两次完整运行逐套件计数与双指纹一致（293 项、`accepted=true`），完成检查 4 条满足、1 条部分满足（完整批量行逐行核对依赖归档组）。M8.2 记 **`implemented`**：归档基线 M0.2.B 在 `7211e7f`（`working_tree` 干净）上 **3336 passed / 0 failed / 1 skipped**，`inventory/coverage_complete` 均 true、`missing/extra/duplicate` 全 0、六项未变指纹全 true；逐项比较声明 193 模块、声明未执行 0、执行未声明 0；193/111 契约检查与 293 项当前适用回归通过；唯一 skip 为已登记符号链接环境缺口。业主批准的 `PATCH-CP-00B-09` 两处归档断言已对齐（第一版被真实运行否证后修正，均如实登记）。**仅放行后续编码**：真实模型、PostgreSQL、独立 Linux、员工试用仍属 M8.3—M8.9，故不记 `released`，不勾选整体验收；2026-09-30新点击交付：上述293/3336为各自历史指纹证据，不继承到新代码；M8.1对象接线及本轮观察缺陷实现审阅，恢复implemented。automatic07同次13/13及同指纹IAB评分达到标准，193完整业务false，原M8未满足条件保留；仅implementation_released。；2026-10-03本轮原M8.1五条完成检查已done，Windows11/19/80及同输入独立26、Linux原80实际证据已核；新增真实Date待D+1。当前M8.2唯一in_progress，原3336等只作历史，当前全量未通过故本CP仍仅implementation_released，见M8-1-human-acceptance-closeout-v1及PATCH-M8-2-CURRENT-REGRESSION-01。 |
 | CP-36 | M8.3—M8.4 | 独立PG升级/恢复、真实HTTP浏览器 | not_ready | docs/implementation-checkpoints/M8-4-browser-pipeline-checkpoint-v1.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M8.4 仍 `todo`：真实浏览器流水线单一入口已交付并在 Windows 本机真实 Chrome 上实测（277 项、`verified=true`、14 页原生流量非零、`page_errors_total=0`），但三种宽度/IME、断网重连按 `seq` 补读、伪造身份 header、缺 CSRF 写与 HTTPS 会话仍未覆盖；M8.3 因缺独立 PostgreSQL 测试服务按计划待判 `blocked`，其全局顺序前置未满足，故不记 `released`；2026-09-30新入口补充：上述旧run未覆盖项已有三宽度/中文/焦点草稿/切店退出/伪造身份与缺CSRF本轮证据，automatic07原生HTTP13/13，193/111/70/9分层覆盖及IAB评分。原PG前置、HTTPS、OS IME候选、断网按seq、浏览器重启/完整批量仍缺，M8.4仍todo、门禁not_ready，不以本轮交付释放原验收。 |
 | CP-37 | M8.5—M8.6 | 经live gate授权的真实模型和保留集 | not_ready | — | — |
 | CP-38 | M8.7—M8.8 | 隔离Windows/Linux恢复演练 | not_ready | — | — |
@@ -3584,6 +3587,11 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 ## M8.1 综合故障与恢复验收
 
+**2026-10-03 22:50 原故障门禁收口**：正式 `20261003T121310Z-b3c837f9fe` 原11/11、19/19及完整80/80通过；session56390实际CLI0，service0/forced=false，原16自有进程树及manifest匹配进程全部排空。独立repeat4原26/26同指纹自然CLI/service0，九真实终止、30分钟自然到期、原8 source事务全行回滚及未知结果不重放逐项满足。生产635 `bbe95959`、60脚本 `b1ef43a5`，外层全仓 `84f59bb4`；原始API与Git blob实际 `98b72738`，19:33旧记录 `1e4ca698` 不作为当前指纹，未推测其来源。原CLI `milestone_complete=false`保留，由本次人工合同审阅判原五条done，未把脚本自动当整体验收。详见 `docs/implementation-checkpoints/M8-1-human-acceptance-closeout-v1.md`。23:41 Linux原完整80/80及nine-kill/自然30分钟/8×469表回滚/32worker实际退出原件核验通过；artifact11276262227官方与实包SHA0b23e623，terminal-audit-v2 SHA ddec055f，平台Python3.13.15/Chromium141.0.7390.37独立登记，evidence-only限制保留，详见同收口报告。
+
+自然日期追加项：同一正式native实例在实际上海2026-10-03完成stage，124动作/48点击、CLI/service0，0初始化/迁移/worker/模型；旧1478证据及132runtime文件全部原SHA不变，旧Run/worker整行不变。阶段通过但complete/passed/natural_boundary_verified均false。HK099今天授权摘要有效，HK152原入库5.000/20.00、当天期初未知；实际10-04 verify仍待执行，原DB、V .venv及Chrome封存，禁止重初始化或改时钟。该追加范围仍留原M8.1补丁单列待测，不造第六故障检查、不计整体验收；原五条门禁收口后按原顺序进入M8.2，技术总目标仍未完成。
+
+
 **2026-10-03 20:10 当前中断与queue窄修**：候选cc42f40已推工作分支，main未变。正式113528原11/19合同通过，80场仅15执行14过/1败；queue-closeout-state替换WinError5使compete无ACK。服务自然3后root核对并停止唯一原场景树，CLI1；独立fr3中断后4过22败、只5/9终止、service0/CLI1，Linux37120178085取消。原件保留，均不记完整通过。全部对应进程收尾后登记PATCH-M8-1-QUEUE-STATE-MUTEX-01，精确四行验证器候选复用原mutex，外部原九项纯文件协议9/9、CLI0；生产不变，新规范60脚本b1ef43a5。新正式80、独立26及Linux完整复验待执行；当前唯一in_progress和原门槛不变。
 
 **2026-10-03 19:33 精确合入与最终完整复验候选**：`fd4v2-20261003T112525Z-2faa82bb` 原四場同次4/4、CLI0/service0/forced=false，18合成/真实外部0；实际worker交接旧fence、原目标/本人新Grant、8原source整事务回滚、依赖事项控制完整通过。首次候选四场2/4的新增身份JOIN误判已按原tenancy修正：真实admin不需UserStore，普通员工仍需本人当前店关联，完整身份行逐次不变。第二轮全部protected_conflicts=[]、原revoke首次200；新增409后只读drain未动态触发，明确未计分支通过。root已保留原件并按完整指纹守卫合入API1e4ca698/两mutexd6a66352与89e0dff2/scenarios50111baf；生产635文件bbe95959、精确60脚本0c343d58。候选分支用于Linux独立点击，主分支仍待全部技术项完成；接续重新执行正式原11+19合同及全部80场、同指纹完整26故障重复，两个run期间全部仓库及V已登记输入冻结。当前唯一in_progress和原完成检查不变。
@@ -3654,7 +3662,7 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 
 **2026-09-29 销售事实补丁范围**：接续远端 `14829c4`，按 `PATCH-M8-1-SALES-01` 核对 v3/v4、当前报价/客户签回/VIN 关系与原 deliver 证据。实现与定向验证进行中；不改 M8.1 状态或原发布检查。
 
-**状态**：in_progress（2026-10-02 本轮代码与浏览器点击交付已收口，原M8.1完整合同及后续环境条件仍保留；M8.4 todo、CP36 not_ready。automatic-business17在76862a92/06d17fb8完整53/53、原CLI0/provider15合成/0真实/0外网，192项已登记功能检查通过，193索引完成；同实例native v3独立22站只读完成、CLI0、业务及原自动证据未改。随后仅维修详情手机布局两展示文件补丁，最终生产2e4b6032/脚本06d17fb8，在新repair-mobile18三宽与实际局部横滚定向通过、服务0/CLI0/provider0/0/0；不冒称最终源码重新完整跑53。HK099真实Date、未执行分支、员工/PG/Linux/真实模型及生产门槛保持，全部正式业务接受false；四生产开关默认关闭。）
+**状态**：done（2026-10-03 本轮原五条故障完成检查逐项满足；追加自然日期子范围仍 waiting_real_D+1，未记其通过，也未迁移归属。后续技术验收继续按各项记录。）
 
 **2026-10-02 main接续补测终局**：业主继续授权未完成测试与GitHub提交，初始main6d2368e工作树干净并已快进同步。按PATCH-M8-1-MAIN-RESUME-TESTS-01补齐真实SSE中断/精确非零seq补读、独立Chrome进程重启登录恢复、M16三宽主卡/抽屉焦点/Tab草稿、M05/M06原768导航及单次trusted wheel右列。原CI36952582341为49/53、失败4；其中HK028原POST409有对应SQLite code5，另登记VEHICLE-IMPORT-PREPARE-WRITER-01，仅改prepare鉴权前get_write_db依赖，不改业务守卫或增加重试。全新main-resume28在生产cf34fb8d05080dd1d3efd89a3e76d156e5045df31540024f7b318c197f8d16da/脚本2e5eb6e6e2b74b099dc68f8698a8b2eb66a66de77db4ea97e3cadba9e0e093e6上selected10/10完整通过、CLI0，2467动作/1056点击、页面异常0、合成17/真实0/外部0。原23–27失败分别保留；后台20条锁日志不当全并发修复。当前41项自动检查不替193接受，Windows定向不继承Linux53。独立源审与结果见docs/implementation-checkpoints/M8-1-main-resume-checkpoint-v1.md，推送后CI结果另记。HK099真实次日active授权到期、PG/Linux进程恢复、员工/101283/生产仍待原条件；M8.1唯一in_progress、M8.4 todo/CP36 not_ready/四关闭开关保持。
 
@@ -3740,11 +3748,11 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 **命令**：`& $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.1`
 
 **完成检查**：
-- [ ] 确认前原业务写入0，资金/库存等重复事实0。
-- [ ] 每个稳定WorkItem最多一个对应有效准备版本；批量无遗漏。
-- [ ] 旧租约不能覆盖新状态；无授权/撤权不能继续或泄露结果。
-- [ ] “业务成功、通知失败”仍呈现真实业务成功；未知写入绝不重放。
-- [ ] 故障重复执行能稳定得到同一断言结果。
+- [x] 确认前原业务写入0，资金/库存等重复事实0。
+- [x] 每个稳定WorkItem最多一个对应有效准备版本；批量无遗漏。
+- [x] 旧租约不能覆盖新状态；无授权/撤权不能继续或泄露结果。
+- [x] “业务成功、通知失败”仍呈现真实业务成功；未知写入绝不重放。
+- [x] 故障重复执行能稳定得到同一断言结果。
 
 **2026-10-02 持续交付补证 v3**：GitHub36976885886对9a6505b的完整原生点击53/53终局success，上传ZIP及635生产/46脚本与Git blob逐项核验完成；192自动业务检查、193/111/70/9覆盖通过，HK099未测/full193=false。新准备提交后独立worker崩溃按PATCH-M8-1-PREPARATION-PROCESS-CRASH-01实施，29仅执行器启动失败保留；修正Windows venv PID后30/31全新外部实例生产cf34fb8d、脚本7a9927bd、47文件相同，各selected1/1完整通过、10动作/3点击、128.66/124.66秒、页面异常0、provider各3合成/真实0/外部0。实际杀原PID非零、Gen2正常0，原90秒租约/30秒退避、同Run/fence与attempt1→2、原pending卡/prepare WorkItem/成功tool整行、连续事件及确认前原业务hash零变均成立；场景与服务0/forced=false，30宿主CLI0直接观察，31宿主退出独立记录缺失，不补造。30保留一条WinError10054关闭回调日志。此项不替完整原故障合同，新增第55场原UI在途停止按PATCH-M8-1-INFLIGHT-STOP-01待动态。审阅及准确边界见M8-1-delivery-continuation-v2。
 
@@ -3760,7 +3768,9 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 ## M8.2 原业务、助手和前端不退化验收
 
-**状态**：implemented（2026-09-30 在原业务/助手/前端三面取得工作区内证据；归档基线 3336 passed / 0 failed /
+**状态**：in_progress（2026-10-03 当前候选全量复验；历史3336/1skip不继承。补齐已implemented早期原合同、新增及原业务/助手/前端精确清单，以实际收集/执行及各平台适用项核对；不能以静态定义数、旧成绩或CI绿灯替代。）
+
+**历史状态（2026-09-30）**：implemented（2026-09-30 在原业务/助手/前端三面取得工作区内证据；归档基线 3336 passed / 0 failed /
 1 skipped 且六项未变指纹全为 true。**不记 `done`**：唯一 skip 为宿主符号链接环境缺口，真实模型、
 PostgreSQL、独立 Linux 与员工试用按计划仍属 M8.3—M8.9）
 

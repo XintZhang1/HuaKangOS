@@ -1,5 +1,8 @@
 # 助手计划收口至待人工验收
 
+2026-10-03 22:50 当前：原M8.1五条故障完成检查由本轮11/19/80及同输入独立26满足，登记done；外层milestone_complete=false原值保留。追加真实Date已D stage但跨日false，同原native/venv/Chrome封存待实际10-04。23:41 Linux原80及nine-kill/自然30分钟/8原事务/32worker退出原件核验通过，SHA ddec055f、独立Linux环境/evidence-only限制保留。唯一M8.2 in_progress，按CURRENT-REGRESSION-01补早期原合同及完整当前基线；main待全部技术目标完成，四生产开关false。
+
+
 负责人 root；2026-10-03。采用 implementation_plan.md 当前 M8.1 及虚拟交付14类缺口审计。业主补充“除了员工试用其他都要完成”，真实模型、PostgreSQL、独立运行/部署环境验证纳入本次技术候选收口；员工实际试用保留人工验收，生产部署未授权。
 
 起点：工作树干净，HEAD/origin/main `7a4f872`；新工作分支 `codex/assistant-human-acceptance`。业主明确授权最终完成后统一上传 main，不部署。

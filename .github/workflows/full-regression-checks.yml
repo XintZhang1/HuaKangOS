@@ -1,0 +1,108 @@
+name: Current isolated regression
+
+on:
+  workflow_dispatch:
+    inputs:
+      capsule_asset_id:
+        description: Frozen source-only draft release asset ID
+        required: true
+        type: string
+      capsule_sha256:
+        description: Full frozen capsule SHA-256
+        required: true
+        type: string
+      mode:
+        description: Collection preparation or registered full validation
+        required: true
+        default: prepare
+        type: choice
+        options: [prepare, full]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: current-regression-${{ github.ref }}-${{ inputs.mode }}
+  cancel-in-progress: false
+
+jobs:
+  regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2025, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+      - name: Verify frozen validation source capsule
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CAPSULE_ASSET_ID: ${{ inputs.capsule_asset_id }}
+          CAPSULE_SHA256: ${{ inputs.capsule_sha256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:CAPSULE_ASSET_ID -notmatch '^[1-9][0-9]*$') { throw 'Invalid asset ID' }
+          if ($env:CAPSULE_SHA256 -notmatch '^[a-f0-9]{64}$') { throw 'Invalid capsule SHA-256' }
+          $taskArchive = Join-Path $env:RUNNER_TEMP 'validation-inputs.zip'
+          $taskRoot = Join-Path $env:RUNNER_TEMP 'v'
+          python -B scripts/package_validation_inputs.py download --asset-id $env:CAPSULE_ASSET_ID --sha256 $env:CAPSULE_SHA256 --output $taskArchive
+          if ($LASTEXITCODE -ne 0) { throw 'Capsule download failed' }
+          python -B scripts/package_validation_inputs.py extract --archive $taskArchive --sha256 $env:CAPSULE_SHA256 --output $taskRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Capsule extraction failed' }
+      - name: Install independent validation runtime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $taskRoot = Join-Path $env:RUNNER_TEMP 'v'
+          $taskBasePython = (python -c "import pathlib,sys; print(pathlib.Path(sys.executable).resolve())").Trim()
+          & $taskBasePython -m venv --copies (Join-Path $taskRoot '.venv')
+          if ($LASTEXITCODE -ne 0) { throw 'Independent venv creation failed' }
+          $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python' }
+          & $taskPython -m pip install -r (Join-Path $taskRoot 'dependencies.lock.txt')
+          if ($LASTEXITCODE -ne 0) { throw 'Frozen dependency installation failed' }
+          & $taskPython -B scripts/package_validation_inputs.py platform --validation-root $taskRoot --repo $env:GITHUB_WORKSPACE
+          if ($LASTEXITCODE -ne 0) { throw 'Actual platform binding failed' }
+      - name: Collect current exact inventory
+        if: inputs.mode == 'prepare'
+        run: |
+          $taskRoot = Join-Path $env:RUNNER_TEMP 'v'
+          $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python' }
+          & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M8.2 --prepare-collection
+          if ($LASTEXITCODE -ne 0) { throw 'Actual collection failed' }
+      - name: Verify strict binding and complete regression
+        if: inputs.mode == 'full'
+        run: |
+          $taskRoot = Join-Path $env:RUNNER_TEMP 'v'
+          $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python' }
+          & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M0.1
+          if ($LASTEXITCODE -ne 0) { throw 'Current strict validation failed' }
+          & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M8.2
+          if ($LASTEXITCODE -ne 0) { throw 'Complete registered regression failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: current-regression-${{ matrix.os }}-${{ github.sha }}-${{ github.run_attempt }}-${{ inputs.mode }}
+          path: |
+            ${{ runner.temp }}/v/runs/**/run.json
+            ${{ runner.temp }}/v/runs/**/validation-manifest.json
+            ${{ runner.temp }}/v/runs/**/reports/**
+            ${{ runner.temp }}/v/runs/**/command-results/**
+            ${{ runner.temp }}/v/harness/runtime-platform.json
+            ${{ runner.temp }}/v/capsule-manifest.json
+            ${{ runner.temp }}/v/capsule-platform-source.json
+            ${{ runner.temp }}/v/capsule-validation-manifest-source.json
+            ${{ runner.temp }}/v/capsule-repository-rebinding.json
+            ${{ runner.temp }}/v/latest*.json
+          retention-days: 7
+          if-no-files-found: warn
