@@ -3774,6 +3774,8 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 01:35追加实际结果：local v5 `20261003T170911Z-3f952e468d` 已完整prepared，3385 pytest及203原独立节点、19命令退出0/no-timeout/drained=true，五输入指纹不变、模型0，phase/milestone_complete仍false、测试执行0。独立CI37139457298 Windows prepare成功待原件精确核对，Linux在任何命令前linked_path_rejected；保留失败，按同补丁改物理版本解释器并实际记录路径，不降低守卫或继承测试通过。M8.2继续in_progress，双平台full未执行。
 
+02:08追加终局审阅：Windows CI37139457298的3385/203精确有序清单与local v5全等，19命令完整0、五输入不变，独立报告SHA77a62e7452fdf4c6d9dc39c2b2c7d06be71915317b5753902e7e4b70ca2fb2b8。Linux窄修新CI37141406296已完整prepared；actual executable与base均物理python3.11，3385/203有序清单与Windows全等，19命令自然0且owned PGID全部drained=true，模型/测试执行0，官方artifact与实际ZIP SHA5ef066db3a7c0d7260b991028982e0aca433e5069da2bbd3d06ec7a57e0a9d50一致，独立报告SHA89f98ca6a67cc1aa512dd5b4af134674bf6fc74d610bd736bf9065d7768d16b7。均仍phase/milestone=false，不继承为full通过。原早期32项精确待执行映射完成，外部表SHA767846de35753a6fad9da9f68c65b5b97ca89860c30e13979daec43179c1252e；仅按已登记原条件在现有ABC/D/E补核心节点，并修strict18/22精确注册及原18pair接线。新v6须再次实际collector，v5不用于新测试执行通过；主分支远端仍7a4f872。
+
 **历史状态（2026-09-30）**：implemented（2026-09-30 在原业务/助手/前端三面取得工作区内证据；归档基线 3336 passed / 0 failed /
 1 skipped 且六项未变指纹全为 true。**不记 `done`**：唯一 skip 为宿主符号链接环境缺口，真实模型、
 PostgreSQL、独立 Linux 与员工试用按计划仍属 M8.3—M8.9）

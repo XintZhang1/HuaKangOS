@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-04 02:08 M8.2：v5双平台实际3385/203有序清单完全一致，19命令自然0/五输入不变/模型0，Linux解释器物理路径与进程组排空已核；仅prepared，测试执行0，旧失败保留。原32项待执行覆盖表查出少数明确原条件，现有ABC/D/E最小补齐及strict18/22/18pair窄修，待新v6 collector/full。main仍7a4f872，真实PG/live/部署与人工试用原门槛保留，见主任务/计划。
+
 2026-10-04 01:35 M8.2实际准备：local v5完整3385/203节点收集、19命令自然0且五指纹不变，测试执行0；独立Windows CI prepare成功待精确比对，Linux启动路径守卫失败且未执行测试命令。修物理python3.11入口并保留clean_path；下一同胶囊Linux独占重试确认实际基础解释器。其余原技术门槛和main边界保持，详见当前主任务。
 
 2026-10-04 当前：原M8.1五条故障完成检查由本轮11/19/80及同输入独立26满足，登记done；外层milestone_complete=false原值保留。追加真实Date已在同原native实际10-03→10-04 verify通过，225动作108点击、CLI/service0、0worker/init/model，两个技术子范围通过；原stage false及193/人工/部署边界保留，终局SHA7571093f。23:41 Linux原80及nine-kill/自然30分钟/8原事务/32worker退出原件核验通过，SHA ddec055f、独立Linux环境/evidence-only限制保留。唯一M8.2 in_progress，按CURRENT-REGRESSION-01补早期原合同及完整当前基线；main待全部技术目标完成，四生产开关false。

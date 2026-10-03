@@ -54,7 +54,7 @@ jobs:
       matrix:
         os: ${{ fromJSON(inputs.linux_only && '["ubuntu-24.04"]' || '["windows-2025","ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 180
+    timeout-minutes: 300
     defaults:
       run:
         shell: pwsh
