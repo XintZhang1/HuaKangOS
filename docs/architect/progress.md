@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-04 M8.2 v15：CI37174392421双平台自然failure，matrix/A/B/C/D通过，E两处失败。上轮修复已实际覆盖；当前按精确补丁区分SAVEPOINT/外层提交，并给原GET故障子进程补有限诊断后复现，不猜修生产。M8.2仍唯一in_progress，完整证据见M8-2-v15-review-v1，当前任务见tasks/m82-regression-closeout.md。
+
 2026-10-04 M8.2 v14自然终局：CI37172219196 Windows B32/33、Linux B33/33及C27/35，两平台只执行4/5个命令，整体failure。回执真实账号投影和问卷截断标记两处生产修复已交叉静审；原B1/C5测试函数合并，v15仅四输入改变，其余797及全部原节点/命令/授权保持。完整双平台实测待执行，M8.2唯一in_progress。见 tasks/m82-regression-closeout.md 和 M8-2-v14-review-v1。
 
 2026-10-04 M8.2 v12已自然终局：Linux/Windows完整回归均failure，只执行4/101命令；B分别32pass/1字段失败与13pass/19快照连接占用setup错误/1字段失败。两处测试适配按事前补丁完成，原生产合同、全部节点和门槛保留。v14独立审阅完成，待完整复跑，当前任务见 `tasks/m82-regression-closeout.md`，不预写通过。

@@ -3878,6 +3878,10 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 ## M8.2 原业务、助手和前端不退化验收
 
+2026-10-04 v16观察候选已静审/独审：仅原E提交观察器及两故障helper变更，外层提交/纯读取嵌套提交仍禁止，原故障与回滚断言保持；有限诊断用于定位尚未知的子进程失败，不宣称已修复。801输入仅五项登记改变，其余796及全部74数组/101命令/授权保持。新包519e60ee、asset609102816已上传并核官方SHA，新指纹完整回归待执行。M8.2唯一in_progress，精确文件与审阅见M8-2-v15-review-v1。
+
+2026-10-04 v15实际终局：CI37174392421/HEAD12371312两平台自然failure；各自matrix1/A25/B33/C35/D14通过，E5pass/2callfail，原v14失败点已覆盖。双平台独审完成：strict Linux22/Windows18、各自collector3407、full只7/101命令、113pass/2fail/3292未执行，五输入不变/自然排空/模型0。按PATCH-M8-2-V15-CHECKPOINT-OBSERVATION-01仅修SAVEPOINT与外层提交的测试观测，及原GET故障子进程有限安全诊断；原因不明不猜修生产。M8.2仍唯一in_progress，其余技术验收继续待完成。精确证据见M8-2-v15-review-v1。
+
 2026-10-04 v14实际终局及v15候选：CI37172219196两平台自然failure，strict Windows18/Linux22、collector3407和matrix1/A25通过；Windows B32pass/1非确定损坏夹具失败，Linux B33pass、C27pass/8fail。仅4/5个命令执行，其余97/96和原203独立节点未执行。按已登记三项精确补丁修复回执真实账号投影、问卷固定截断标记，及B1/C5原测试函数；原权限/撤权/业务零写断言保持。生产交叉静审完成，v15的801输入仅B/C与两份SHA登记改变，其余797及74数组/101命令/授权保留；新双平台full待实际执行。M8.2仍唯一in_progress，原失败及完整证据见M8-2-v14-review-v1。
 
 2026-10-04 v12实际终局：CI37170796831两平台自然failure，strict Linux22/Windows18、完整有序collector3407、matrix1及A25各自通过；B33为Linux32pass/1字段失败，Windows13pass/19快照连接占用setup错误/1同字段失败。只4/101命令执行，其余未执行，不继承为full。按两项CASE-DETAIL-CONTRACT/SNAPSHOT-CONNECTION补丁仅修测试读取原GET data及显式关闭只读SQLite连接；全部节点/74数组/101命令/授权保留，v14冻结801输入仅4项变化。独立静审完成，新完整实跑待收口，M8.2仍唯一in_progress；精确证据见M8-2-v12-contract-review-v1。
