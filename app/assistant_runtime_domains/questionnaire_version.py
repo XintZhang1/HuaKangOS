@@ -70,15 +70,21 @@ class QuestionnaireVersionAdapter(FlowCaseAdapter):
                 or (catalog.get('active_version_id') is not None
                     and not _positive_id(catalog['active_version_id']))):
             _invalid()
+        items = catalog['items']
+        # The original gateway keeps the first 100 entries and appends a fixed marker.
+        if (len(items) == 101 and type(items[-1]) is dict
+                and items[-1] == {'more': '其余记录请缩小查询条件'}):
+            items = items[:-1]
         ids = []
-        for item in catalog['items']:
+        for item in items:
             if (type(item) is not dict or not _positive_id(item.get('id'))
+                    or 'more' in item
                     or item.get('store_id') != store_id or type(item.get('store_id')) is not int):
                 _invalid()
             ids.append(item['id'])
         if len(ids) != len(set(ids)):
             _invalid()
-        matches = [item for item in catalog['items'] if item['id'] == values['id']]
+        matches = [item for item in items if item['id'] == values['id']]
         if not matches:
             # This original directory has no pagination/completeness proof.
             raise HTTPException(503, '最近 200 份目录中无法核对该版本，不能据此认定不存在')

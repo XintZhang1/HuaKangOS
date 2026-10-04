@@ -245,12 +245,13 @@ def _lookup_result(status, reason_code=None, *, objects=None, evidence=None, che
                          reason_code=reason_code)
 
 
-def _owned_lookup_proposal(db, user, session_id, proposal_id):
-    """The already authenticated employee must still own this store/session."""
+def _owned_lookup_context(db, user, session_id, proposal_id):
+    """Check the original identity and project its actual current account."""
     from .business_assistant_models import AssistantProposal
     from .business_assistant_service import owned_session
     from .models import Store, User
-    from .tenancy import role_for_store, single_store
+    from .tenancy import RequestPrincipal, role_for_store, single_store
+    user = _lookup_identity(user)
     store_id = single_store(db)
     scope = db.info.get('store_scope')
     if (type(store_id) is not int or store_id < 1 or type(scope) not in (tuple, list)
@@ -275,7 +276,15 @@ def _owned_lookup_proposal(db, user, session_id, proposal_id):
         AssistantProposal.owner_role == user.role, AssistantProposal.access_version == user.access_version))
     if proposal is None:
         raise HTTPException(404, '当前无法核对这项操作')
-    return proposal
+    native_user = RequestPrincipal(account, user.role, id=user.id,
+        access_version=user.access_version, _active_store_id=store_id,
+        _aggregate_scope=False)
+    return proposal, native_user
+
+
+def _owned_lookup_proposal(db, user, session_id, proposal_id):
+    """The already authenticated employee must still own this store/session."""
+    return _owned_lookup_context(db, user, session_id, proposal_id)[0]
 
 
 async def _visible_flow_case(db, user, case_id, native_reader):
@@ -320,7 +329,7 @@ async def _lookup_receipt_once(db, user, session_id, proposal_id, *, native_read
     require_preparation_read_phase(db)
     with db.no_autoflush:
         try:
-            proposal = _owned_lookup_proposal(db, user, session_id, proposal_id)
+            proposal, native_user = _owned_lookup_context(db, user, session_id, proposal_id)
         except HTTPException as exc:
             if exc.status_code in {401, 403, 404, 409}:
                 return _lookup_result('inaccessible', 'proposal_not_accessible')
@@ -350,7 +359,7 @@ async def _lookup_receipt_once(db, user, session_id, proposal_id, *, native_read
         family = _native_family(snapshot.operation_id)
         if family is not None:
             try:
-                found = await family.lookup_visible(db, user, snapshot, native_reader)
+                found = await family.lookup_visible(db, native_user, snapshot, native_reader)
                 found = ReceiptLookup.model_validate(found)
                 _owned_lookup_proposal(db, user, session_id, proposal_id)
             except HTTPException as exc:
@@ -414,7 +423,7 @@ def _lookup_source(db, user, session_id, proposal_id):
     """Private source signature; never expose the frozen body or old result."""
     from .flow_models import RequestReceipt
     user = _lookup_identity(user)
-    proposal = _owned_lookup_proposal(db, user, session_id, proposal_id)
+    proposal, native_user = _owned_lookup_context(db, user, session_id, proposal_id)
     db.refresh(proposal)
     items = list(db.scalars(select(RunItem).where(RunItem.kind == 'confirmation',
         RunItem.proposal_id == proposal.id).execution_options(populate_existing=True)))
@@ -427,7 +436,7 @@ def _lookup_source(db, user, session_id, proposal_id):
             submission = _checked_snapshot(items[0])
             family = _native_family(submission.operation_id)
             if family is not None:
-                native_source = (family.__name__, family.read_source(db, user, submission))
+                native_source = (family.__name__, family.read_source(db, native_user, submission))
                 command = None
             else:
                 command = _flow_submission(submission)

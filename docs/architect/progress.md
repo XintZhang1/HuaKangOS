@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-04 M8.2 v14自然终局：CI37172219196 Windows B32/33、Linux B33/33及C27/35，两平台只执行4/5个命令，整体failure。回执真实账号投影和问卷截断标记两处生产修复已交叉静审；原B1/C5测试函数合并，v15仅四输入改变，其余797及全部原节点/命令/授权保持。完整双平台实测待执行，M8.2唯一in_progress。见 tasks/m82-regression-closeout.md 和 M8-2-v14-review-v1。
+
 2026-10-04 M8.2 v12已自然终局：Linux/Windows完整回归均failure，只执行4/101命令；B分别32pass/1字段失败与13pass/19快照连接占用setup错误/1字段失败。两处测试适配按事前补丁完成，原生产合同、全部节点和门槛保留。v14独立审阅完成，待完整复跑，当前任务见 `tasks/m82-regression-closeout.md`，不预写通过。
 
 2026-10-04 M8.2：已将三处原UI测试合同按已合入的业主视觉要求适配（PATCH-M8-2-INTEGRATED-UI-CONTRACT-01），原节点/人工入口/安全守卫保留。v12 source-only输入801精确仅三测试和来源记录变化，其余797保持；主manifest a85e20a3及74数组/101命令/101合成授权/10 Linux NA不变。root与独立审阅完成，冻结包e0856fc3、draft9895a246；新的双平台strict/full待实际终局，仍唯一in_progress。上一CI37169614459为主动取消，不记失败或通过，原件外置保留。
