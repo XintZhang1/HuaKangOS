@@ -16,6 +16,10 @@ on:
         required: false
         default: false
         type: boolean
+      windows_only:
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       capsule_asset_id:
@@ -37,6 +41,11 @@ on:
         required: false
         default: false
         type: boolean
+      windows_only:
+        description: Diagnose Windows through the same strict and full validation entry
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -52,7 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(inputs.linux_only && '["ubuntu-24.04"]' || '["windows-2025","ubuntu-24.04"]') }}
+        os: ${{ fromJSON(inputs.windows_only && '["windows-2025"]' || inputs.linux_only && '["ubuntu-24.04"]' || '["windows-2025","ubuntu-24.04"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 300
     defaults:
@@ -76,6 +85,7 @@ jobs:
           VALIDATION_MODE: ${{ inputs.mode }}
         run: |
           $ErrorActionPreference = 'Stop'
+          if ('${{ inputs.windows_only && inputs.linux_only }}' -eq 'true') { throw 'Choose only one platform restriction' }
           if ($env:CAPSULE_ASSET_ID -notmatch '^[1-9][0-9]*$') { throw 'Invalid asset ID' }
           if ($env:CAPSULE_SHA256 -notmatch '^[a-f0-9]{64}$') { throw 'Invalid capsule SHA-256' }
           if ($env:VALIDATION_MODE -notin @('prepare', 'full')) { throw 'Invalid validation mode' }

@@ -22,6 +22,11 @@ on:
         required: false
         default: false
         type: boolean
+      regression_windows_only:
+        description: Diagnose Windows through the same strict and full validation entry
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -40,3 +45,4 @@ jobs:
       capsule_sha256: ${{ inputs.regression_capsule_sha256 }}
       mode: ${{ inputs.regression_mode }}
       linux_only: ${{ inputs.regression_linux_only }}
+      windows_only: ${{ inputs.regression_windows_only }}

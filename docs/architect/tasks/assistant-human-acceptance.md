@@ -1,5 +1,7 @@
 # 助手计划收口至待人工验收
 
+2026-10-04 M8.2 v17：CI37178121548两平台自然failure，分别独审strict22/18、full7/101各114pass/1fail/3292未执行。Linux已越过读取写入故障，停于读取观察25vs24；Windows更早停于未保存PID详情的checkpoint身份校验，不能混同根因。按两项精确补丁仅修E完整有序查询断言及有限身份诊断，保严格校验和全部后置业务守卫；新增默认false的Windows定向入口先取证，最终双平台完整门槛保留。生产不变，M8.2唯一in_progress，详见M8-2-v17-review-v1。
+
 2026-10-04 M8.2 v16：CI37176583479双平台自然failure，各自strict Linux22/Windows18，full只7/101、114pass/1fail/3292未执行；准备故障完整回滚断言已通过。唯一读取恢复失败已定位新WorkItem未先flush即关联已有RunItem的写入次序缺口，按PATCH-M8-2-READ-WORK-FLUSH-01最小修复，原v16全部输入/断言/胶囊保持。两平台证据分别独审，详见M8-2-v16-review-v1；新源码完整复跑待执行，M8.2仍唯一in_progress。
 
 2026-10-04 M8.2：已将三处原UI测试合同按已合入的业主视觉要求适配（PATCH-M8-2-INTEGRATED-UI-CONTRACT-01），原节点/人工入口/安全守卫保留。v12 source-only输入801精确仅三测试和来源记录变化，其余797保持；主manifest a85e20a3及74数组/101命令/101合成授权/10 Linux NA不变。root与独立审阅完成，冻结包e0856fc3、draft9895a246；新的双平台strict/full待实际终局，仍唯一in_progress。上一CI37169614459为主动取消，不记失败或通过，原件外置保留。

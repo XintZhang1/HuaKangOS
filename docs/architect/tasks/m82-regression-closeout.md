@@ -1,5 +1,7 @@
 # M8.2 当前 main 完整回归
 
+2026-10-04 M8.2 v17：CI37178121548两平台自然failure，分别独审strict22/18、full7/101各114pass/1fail/3292未执行。Linux已越过读取写入故障，停于读取观察25vs24；Windows更早停于未保存PID详情的checkpoint身份校验，不能混同根因。按两项精确补丁仅修E完整有序查询断言及有限身份诊断，保严格校验和全部后置业务守卫；新增默认false的Windows定向入口先取证，最终双平台完整门槛保留。生产不变，M8.2唯一in_progress，详见M8-2-v17-review-v1。
+
 负责人 root；当前唯一实施项 M8.2。main 整合和分支清理已经完成，旧工作区的业主界面改动已合入，原脏工作区保留。
 
 2026-10-04 M8.2 v16：CI37176583479双平台自然failure，各自strict Linux22/Windows18，full只7/101、114pass/1fail/3292未执行；准备故障完整回滚断言已通过。唯一读取恢复失败已定位新WorkItem未先flush即关联已有RunItem的写入次序缺口，按PATCH-M8-2-READ-WORK-FLUSH-01最小修复，原v16全部输入/断言/胶囊保持。两平台证据分别独审，详见M8-2-v16-review-v1；新源码完整复跑待执行，M8.2仍唯一in_progress。
