@@ -1,5 +1,7 @@
 # 助手计划收口至待人工验收
 
+2026-10-04 M8.2 v16：CI37176583479双平台自然failure，各自strict Linux22/Windows18，full只7/101、114pass/1fail/3292未执行；准备故障完整回滚断言已通过。唯一读取恢复失败已定位新WorkItem未先flush即关联已有RunItem的写入次序缺口，按PATCH-M8-2-READ-WORK-FLUSH-01最小修复，原v16全部输入/断言/胶囊保持。两平台证据分别独审，详见M8-2-v16-review-v1；新源码完整复跑待执行，M8.2仍唯一in_progress。
+
 2026-10-04 M8.2：已将三处原UI测试合同按已合入的业主视觉要求适配（PATCH-M8-2-INTEGRATED-UI-CONTRACT-01），原节点/人工入口/安全守卫保留。v12 source-only输入801精确仅三测试和来源记录变化，其余797保持；主manifest a85e20a3及74数组/101命令/101合成授权/10 Linux NA不变。root与独立审阅完成，冻结包e0856fc3、draft9895a246；新的双平台strict/full待实际终局，仍唯一in_progress。上一CI37169614459为主动取消，不记失败或通过，原件外置保留。
 
 2026-10-04 整合已落远端main `f1b6d74`，PR #16已实际merged；GitHub运维CI `37169424850`已success。其余6个本地及3个远端分支已核祖先后删除；E旧工作区在原7a4f872脱离分支，tracked差异和untracked状态逐字节保持，未删除任何工作区。Cutie #14/#15已按当前复验证据关闭。恢复不含浏览器任务的手动回归入口，接续当前main同指纹M8.2完整双平台回归，后续技术门槛与员工试用边界保持。

@@ -3878,6 +3878,8 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 ## M8.2 原业务、助手和前端不退化验收
 
+2026-10-04 M8.2 v16：CI37176583479双平台自然failure，各自strict Linux22/Windows18，full只7/101、114pass/1fail/3292未执行；准备故障完整回滚断言已通过。唯一读取恢复失败已定位新WorkItem未先flush即关联已有RunItem的写入次序缺口，按PATCH-M8-2-READ-WORK-FLUSH-01最小修复，原v16全部输入/断言/胶囊保持。两平台证据分别独审，详见M8-2-v16-review-v1；新源码完整复跑待执行，M8.2仍唯一in_progress。
+
 2026-10-04 v16观察候选已静审/独审：仅原E提交观察器及两故障helper变更，外层提交/纯读取嵌套提交仍禁止，原故障与回滚断言保持；有限诊断用于定位尚未知的子进程失败，不宣称已修复。801输入仅五项登记改变，其余796及全部74数组/101命令/授权保持。新包519e60ee、asset609102816已上传并核官方SHA，新指纹完整回归待执行。M8.2唯一in_progress，精确文件与审阅见M8-2-v15-review-v1。
 
 2026-10-04 v15实际终局：CI37174392421/HEAD12371312两平台自然failure；各自matrix1/A25/B33/C35/D14通过，E5pass/2callfail，原v14失败点已覆盖。双平台独审完成：strict Linux22/Windows18、各自collector3407、full只7/101命令、113pass/2fail/3292未执行，五输入不变/自然排空/模型0。按PATCH-M8-2-V15-CHECKPOINT-OBSERVATION-01仅修SAVEPOINT与外层提交的测试观测，及原GET故障子进程有限安全诊断；原因不明不猜修生产。M8.2仍唯一in_progress，其余技术验收继续待完成。精确证据见M8-2-v15-review-v1。

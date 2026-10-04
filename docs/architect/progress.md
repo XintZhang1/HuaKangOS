@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-04 M8.2 v16：CI37176583479双平台自然failure，各自strict Linux22/Windows18，full只7/101、114pass/1fail/3292未执行；准备故障完整回滚断言已通过。唯一读取恢复失败已定位新WorkItem未先flush即关联已有RunItem的写入次序缺口，按PATCH-M8-2-READ-WORK-FLUSH-01最小修复，原v16全部输入/断言/胶囊保持。两平台证据分别独审，详见M8-2-v16-review-v1；新源码完整复跑待执行，M8.2仍唯一in_progress。
+
 2026-10-04 M8.2 v15：CI37174392421双平台自然failure，matrix/A/B/C/D通过，E两处失败。上轮修复已实际覆盖；当前按精确补丁区分SAVEPOINT/外层提交，并给原GET故障子进程补有限诊断后复现，不猜修生产。M8.2仍唯一in_progress，完整证据见M8-2-v15-review-v1，当前任务见tasks/m82-regression-closeout.md。
 
 2026-10-04 M8.2 v14自然终局：CI37172219196 Windows B32/33、Linux B33/33及C27/35，两平台只执行4/5个命令，整体failure。回执真实账号投影和问卷截断标记两处生产修复已交叉静审；原B1/C5测试函数合并，v15仅四输入改变，其余797及全部原节点/命令/授权保持。完整双平台实测待执行，M8.2唯一in_progress。见 tasks/m82-regression-closeout.md 和 M8-2-v14-review-v1。

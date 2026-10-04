@@ -1362,6 +1362,7 @@ def _accept_read_work(db, principal, item_id, intent, *, clock=None):
                 operation_id=intent['operation_id'], validated_intent=deepcopy(intent), source_refs=[],
                 status='planned', version=1, created_at=now, updated_at=now)
             db.add(work)
+            _flush(db)  # Source exists before the same-transaction RunItem foreign key link.
         item.work_item_id = work.id
         _finish_write(db, principal, clock)
     except Exception:
