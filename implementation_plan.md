@@ -3878,6 +3878,8 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 ## M8.2 原业务、助手和前端不退化验收
 
+2026-10-04 M8.2：已将三处原UI测试合同按已合入的业主视觉要求适配（PATCH-M8-2-INTEGRATED-UI-CONTRACT-01），原节点/人工入口/安全守卫保留。v12 source-only输入801精确仅三测试和来源记录变化，其余797保持；主manifest a85e20a3及74数组/101命令/101合成授权/10 Linux NA不变。root与独立审阅完成，冻结包e0856fc3、draft9895a246；新的双平台strict/full待实际终局，仍唯一in_progress。上一CI37169614459为主动取消，不记失败或通过，原件外置保留。
+
 GitHub旧浏览器workflow372700203已实际disabled_manually，避免main尚未合并时旧Playwright任务继续触发；无浏览器定义先推工作分支，最终main合并后再恢复手动入口。本次保持暂停，不重新调度，不以停用/取消替代原门槛。
 
 **2026-10-04 业主暂停与CI调整**：按即时指令删除 GitHub Playwright 浏览器任务/安装/执行/artifact及push/PR触发；同原已注册workflow路径保留手动独立回归调用，101命令、冻结节点/授权和原full reusable不变。本地浏览器验证及全部原技术门槛保留。v11 CI37166765070/HEAD78638d6按暂停请求completed/cancelled，不计full或通过；未继续启动验证。YAML解析、caller参数映射、全部workflow无剩余Playwright/浏览器执行及diff检查通过。M8.2仍in_progress但工作按业主暂停，等待继续；main尚未上传。见PATCH-M8-2-CURRENT-REGRESSION-01与AGENTS最新授权。
