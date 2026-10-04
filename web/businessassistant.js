@@ -4,6 +4,23 @@
 let businessAssistantState;
 function freshBusinessAssistantState(){return {context:null,generation:0,controllers:new Set(),status:null,sessions:[],session:null,issues:[],tab:'chat',draft:'',error:'',busy:false,needsRefresh:false,retry:null,files:null,thinking:false,stream:null,cards:{},folded:{},panelFolded:false,answers:{},lastAction:null,queueFilter:'pending',activeCardId:null,historyOpen:false,mobilePane:'chat',receipt:null,workboard:null,workPlanId:null,workError:'',workLoading:false,workSerial:0,runtimeFeatures:null,runId:null,runView:null,runSubscription:null,runStop:'',handoffChoice:null,switchIntent:null};}
 function businessAssistantWorkspaceModule(){return globalThis.AssistantWorkspace||null;}
+// Fixed, decorative icons only. Button names remain the visible Chinese text.
+function businessAssistantControlIcon(name){
+ const paths={
+  new:'M10 4v12M4 10h12',
+  history:'M4.2 5.1A7 7 0 1 1 3 10M3 3v4h4M10 6v4l3 2',
+  chat:'M4 3h12a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H8l-5 3V4a1 1 0 0 1 1-1Z',
+  files:'M11 3H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8l-5-5ZM11 3v5h5M7 11h6M7 14h6',
+  issues:'M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM10 6v5M10 14h.01',
+  attach:'m7 10 5-5a3 3 0 0 1 4 4l-7 7a4 4 0 0 1-6-6l7-7M6 11l6-6',
+  thinking:'m10 2 2.2 5.8L18 10l-5.8 2.2L10 18l-2.2-5.8L2 10l5.8-2.2L10 2Z',
+  send:'M10 16V4M5 9l5-5 5 5',
+  stop:'M5 5h10v10H5Z',
+  refresh:'M16 7a6 6 0 0 0-10-3L3 7M3 3v4h4M4 13a6 6 0 0 0 10 3l3-3M17 17v-4h-4',
+  folder:'M3 5h5l2 2h7v9H3V5Z'
+ };
+ return paths[name]?`<svg class="ba-control-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="${paths[name]}"></path></svg>`:'';
+}
 function businessAssistantAnswers(id){const key=String(id);if(!businessAssistantState.answers[key])businessAssistantState.answers[key]={};return businessAssistantState.answers[key];}
 function businessAssistantCardQuestions(proposal){
  const questions=Array.isArray(proposal?.questions)?proposal.questions:[];
@@ -350,7 +367,18 @@ async function businessAssistantNewMatter(){
 }
 function businessAssistantCompose(){
  const current=businessAssistantState,ready=current.status?.ready&&!current.session?.busy&&!current.needsRefresh,disabled=current.busy||!ready;
- return `<form class="ba-compose" id="business-assistant-form"><label class="ba-input-label" for="business-assistant-input">说说要办的事</label><textarea id="business-assistant-input" name="message" rows="3" maxlength="${Number(current.status?.limits?.max_message_chars)||6000}" placeholder="例如：给张先生安排明天下午的回访" ${current.busy||current.retry?'readonly':''}>${E(current.draft)}</textarea><div class="ba-compose-bottom"><div class="row ba-compose-tools"><button type="button" data-baf-action="open" ${current.busy||current.retry?"disabled":""}>从文件填表</button><button type="button" class="ba-thinking-toggle" data-ba-action="thinking" role="switch" aria-checked="${current.thinking}" ${current.busy||current.retry?'disabled':''}>思考：${current.thinking?'开':'关'}</button><span class="ba-keyboard">Enter 发送 · Shift + Enter 换行</span></div><div class="row">${businessAssistantStopButtonHTML()}<button type="submit" class="primary" ${disabled||!current.draft.trim()?'disabled':''}>${current.busy?'处理中…':current.retry?'重试':'发送'}</button></div></div></form>`;
+ return `<form class="ba-compose" id="business-assistant-form">
+  <label class="ba-input-label" for="business-assistant-input">说说要办的事</label>
+  <textarea id="business-assistant-input" name="message" rows="3" aria-describedby="ba-compose-help" maxlength="${Number(current.status?.limits?.max_message_chars)||6000}" placeholder="例如：给张先生安排明天下午的回访" ${current.busy||current.retry?'readonly':''}>${E(current.draft)}</textarea>
+  <div class="ba-compose-bottom">
+   <div class="row ba-compose-tools" role="group" aria-label="对话输入工具">
+    <button type="button" class="ba-control ba-control-secondary" data-baf-action="open" ${current.busy||current.retry?'disabled':''}>${businessAssistantControlIcon('attach')}<span>从文件填表</span></button>
+    <button type="button" class="ba-control ba-control-secondary ba-thinking-toggle" data-ba-action="thinking" role="switch" aria-checked="${current.thinking}" ${current.busy||current.retry?'disabled':''}>${businessAssistantControlIcon('thinking')}<span>思考：${current.thinking?'开':'关'}</span></button>
+   </div>
+   <div class="row ba-compose-actions">${businessAssistantStopButtonHTML()}<button type="submit" class="primary ba-control ba-control-primary ba-control-send" ${disabled||!current.draft.trim()?'disabled':''}>${businessAssistantControlIcon('send')}<span>${current.busy?'处理中…':current.retry?'重试':'发送'}</span></button></div>
+  </div>
+  <p class="ba-keyboard ba-compose-help" id="ba-compose-help">Enter 发送 · Shift + Enter 换行</p>
+ </form>`;
 }
 function businessAssistantChat(){
  const current=businessAssistantState;
@@ -367,11 +395,29 @@ function businessAssistantWorkspace(){
 }
 function businessAssistantIssues(){
  const categories={input:'资料填写',rule:'业务限制',system:'操作问题',model:'助手理解',unsupported:'尚不支持'};
- return `<section class="ba-issues"><div class="spread"><h2>问题清单</h2><div class="row"><button type="button" data-ba-action="report" ${!businessAssistantState.session||businessAssistantState.busy?'disabled':''}>记录问题</button><button type="button" data-ba-action="export-issues">导出</button></div></div>${businessAssistantState.issues.length?businessAssistantState.issues.map(issue=>`<article class="ba-issue"><div class="spread"><span class="pill info">${E(categories[issue.category]||'操作问题')}</span><span class="ba-date">${E(time(issue.created_at))}</span></div><p class="ba-text">${E(issue.summary)}</p>${issue.session_id?`<button type="button" class="link" data-ba-action="issue-session" data-id="${E(issue.session_id)}">查看对话</button>`:''}</article>`).join(''):empty('还没有记录问题')}</section>`;
+ return `<section class="ba-issues"><div class="spread"><h2>问题清单</h2><div class="row"><button type="button" class="ba-control ba-control-primary" data-ba-action="report" ${!businessAssistantState.session||businessAssistantState.busy?'disabled':''}>${businessAssistantControlIcon('new')}<span>记录问题</span></button><button type="button" class="ba-control ba-control-secondary" data-ba-action="export-issues">导出</button></div></div>${businessAssistantState.issues.length?businessAssistantState.issues.map(issue=>`<article class="ba-issue"><div class="spread"><span class="pill info">${E(categories[issue.category]||'操作问题')}</span><span class="ba-date">${E(time(issue.created_at))}</span></div><p class="ba-text">${E(issue.summary)}</p>${issue.session_id?`<button type="button" class="link" data-ba-action="issue-session" data-id="${E(issue.session_id)}">查看对话</button>`:''}</article>`).join(''):empty('还没有记录问题')}</section>`;
 }
 function businessAssistantHTML(){
  const current=businessAssistantState;
- return heading('业务助手','',`<button type="button" data-ba-action="refresh" ${current.busy?'disabled':''}>刷新结果</button>`)+`<section class="ba-layout" id="business-assistant"><div class="ba-toolbar"><div class="row"><button type="button" data-ba-action="new" ${current.busy?'disabled':''}>新对话</button><button type="button" data-ba-action="history" aria-expanded="${current.historyOpen}">历史对话（${current.sessions.length}）</button><span class="ba-current-title">${E(current.session?.title||'新对话')}</span></div><select class="ba-view-select" id="ba-view-select" aria-label="助手功能"><option value="chat" ${current.tab==='chat'?'selected':''}>办理业务</option><option value="files" ${current.tab==='files'?'selected':''}>资料整理</option><option value="issues" ${current.tab==='issues'?'selected':''}>问题清单</option></select><div class="ba-tabs"><button type="button" data-ba-action="chat" class="${current.tab==='chat'?'selected':''}">办理业务</button><button type="button" data-baf-action="open" ${current.busy||current.retry?'disabled':''}>资料整理</button><button type="button" data-ba-action="issues" ${current.busy?'disabled':''}>问题清单</button></div></div>${current.historyOpen?`<nav class="ba-history-popover" aria-label="历史对话"><div class="ba-sessions">${current.sessions.map(session=>`<button type="button" data-ba-action="session" data-id="${E(session.id)}" class="${current.session?.id===session.id?'selected':''}" ${current.busy?'disabled':''}><span>${E(session.title||'新对话')}${session.busy?' · 处理中':''}</span><time>${E(time(session.updated_at||session.created_at))}</time></button>`).join('')||'<p>暂无历史对话。</p>'}</div></nav>`:''}<div class="ba-body">${current.tab==='files'&&typeof businessAssistantFilesHTML==='function'?businessAssistantFilesHTML():current.tab==='issues'?businessAssistantIssues():businessAssistantWorkspace()}</div></section>`;
+ return heading('业务助手','',`<button type="button" class="ba-control ba-control-secondary" data-ba-action="refresh" ${current.busy?'disabled':''}>${businessAssistantControlIcon('refresh')}<span>刷新结果</span></button>`)+`<section class="ba-layout" id="business-assistant">
+  <div class="ba-toolbar">
+   <div class="row ba-session-tools" role="group" aria-label="会话操作">
+    <button type="button" class="ba-control ba-control-primary" data-ba-action="new" ${current.busy?'disabled':''}>${businessAssistantControlIcon('new')}<span>新对话</span></button>
+    <button type="button" class="ba-control ba-control-secondary" data-ba-action="history" aria-expanded="${current.historyOpen}" aria-controls="ba-history-popover">${businessAssistantControlIcon('history')}<span>历史对话（${current.sessions.length}）</span></button>
+    <span class="ba-current-title">${E(current.session?.title||'新对话')}</span>
+   </div>
+   <div class="ba-view-tools">
+    <select class="ba-view-select" id="ba-view-select" aria-label="助手功能"><option value="chat" ${current.tab==='chat'?'selected':''}>办理业务</option><option value="files" ${current.tab==='files'?'selected':''}>资料整理</option><option value="issues" ${current.tab==='issues'?'selected':''}>问题清单</option></select>
+    <div class="ba-tabs" role="group" aria-label="助手功能">
+     <button type="button" data-ba-action="chat" class="ba-control ba-control-tab ${current.tab==='chat'?'selected':''}" aria-pressed="${current.tab==='chat'}" aria-controls="ba-body">${businessAssistantControlIcon('chat')}<span>办理业务</span></button>
+     <button type="button" data-baf-action="open" class="ba-control ba-control-tab ${current.tab==='files'?'selected':''}" aria-pressed="${current.tab==='files'}" aria-controls="ba-body" ${current.busy||current.retry?'disabled':''}>${businessAssistantControlIcon('files')}<span>资料整理</span></button>
+     <button type="button" data-ba-action="issues" class="ba-control ba-control-tab ${current.tab==='issues'?'selected':''}" aria-pressed="${current.tab==='issues'}" aria-controls="ba-body" ${current.busy?'disabled':''}>${businessAssistantControlIcon('issues')}<span>问题清单</span></button>
+    </div>
+   </div>
+  </div>
+  <nav class="ba-history-popover" id="ba-history-popover" aria-label="历史对话" ${current.historyOpen?'':'hidden'}>${current.historyOpen?`<div class="ba-sessions">${current.sessions.map(session=>`<button type="button" data-ba-action="session" data-id="${E(session.id)}" class="${current.session?.id===session.id?'selected':''}" ${current.busy?'disabled':''}><span>${E(session.title||'新对话')}${session.busy?' · 处理中':''}</span><time>${E(time(session.updated_at||session.created_at))}</time></button>`).join('')||'<p>暂无历史对话。</p>'}</div>`:''}</nav>
+  <div class="ba-body" id="ba-body">${current.tab==='files'&&typeof businessAssistantFilesHTML==='function'?businessAssistantFilesHTML():current.tab==='issues'?businessAssistantIssues():businessAssistantWorkspace()}</div>
+ </section>`;
 }
 async function businessAssistantPage(){
  if(state.store==='all')return heading('业务助手')+storeNotice();
@@ -436,8 +482,8 @@ function businessAssistantRunText(status){return status==='succeeded'?'本次准
 function businessAssistantStopButtonHTML(){
  const current=businessAssistantState;
  const canCancel=current.runId&&Array.isArray(current.runView?.allowed_actions)&&current.runView.allowed_actions.includes('cancel');
- if(canCancel)return '<button type="button" data-ba-action="stop">停止本次准备</button>';
- return current.busy&&!current.runId?'<button type="button" data-ba-action="stop">停止等待</button>':'';
+ if(canCancel)return `<button type="button" class="ba-control ba-control-stop" data-ba-action="stop">${businessAssistantControlIcon('stop')}<span>停止本次准备</span></button>`;
+ return current.busy&&!current.runId?`<button type="button" class="ba-control ba-control-stop" data-ba-action="stop">${businessAssistantControlIcon('stop')}<span>停止等待</span></button>`:'';
 }
 function businessAssistantWatchRuntimeRun(runId){
  const runtime=globalThis.AssistantRuntime,current=businessAssistantState;

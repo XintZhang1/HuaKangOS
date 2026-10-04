@@ -1,8 +1,8 @@
 # HuaKangOS · 华慷集团
 
-当前开发分支为 `main`；2026-10-02 已将 `feature/assistant-agent-runtime` 快进合入并推送主分支。核心 Runtime 实现及 M8.1/M8.2 收口记录见 [实施计划](implementation_plan.md)；历史源码候选和新实现不能混为生产验收。
+本轮按业主要求整合业务助手、Cutie/DeepSeek 运维修复与旧工作区界面改动，检查后统一进入 `main`。当前里程碑、实际验收和剩余事项只查 [实施计划](implementation_plan.md)；源码合并不代表生产验收。
 
-2026-09-30 按业主要求重新组织测试：旧测试与旧套件 CI 移出工作区，新验证以 [浏览器实际点击](tests/browser_click/README.md) 为入口，使用当前源码、原登录和业务 API、仓库外合成数据库及离线模型响应。2026-10-04 按业主最新要求，Playwright 浏览器任务已移出 GitHub CI，浏览器验证在本地隔离环境执行；CI 保留手动触发的独立回归。运行截图、日志和密码不进入仓库。PostgreSQL、真实模型、员工试用等门槛仍按计划保留。
+2026-09-30 按业主要求重新组织测试：旧测试与旧套件 CI 移出工作区，新验证以 [浏览器实际点击](tests/browser_click/README.md) 为入口，使用当前源码、原登录和业务 API、仓库外合成数据库及离线模型响应。2026-10-04 按业主最新要求，Playwright 浏览器任务已移出 GitHub CI，浏览器验证在本地隔离环境执行；CI 保留手动触发的 Windows/Linux 独立回归，并在相关 PR 或 main 改动上运行 Python/Node 运维合成检查；两者均不依赖浏览器、真实模型凭据或公司服务。运行截图、日志和密码不进入仓库。PostgreSQL、真实模型、员工试用等门槛仍按计划保留。
 
 历史业务源码基线为 R4-B1-20260927，迁移头 `h52j_assistant_work_plans`。当前分支另已追加 `h53k_assistant_runtime`；迁移文件存在不代表已有数据库已升级。原多门店业务、岗位待办、库存/财务/会员记账、人工确认与本地 MCP 接入继续保留。
 
@@ -20,6 +20,8 @@ Python 3.11–3.13。Windows 双击 `start-preview.cmd`，按提示打开本地�
 - [业务助手交接](docs/业务助手交接.md)
 - [R4 实现与验收边界](docs/R4-B1-实现与验收说明.md)
 - [本地 MCP 接入](docs/R4-B1-MCP接入说明.md)
+- [独立运维反馈服务与历史试运行](docs/阿里云试运行与运维助手.md)及[运维隔离检查](tests/ops_review/run_isolated.py)
+- [2026-10-04 来源整合范围](docs/implementation-patches/PATCH-INTEGRATION-20261004-01.md)
 - [交付说明](docs/交付说明.md)
 - [原始需求](docs/原始功能需求表.docx)与[工作流手册](docs/全量工作流手册.html)
 - [检查点](CHECKPOINT_STATUS.json)与[开发约束](AGENTS.md)

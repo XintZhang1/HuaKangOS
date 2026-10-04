@@ -1,6 +1,8 @@
 # HuaKangOS 实施计划：单项实施与检查点审阅版
 
-**2026-10-04 当前验证执行点**：M8.1原故障门禁及自然D/D+1完成；四个缺失业务合同、M2.6最终回执及M7.3.3真实结果ID窄修均implemented/独立静审。M8.2唯一in_progress，业主即时暂停并要求删除GitHub Playwright任务；v11已cancelled，手动回归/本地浏览器门槛保留，等待继续。CP24/28仍仅implementation_released，员工试用以外技术门槛与最终main上传义务保持。
+**2026-10-04 当前授权与执行：业主已要求继续，先整合 main、Cutie/DeepSeek review、业务助手新增提交和 E 旧工作区正式 UI，检查后合入 main 并清理其它分支；随后完成员工试用之外的全部技术门槛。CI 允许使用 GitHub 可运行的依赖。按 PATCH-INTEGRATION-20261004-01 实施，M8.2 仍唯一 in_progress；下文暂停、旧合并顺序和运维旧部署均为历史，未继承为本次验证。**
+
+2026-10-04 整合检查完成：运维隔离28 Python/3 Node、当前原生UI10/10均实际通过，两个Cutie问题复验通过；旧工作区正式UI已按差异合入并保留当前守卫。源/脚本指纹、范围及证据见 docs/implementation-checkpoints/2026-10-04-integration-review-v1.md。按最新授权提交整合到main并清理已保留的分支，随后继续M8.2完整回归及其余技术项；不将此整合检查写成全项目通过。
 
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
@@ -3719,6 +3721,10 @@ $ValidationPython = "$ValidationRoot/.venv/Scripts/python.exe"
 11定向三场同次全部通过，CLI0、service0/forced=false，时长20.95/50.67/28.17秒；原目标变更/本人恢复、原201后outbox CAS自然恢复、8真实来源500整行回滚及精准5xx账本均完整成立。源码`6fcabf8ec64e694fd04779fd8b23137fc89fed0fad5fa9a1c5222074c005fa4d`、60脚本`de3b8cb113ef954815d948f958e32293204b7b0d1226f6ed8b190e05f8756b33`，镜像稳定；16合成模型/真实0/外部0，证据`V/browser-click/closeout-contracts-11/evidence`，固定故障日志原件保留。接续正式V M8.1原合同+完整80场和独立同指纹故障重复；全部仓库与V输入冻结，仍不把定向片段等同整项通过。
 
 正式`20261003T063440Z-a81cad3a6a`整体失败且CLI1已退出：旧两后端合同11/19节点实际通过，Chrome启动拒绝使80场执行0。配对纯ctypes fresh进程证明fake USERPROFILE缺AppData/Local与Roaming；按PATCH-M8-1-WINDOWS-SHELL-PROFILE-01仅补V adapter的当前独占profile输出目录及其登记指纹，保留原env/Chrome/隔离守卫。独立26故障复跑使用原生产/60脚本继续冻结，不依赖该adapter；正式修复审阅后整体重跑，不拼旧部分成绩。
+
+**2026-10-03 新授权独立交付**：业主明确要求先部署阿里云，再实现后台运维队列，并选择独立试运行＋SSH隧道；另提供仓库外 DeepSeek 凭据用于部署后的真实运维测试。精确范围见 PATCH-M8-ALIYUN-OPS-01，任务见 `docs/architect/tasks/aliyun-ops.md`。新授权覆盖本轮旧的禁止部署/真实运维模型调用限制，保留原业务确认与正式验收门槛。基线 7a4f872 已在全新云端目录/空库实际启动，h53k 迁移及16项HTTP检查通过；意见入口和独立 context/memory/MCP/Workflow Engine 已落盘并独立审阅，浏览器原生登录/填写/提交/回执与390/1440显示通过，云端模型/邮件全链路接续验证。M8.1 仍唯一 in_progress，不据本交付将原 M8.3—M8.10 或193/101/283门槛记通过；四业务开关关闭。
+
+**本次独立交付终局**：代码14c49d5、context19a9428e在阿里云已部署；HTTP/MCP安全33/33。第一条真实分析因工具预算失败而未发信，修复收束并经reviewer显式同job重试后，DeepSeek成功轮5次请求/8工具、真实QQ SMTP接收一封改动邮件，当前awaiting_cutie。重启worker/mail后无新增模型调用/邮件，四服务active、508源码哈希核对；Git bundle交Cutie独立审阅改动提PR，root未推送/提PR/合并。详任务及外置 `aliyun-ops-20261003-03/deployment-result.json`；不继承为原M8正式验收或Cutie完成证据。
 
 **2026-10-01 本轮51场景接续**：49/c9c4e36b/5df15f59四run全收尾，新套餐/PDI/精品报表各整场通过；返修接车后同hash与HK190集团首页两个装置误配已精确修正，回访close仅恢复次要展示。金融6/库存1独立静态审查后注册51/43，源9a989e45/脚本088aab82；新四闭包17/10/11/6待终局，生产/注册/runner冻结。三正应收及152/153新真实来源候选未注册；旧partial及失败原样保留。M8.1仍in_progress，业务人工0/full193false，M8.4/CP36及原外部门槛保持，详情v6最新。
 

@@ -222,6 +222,10 @@ async def rejected_submit(e, path, status, text, *, method="POST"):
 
 
 async def nav(e, route, title, path):
+    # The original statistics entry now opens charts and a retained report directory.
+    analytics = route == "module/analytics"
+    if analytics:
+        route, title = "analytics/overview", "数据可视化"
     sidebar = e.page.locator(".sidebar")
     if not await sidebar.is_visible():
         await e.click('[data-act="menu"]', "打开原窄屏业务导航")
@@ -246,6 +250,13 @@ async def nav(e, route, title, path):
         data = await response.json()
         require(response.status == 200, "原业务页面读取失败")
     await expect(e.page.locator("#main h1")).to_have_text(title)
+    if analytics:
+        await expect(e.page.locator("#main > .loading")).to_have_count(0)
+        directory = e.page.locator(".analytics-report-directory")
+        await expect(directory).to_have_count(1)
+        if await directory.get_attribute("open") is None:
+            await e.click('.analytics-report-directory > summary', "展开数据可视化内的报表与专题")
+        await expect(e.page.locator("#mux-query")).to_be_visible()
     e.business_unchanged(before, "original_after_vehicle_navigation")
     return data
 

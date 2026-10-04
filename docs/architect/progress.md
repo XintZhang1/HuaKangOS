@@ -1,5 +1,9 @@
 # 当前交付任务
 
+2026-10-04 整合检查完成：运维隔离28 Python/3 Node、当前原生UI10/10均实际通过，两个Cutie问题复验通过；旧工作区正式UI已按差异合入并保留当前守卫。源/脚本指纹、范围及证据见 docs/implementation-checkpoints/2026-10-04-integration-review-v1.md。按最新授权提交整合到main并清理已保留的分支，随后继续M8.2完整回归及其余技术项；不将此整合检查写成全项目通过。
+
+2026-10-04 当前授权与执行：业主已要求继续，先整合 main、Cutie/DeepSeek review、业务助手新增提交和 E 旧工作区正式 UI，检查后合入 main 并清理其它分支；随后完成员工试用之外的全部技术门槛。CI 允许使用 GitHub 可运行的依赖。按 PATCH-INTEGRATION-20261004-01 实施，M8.2 仍唯一 in_progress；下文暂停、旧合并顺序和运维旧部署均为历史，未继承为本次验证。
+
 GitHub旧浏览器workflow372700203已实际disabled_manually，避免main尚未合并时旧Playwright任务继续触发；无浏览器定义先推工作分支，最终main合并后再恢复手动入口。本次保持暂停，不重新调度。
 
 2026-10-04 业主即时暂停：GitHub Playwright浏览器job及自动触发已删除，手动独立回归与本地浏览器验收保留；v11 CI37166765070已cancelled，不计通过。静态YAML/caller合同/diff检查通过。M8.2等待业主继续，main按全技术完成后的原合并条件保留。
@@ -46,6 +50,11 @@ M8.2 v8窄修已独立静态审阅，801输入仅生成器及其两份来源SHA�
 2026-10-03 19:00 接续终局：正式原后端11/11、19/19通过，完整原生80场75通过/5失败，CLI1、服务3自然关闭未强杀；日志确证worker-state替换WinError5，整体未放行。独立旧指纹26故障重复全部通过，不继承到新源码。取消卡片实际code5缺陷的既有get_write_db窄候选五场5/5；worker观察锁与一次员工重核前的只读来源收尾候选正在同M8.1组合复验。全部技术门槛纳入用户最新范围，仅实际员工试用待人工；详见主任务和实施计划，不并行实施其它里程碑。
 
 2026-10-03 接续：业主要求按实施计划收口全部助手当前计划至待人工验收，修复 Cutie #14/#15，最终统一上传 main。当前唯一进行项仍 M8.1；实际起点7a4f872/origin main、工作树干净。入口 [assistant-human-acceptance](tasks/assistant-human-acceptance.md)，分别委派同项队列、确认回执和跟进缺口，不并开里程碑。当前正在补14类可合成合同及窄屏/SQLite复验，未预写完整通过；原PG/live/员工/生产门槛保留。下方各日期记录是各轮历史。
+
+| 任务 id | 目标 | 负责人 | 记录 |
+|---|---|---|---|
+| aliyun-ops | 阿里云独立试运行及后台运维队列，Cutie review/PR | root | [aliyun-ops](tasks/aliyun-ops.md) |
+| ops-first-review | 原job/release核验、独立修复、合成测试及draft PR | Cutie/Codex root | [ops-first-review](tasks/ops-first-review.md) |
 
 2026-10-01最新终局（各run独立，不拼成绩）：source919e35d6/script e4fdd8a9 四实例均complete、镜像稳定且已退出；vehicle03 selected3为2过1、22完整/26诊断、1018动作/488点击/141.51秒，030实际交接及025其它出库后，other_return原hidden标签仍显示选车而failed；member-boutique02 selected9为8过1、59完整check、3014/1376/395.92秒，会员积分等级六项整场passed，但精品0动作FlowCustomer无active字段的脚本KeyError；customer-followon01 selected8为7过1、52完整check、1983/945/287.84秒，原其它收入已履约，弹窗实际“客户实际到账”与脚本标题不符而failed，未收款；system-audit-viewport01 selected3/3、11完整check、559/199/113.53秒通过，原筛选/详情及390/768/1440三张真实Chrome截图已生成。四run均0页面异常/外部尝试/真实及合成模型调用，业务人工仍0、full193=false。全部进程关闭后根按三个精确补丁仅修四个车辆标签hidden样式、精品真实客户归属/可联系字段、收款原弹窗标题；AST/差异通过，独立短审中。当前39注册/32文件，source96389ffc1a82b5874df3f237149d12750258f3563a0a5760656af67b79597c67、script5fc0d8dd8d9baaaab1fc4e4c7555951427f8e2fcf8905630f018e627feefa6e7，新镜像尚未执行无新成绩。套餐四/跨店五/维修索赔五为owned未注册候选，M8.1唯一in_progress，M8.4/CP-36及原环境/模型/员工/生产门槛不变。
 

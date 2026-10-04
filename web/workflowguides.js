@@ -97,7 +97,7 @@ function applyWorkflowFormIntent(){
 }
 async function workflowsPage(id){
  const context=workflowContext(),data=await loadWorkflowGuides();if(context!==workflowContext())return '';
- if(id){const item=data.workflows.find(x=>x.id===id);if(!item)throw new Error('没有找到这条操作指引。');return `<div class="wf-back"><button type="button" data-wf-action="browse">‹ 全部操作指引</button><a href="/static/workflow-handbook.html#${E(item.id)}" target="_blank" rel="noopener">打开图文手册</a></div>`+WorkflowGuides.article(item,{role:state.user.role,store:state.store});}
+ if(id){const item=data.workflows.find(x=>x.id===id);if(!item)throw new Error('没有找到这条操作指引。');return `<div class="wf-back"><button type="button" data-wf-action="browse">‹ 全部操作指引</button><a class="wf-document-link" href="/static/workflow-handbook.html#${E(item.id)}" target="_blank" rel="noopener">打开图文手册</a></div>`+WorkflowGuides.article(item,{role:state.user.role,store:state.store});}
  return heading('操作指引','',`<a class="wf-handbook-link" href="/static/workflow-handbook.html" target="_blank" rel="noopener">图文手册</a>`)+`<section class="wf-index"><div class="wf-index-search"><label>查找流程<input type="search" id="workflow-guide-query" placeholder="业务名称、原需求名称或编号" autocomplete="off"></label><label>业务分类<select id="workflow-guide-category"><option value="">全部</option>${[...new Set(data.workflows.map(x=>x.category))].map(c=>`<option>${E(c)}</option>`).join('')}</select></label></div><p id="workflow-guide-count" role="status"></p><div id="workflow-guide-results" class="wf-grid"></div></section>`;
 }
 function bindWorkflowGuides(){

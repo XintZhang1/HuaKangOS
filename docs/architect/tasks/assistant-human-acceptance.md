@@ -1,5 +1,9 @@
 # 助手计划收口至待人工验收
 
+2026-10-04 整合检查完成：运维隔离28 Python/3 Node、当前原生UI10/10均实际通过，两个Cutie问题复验通过；旧工作区正式UI已按差异合入并保留当前守卫。源/脚本指纹、范围及证据见 docs/implementation-checkpoints/2026-10-04-integration-review-v1.md。按最新授权提交整合到main并清理已保留的分支，随后继续M8.2完整回归及其余技术项；不将此整合检查写成全项目通过。
+
+2026-10-04 当前授权与执行：业主已要求继续，先整合 main、Cutie/DeepSeek review、业务助手新增提交和 E 旧工作区正式 UI，检查后合入 main 并清理其它分支；随后完成员工试用之外的全部技术门槛。CI 允许使用 GitHub 可运行的依赖。按 PATCH-INTEGRATION-20261004-01 实施，M8.2 仍唯一 in_progress；下文暂停、旧合并顺序和运维旧部署均为历史，未继承为本次验证。
+
 GitHub旧浏览器workflow372700203已实际disabled_manually，避免main尚未合并时旧Playwright任务继续触发；无浏览器定义先推工作分支，最终main合并后再恢复手动入口。本次保持暂停，不重新调度。
 
 2026-10-04 业主即时暂停：GitHub Playwright浏览器job及自动触发已删除，手动独立回归与本地浏览器验收保留；v11 CI37166765070已cancelled，不计通过。静态YAML/caller合同/diff检查通过。M8.2等待业主继续，main按全技术完成后的原合并条件保留。

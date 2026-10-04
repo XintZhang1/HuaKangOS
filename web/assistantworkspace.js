@@ -204,9 +204,8 @@
       const currentWait = waitingText(item);
       if (currentWait) parts.push('<p class="ba-current-wait">等待：' + escapeText(currentWait) + '</p>');
       if (item.kind === 'native_task') {
-        parts.push('<p class="ba-current-note">这是原业务待办：可直接打开原页面办理，或把这件事交给助手准备。</p>');
-        if (item.manual_route) parts.push('<p><a class="ba-record-link" href="#' + escapeText(item.manual_route) + '">打开原业务办理</a>'
-          + ' <button type="button" data-baws-action="handoff" data-key="' + escapeText(item.key) + '">交给助手</button></p>');
+        parts.push('<p class="ba-current-note">这是原业务待办，可打开原页面办理；需要助手帮助时，在对话中输入事项和原单信息。</p>');
+        if (item.manual_route) parts.push('<p><a class="ba-record-link" href="#' + escapeText(item.manual_route) + '">打开原业务办理</a></p>');
       }
     }
     return parts.join('');
@@ -372,7 +371,7 @@
         task_id: settings.entry_context.task_id, object_ref: settings.entry_context.object_ref,
         workflow_id: settings.entry_context.workflow_id }, intent)
       : buildEntryContext(settings.reference, intent);
-    if (!context) return { ok: false, reason: '拿不到明确的原业务引用，请在原页面办理，或从原单页点“交给助手”。' };
+    if (!context) return { ok: false, reason: '拿不到明确的原业务引用，请在原页面办理，或在业务助手中输入事项和原单信息。' };
     if (settings.contextEpoch != null && String(settings.contextEpoch) !== String(contextKey())) {
       return { ok: false, reason: '页面上下文已变化，这次交接已取消，请重新点一次。' };
     }
@@ -417,16 +416,9 @@
     return null;
   }
 
-  // 任何原页面都能用同一个按钮进入交接；拿不到合法引用就不渲染按钮。
+  // 保留各原页面的调用接口；员工统一在业务助手中输入，不再显示独立交接按钮。
   function handoffButton(options) {
-    const settings = options || {};
-    if (!parseRef(settings.ref)) return '';
-    const classes = settings.className ? String(settings.className) : 'ba-handoff-button';
-    return '<button type="button" class="' + escapeText(classes) + '" data-baws-action="handoff"'
-      + ' data-baws-ref="' + escapeText(String(settings.ref)) + '"'
-      + (settings.label ? ' data-baws-label="' + escapeText(String(settings.label)) + '"' : '')
-      + (settings.disabled ? ' disabled' : '') + '>'
-      + escapeText(settings.text || '交给助手') + '</button>';
+    return '';
   }
 
   // ---- M6.6 持续跟进：只读 PlanView、只在员工明确点击时提交一次动作；不做本地授权判定。----

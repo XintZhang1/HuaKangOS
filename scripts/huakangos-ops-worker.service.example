@@ -1,0 +1,29 @@
+[Unit]
+Description=HuaKangOS DeepSeek operations workflow queue
+After=network-online.target huakangos-ops-mcp.service
+Wants=network-online.target
+Requires=huakangos-ops-mcp.service
+
+[Service]
+Type=simple
+User=huakangos-ops
+Group=huakangos-feedback
+WorkingDirectory=/opt/huakangos/current
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+Environment=OPS_CONFIG=/etc/huakangos/ops/config.json
+ExecStart=/opt/huakangos/venv/bin/python -m app.ops_worker
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=760
+UMask=0007
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/huakangos/ops
+InaccessiblePaths=/var/lib/huakangos/trial.sqlite /etc/huakangos/web.env /etc/huakangos/admin-credentials
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

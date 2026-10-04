@@ -984,7 +984,7 @@ async def finance_report_business(e, context, credentials):
         # read/download takes a new complete old-business baseline.
         actor = await login_as(e, context, credentials, src["manager_key"], "module/analytics", 1)
         require(actor["id"] == src["actor"]["id"], "报表借用了另一员工")
-        await expect(e.page.locator("#main h1")).to_have_text("统计分析")
+        await expect(e.page.locator("#main h1")).to_have_text("数据可视化")
         await insurance_report(e, cp, src)
         cp.start("HK-161")
         await material_report(e, cp, src)

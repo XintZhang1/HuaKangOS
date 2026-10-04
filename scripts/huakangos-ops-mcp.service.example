@@ -1,0 +1,25 @@
+[Unit]
+Description=HuaKangOS source and review MCP on Aliyun
+After=network.target huakangos-ops-mail.service
+
+[Service]
+Type=simple
+User=huakangos-ops
+Group=huakangos-feedback
+WorkingDirectory=/opt/huakangos/current
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=OPS_CONFIG=/etc/huakangos/ops/config.json
+ExecStart=/opt/huakangos/venv/bin/python -m uvicorn app.ops_mcp:app --host 127.0.0.1 --port 28761 --workers 1 --no-access-log
+Restart=on-failure
+RestartSec=5
+UMask=0007
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/huakangos/ops
+InaccessiblePaths=/var/lib/huakangos/trial.sqlite /etc/huakangos/web.env /etc/huakangos/admin-credentials
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

@@ -81,6 +81,8 @@ function moduleItems(spec,catalogue,view,role,store){
 function moduleTaskRows(data){return data.items.map(t=>`<div class="mux-task"><div><strong>${E(t.title)}</strong><p>${E(t.case_number)} · ${E(t.case_title)}</p><p>${E(t.assignee_name)} · 计划 ${E(t.due_date)}${t.overdue?' · 已逾期':''}</p>${t.blocked?`<p class="ux-block-reason">${E(t.block_reason)}</p>`:''}</div><a class="button ${t.blocked?'':'primary'}" href="#${E(uxTaskRoute(t))}">${t.blocked?'查看缺少的条件':'接着办理'}</a></div>`).join('');}
 async function moduleWorkspacePage(key){
  const spec=moduleSpec(key);if(!spec)throw new Error('工作模块不存在，请从左侧重新选择。');
+ // 经营汇总仍限原管理/财务/审计岗位；普通岗位的旧深链接保留原专题目录。
+ if(key==='analytics'&&full())return analyticsPage('overview');
  moduleSync();const view=moduleView(key),catalogue=await loadWorkflowGuides();
  // A failed read is shown as a failure, never represented as an empty queue.
  let tasks=null,taskError='';
@@ -88,14 +90,27 @@ async function moduleWorkspacePage(key){
   try{tasks=await api('/api/flow/tasks?scope=mine&status=open&page_size=5&area='+encodeURIComponent(key));}catch(error){if(error.staleContext)throw error;taskError=error.message;}
  }
  const taskPanel=tasks?.total?`<section class="mux-my-work ${tasks.total?'':'mux-empty-work'}" aria-label="本模块我的待办"><div class="spread"><h2>${tasks.total?`我的待办 · ${number(tasks.total)}`:'本模块暂无我的待办'}</h2><a href="#work/${key}" class="button">我的待办</a></div>${tasks.total?moduleTaskRows(tasks):''}${tasks.total>tasks.items.length?`<p>这里只显示最早到期的 ${tasks.items.length} 项，共 ${number(tasks.total)} 项。</p>`:''}</section>`:taskError?`<div class="notice warn" role="alert">待办暂未读取成功：${E(taskError)} ${b('refresh','重试')}</div>`:'';
- return heading(spec.name,'',`${key==='analytics'?'<a class="button primary" href="#analytics/overview">经营总览</a>':`<a class="button" href="#${['reference','system'].includes(key)?'work':'work/'+key}">我的工作</a>`}<a class="button" href="#start">快捷操作</a>`)+storeNotice()+taskPanel+`<section class="mux-browser" data-module-workspace="${key}"><div class="mux-search"><label>搜索本模块业务<input id="mux-query" type="search" maxlength="100" placeholder="例如：${E(catalogue.requirements?.find(r=>r.module===spec.name+'模块')?.title||spec.name)}" value="${E(view.query)}" autocomplete="off"></label><details class="mux-extra-options" ${view.otherRoles?'open':''}><summary>其他岗位</summary><label class="checklabel"><input type="checkbox" id="mux-other" ${view.otherRoles?'checked':''}>显示其他岗位操作</label></details></div><div id="mux-groups" class="mux-groups" aria-label="选择本次办事目的"></div><p id="mux-results-title" role="status"></p><div id="mux-results" class="mux-results"></div></section>`;
+ return heading(spec.name,key==='analytics'?'查看当前岗位获权的专题图表与原始明细。':'',`<a class="button" href="#${['analytics','reference','system'].includes(key)?'work':'work/'+key}">我的工作</a><a class="button" href="#start">快捷操作</a>`)+storeNotice()+(key==='analytics'?moduleAnalyticsTopicsHTML():'')+taskPanel+`<section class="mux-browser" data-module-workspace="${key}"${key==='analytics'?' data-module-layout="reports"':''}><div class="mux-search"><label>${key==='analytics'?'搜索原统计需求':'搜索本模块业务'}<input id="mux-query" type="search" maxlength="100" placeholder="例如：${E(catalogue.requirements?.find(r=>r.module===spec.name+'模块')?.title||spec.name)}" value="${E(view.query)}" autocomplete="off"></label><details class="mux-extra-options" ${view.otherRoles?'open':''}><summary>其他岗位</summary><label class="checklabel"><input type="checkbox" id="mux-other" ${view.otherRoles?'checked':''}>显示其他岗位${key==='analytics'?'报表':'操作'}</label></details></div><div id="mux-groups" class="mux-groups" aria-label="选择本次办事目的"></div><p id="mux-results-title" role="status"></p><div id="mux-results" class="${key==='analytics'?'analytics-report-list':'mux-results'}"></div></section>`;
+}
+function moduleAnalyticsTopicsHTML(){
+ // 与原业务导航及专题 API 的读取岗位一致，只组织已经可进入的只读页面。
+ const inventoryRoles=['admin','manager','inventory','finance','auditor'],visitRoles=['admin','manager','finance','auditor','sales','service','reception','customer_service'];
+ const topics=[
+  {route:'visit-activity',title:'跟进与进出厂统计',allowed:visitRoles.includes(state.user.role)},
+  {route:'vehicle-period',title:'期间整车入出存',allowed:inventoryRoles.includes(state.user.role)&&!!state.catalog?.kinds.vehicle_procurement},
+  {route:'warehouse-period',title:'期间仓库入出存',allowed:inventoryRoles.includes(state.user.role)},
+  {route:'stock-period',title:'期间物资入出存',allowed:inventoryRoles.includes(state.user.role)},
+  {route:'repair-materials',title:'维修领退料统计',allowed:inventoryRoles.includes(state.user.role)},
+  {route:'procurement-cohort',title:'采购计划执行统计',allowed:inventoryRoles.includes(state.user.role)}
+ ].filter(item=>item.allowed);
+ return `<section class="panel analytics-role-topics" aria-label="当前岗位专题报表"><div class="panelhead"><h2>我的专题报表</h2></div>${topics.length?`<div class="row">${topics.map(item=>`<a class="button" href="#${item.route}">${E(item.title)}</a>`).join('')}</div>`:empty('当前岗位暂无专题报表','可查看原统计需求的操作指引，业务数据读取仍按当前门店岗位授权。')}</section>`;
 }
 function moduleCardGroups(items,role,store){
  const groups=new Map();
  for(const item of items){const key=item.entry.route+'|'+WorkflowGuides.canEnter(item,role,store);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);}
  return [...groups.values()];
 }
-// M6.5：交给助手按钮。页面模块可能被单独加载（离线检查），拿不到共用实现就不渲染按钮。
+// 保留旧页面调用兼容，统一助手入口不再渲染独立交接按钮。
 function muxHandoffButton(ref,label){
  const workspace=globalThis.AssistantWorkspace;
  if(!workspace||typeof workspace.handoffButton!=='function')return '';
@@ -108,16 +123,29 @@ function moduleCard(item,spec,related=[item]){
  // No default creation for follow-ups. New forms are explicitly labelled and
  // used only by the existing reviewed quick-form registry, after another click.
  const create=allowed&&state.store!=='all'&&newItem;
- return `<article class="mux-card"><h3>${E(title)}</h3><div class="row"><button type="button" class="primary" data-mux-open="${E(item.id)}" data-area="${spec.key}" ${allowed?'':'disabled'}>${E(uxEntryOpenLabel(item))}</button>${muxHandoffButton('workflow:'+item.id,item.title)}${create?`<button type="button" data-mux-form="${E(newItem.id)}" data-area="${spec.key}">${E(newForm.label)}</button>`:''}</div><details class="mux-requirements"><summary>操作指引</summary><p>${E([...new Set(related.flatMap(w=>(w.requirements||[]).map(r=>r.title)))].join('、'))}</p>${related.map(w=>`<p><a href="#workflows/${E(w.id)}">${E(w.title)}</a></p>`).join('')}</details>${!allowed?`<p class="mux-role">${state.store==='all'&&item.entry.mode==='write'?'请先选择具体门店。':'此入口由 '+E((item.entry.roles||[]).map(r=>roleNames[r]||r).join('、'))+' 办理。'}</p>`:''}</article>`;
+ return `<article class="mux-card"><h3>${E(title)}</h3><div class="row"><button type="button" class="primary" data-mux-open="${E(item.id)}" data-area="${spec.key}" ${allowed?'':'disabled'}>${E(uxEntryOpenLabel(item))}</button>${create?`<button type="button" data-mux-form="${E(newItem.id)}" data-area="${spec.key}">${E(newForm.label)}</button>`:''}</div><details class="mux-requirements"><summary>操作指引</summary><p>${E([...new Set(related.flatMap(w=>(w.requirements||[]).map(r=>r.title)))].join('、'))}</p>${related.map(w=>`<p><a class="mux-guide-link" href="#workflows/${E(w.id)}">${E(w.title)}</a></p>`).join('')}</details>${!allowed?`<p class="mux-role">${state.store==='all'&&item.entry.mode==='write'?'请先选择具体门店。':'此入口由 '+E((item.entry.roles||[]).map(r=>roleNames[r]||r).join('、'))+' 办理。'}</p>`:''}</article>`;
+}
+async function analyticsReportDirectoryHTML(){
+ const context=uxContext(),spec=moduleSpec('analytics'),view=moduleView('analytics');
+ try{
+  const catalogue=await loadWorkflowGuides();if(context!==uxContext())return '';
+  const count=moduleCatalogue(spec,catalogue).filter(item=>WorkflowGuides.canEnter(item,state.user.role,state.store)).length;
+  return `<details class="analytics-report-directory"><summary>报表与专题 <span>${number(count)} 项</span></summary><p class="analytics-directory-note">按业务查找对应图表、原单明细与操作指引。</p><section class="mux-browser" data-module-workspace="analytics" data-module-layout="reports"><div class="mux-search"><label>搜索报表或原需求<input id="mux-query" type="search" maxlength="100" placeholder="例如：展厅接待分析、现金收支" value="${E(view.query)}" autocomplete="off"></label><details class="mux-extra-options" ${view.otherRoles?'open':''}><summary>其他岗位</summary><label class="checklabel"><input type="checkbox" id="mux-other" ${view.otherRoles?'checked':''}>显示其他岗位报表</label></details></div><div id="mux-groups" class="mux-groups" aria-label="选择统计业务分类"></div><p id="mux-results-title" role="status"></p><div id="mux-results" class="analytics-report-list"></div></section></details>`;
+ }catch(error){if(error.staleContext)throw error;return `<section class="notice warn" role="alert">报表目录暂未读取成功：${E(error.message)} ${b('refresh','重试')}</section>`;}
+}
+function analyticsReportRow(item,spec){
+ const allowed=WorkflowGuides.canEnter(item,state.user.role,state.store);
+ const requirements=[...new Set((item.requirements||[]).map(row=>row.title))].filter(title=>title!==item.title);
+ return `<article class="analytics-report-row"><div><h3>${E(item.title)}</h3>${requirements.length?`<p>${E(requirements.join('、'))}</p>`:''}${!allowed?`<p class="mux-role">此报表由 ${E((item.entry.roles||[]).map(role=>roleNames[role]||role).join('、'))} 查看。</p>`:''}</div><div class="row"><button type="button" data-mux-open="${E(item.id)}" data-area="${spec.key}" ${allowed?'':'disabled'}>${E(uxEntryOpenLabel(item))}</button><a class="mux-guide-link" href="#workflows/${E(item.id)}">操作指引</a></div></article>`;
 }
 function bindModuleWorkspace(){
  const root=document.querySelector('[data-module-workspace]');if(!root||!workflowCatalogue)return;
  const spec=moduleSpec(root.dataset.moduleWorkspace),view=moduleView(spec.key),input=root.querySelector('#mux-query');
  const paint=()=>{
-  const data=moduleItems(spec,workflowCatalogue,view,state.user.role,state.store),cards=moduleCardGroups(data.items,state.user.role,state.store);
+  const data=moduleItems(spec,workflowCatalogue,view,state.user.role,state.store),reports=root.dataset.moduleLayout==='reports',cards=reports?data.items.map(item=>[item]):moduleCardGroups(data.items,state.user.role,state.store);
   root.querySelector('#mux-groups').innerHTML=data.groups.map(g=>`<button type="button" data-mux-group="${g.key}" aria-pressed="${!view.query.trim()&&g===data.selected}">${E(g.title)}</button>`).join('');
-  root.querySelector('#mux-results-title').textContent=view.query.trim()?`找到 ${cards.length} 项操作`:(data.selected?data.selected.title:'当前岗位没有可直接进入的功能，可查看其他岗位或返回我的工作。');
-  root.querySelector('#mux-results').innerHTML=cards.map(items=>moduleCard(items[0],spec,items)).join('')||empty('当前条件下没有匹配入口','请调整关键词或筛选条件。');
+  root.querySelector('#mux-results-title').textContent=view.query.trim()?`找到 ${cards.length} 项${reports?'报表':'操作'}`:(data.selected?data.selected.title:'当前岗位没有可直接进入的功能，可查看其他岗位或返回我的工作。');
+  root.querySelector('#mux-results').innerHTML=cards.map(items=>reports?analyticsReportRow(items[0],spec):moduleCard(items[0],spec,items)).join('')||empty('当前条件下没有匹配入口','请调整关键词或筛选条件。');
  };
  input.addEventListener('input',event=>{view.query=input.value;if(!event.isComposing)paint();});input.addEventListener('compositionend',()=>{view.query=input.value;paint();});
  root.querySelector('#mux-other').addEventListener('change',event=>{view.otherRoles=event.target.checked;paint();});
@@ -144,12 +172,16 @@ function moduleRouteArea(){
 }
 function mountModuleUX(){
  moduleSync();if(state.route.startsWith('module/')){bindModuleWorkspace();return;}
+ bindModuleWorkspace();
  const main=document.getElementById('main');if(!main)return;
+ // 可视化已有分类页签与报表子目录，不再叠加重复的模块返回和面板目录。
+ if(state.route.startsWith('analytics/')){mountReportPresets(main);return;}
  const area=moduleRouteArea(),spec=moduleSpec(area);if(!spec)return;
  const intent=moduleUX.intent,root=state.route.split('/')[0];
  const active=intent&&intent.context===uxContext()&&(root===intent.route.split('/')[0]);
  const bar=document.createElement('nav');bar.className='mux-contextbar';bar.setAttribute('aria-label','模块与本次办理意图');
- bar.innerHTML=`<a href="#module/${active?intent.area:area}">${E(moduleSpec(active?intent.area:area)?.name||spec.name)}</a>`;
+ const targetArea=active?intent.area:area;
+ bar.innerHTML=`<a class="mux-context-link" href="#${targetArea==='analytics'&&full()?'analytics/overview':'module/'+targetArea}">${E(moduleSpec(targetArea)?.name||spec.name)}</a>`;
  const head=main.querySelector('.pagehead');if(head)head.before(bar);else main.prepend(bar);
  mountModuleSectionIndex(main);mountReportPresets(main);mountNativeActionGroups(main);
 }

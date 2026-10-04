@@ -42,12 +42,12 @@ async def mobile_handoff(e, context, credentials):
     panel = e.page.locator("#main .panel").filter(
         has=e.page.locator(".panelhead h2", has_text="分工与交接"))
     await expect(panel).to_have_count(1)
-    handoff_selector = '[data-baws-action="handoff"][data-baws-ref="task:' + str(row["task_id"]) + '"]'
-    task_ui = panel.locator(".taskitem").filter(has=e.page.locator(handoff_selector))
+    assign_selector = '[data-act="assign"][data-id="' + str(row["task_id"]) + '"]'
+    task_ui = panel.locator(".taskitem").filter(has=e.page.locator(assign_selector))
     await expect(task_ui).to_have_count(1)
     await expect(task_ui.locator(".description strong")).to_have_text(row["task_title"])
-    await expect(task_ui.locator('[data-act="assign"]')).to_have_text("转交")
-    await expect(task_ui.locator(handoff_selector)).to_have_text("交给助手")
+    await expect(task_ui.locator(assign_selector)).to_have_text("转交")
+    await expect(task_ui.locator(assign_selector)).to_be_enabled()
     if row["due_date"]:
         await expect(task_ui.locator(".description p").first).to_contain_text(row["due_date"])
 
@@ -66,8 +66,8 @@ async def mobile_handoff(e, context, credentials):
         await e.page.set_viewport_size({"width": width, "height": 900})
         e.action("scroll", "原交接卡进入真实视口")
         await panel.scroll_into_view_if_needed()
-        await expect(task_ui.locator('[data-act="assign"]')).to_be_visible()
-        await expect(task_ui.locator(handoff_selector)).to_be_visible()
+        await expect(task_ui.locator(assign_selector)).to_be_visible()
+        await expect(task_ui.locator(".description")).to_be_visible()
         geometry = await task_ui.evaluate("""task => {
           const rect = x => {const r=x.getBoundingClientRect();return {
             x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};

@@ -14,6 +14,7 @@ import asyncio
 from collections import Counter
 import hashlib
 import json
+import re
 import sqlite3
 import sys
 import time
@@ -667,6 +668,22 @@ async def welcome(e, context, credentials):
     require(e.workspace_features["home"] is True, "当前隔离场景未实际开启默认助手首页")
     await expect(e.page.locator("#main h1")).to_have_text("业务助手")
     require(await e.page.locator(INPUT).is_visible(), "home=true 无hash新登录未显示助手输入区")
+    await expect(e.page.locator('.ba-tabs[role="group"][aria-label="助手功能"]')).to_have_count(1)
+    await expect(e.page.locator('.ba-tabs [data-ba-action="chat"]')).to_have_attribute("aria-pressed", "true")
+    await expect(e.page.locator('.ba-tabs [data-baf-action="open"]')).to_have_attribute("aria-pressed", "false")
+    await expect(e.page.locator('.ba-tabs [data-ba-action="issues"]')).to_have_attribute("aria-pressed", "false")
+    await expect(e.page.locator(SEND)).to_have_class(re.compile(r"\bba-control-send\b"))
+    await expect(e.page.locator(INPUT)).to_have_attribute("aria-describedby", "ba-compose-help")
+    await expect(e.page.locator("#ba-compose-help")).to_be_visible()
+    for selector in ('.ba-tabs [data-baf-action="open"]', '.ba-tabs [data-ba-action="issues"]'):
+        await e.click(selector, "实际切换助手功能")
+        await expect(e.page.locator(selector)).to_have_attribute("aria-pressed", "true")
+        await e.click('.ba-tabs [data-ba-action="chat"]', "返回办理业务")
+        await expect(e.page.locator('.ba-tabs [data-ba-action="chat"]')).to_have_attribute("aria-pressed", "true")
+    icons = await e.page.locator("#business-assistant button svg").evaluate_all("xs => xs.map(x => x.getAttribute('aria-hidden'))")
+    require(icons and all(value == "true" for value in icons), "助手图标未隐藏重复的辅助名称")
+    e.observe("assistant_control_accessibility", {"native_tab_clicks": 4, "decorative_icon_count": len(icons),
+                                                   "input_help_linked": True, "send_button_named": True})
     e.observe("default_home_native_contract", {"login_origin_has_no_hash": True, "workspace_features": e.workspace_features, "heading": await e.page.locator("#main h1").inner_text()})
     suggestions = e.page.locator('[data-ba-action="suggestion"]')
     require(1 <= await suggestions.count() <= 4, "欢迎建议应显示 1 至 4 条")
@@ -741,6 +758,53 @@ async def manual_navigation(e, context, credentials):
     require(urlsplit(e.page.url).fragment == "master/customers", "有效人工深链接登录后被默认助手入口覆盖")
     await e.snapshot("manual-published-deeplink")
     e.observe("navigation_note", "整页深链接刷新会重建会话内存；此处不声称跨刷新持久保存业务草稿。")
+    # The analytics module now opens charts directly. The original report
+    # directory remains inside an explicitly opened visualization subsection.
+    from sales_business import login_as
+    from vehicle_purchase_business import nav
+    aggregate_before = sum(row.get("path") == "/api/flow/analytics" for row in e.network)
+    await nav(e, "visit-activity", "跟进与进出厂统计", "/api/visit-activity-reports")
+    await e.click('.mux-context-link[href="#module/analytics"]', "销售从原专题返回本人受权报表目录")
+    await expect(e.page.locator("#main h1")).to_have_text("统计分析")
+    await expect(e.page.locator(".analytics-role-topics")).to_be_visible()
+    await expect(e.page.locator('.analytics-role-topics a[href="#visit-activity"]')).to_be_visible()
+    await expect(e.page.locator('.sidebar a[href="#analytics/overview"]')).to_have_count(0)
+    if e.response_jobs:
+        await asyncio.gather(*tuple(e.response_jobs))
+    require(sum(row.get("path") == "/api/flow/analytics" for row in e.network) == aggregate_before,
+            "销售受权专题目录仍请求仅管理岗位可读的汇总")
+    await e.snapshot("sales-authorized-report-directory-no-aggregate")
+    await login_as(e, context, credentials, "admin", "analytics/overview", e.manifest["stores"][0]["id"])
+    await nav(e, "module/analytics", "数据可视化", None)
+    await expect(e.page.locator("#main > .chartgrid")).to_have_count(1)
+    await expect(e.page.locator("#main .kpis")).to_be_visible()
+    await expect(e.page.locator(".analytics-report-directory")).to_have_attribute("open", "")
+    await e.click('.analytics-report-directory > summary', "收起报表与专题")
+    await expect(e.page.locator(".analytics-report-directory")).not_to_have_attribute("open", "")
+    await e.snapshot("analytics-direct-visualization")
+    await e.click('.analytics-report-directory > summary', "展开可视化内的报表与专题")
+    await e.fill("#mux-query", "展厅接待分析", "搜索保留的原统计需求")
+    await expect(e.page.locator('[data-mux-open="wf-report-134"]')).to_be_visible()
+    require(await e.page.get_by_role("button", name="交给助手", exact=True).count() == 0,
+            "统计分析仍有独立交给助手按钮")
+    await e.snapshot("analytics-report-submodule-search")
+    await nav(e, "start", "快捷操作", None)
+    await expect(e.page.locator('[data-ux-module="整车销售"]')).to_have_count(1)
+    await e.click('[data-ux-module="整车销售"]', "从快捷操作进入整车销售模块")
+    await expect(e.page).to_have_url(re.compile(r"#module/sales$"))
+    await expect(e.page.locator("#main h1")).to_have_text("整车销售")
+    links = e.page.locator(".mux-guide-link")
+    require(await links.count() > 0, "原业务操作指引链接丢失")
+    await e.click(".mux-card:first-child .mux-requirements > summary", "展开业务操作指引")
+    link = links.first
+    e.action("click", "以规范业务链接打开原操作指引")
+    href = await link.get_attribute("href")
+    await link.click()
+    await expect(e.page).to_have_url(re.compile(re.escape(href) + r"$"))
+    await expect(e.page.locator(".wf-article")).to_be_visible()
+    require(await e.page.get_by_role("button", name="交给助手", exact=True).count() == 0,
+            "原业务目录/说明仍有独立交给助手按钮")
+    await e.snapshot("styled-business-guide-link")
 
 
 async def readonly_query(e, context, credentials):

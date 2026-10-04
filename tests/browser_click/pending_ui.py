@@ -119,9 +119,12 @@ async def review_followup_ui(e, session_id, plan_id, proposal_id, case_id):
         await e.page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
         await e.click('[data-ba-action="history"]', "M16展开原历史入口")
         await expect(e.page.locator('[data-ba-action="history"]')).to_have_attribute("aria-expanded", "true")
+        await expect(e.page.locator("#ba-history-popover.ba-history-popover")).to_be_visible()
         await expect(e.page.locator('.ba-history-popover [data-ba-action="session"][data-id="' + session_id + '"]')).to_have_count(1)
         await e.click('[data-ba-action="history"]', "M16关闭历史后核对主卡")
-        await expect(e.page.locator(".ba-history-popover")).to_have_count(0)
+        await expect(e.page.locator("#ba-history-popover.ba-history-popover")).to_have_count(1)
+        await expect(e.page.locator("#ba-history-popover.ba-history-popover")).to_have_attribute("hidden", "")
+        await expect(e.page.locator("#ba-history-popover.ba-history-popover")).not_to_be_visible()
         pane = e.page.locator('[data-ba-action="pane-cards"]')
         if await pane.is_visible():
             await e.click('[data-ba-action="pane-cards"]', "M16查看办理事项主卡")
@@ -166,7 +169,9 @@ async def review_followup_ui(e, session_id, plan_id, proposal_id, case_id):
         await e.click('[data-ba-action="history"]', "M16关闭历史回到输入")
         await tab_until(lambda focused: focused["id"] == "business-assistant-input", 80, label + "_input_Tab")
         await expect(e.page.locator(input_selector)).to_have_value(draft)
-        await expect(e.page.locator(".ba-history-popover")).to_have_count(0)
+        await expect(e.page.locator("#ba-history-popover.ba-history-popover")).to_have_count(1)
+        await expect(e.page.locator("#ba-history-popover.ba-history-popover")).to_have_attribute("hidden", "")
+        await expect(e.page.locator("#ba-history-popover.ba-history-popover")).not_to_be_visible()
         await e.snapshot(label + "-native-keyboard-draft")
 
     if not original_draft:

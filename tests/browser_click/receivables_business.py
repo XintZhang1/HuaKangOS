@@ -1133,7 +1133,7 @@ async def domain_drill(e, data, key, case_id, domain, expected):
 
 async def report_check(e, context, credentials, fixture, check_id, targets):
     actor = await login_as(e, context, credentials, fixture["finance_key"], "module/analytics", 1)
-    await expect(e.page.locator("#main h1")).to_have_text("统计分析")
+    await expect(e.page.locator("#main h1")).to_have_text("数据可视化")
     period = {"date_from": day(), "date_to": day()}
     oracle = current_oracle(e)
     data = await REPORT.open_report(e, check_id, "table/receivables", period)
