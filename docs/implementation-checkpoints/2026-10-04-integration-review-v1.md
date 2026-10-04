@@ -21,3 +21,7 @@ E 旧工作区由业主安排的界面是正式交付范围：Lightning 样式�
 本次为选定整合检查，不冒充原 80 场或 193 项完整业务验收。M8.2 仍唯一 in_progress；新整合候选需新同指纹完整回归，后续 PostgreSQL、真实模型、独立运行及恢复等技术门槛继续完成，只保留员工试用和人工验收。四个生产功能开关默认关闭。
 
 先前用户暂停的 CI `37166765070` 确为 cancelled：Linux B 仅有 32/33 节点完整通过，最后节点无完成证据；Windows collector 被打断。两平台均无 M8.2 完整终局，原件与审阅已外置保留，不继承为本次成绩。
+
+## 合并与远端确认
+
+整合提交 `f1b6d74e18889da15ba6a9a2b269fb8d71a2be25` 已快进推送 main，远端 SHA 一致，PR #16 实际 merged。新 GitHub 运维 CI `37169424850` 在此提交上完整 success。其余六个本地、三个远端分支已逐个确认祖先后删除；E 工作区只脱离原分支，其 tracked binary diff 与 untracked 状态和操作前完全相同，两个旧工作区均保留。详细 refs 与保留核对在原备份目录 `integration-and-branch-cleanup.json`。两条 Cutie issue 已关闭，继续其余技术验收。
