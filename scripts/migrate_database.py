@@ -3,6 +3,7 @@ Never run while the source application is accepting writes. Sessions are not cop
 Usage: python scripts/migrate_database.py --source sqlite:///./data/dealer.db --target-env TARGET_DATABASE_URL
 """
 import argparse
+from contextlib import ExitStack
 import os
 import sys
 import hashlib
@@ -38,41 +39,44 @@ def table_fingerprint(connection, table):
 
 def transfer(source_url, target_url,source_object_root=None,target_object_root=None):
     if source_url == target_url: raise ValueError('Source and target must be different databases')
-    source,target=make_engine(source_url),make_engine(target_url)
-    migrate(target_url)
-    excluded={'login_sessions','login_attempts','job_leases'}
-    tables=[t for t in Base.metadata.sorted_tables if t.name not in excluded]
-    counts={}
-    with source.connect() as src,src.begin(),target.begin() as dst:
-        from app.private_file_backup import validate_connection_files
-        validate_connection_files(src,source_object_root)
-        # Refuse to merge records or overwrite a partially used target.
-        if any(dst.scalar(select(func.count()).select_from(t)) for t in Base.metadata.sorted_tables):
-            raise ValueError('Target is not empty. Refusing to merge/overwrite any business data.')
-        for table in tables:
-            rows=src.execute(select(table).order_by(*table.primary_key.columns)).mappings()
-            count=0
-            for chunk in rows.partitions(500):
-                dst.execute(table.insert(),[dict(row) for row in chunk]); count+=len(chunk)
-            actual=dst.scalar(select(func.count()).select_from(table))
-            if actual != count: raise ValueError(f'Row count mismatch for {table.name}')
-            if table_fingerprint(src,table) != table_fingerprint(dst,table):
-                raise ValueError(f'Row content or evidence mismatch for {table.name}')
-            counts[table.name]=count
-        # Explicitly verify the matching copied/shared objects before committing
-        # database references. Empty BLOBs never prove external bytes survived.
-        validate_connection_files(dst,target_object_root)
-        if dst.dialect.name=='postgresql':
-            # Names come only from static ORM metadata, never from a user request.
+    with ExitStack() as cleanup:
+        source=make_engine(source_url)
+        cleanup.callback(source.dispose)
+        target=make_engine(target_url)
+        cleanup.callback(target.dispose)
+        migrate(target_url)
+        excluded={'login_sessions','login_attempts','job_leases'}
+        tables=[t for t in Base.metadata.sorted_tables if t.name not in excluded]
+        counts={}
+        with source.connect() as src,src.begin(),target.begin() as dst:
+            from app.private_file_backup import validate_connection_files
+            validate_connection_files(src,source_object_root)
+            # Refuse to merge records or overwrite a partially used target.
+            if any(dst.scalar(select(func.count()).select_from(t)) for t in Base.metadata.sorted_tables):
+                raise ValueError('Target is not empty. Refusing to merge/overwrite any business data.')
             for table in tables:
-                if 'id' in table.c and isinstance(table.c.id.type,__import__('sqlalchemy').Integer):
-                    sequence=dst.scalar(text('SELECT pg_get_serial_sequence(:name, :col)'),{'name':table.name,'col':'id'})
-                    if sequence:
-                        maximum=dst.scalar(select(func.max(table.c.id)))
-                        dst.execute(text('SELECT setval(CAST(:sequence AS regclass), :value, :used)'),
-                                    {'sequence':sequence,'value':maximum or 1,'used':maximum is not None})
-    source.dispose();target.dispose()
-    return counts
+                rows=src.execute(select(table).order_by(*table.primary_key.columns)).mappings()
+                count=0
+                for chunk in rows.partitions(500):
+                    dst.execute(table.insert(),[dict(row) for row in chunk]); count+=len(chunk)
+                actual=dst.scalar(select(func.count()).select_from(table))
+                if actual != count: raise ValueError(f'Row count mismatch for {table.name}')
+                if table_fingerprint(src,table) != table_fingerprint(dst,table):
+                    raise ValueError(f'Row content or evidence mismatch for {table.name}')
+                counts[table.name]=count
+            # Explicitly verify the matching copied/shared objects before committing
+            # database references. Empty BLOBs never prove external bytes survived.
+            validate_connection_files(dst,target_object_root)
+            if dst.dialect.name=='postgresql':
+                # Names come only from static ORM metadata, never from a user request.
+                for table in tables:
+                    if 'id' in table.c and isinstance(table.c.id.type,__import__('sqlalchemy').Integer):
+                        sequence=dst.scalar(text('SELECT pg_get_serial_sequence(:name, :col)'),{'name':table.name,'col':'id'})
+                        if sequence:
+                            maximum=dst.scalar(select(func.max(table.c.id)))
+                            dst.execute(text('SELECT setval(CAST(:sequence AS regclass), :value, :used)'),
+                                        {'sequence':sequence,'value':maximum or 1,'used':maximum is not None})
+        return counts
 
 
 def main():
