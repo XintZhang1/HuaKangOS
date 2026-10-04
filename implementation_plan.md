@@ -3878,6 +3878,8 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 ## M8.2 原业务、助手和前端不退化验收
 
+2026-10-04 v12实际终局：CI37170796831两平台自然failure，strict Linux22/Windows18、完整有序collector3407、matrix1及A25各自通过；B33为Linux32pass/1字段失败，Windows13pass/19快照连接占用setup错误/1同字段失败。只4/101命令执行，其余未执行，不继承为full。按两项CASE-DETAIL-CONTRACT/SNAPSHOT-CONNECTION补丁仅修测试读取原GET data及显式关闭只读SQLite连接；全部节点/74数组/101命令/授权保留，v14冻结801输入仅4项变化。独立静审完成，新完整实跑待收口，M8.2仍唯一in_progress；精确证据见M8-2-v12-contract-review-v1。
+
 2026-10-04 M8.2：已将三处原UI测试合同按已合入的业主视觉要求适配（PATCH-M8-2-INTEGRATED-UI-CONTRACT-01），原节点/人工入口/安全守卫保留。v12 source-only输入801精确仅三测试和来源记录变化，其余797保持；主manifest a85e20a3及74数组/101命令/101合成授权/10 Linux NA不变。root与独立审阅完成，冻结包e0856fc3、draft9895a246；新的双平台strict/full待实际终局，仍唯一in_progress。上一CI37169614459为主动取消，不记失败或通过，原件外置保留。
 
 GitHub旧浏览器workflow372700203已实际disabled_manually，避免main尚未合并时旧Playwright任务继续触发；无浏览器定义先推工作分支，最终main合并后再恢复手动入口。本次保持暂停，不重新调度，不以停用/取消替代原门槛。
