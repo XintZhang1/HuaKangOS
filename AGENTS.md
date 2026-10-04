@@ -20,6 +20,10 @@
 
 ## 2. 两阶段实施、状态与检查点
 
+### 2026-10-04 当前 GitHub CI 调整授权
+
+业主明确要求删除 GitHub CI 中的 Playwright 浏览器任务。仓库不再由 push/PR 自动安装浏览器或执行 `tests/browser_click/run.py`；原浏览器脚本保留作本地隔离验证，原浏览器/HTTPS/输入法及其它验收门槛保持。既有 `.github/workflows/browser-click-checks.yml` 路径仅保留已注册的手动回归调度，调用独立 `full-regression-checks.yml`，不包含浏览器任务。本条取代下文冲突的“建立浏览器点击 CI”要求，不降低验收标准。
+
 ### 2026-09-30 当前浏览器点击验证授权
 
 业主明确要求同步 feature 分支、按 DSH Architect 热重载、补齐当前剩余实现，删除旧测试和旧测试套件 CI，并建立真实浏览器点击的新脚本与 CI。当前入口为 `tests/browser_click/run.py`，直接导航隔离服务，不降级为 fetch/Cookie 桥接。源码先白名单镜像到仓库外全新目录，数据库、随机密码、配置、截图和日志全部外置；模型只使用阻止外网的合成响应。精确范围见 PATCH-M8-4-BROWSER-CLICK-01、PATCH-M7-7-READ-DETAIL-01。

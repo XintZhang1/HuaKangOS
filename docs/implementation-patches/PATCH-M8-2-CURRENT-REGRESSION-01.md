@@ -1,5 +1,9 @@
 # PATCH-M8-2-CURRENT-REGRESSION-01
 
+旧default分支尚未合并此修改，GitHub workflow372700203现已实际设为 `disabled_manually`，防止旧Playwright job继续自动触发。工作分支的手动caller保留供后续受控回归使用，原独立full reusable保持；本次不重新调度。最终main合入无浏览器定义后再恢复手动入口，不将停用或取消记为测试通过。
+
+2026-10-04 业主即时调整：暂停收口并删除 GitHub CI 的 Playwright 任务。v11 CI37166765070 已按本次暂停请求取消，completed/cancelled，不能登记完成或通过。精确修改 `.github/workflows/browser-click-checks.yml`：删除 browser-click job、Playwright/Chromium安装、浏览器执行及其artifact步骤，删除原push/PR浏览器触发；同已注册文件路径仅保留手动 current-regression caller，强制填写源码输入ID/SHA，原独立full-regression-checks.yml/101命令不变。README、AGENTS、浏览器README、主计划及architect当前记录同步本次边界；本地浏览器脚本和验收条件保留，total_plan不改。静态YAML与caller输入映射/无剩余浏览器执行已核，不为此运行长套件或重新启动已暂停工作。改动推送工作分支，main仍按原最终合并条件保留。
+
 2026-10-04 v10 full实际失败后的夹具窄修事前范围：CI37165122951/HEAD74c3697两平台已终局，strict18/22、3407清单、matrix1及A25实际通过；B33首节点通过、随后32节点在旧conftest的drop_all循环外键setup失败，C及后续97命令未执行，整体failed。官方ZIP/原件外置留存。仅改 `V/tests/baseline/overlay/tests/conftest.py` 原isolated_database：确认原标记run/fixtures路径、无池中在用连接，dispose闲置连接；将本次上一节点合成SQLite库与存在的WAL/SHM留存到同run的新独占历史目录，再沿原固定engine及路径create_all/原种子。全部移动源/目标先过原inside/clean_path；遇打开连接/非预期路径/留存失败即失败，不GC、不重试、不关闭或延迟业务外键，不改生产/测试断言/节点/24轮/600秒。WAL设置的raw连接用closing显式关闭，原with只结束事务的生命周期缺口同时收尾。旧原件及精确差异保存于V本轮审阅，archive/baseline-restoration.json仅追加该既有adaptation版本/真实SHA和来源，manifest的原清单/授权保持；新801输入草稿记录实际字节后两平台各自重新strict及101 full，前一局部分数不得继承为通过。
 
 2026-10-04 当前前置实修收口后范围补充：既有generate_current_matrix.py将questionnaires/observation-corrections/clearing/vehicle-income准确映射真实M7 provider，移除已实现三合同的旧unregistered记录，保留所有真正未知及193/111来源。中央core原Flow+三固定helper的有限OPERATIONS精确唯一family集合替代历史Flow-only；原test_current_capability_matrix.py仅同节点该一条旧集合断言更新为当前四族全等/唯一归属及实际来源SHA，不弱化为subset，仍reader unbound/facts未知/零业务调用/业务未验收。外部原overlay与C来源SHA更新后由原统一collector实际产生ordered节点，再登记全部节点级合成授权/清单。旧源/差异/失败保留；不新建runner或改变原业务门槛。

@@ -1,6 +1,6 @@
 # HuaKangOS 实施计划：单项实施与检查点审阅版
 
-**2026-10-04 当前验证执行点**：M8.1原故障门禁及自然D/D+1完成；四个缺失业务合同、M2.6最终回执及M7.3.3真实结果ID窄修均implemented/独立静审。唯一in_progress恢复M8.2，同指纹完整隔离回归；CP24/28仍仅implementation_released，实际技术门槛及main上传继续完成，员工试用保留人工验收。
+**2026-10-04 当前验证执行点**：M8.1原故障门禁及自然D/D+1完成；四个缺失业务合同、M2.6最终回执及M7.3.3真实结果ID窄修均implemented/独立静审。M8.2唯一in_progress，业主即时暂停并要求删除GitHub Playwright任务；v11已cancelled，手动回归/本地浏览器门槛保留，等待继续。CP24/28仍仅implementation_released，员工试用以外技术门槛与最终main上传义务保持。
 
 
 计划版本：`R4-20260928`。基线：R4-B1，审阅时 HEAD `f735de2`、迁移头 `h52j_assistant_work_plans`。用户最新目标优先项目实现完成度：Codex 按既定架构推进实现，集中测试后移并交 DeepSeek。108 项功能范围、原验收标准及生产边界保留，实施门禁按下述 R4 两阶段规则执行。
@@ -3869,6 +3869,10 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 <a id="m8-2"></a>
 
 ## M8.2 原业务、助手和前端不退化验收
+
+GitHub旧浏览器workflow372700203已实际disabled_manually，避免main尚未合并时旧Playwright任务继续触发；无浏览器定义先推工作分支，最终main合并后再恢复手动入口。本次保持暂停，不重新调度，不以停用/取消替代原门槛。
+
+**2026-10-04 业主暂停与CI调整**：按即时指令删除 GitHub Playwright 浏览器任务/安装/执行/artifact及push/PR触发；同原已注册workflow路径保留手动独立回归调用，101命令、冻结节点/授权和原full reusable不变。本地浏览器验证及全部原技术门槛保留。v11 CI37166765070/HEAD78638d6按暂停请求completed/cancelled，不计full或通过；未继续启动验证。YAML解析、caller参数映射、全部workflow无剩余Playwright/浏览器执行及diff检查通过。M8.2仍in_progress但工作按业主暂停，等待继续；main尚未上传。见PATCH-M8-2-CURRENT-REGRESSION-01与AGENTS最新授权。
 
 **2026-10-04 v10实际full及v11窄修**：CI37165122951/HEAD74c3697两平台已终局整体failed、4/101；各自strict18/22、3407collector、matrix1、A25及B首节点实际通过，随后B32为旧drop_all循环FK setup失败，C35及其它97命令未执行，五输入一致/前后不变、自然排空、模型0。按PATCH-M8-2-CURRENT-REGRESSION-01仅原conftest改同固定标记路径留存闲置旧合成库/WAL/SHM再新建，raw连接closing，外键ON/deferOFF、原种子/断言/节点保持；独立静审cfc7a4a4完成。v11仅两个801输入来源改变，74数组/101命令/101授权/10NA不变，草稿fb200787；新双平台strict/full仍待，M8.2保持in_progress。原件/精确SHA与审阅见M8-2-v10-fixture-reset-review-v1，main保持7a4f872。
 

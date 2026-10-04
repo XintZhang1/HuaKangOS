@@ -1,5 +1,9 @@
 # 当前交付任务
 
+GitHub旧浏览器workflow372700203已实际disabled_manually，避免main尚未合并时旧Playwright任务继续触发；无浏览器定义先推工作分支，最终main合并后再恢复手动入口。本次保持暂停，不重新调度。
+
+2026-10-04 业主即时暂停：GitHub Playwright浏览器job及自动触发已删除，手动独立回归与本地浏览器验收保留；v11 CI37166765070已cancelled，不计通过。静态YAML/caller合同/diff检查通过。M8.2等待业主继续，main按全技术完成后的原合并条件保留。
+
 2026-10-04：M8.2 v10两平台full已终局failed/4 of101；matrix/A25/B首节点通过，B其余32为旧夹具drop_all循环FK setup失败。仅原conftest窄修已独立静审，留存闲置旧合成库并同标记路径新建、外键ON/deferOFF保持；v11源输入801仅该文件与来源登记改变。接续新两平台strict/101 full，M8.2唯一in_progress，main待全部技术门槛完成。
 
 2026-10-04：M7.3.3真实派生ID窄修已implemented/独立静审（4d8314a7/e36e2be9/1256c862）；M2.6与四缺失合同已完成代码审阅。唯一in_progress恢复M8.2，冻结当前真实矩阵与全部来源SHA，经实际collector登记节点后执行新同指纹两平台strict/101全命令；当前执行仍0，不继承旧成绩，员工试用之外全部技术门槛和main上传继续完成。

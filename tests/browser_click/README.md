@@ -19,7 +19,7 @@ python tests/browser_click/run.py --serve --browser "C:/Program Files/Google/Chr
 
 统一标准在 `rubric.json`：显示正确、步骤容易理解、文案简洁、事实清楚、错误恢复和可用性。六项人工评分各至少3分并附具体观察；金额、数量、状态、任务、权限、唯一提交、旧行保护和无5xx/未处理异常另为硬门禁。原生UI点击、自动截图人工看图、补充只读API与数据库核对分别记证。真实模型101/283、PostgreSQL、独立平台、员工效率、真实外部事实及生产发布保留原条件，四生产功能开关默认关闭。
 
-旧测试及套件CI已移出工作区并在仓库外保留可恢复副本；`.github/workflows/browser-click-checks.yml` 是当前唯一验证CI，使用同一入口，只上传 `evidence/`。本轮尚未推送运行的CI不记为成功。
+2026-10-04 按业主要求，GitHub CI 已删除 Playwright 浏览器任务及其自动触发。本目录继续用于本地隔离浏览器验证；`.github/workflows/browser-click-checks.yml` 的已注册路径只保留手动调度，调用 `full-regression-checks.yml` 执行独立回归。历史远端浏览器结果按原指纹留存，不继承为当前验收。
 
 ## 历史注册、方法和运行记录
 
@@ -62,7 +62,7 @@ python tests/browser_click/run.py --scenario sales-presales-hk001-007 --browser 
 
 每项结果记录于仓库外 `evidence/requirements-coverage.json`，分别显示搜索、指引、页面、代表表单和已实际执行的业务子动作。HK-098 仅验证客户新增与历史唯一性，HK-002 仅验证第一张接待分派确认；夹具预先创建原单不计员工点击实测。会员和套餐详情的补充 Cookie GET 单独计数。清单自身始终标记 `unexecuted`，没有历史成绩继承或 193 项完整业务验收结论。
 
-每次输出包含 `source/`（被测生产镜像）、`scripts/`（执行脚本）、`runtime/`（合成数据与凭据）、`evidence/`（报告、截图和日志）与 `manifest.json`（无密码的实例信息）。初始化应用前核对源码与脚本复制前、复制内容、复制后三份逐文件指纹；发现并行修改则保留 `snapshot_stable=false` 证据并拒绝启动。CI 只上传 `evidence/`，不上传凭据、数据库、配置和附件。
+每次输出包含 `source/`（被测生产镜像）、`scripts/`（执行脚本）、`runtime/`（合成数据与凭据）、`evidence/`（报告、截图和日志）与 `manifest.json`（无密码的实例信息）。初始化应用前核对源码与脚本复制前、复制内容、复制后三份逐文件指纹；发现并行修改则保留 `snapshot_stable=false` 证据并拒绝启动。浏览器结果保留在本地仓库外，不上传凭据、数据库、配置和附件。
 
 当前追加目标为193项实际业务验收，清单 `business_acceptance_catalog.json` 记录每项真正通过所需UI/API/后端事实；清单本身不保存执行成绩。先以原接待/意向操作推进HK-001—HK-007，随机接待、主管和第二销售账号仅作为身份前置，业务结果由UI生成。文案依据 `docs/文案标准.md`，个人风格检索无可用样本时不声称取得个人档案。
 

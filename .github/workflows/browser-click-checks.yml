@@ -1,34 +1,15 @@
-name: Browser click checks
+name: Current regression checks
 
 on:
-  push:
-    branches: [main, feature/assistant-agent-runtime]
-    paths:
-      - 'app/**'
-      - 'web/**'
-      - 'migrations/**'
-      - 'requirements.txt'
-      - 'alembic.ini'
-      - 'tests/browser_click/**'
-      - '.github/workflows/browser-click-checks.yml'
-  pull_request:
-    paths:
-      - 'app/**'
-      - 'web/**'
-      - 'migrations/**'
-      - 'requirements.txt'
-      - 'alembic.ini'
-      - 'tests/browser_click/**'
-      - '.github/workflows/browser-click-checks.yml'
   workflow_dispatch:
     inputs:
       regression_capsule_asset_id:
-        description: Optional frozen source-only regression capsule asset ID
-        required: false
+        description: Frozen source-only regression capsule asset ID
+        required: true
         type: string
       regression_capsule_sha256:
-        description: Frozen regression capsule SHA-256 when an asset is supplied
-        required: false
+        description: Full frozen regression capsule SHA-256
+        required: true
         type: string
       regression_mode:
         description: Current regression inventory preparation or full registered run
@@ -46,39 +27,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && inputs.regression_capsule_asset_id != '' && 'current-regression' || 'browser-click' }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' || inputs.regression_capsule_asset_id == '' }}
+  group: current-regression-dispatch-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  browser-click:
-    if: github.event_name != 'workflow_dispatch' || inputs.regression_capsule_asset_id == ''
-    runs-on: ubuntu-latest
-    timeout-minutes: 165
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-      - name: Install application and pinned browser dependencies
-        run: |
-          python -m pip install -r requirements.txt playwright==1.56.0
-          python -m playwright install --with-deps chromium
-      - name: Run real browser clicks against a new isolated instance
-        run: >-
-          python tests/browser_click/run.py
-          --source "$GITHUB_WORKSPACE"
-          --output "$RUNNER_TEMP/browser-click-${{ github.run_id }}-${{ github.run_attempt }}"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: browser-click-evidence-${{ github.sha }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/browser-click-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
-          retention-days: 7
-          if-no-files-found: warn
   current-regression:
-    if: github.event_name == 'workflow_dispatch' && inputs.regression_capsule_asset_id != ''
     permissions:
       contents: write
     uses: ./.github/workflows/full-regression-checks.yml
