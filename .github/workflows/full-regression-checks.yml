@@ -31,18 +31,18 @@ on:
         required: true
         type: string
       mode:
-        description: Collection preparation or registered full validation
+        description: Prepare inventory, run full validation, or diagnose the fixed Windows preview group
         required: true
         default: prepare
         type: choice
-        options: [prepare, full]
+        options: [prepare, full, diagnostic]
       linux_only:
         description: Retry Linux preparation without repeating Windows inventory
         required: false
         default: false
         type: boolean
       windows_only:
-        description: Diagnose Windows through the same strict and full validation entry
+        description: Select Windows only; required for diagnostic mode
         required: false
         default: false
         type: boolean
@@ -88,7 +88,8 @@ jobs:
           if ('${{ inputs.windows_only && inputs.linux_only }}' -eq 'true') { throw 'Choose only one platform restriction' }
           if ($env:CAPSULE_ASSET_ID -notmatch '^[1-9][0-9]*$') { throw 'Invalid asset ID' }
           if ($env:CAPSULE_SHA256 -notmatch '^[a-f0-9]{64}$') { throw 'Invalid capsule SHA-256' }
-          if ($env:VALIDATION_MODE -notin @('prepare', 'full')) { throw 'Invalid validation mode' }
+          if ($env:VALIDATION_MODE -notin @('prepare', 'full', 'diagnostic')) { throw 'Invalid validation mode' }
+          if ($env:VALIDATION_MODE -eq 'diagnostic' -and '${{ inputs.windows_only && !inputs.linux_only }}' -ne 'true') { throw 'Diagnostic mode requires Windows only' }
           $taskArchive = Join-Path $env:RUNNER_TEMP 'validation-inputs.zip'
           $taskRoot = Join-Path $env:RUNNER_TEMP 'v'
           python -B scripts/package_validation_inputs.py download --asset-id $env:CAPSULE_ASSET_ID --sha256 $env:CAPSULE_SHA256 --output $taskArchive
@@ -116,15 +117,22 @@ jobs:
           $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python3.11' }
           & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M8.2 --prepare-collection
           if ($LASTEXITCODE -ne 0) { throw 'Actual collection failed' }
-      - name: Verify strict binding and complete regression
-        if: inputs.mode == 'full'
+      - name: Verify strict binding and selected validation
+        if: inputs.mode == 'full' || inputs.mode == 'diagnostic'
+        env:
+          VALIDATION_MODE: ${{ inputs.mode }}
         run: |
           $taskRoot = Join-Path $env:RUNNER_TEMP 'v'
           $taskPython = if ($IsWindows) { Join-Path $taskRoot '.venv/Scripts/python.exe' } else { Join-Path $taskRoot '.venv/bin/python3.11' }
           & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M0.1
           if ($LASTEXITCODE -ne 0) { throw 'Current strict validation failed' }
-          & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M8.2
-          if ($LASTEXITCODE -ne 0) { throw 'Complete registered regression failed' }
+          if ($env:VALIDATION_MODE -eq 'diagnostic') {
+            & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M0.2 --phase B --diagnostic-command b05-business-11
+            if ($LASTEXITCODE -ne 0) { throw 'Bounded Windows diagnostic failed' }
+          } else {
+            & $taskPython -B (Join-Path $taskRoot 'run_validation.py') --repo $env:GITHUB_WORKSPACE --milestone M8.2
+            if ($LASTEXITCODE -ne 0) { throw 'Complete registered regression failed' }
+          }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -134,6 +142,7 @@ jobs:
             ${{ runner.temp }}/v/runs/**/validation-manifest.json
             ${{ runner.temp }}/v/runs/**/reports/**
             ${{ runner.temp }}/v/runs/**/command-results/**
+            ${{ runner.temp }}/v/runs/**/fixtures/pytest-tmp/*business-11/*/probe.stderr.txt
             ${{ runner.temp }}/v/harness/runtime-platform.json
             ${{ runner.temp }}/v/capsule-manifest.json
             ${{ runner.temp }}/v/capsule-platform-source.json

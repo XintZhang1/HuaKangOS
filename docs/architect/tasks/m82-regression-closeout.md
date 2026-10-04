@@ -1,5 +1,9 @@
 # M8.2 当前 main 完整回归
 
+v23 本地验证已结束：strict18；原business-11 104pass/1本机符号链接权限skip，九PS真实全过但整组保留diagnostic_failed。helper/来源登记/workflow及本地结果均独审；root已合入固定模块和固定CI诊断入口，冻结asset610531872/SHA73337ace…。下一步同新提交GitHub Windows原105项诊断，未豁免skip或开启后项；见M8-2-v22-review-v2。
+
+2026-10-05 v22-r2：root 完成同 d794123 双平台原件收口；Linux 4238 passed/10 NA，Windows 4239 passed/9 PowerShell call超时。root 管精确补丁/来源登记/统一入口及合入；day 负责唯一外部 helper 候选，regression_harness 独审其原20秒/命令/断言不变；mobile 负责现有 workflow 的有限 Windows business-11 诊断候选。801 输入仅3项登记变化，其余798保持。当前仍 M8.2，详见 PATCH-M8-2-WINDOWS-PROBE-01 和 M8-2-v22-review-v2；本地 strict/定向和真实 Windows 诊断待执行，未启动 M8.3。
+
 2026-10-04 v22-r1 双平台原件收口：GitHub `37203190639` 的 Windows 为 4229 passed、19 setup error；Linux 为 4238 passed、10 个已登记平台不适用。Windows 唯一失败来自迁移工具拒绝非空目标后未释放私有 engine 的池。按 `PATCH-M8-2-TRANSFER-LIFETIME-01` 修复后，本地 strict `20261004T151601Z-a3424964dd` 18 通过，M0.2.B `20261004T151650Z-196ece1a41` 原 business-01 全部 153 节点通过，含此前 19 个受阻节点的实际 call；五指纹/三文件映射稳定，801 验证输入未改，模型调用 0。详见 `docs/implementation-checkpoints/M8-2-v22-review-v1.md`。诊断不替代完整验收；下一步在修复提交上重新运行双平台全量，M8.2 仍唯一 in_progress，CP-35 不追加完整验收放行。
 
 2026-10-04 v22-r1定向修订完成：新strict `20261004T123410Z-9314a28915` 18通过，M6.8 `20261004T123445Z-da2b05ff37` 完整21/21通过（149 Node、61 Python，另10语法及1生成物检查）；与该strict同五输入且均正常排空。一字符修复已真实复验，前次失败原件保留。此前同v22的M02定向684及M7领域202结果分别留档，不拼成一次全量通过。冻结source-only asset609828442，SHA `129115b39864e387a02b3158151b0fb7f82d38cdff7c3141c681a7076c75c382`（801源输入、3367654字节ZIP，GitHub官方digest相符）；原319归档、101命令及全部原节点保持。下一步新main该同候选双平台strict/full；M8.2仍唯一in_progress，后续真实技术门槛及员工试用/人工验收边界保留。

@@ -12,18 +12,18 @@ on:
         required: true
         type: string
       regression_mode:
-        description: Current regression inventory preparation or full registered run
+        description: Prepare inventory, run full validation, or diagnose the fixed Windows preview group
         required: false
         default: prepare
         type: choice
-        options: [prepare, full]
+        options: [prepare, full, diagnostic]
       regression_linux_only:
         description: Retry Linux preparation without repeating Windows inventory
         required: false
         default: false
         type: boolean
       regression_windows_only:
-        description: Diagnose Windows through the same strict and full validation entry
+        description: Select Windows only; required for diagnostic mode
         required: false
         default: false
         type: boolean
