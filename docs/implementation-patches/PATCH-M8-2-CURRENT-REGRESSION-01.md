@@ -1,5 +1,7 @@
 # PATCH-M8-2-CURRENT-REGRESSION-01
 
+2026-10-04 v10 full实际失败后的夹具窄修事前范围：CI37165122951/HEAD74c3697两平台已终局，strict18/22、3407清单、matrix1及A25实际通过；B33首节点通过、随后32节点在旧conftest的drop_all循环外键setup失败，C及后续97命令未执行，整体failed。官方ZIP/原件外置留存。仅改 `V/tests/baseline/overlay/tests/conftest.py` 原isolated_database：确认原标记run/fixtures路径、无池中在用连接，dispose闲置连接；将本次上一节点合成SQLite库与存在的WAL/SHM留存到同run的新独占历史目录，再沿原固定engine及路径create_all/原种子。全部移动源/目标先过原inside/clean_path；遇打开连接/非预期路径/留存失败即失败，不GC、不重试、不关闭或延迟业务外键，不改生产/测试断言/节点/24轮/600秒。WAL设置的raw连接用closing显式关闭，原with只结束事务的生命周期缺口同时收尾。旧原件及精确差异保存于V本轮审阅，archive/baseline-restoration.json仅追加该既有adaptation版本/真实SHA和来源，manifest的原清单/授权保持；新801输入草稿记录实际字节后两平台各自重新strict及101 full，前一局部分数不得继承为通过。
+
 2026-10-04 当前前置实修收口后范围补充：既有generate_current_matrix.py将questionnaires/observation-corrections/clearing/vehicle-income准确映射真实M7 provider，移除已实现三合同的旧unregistered记录，保留所有真正未知及193/111来源。中央core原Flow+三固定helper的有限OPERATIONS精确唯一family集合替代历史Flow-only；原test_current_capability_matrix.py仅同节点该一条旧集合断言更新为当前四族全等/唯一归属及实际来源SHA，不弱化为subset，仍reader unbound/facts未知/零业务调用/业务未验收。外部原overlay与C来源SHA更新后由原统一collector实际产生ordered节点，再登记全部节点级合成授权/清单。旧源/差异/失败保留；不新建runner或改变原业务门槛。
 
 2026-10-03；M8.1原五条故障门禁已收口。当前唯一M8.2 in_progress。补齐当前候选的原适用基线、新Runtime/domain合同及已implemented早期原检查，保留历史证据与每项原标准，不恢复旧app或退休浏览器桥接。

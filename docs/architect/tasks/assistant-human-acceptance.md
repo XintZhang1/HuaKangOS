@@ -1,5 +1,7 @@
 # 助手计划收口至待人工验收
 
+2026-10-04：M8.2 v10两平台full已终局failed/4 of101；matrix/A25/B首节点通过，B其余32为旧夹具drop_all循环FK setup失败。仅原conftest窄修已独立静审，留存闲置旧合成库并同标记路径新建、外键ON/deferOFF保持；v11源输入801仅该文件与来源登记改变。接续新两平台strict/101 full，M8.2唯一in_progress，main待全部技术门槛完成。详见M8-2-v10-fixture-reset-review-v1。
+
 2026-10-04：M7.3.3真实派生ID窄修已implemented/独立静审（4d8314a7/e36e2be9/1256c862）；M2.6与四缺失合同已完成代码审阅。唯一in_progress恢复M8.2，冻结当前真实矩阵与全部来源SHA，经实际collector登记节点后执行新同指纹两平台strict/101全命令；当前执行仍0，不继承旧成绩，员工试用之外全部技术门槛和main上传继续完成。
 
 

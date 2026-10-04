@@ -3870,6 +3870,8 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 ## M8.2 原业务、助手和前端不退化验收
 
+**2026-10-04 v10实际full及v11窄修**：CI37165122951/HEAD74c3697两平台已终局整体failed、4/101；各自strict18/22、3407collector、matrix1、A25及B首节点实际通过，随后B32为旧drop_all循环FK setup失败，C35及其它97命令未执行，五输入一致/前后不变、自然排空、模型0。按PATCH-M8-2-CURRENT-REGRESSION-01仅原conftest改同固定标记路径留存闲置旧合成库/WAL/SHM再新建，raw连接closing，外键ON/deferOFF、原种子/断言/节点保持；独立静审cfc7a4a4完成。v11仅两个801输入来源改变，74数组/101命令/101授权/10NA不变，草稿fb200787；新双平台strict/full仍待，M8.2保持in_progress。原件/精确SHA与审阅见M8-2-v10-fixture-reset-review-v1，main保持7a4f872。
+
 **状态**：in_progress（2026-10-04 四个缺失领域、最终可靠原生回执及返修派生ID窄修均implemented/独立静审；恢复当前候选完整隔离验证。原缺口/失败历史保留，实际集采/strict/101全命令待新指纹执行，不继承旧成绩或以静态数量代替。）
 
 **2026-10-04 当前冻结准备**：仅现有matrix generator及同原单节点Flow-only断言按当前中央+三固定helper精确原模板集合更新；四真实provider/原193需求111发布流程来源完整保留，reader仍unbound、fact未知、业务acceptance未验证。修改的原领域overlay/原C只更新实际来源SHA，不凭AST猜新parameter节点；经统一入口真实collector登记全部有序节点和节点级合成授权后，新两平台同五指纹strict及全部101命令实际执行。旧v7/v8失败和旧输入保留，原V/日期库/公司库/密钥不进入GitHub胶囊。
