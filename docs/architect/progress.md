@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-04 M8.2 v19：CI37181959680双平台自然failure，各strict18/22通过，full8/101各125pass/1fail/3281未执行。E7全部通过，Windows实际PID身份及读取恢复修复已动态成立；F10pass/1fail，真实600秒停止已通过，第二模型轮次的已知HTTP计数在父/子取消传递中遗失。按PATCH-M8-2-MODEL-CANCEL-USAGE-01仅修run_once局部safe usage接线，保留全部输入/断言/预算/权限，新同候选完整复验待完成。M8.2唯一in_progress，见M8-2-v19-review-v1。
+
 2026-10-04 M8.2 v18：Windows定向CI37180332868自然failure（Linux未调度）。新增实证锁定启动器PID4272与实际workerPID6344，父PID4272，Run/helper/mode/存活全匹配，仅原严格PID等式失败；尚未到kill/恢复后置断言。按PATCH-M8-2-WINDOWS-DIRECT-WORKER-01直接持有已绑定实际解释器句柄、核实原venv身份，保持原PID及业务/预算守卫；新同候选双平台完整实跑待完成。M8.2唯一in_progress，详见M8-2-v18-review-v1。
 
 2026-10-04 M8.2 v17：CI37178121548两平台自然failure，分别独审strict22/18、full7/101各114pass/1fail/3292未执行。Linux已越过读取写入故障，停于读取观察25vs24；Windows更早停于未保存PID详情的checkpoint身份校验，不能混同根因。按两项精确补丁仅修E完整有序查询断言及有限身份诊断，保严格校验和全部后置业务守卫；新增默认false的Windows定向入口先取证，最终双平台完整门槛保留。生产不变，M8.2唯一in_progress，详见M8-2-v17-review-v1。

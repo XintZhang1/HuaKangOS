@@ -2336,17 +2336,32 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                         _progress_run(db, principal, labels[phase], clock=clock)
                         last_phase = phase
 
+                captured_usage = None
+
+                async def observed_model_call():
+                    nonlocal captured_usage
+                    try:
+                        return await call_model(config, messages, thinking=thinking,
+                            stream=stream, emit=emit if stream else None,
+                            background=principal.auth_kind == 'grant', before_request=before_request)
+                    except BaseException as child_error:
+                        # Budget cancellation reaches this child after its waiting parent.
+                        # Keep only the provider's safe counters before the original drain.
+                        captured_usage = deepcopy(getattr(child_error, 'runtime_usage', None))
+                        raise
+
                 try:
-                    answer = await heartbeat.wait(call_model(config, messages, thinking=thinking,
-                        stream=stream, emit=emit if stream else None,
-                        background=principal.auth_kind == 'grant', before_request=before_request))
+                    answer = await heartbeat.wait(observed_model_call())
                 except BaseException as exc:
                     # Never store exception text, provider content or reasoning.
                     # A reserved but crashed/unreported request remains unknown.
                     db.rollback()
                     try:
                         revalidate_principal(db, principal, clock=clock)
-                        queue.finish_model_round(db, principal, round_no, getattr(exc, 'runtime_usage', None), clock=clock)
+                        usage = getattr(exc, 'runtime_usage', None)
+                        if usage is None:
+                            usage = captured_usage
+                        queue.finish_model_round(db, principal, round_no, usage, clock=clock)
                     except Exception:
                         if isinstance(exc, asyncio.CancelledError):
                             raise exc from None
