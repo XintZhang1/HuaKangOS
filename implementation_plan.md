@@ -3878,6 +3878,10 @@ manual-finance-system-20261001-01的七原UI前序通过；IAB同源三宽度实
 
 ## M8.2 原业务、助手和前端不退化验收
 
+2026-10-04 M8.2 v20：CI37183964600双平台自然failure，各strict18/22通过，matrix/A/B/C/D/E/F全部通过，真实600秒预算和取消计数修复本轮完整通过。原18收集得到203节点但执行0；full27/101各750pass/33fail/2624未执行，后续74命令未跑。33失败均为两个旧合成验证夹具遗漏平台文件及完整清单，按PATCH-M8-2-SYNTHETIC-VALIDATION-FIXTURES-01仅修夹具，不改业务/runner/断言。先现有统一M0.2.B诊断后新同候选双平台full；M8.2唯一in_progress，见M8-2-v20-review-v1。
+
+v21夹具修订已通过本地同指纹strict18及原M0.2.B整组657/657定向复验，CLI均0，诊断不记全量通过。冻结source-only asset609410676/SHA54fe594476256e59abe59f4864f8402b73283f01b9e5b6a86fcbd40eb558acd1，3输入变更/798不变；下一步新main同候选双平台strict/full，当前整项仍in_progress。
+
 2026-10-04 M8.2 v19：CI37181959680双平台自然failure，各strict18/22通过，full8/101各125pass/1fail/3281未执行。E7全部通过，Windows实际PID身份及读取恢复修复已动态成立；F10pass/1fail，真实600秒停止已通过，第二模型轮次的已知HTTP计数在父/子取消传递中遗失。按PATCH-M8-2-MODEL-CANCEL-USAGE-01仅修run_once局部safe usage接线，保留全部输入/断言/预算/权限，新同候选完整复验待完成。M8.2唯一in_progress，见M8-2-v19-review-v1。
 
 2026-10-04 M8.2 v18：Windows定向CI37180332868自然failure（Linux未调度）。新增实证锁定启动器PID4272与实际workerPID6344，父PID4272，Run/helper/mode/存活全匹配，仅原严格PID等式失败；尚未到kill/恢复后置断言。按PATCH-M8-2-WINDOWS-DIRECT-WORKER-01直接持有已绑定实际解释器句柄、核实原venv身份，保持原PID及业务/预算守卫；新同候选双平台完整实跑待完成。M8.2唯一in_progress，详见M8-2-v18-review-v1。
