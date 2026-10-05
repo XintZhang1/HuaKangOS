@@ -2348,7 +2348,8 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                     try:
                         return await call_model(config, messages, thinking=thinking,
                             stream=stream, emit=emit if stream else None,
-                            background=principal.auth_kind == 'grant', before_request=before_request)
+                            background=principal.auth_kind == 'grant', before_request=before_request,
+                            allow_tools=not wrapped)
                     except BaseException as child_error:
                         # Budget cancellation reaches this child after its waiting parent.
                         # Keep only the provider's safe counters before the original drain.

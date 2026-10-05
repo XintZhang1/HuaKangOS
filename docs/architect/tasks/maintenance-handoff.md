@@ -1,5 +1,7 @@
 # 维护交接整理
 
+2026-10-05当前：Pro high代表21条自然排空，152 POST/1201.766秒/CLI1；累计78.912116元，旧未知保持。root登记/集成，day_boundary负责车辆作业候选逐行事实，mobile_closeout负责既有收尾阶段禁止继续工具调用的接线，regression_harness负责原节点/费用/新输入登记。仅修本次V05语义与M03轮数失败，保留原权限和24轮/600秒；按PATCH-M8-5-LOCAL-LIVE-01先受影响定向再完整283。M8.5唯一in_progress，M8.6未开始。
+
 当前续接：Flash high的21代表仍失败，V03需离线复现第九轮原单检索，D04为畸形工具参数JSON；M02/V08/A07语义问题保留。regression_harness负责原读取测试合成复现；mobile_closeout仅制作外部Pro固定模型/费率候选，day_boundary核旧1402行与逐行费用守卫，root登记与集成。累计占73.044270元、总限280元；明确区分Flash与Pro，不改变生产模型/思考默认。先诊断后有限Pro21对照，M8.5唯一in_progress，M8.6未开始。
 
 当前续接：同源21代表已分普通/思考模式独审，均未全通过；详 [M8-5-mode-comparison-review-v1](../../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)。当前仅M8.5，root维护原provider DeepSeek thinking high的窄调整，day/mobile代码边界复核，reg原短节点与费用账本恢复；不改默认思考设置、不继承分组成绩，M8.6未开始。

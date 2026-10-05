@@ -245,7 +245,7 @@ async def _before_request(callback):
         raise TypeError('The pre-request guard must return None')
 
 
-async def _nonstream(config, messages, thinking, usage, before_request=None):
+async def _nonstream(config, messages, thinking, usage, before_request=None, *, allow_tools=True):
     from . import business_assistant_service as service
     attempt = 0
     while True:
@@ -257,6 +257,8 @@ async def _nonstream(config, messages, thinking, usage, before_request=None):
             # Keep the old dynamic fixture hook. The service wrapper delegates
             # only construction to provider_request, so this is not recursion.
             endpoint, body = service.provider_request(config, messages, thinking=thinking)
+            if not allow_tools:
+                body['tool_choice'] = 'none'
             async with httpx.AsyncClient(timeout=config.timeout_seconds, follow_redirects=False, trust_env=False) as client:
                 usage.request_started()
                 response = await client.post(endpoint, headers={'Authorization': 'Bearer ' + config.api_key}, json=body)
@@ -302,9 +304,11 @@ async def _nonstream(config, messages, thinking, usage, before_request=None):
             raise ModelProtocolError('回复未完整通过校验，请核对已有卡片。') from None
 
 
-async def _stream(config, messages, thinking, emit, usage, before_request=None):
+async def _stream(config, messages, thinking, emit, usage, before_request=None, *, allow_tools=True):
     from . import business_assistant_service as service
     endpoint,body=service.provider_request(config,messages,thinking=thinking,stream=True)
+    if not allow_tools:
+        body['tool_choice'] = 'none'
     tools={};content='';reasoning='';finish=None;done=False;size=0;phase=None
     safe=SafeDeltas(service.safe_text)
     async def status(next_phase):
@@ -404,9 +408,10 @@ async def _stream(config, messages, thinking, emit, usage, before_request=None):
 
 
 async def call_model(config, messages, thinking=False, *, stream=False, emit=None, background=False,
-                     before_request=None):
+                     before_request=None, allow_tools=True):
     """One complete reply and sanitized counters, with no durable side effects."""
-    if type(stream) is not bool or type(background) is not bool or type(thinking) is not bool:
+    if (type(stream) is not bool or type(background) is not bool or type(thinking) is not bool
+            or type(allow_tools) is not bool):
         raise TypeError('Provider flags must be server-owned booleans')
     if stream and not callable(emit):
         raise TypeError('Streaming requires an async event callback')
@@ -414,8 +419,11 @@ async def call_model(config, messages, thinking=False, *, stream=False, emit=Non
         raise TypeError('The pre-request guard must be a server callback')
     usage = _Usage(background=background)
     try:
-        reply = (await _stream(config, messages, thinking, emit, usage, before_request) if stream
-                 else await _nonstream(config, messages, thinking, usage, before_request))
+        reply = (await _stream(config, messages, thinking, emit, usage, before_request, allow_tools=allow_tools) if stream
+                 else await _nonstream(config, messages, thinking, usage, before_request, allow_tools=allow_tools))
+        # Both transports have already validated the entire original reply.
+        if not allow_tools and reply.get('tool_calls'):
+            raise ModelProtocolError('收尾回复仍含工具调用，请核对已有卡片。')
     except BaseException as exc:
         # Only safe integers/status reach the worker. Never attach the response,
         # messages, credential, raw exception body or reasoning to telemetry.

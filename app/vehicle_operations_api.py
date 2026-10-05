@@ -75,16 +75,24 @@ def vehicles(db=Depends(get_db),user=Depends(get_user)):
         unavailable=svc.unavailable_vehicle_ids(db)
         rows=list(db.scalars(select(Vehicle).where(Vehicle.approval_state=='approved').order_by(Vehicle.id.desc()).limit(1001)))
         if len(rows)>1000:raise HTTPException(413,'车辆超过本版一千台上限，请使用车辆编号办理')
+        sales_committed=svc.sales_committed_vehicle_ids(db,(r.id for r in rows if r.id not in unavailable))
         result=[]
         for r in rows:
             if r.id in unavailable:continue
             p=db.scalar(select(VehiclePosition).where(VehiclePosition.vehicle_id==r.id))
+            committed=r.id in sales_committed
+            stored=bool(p and p.status=='stored' and p.location_id is not None)
+            blockers=[]
+            if committed:blockers.append('sales_committed_or_delivered')
+            if not stored:blockers.append('source_position_not_stored')
             result.append({'id':r.id,'vin':r.vin,'model':r.model,'generation':r.inventory_generation,'location_id':p.location_id if p else None,
-                'location':svc.location_name(db,p.location_id) if p else '尚无明确库位','position_status':p.status if p else 'unlocated'})
+                'location':svc.location_name(db,p.location_id) if p else '尚无明确库位','position_status':p.status if p else 'unlocated',
+                'sales_committed':committed,'local_move_position_condition_met':stored,
+                'local_move_known_blockers':blockers,'local_move_eligible':False if blockers else None})
         return {'items':result,'scope':{'view':'vehicle_operation_candidates','approval_state':'approved',
             'excluded_operations':'non_terminal','current_inventory_list':False,'operation_eligibility_verified':False,
             'local_move_requires_position_status':'stored'},
-            'notice':'本列表只核对本店车辆已批准并排除在办车辆作业，不是当前在库或可移库车辆清单；销售占用、已交付、调拨及具体作业条件仍须核对原事实。position_status=unlocated不满足店内移库，须先完成原现场库位登记；店内移库还要求原位置状态为stored。'}
+            'notice':'本列表只核对本店车辆已批准并排除在办车辆作业，不是当前在库或可移库车辆清单；每行sales_committed=true表示原销售占用或已交付阻断，不能办理库存作业，也不能靠补库位解除。local_move_position_condition_met只核对来源位置为stored且已有库位；local_move_eligible=false表示已有明确阻断，null仍未验证可办理，不能把候选都称为可作业。调拨、采购退回、原库位和目标库位等条件仍由原提交守卫核对。position_status=unlocated不满足店内移库；无销售阻断时也须先完成原现场库位登记，店内移库还要求原位置状态为stored。'}
 
 @router.post('/orders',status_code=201)
 def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):

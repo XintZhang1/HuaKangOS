@@ -2,6 +2,18 @@
 
 日期：2026-10-05。结论：**M8.5仍in_progress；本报告不放行完整283或M8.6。**
 
+## Pro high代表终局
+
+受检HEAD `c93b7eede7e2d301827fababe73acfb7cd3d12d7`，source `e604280f6bf37817da87e3c082e4bfb06644ebdb755ff2d9001a495b8b1897be`。新strict `124039Z-09bf864f89` 18项通过（报告SHA `b4aae1697b793579479b8a93372bd46adf8206eee692830de925dbb53b072c2e`）；实际Pro high代表 `124118Z-875bdaf3ad` 21条、152 POST、1201.766秒、CLI1，报告SHA `3408b23e31bf587f71ef987c932e97e9babe36978a982197ce8cb2100e7be5e3`。进程自然排空、无超时，没有默认模型或默认思考模式通过的含义。
+
+20条结构完成；M03在原父单404、客户查询403之后继续换入口检索，达到24轮上限。V05虽无卡，却把12个作业候选称为均可作业，忽略销售占用/交付及缺少原库位，不合格。其余核心事实本轮可接受；S01电话不存在尚未被姓名查询证明，S07保险入口概括偏窄，保留范围措辞观察。V03本轮正常等待真实采购/到货来源，D04两次真实查重后只准备一张1234分、30分钟、job计费的待确认工时卡；旧Flash的异常不因此擦除或宣布修复。
+
+21例均无确认请求、各467业务表前后相等。152个新请求全部settled，保守核算5.867846元；累计1554次、78.912116元、剩余201.087884元，历史五个未知26.214400元原额保持，未新增未知或halt。这里是验证账本的保守占用，不是供应商实际账单。
+
+独立原件仍在 `V/closeout-20261005/`：六例 `mode-semantic-review/day_boundary/20261005T124118Z-875bdaf3ad-pro-high-124327Z-68669952/terminal-six-case-semantic-review.json`（SHA `e10a2e387242cb6b429932cf6dbac9826f436ce0d2848906318214ecf6638e27`）；十一例 `representative21-pro-semantic-mobile-20261005T125938Z-193875db43/independent-review.json`（SHA `f2eb54e08ce59412e48ad0afef76cc1b88823f8a806395487a3969257684861c`，当时四例仍在运行，仅证明该十一例）。后续按PATCH-M8-5-LOCAL-LIVE-01补候选逐行事实与现有收尾阶段的工具开关，再做受影响代表和独立完整283；不拼接不同指纹的通过项。
+
+其余四例及终局费用/五输入独审：`m85-pro21-regression-review-20261005T125854Z-f1f20913f2/independent-terminal-review.json`，SHA `46de80d085bf3d258727248a387ec7d85e1c1c2bd7f581033cb38fa9605f58fd`。M03完整链及重复检索位置：`representative21-pro-semantic-mobile-20261005T125938Z-193875db43/m03-context-and-budget-review.json`，SHA `c25cfbfe2fbec5c8e2cd2b395a90799a5d6981b3a4745be61adad6979df24bc7`；仅凭该证据不推断模型内部原因。
+
 ## 后续high终局（覆盖本报告下方的当前时序）
 
 9cb6868/source `d6d0b51b76be7b3ab10d4023880cac11586f0a597b5cee8f418e23d2a3918fb6`仅改变DeepSeek thinking强度及对应记录；原请求体节点111506Z-a11a730655实际1 passed/0 skipped，collector22.656秒、目标20.125秒，model0。新strict112559Z-96f2ac9125后，high代表112644Z-4e1e1431f7执行21条、145 POST、815.593秒、CLI1；五输入/三文件映射与本轮strict相等，正常排空且无超时。19条结构通过，V03/D04失败；不拼入下列不同模式结果。

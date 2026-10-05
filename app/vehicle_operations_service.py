@@ -106,12 +106,20 @@ def has_location_history(db,location_id=None,warehouse_id=None):
     return bool(ids and (db.scalar(select(Entry.id).where(Entry.location_id.in_(ids))) or db.scalar(select(Quarantine.id).where(Quarantine.location_id.in_(ids)))))
 
 
+def sales_committed_vehicle_ids(db,vehicle_ids):
+    """Read the original sales/hold blockers under the caller's store authority."""
+    ids=tuple(vehicle_ids)
+    if not ids:return set()
+    return (set(db.scalars(select(Sale.active_vehicle_id).where(Sale.active_vehicle_id.in_(ids)))) |
+        set(db.scalars(select(VehicleHold.vehicle_id).where(VehicleHold.vehicle_id.in_(ids)))))
+
+
 def _free(db,user,vehicle_id,ignore_case=None):
     car=one(db,Vehicle,vehicle_id)
     if car.approval_state!='approved':raise HTTPException(409,'车辆不是本店可用库存')
     from .vehicle_procurement_service import assert_no_purchase_return
     assert_no_purchase_return(db,car.id);assert_no_vehicle_operation(db,car.id,ignore_case=ignore_case)
-    if db.scalar(select(Sale.id).where(Sale.active_vehicle_id==car.id)) or db.scalar(select(VehicleHold.case_id).where(VehicleHold.vehicle_id==car.id)):
+    if car.id in sales_committed_vehicle_ids(db,(car.id,)):
         raise HTTPException(409,'车辆已有销售占用或已交付，不能办理库存作业')
     custody=register_custody(db,user,car)
     if custody.pending_transfer_id:raise HTTPException(409,'车辆正在跨店调拨')
