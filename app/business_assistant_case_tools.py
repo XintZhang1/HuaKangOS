@@ -160,7 +160,11 @@ async def resolve_preparation(db,request,user,thread_id,name,args,config):
         more=page*listing.get('page_size',30)<listing.get('total',0)
         fields=('id','number','title','kind','kind_label','state','state_label','owner_id','owner_name','customer_id','business_date','due_date')
         items=[{**{key:row.get(key) for key in fields},'route':'case/'+str(row['id'])} for row in rows]
+        notice='结果仅覆盖本次员工、门店、业务类别、关键词和页码；单一类别或筛选为空，不代表本店全部业务都没有记录。'
+        if kind in {'purchase','procurement'}:
+            notice+='物资采购同时保留purchase（物资采购入库）和procurement（采购与原单退货）原单类别。查询总体采购及入库情况需分别查这两类并核对原单，不得把一类为空当作没有采购，也不得把付款当作到货。'
         return {'status':200,'data':{'items':items,'scope':scope,'page':page,'has_more':more,
+            'business_kind':kind,'notice':notice,
             'next_page':page+1 if more else None,'selection_required':len(items)>1 or more,
             'next':('有后续查询页；本页没有匹配不代表全部没有，请继续查询。' if more else
                     '找到一个候选，可读取原单核对后继续，无需重复索要编号。' if len(items)==1 else
