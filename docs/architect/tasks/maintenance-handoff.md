@@ -1,5 +1,7 @@
 # 维护交接整理
 
+当前续接：Flash high的21代表仍失败，V03需离线复现第九轮原单检索，D04为畸形工具参数JSON；M02/V08/A07语义问题保留。regression_harness负责原读取测试合成复现；mobile_closeout仅制作外部Pro固定模型/费率候选，day_boundary核旧1402行与逐行费用守卫，root登记与集成。累计占73.044270元、总限280元；明确区分Flash与Pro，不改变生产模型/思考默认。先诊断后有限Pro21对照，M8.5唯一in_progress，M8.6未开始。
+
 当前续接：同源21代表已分普通/思考模式独审，均未全通过；详 [M8-5-mode-comparison-review-v1](../../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)。当前仅M8.5，root维护原provider DeepSeek thinking high的窄调整，day/mobile代码边界复核，reg原短节点与费用账本恢复；不改默认思考设置、不继承分组成绩，M8.6未开始。
 
 当前：原283全量094910Z-a940bd86a3在75例后因对象/数量/金额/报表来源错误被root安全停止，208未运行、287POST已结算；累计1017次/47.360526元占用，原280元与未知保留。root修复会员姓名查询，day修版本补填保护，mobile修领退料QTY及真实单位，reg负责统一输入登记与显式thinking对照。原非思考报告完整保留；新模式另记，不据结构或历史代表成绩放行。唯一M8.5继续，M8.6未开始。

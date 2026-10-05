@@ -2,6 +2,20 @@
 
 日期：2026-10-05。结论：**M8.5仍in_progress；本报告不放行完整283或M8.6。**
 
+## 后续high终局（覆盖本报告下方的当前时序）
+
+9cb6868/source `d6d0b51b76be7b3ab10d4023880cac11586f0a597b5cee8f418e23d2a3918fb6`仅改变DeepSeek thinking强度及对应记录；原请求体节点111506Z-a11a730655实际1 passed/0 skipped，collector22.656秒、目标20.125秒，model0。新strict112559Z-96f2ac9125后，high代表112644Z-4e1e1431f7执行21条、145 POST、815.593秒、CLI1；五输入/三文件映射与本轮strict相等，正常排空且无超时。19条结构通过，V03/D04失败；不拼入下列不同模式结果。
+
+核心语义仍有M02原到货80升与当前68升库存混同、V08请款清单自身前置错误，A07遗漏已有消费积分目标表。A03/A06金额及回访口径正确，六条销售/会员案例核心正确并保留措辞观察。V03错误实体URL的422已有正常反馈；之后第9轮find_cases仍running/下一项pending，终局precondition_conflict，需要离线定位，不能归因为缺少422反馈。D04第1402次HTTP200的工具参数JSON解析失败被原守卫拒绝。所有21例467业务表全等，无确认写入。
+
+费用：新增144次结算6.243624元，1402次完整预留5.242880元；累计73.044270元，剩余上界206.955730元，原四次永久未知保持，当前因新预留停止。后续按PATCH-M8-5-LOCAL-LIVE-01核当前API的Pro模型能力，不把Flash评为通过。外部报告在`V/closeout-20261005/`：
+
+- `mode-semantic-review/day_boundary/20261005T112644Z-4e1e1431f7-high-114438Z-16d6cf4d/six-case-semantic-review.json`，SHA256 `cda90746e4fdc5ceab4aee30dd0c756afa81385889b9add2a021fbd9c1fbce98`。
+- `representative21-high-semantic-mobile-20261005T114345Z-36b71dad1e/independent-review.json`，SHA256 `dbc554966ea3ae65a3379810e6e58996b11c9883f27a3c8b9defa2e416558ba1`。
+- `m85-attempt1257-ack-candidate-20261005T112136Z-c8c2cfa2d1/independent-high-review.json`，SHA256 `b7e90e7c713063a20121fb28df26b5a2c87cb6d42a984a05d31c36e6a255aa83`。
+
+## 此前同源普通/low对照
+
 受检HEAD为`3a28f3562c0fc33f430ed82efa7671cd06b21573`，源码指纹为`f6331e8d5815b492e7bdbc096394a452eeb49dc8e8b9df838448ce4587d2206f`。同一DeepSeek Flash、21条原代表、原283/101定义、合成夹具和工具；通过真实员工Run接口、worker及provider执行。每例独立恢复合成基线，没有模型确认工具。模式参数显式记录，未修改产品默认。
 
 | 模式 | 同输入strict | 真实run | 实际结果 |

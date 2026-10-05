@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-05当前：9cb6868/source d6d0b51b的Flash high代表112644Z-4e1e1431f7完整21条/145 POST/815.593秒、CLI1，M02/V08/A07语义问题及V03/D04失败保留；详M8-5-mode-comparison-review-v1。root登记/集成，regression_harness在原外部读取测试合成复现V03九轮检索，mobile_closeout制作仅固定Pro的外部费用与入口候选，day_boundary独审历史金额与模型边界。1402次/73.044270元占用不重置，原280元总限保留；先诊断、后明确恢复和Pro21对照。仅M8.5 in_progress，不改生产默认，M8.6未实施；以下记录为历史。
+
 2026-10-05当前：3a28f35/sourcef633的21代表模式对照已结束，false106POST/CLI0仍有语义错误，true-low134POST/CLI1，V03/V05错误及D04畸形JSON阻止通过。累计1257次/61.557766元，含四次完整未知或预留占用，不释放。root仅改DeepSeek thinking effort为high并保持产品默认，day/mobile独审provider边界，reg复用M0.2/B原短provider节点登记与一次明确费用恢复；详M8-5-mode-comparison-review-v1。只有M8.5 in_progress，完整283/101和M8.6未完成。
 
 2026-10-05当前：094910Z-a940bd86a3原283全量在75例后按已核语义错误于场景边界停止，287POST结算、208未运行、CLI1/721.078秒，未通过M8.5。累计1017次/保守占47.360526元（含原三次未知15.728640），280元上限保持。root修复旧会员姓名检索及目录，day补版本缺项保护，mobile补原领退料数量单位，reg统一原外部节点登记；再以现有thinking参数做明确对照。S07/M03/F02/A03/A06/A07/B01等实错不因此前14代表通过消失。仍仅M8.5 in_progress，M8.6尚未开始；下列“最新”为各次历史记录。
