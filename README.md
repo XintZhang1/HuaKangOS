@@ -1,5 +1,7 @@
 # HuaKangOS · 华慷集团
 
+2026-10-05 当前交付范围已调整为代码/架构维护交接和本地真实模型复验；取消尚未执行的HTTPS/OS输入法及独立Windows/Linux验收计划。此前全量回归与SQLite/PostgreSQL结果保留，员工和生产验收不代签。详见[范围调整](docs/implementation-patches/PATCH-SCOPE-MAINTENANCE-20261005-01.md)及[实施计划](implementation_plan.md)。下方日期段为各轮历史。
+
 2026-10-04 已将业务助手、Cutie/DeepSeek 运维修复与旧工作区界面改动整合到 `main`，整合提交为 `f1b6d74`，其它分支已清理。当前里程碑、实际验收和剩余事项只查 [实施计划](implementation_plan.md)；源码合并不代表生产验收。
 
 2026-09-30 按业主要求重新组织测试：旧测试与旧套件 CI 移出工作区，新验证以 [浏览器实际点击](tests/browser_click/README.md) 为入口，使用当前源码、原登录和业务 API、仓库外合成数据库及离线模型响应。2026-10-04 按业主最新要求，Playwright 浏览器任务已移出 GitHub CI，浏览器验证在本地隔离环境执行；CI 保留手动触发的 Windows/Linux 独立回归，并在相关 PR 或 main 改动上运行 Python/Node 运维合成检查；两者均不依赖浏览器、真实模型凭据或公司服务。运行截图、日志和密码不进入仓库。PostgreSQL、真实模型、员工试用等门槛仍按计划保留。

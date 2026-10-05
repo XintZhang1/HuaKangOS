@@ -1,5 +1,8 @@
 # HuaKangOS 实施计划：单项实施与检查点审阅版
 
+**2026-10-05 当前执行范围（业主最新指令）**：取消M8.4剩余HTTPS/系统输入法及M8.7/M8.8独立环境验收，不把未执行项目标通过。先推送已完成源码，再进行M8.10代码/架构维护交接；真实模型M8.5/M8.6明确保留，使用本地外部合成实例和业主提供API，不等待被取消项目。M8.9员工试用及人工验收由业主安排，不阻塞本次源码交接。当前唯一状态源仍为本计划，详PATCH-SCOPE-MAINTENANCE-20261005-01；下方旧日期段不覆盖本次范围。
+
+
 2026-10-04 整合已落远端main `f1b6d74`，PR #16已实际merged；GitHub运维CI `37169424850`已success。其余6个本地及3个远端分支已核祖先后删除；E旧工作区在原7a4f872脱离分支，tracked差异和untracked状态逐字节保持，未删除任何工作区。Cutie #14/#15已按当前复验证据关闭。恢复不含浏览器任务的手动回归入口，接续当前main同指纹M8.2完整双平台回归，后续技术门槛与员工试用边界保持。
 
 **2026-10-04 当前授权与执行：业主已要求继续，先整合 main、Cutie/DeepSeek review、业务助手新增提交和 E 旧工作区正式 UI，检查后合入 main 并清理其它分支；随后完成员工试用之外的全部技术门槛。CI 允许使用 GitHub 可运行的依赖。按 PATCH-INTEGRATION-20261004-01 实施，M8.2 仍唯一 in_progress；下文暂停、旧合并顺序和运维旧部署均为历史，未继承为本次验证。**
@@ -116,10 +119,10 @@
 | CP-33 | M7.11.1—M7.11.4 | 基础资料、系统管理、评审边界 | implementation_released | docs/implementation-checkpoints/M7-11-1-review-v1.md；M7-11-2-review-v1.md；M7-11-3-review-v1.md；M7-11-4-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.11.1—M7.11.4 全部 passed；系统管理只读面与“人工办理不由助手代办”的边界保留；继续 M7.12.1—M7.12.3（CP-34） |
 | CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | implementation_released | docs/implementation-checkpoints/M7-12-1-review-v1.md；M7-12-2-review-v1.md；M7-12-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验通过，过程中发现并修复真实缺陷：`service.external_approved` 要求原模型不存在的 `results[].case_id`，使该事实在真实数据上永不成立（见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）；外部合同夹具另按真实形状对齐六处并保留原件。M7 章节收口，继续 M8.1（CP-35） |
 | CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | released | docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md；M8-1-closeout-checkpoint-v1.md；M8-2-regression-checkpoint-v1.md；M8-2-closeout-checkpoint-v1.md；docs/implementation-patches/PATCH-CP-00B-09.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md；docs/implementation-checkpoints/M8-2-v23-review-v1.md | M8.1 记 **`implemented`**：清单①—⑤全部落地，工作区门禁两次完整运行逐套件计数与双指纹一致（293 项、`accepted=true`），完成检查 4 条满足、1 条部分满足（完整批量行逐行核对依赖归档组）。M8.2 记 **`implemented`**：归档基线 M0.2.B 在 `7211e7f`（`working_tree` 干净）上 **3336 passed / 0 failed / 1 skipped**，`inventory/coverage_complete` 均 true、`missing/extra/duplicate` 全 0、六项未变指纹全 true；逐项比较声明 193 模块、声明未执行 0、执行未声明 0；193/111 契约检查与 293 项当前适用回归通过；唯一 skip 为已登记符号链接环境缺口。业主批准的 `PATCH-CP-00B-09` 两处归档断言已对齐（第一版被真实运行否证后修正，均如实登记）。**仅放行后续编码**：真实模型、PostgreSQL、独立 Linux、员工试用仍属 M8.3—M8.9，故不记 `released`，不勾选整体验收；2026-09-30新点击交付：上述293/3336为各自历史指纹证据，不继承到新代码；M8.1对象接线及本轮观察缺陷实现审阅，恢复implemented。automatic07同次13/13及同指纹IAB评分达到标准，193完整业务false，原M8未满足条件保留；仅implementation_released。；2026-10-03本轮原M8.1五条完成检查已done，Windows11/19/80及同输入独立26、Linux原80实际证据已核；新增真实Date已实际同原实例10-03→10-04 verify完成，两个技术子范围通过，原stage false及193/人工/部署边界保留。当时M8.2唯一in_progress，原3336等只作历史；2026-10-04已因缺失M7正文/provider及最终回执真实前置暂停为blocked，按原顺序回补；当前全量未通过故本CP仍仅implementation_released，见M8-1-human-acceptance-closeout-v1及PATCH-M8-2-CURRENT-REGRESSION-01。 2026-10-04 v22-r1 原件：Windows 4229通过/19准备错误，Linux 4238通过/10原平台不适用；已定位并修复迁移工具异常路径私有engine泄漏，本地原business01全153通过。M8.2当前仍in_progress，修复提交双平台完整复验待做，本CP不追加released；详见docs/implementation-checkpoints/M8-2-v22-review-v1.md。 2026-10-05 v22-r2 同d794123双平台完整执行：Linux4238通过/10NA，Windows4239通过/9原PowerShell20秒超时；原迁移153项通过。两平台原件独审完成，当前按WINDOWS-PROBE补丁先原组诊断，M8.2仍in_progress，本CP不追加released；见M8-2-v22-review-v2。 **2026-10-05 v23正式放行**：M8.1已done；本次同541a21f双平台101/101完整原件独审，Windows4248全过、Linux4238过/10原NA，四条原检查逐项满足。M8.2 done，本CP在M8.1—M8.2范围released；下一项M8.3，PG/live/原生浏览器/独立环境/员工及生产边界分别保留，旧成绩不继承。 |
-| CP-36 | M8.3—M8.4 | 独立PG升级/恢复、真实HTTP浏览器 | not_ready | docs/implementation-checkpoints/M8-4-browser-pipeline-checkpoint-v1.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M8.4 仍 `todo`：真实浏览器流水线单一入口已交付并在 Windows 本机真实 Chrome 上实测（277 项、`verified=true`、14 页原生流量非零、`page_errors_total=0`），但三种宽度/IME、断网重连按 `seq` 补读、伪造身份 header、缺 CSRF 写与 HTTPS 会话仍未覆盖；M8.3 因缺独立 PostgreSQL 测试服务按计划待判 `blocked`，其全局顺序前置未满足，故不记 `released`；2026-09-30新入口补充：上述旧run未覆盖项已有三宽度/中文/焦点草稿/切店退出/伪造身份与缺CSRF本轮证据，automatic07原生HTTP13/13，193/111/70/9分层覆盖及IAB评分。原PG前置、HTTPS、OS IME候选、断网按seq、浏览器重启/完整批量仍缺，M8.4仍todo、门禁not_ready，不以本轮交付释放原验收。 **2026-10-05当前状态**：M8.3已done，同一完整run 20261005T021313Z-4db44dd34a通过SQLite与真实PG升级、并发、联合恢复及37拒绝场景，原四条经独立审阅满足，详见docs/implementation-checkpoints/M8-3-database-closeout-review-v1.md；上述PG缺失为历史。M8.4尚待本轮HTTPS/IME等原条件，CP-36继续not_ready。 |
-| CP-37 | M8.5—M8.6 | 经live gate授权的真实模型和保留集 | not_ready | — | — |
-| CP-38 | M8.7—M8.8 | 隔离Windows/Linux恢复演练 | not_ready | — | — |
-| CP-39 | M8.9—M8.10 | 员工试用、发布候选；此后无自动部署 | not_ready | — | — |
+| CP-36 | M8.3—M8.4 | 数据库已验，剩余浏览器范围移出 | scope_revised | docs/implementation-checkpoints/M8-3-database-closeout-review-v1.md；PATCH-SCOPE-MAINTENANCE-20261005-01 | M8.3 done；M8.4剩余验收由业主取消，非测试通过，不阻塞本地模型或维护交接。 |
+| CP-37 | M8.5—M8.6 | 本地真实模型与保留集 | not_ready | PATCH-SCOPE-MAINTENANCE-20261005-01 | 本地隔离与外部API已获授权，既有预算保留，尚未执行本轮真实复验。 |
+| CP-38 | M8.7—M8.8 | 独立环境恢复演练 | removed_by_owner | PATCH-SCOPE-MAINTENANCE-20261005-01 | 业主取消剩余计划，未执行不记通过；生产配置合同保持。 |
+| CP-39 | M8.10 | 代码/架构维护交接 | not_ready | docs/architect/tasks/maintenance-handoff.md | 按新范围整理并同步main；M8.9员工和人工验收交业主安排，不由模型代签。 |
 
 CP-39完成后也先提交候选审阅，不能因源码包生成而宣称上线。上述门禁放行不代替真实模型、独立环境、员工数据或生产部署的另外授权条件。
 
@@ -267,13 +270,13 @@ runner已在外部V创建，但M0.2阶段判定和隔离适配仍需按本版修
 | 99 | [M8.1](#m8-1) | 综合故障与恢复验收 |
 | 100 | [M8.2](#m8-2) | 原业务、助手和前端不退化验收 |
 | 101 | [M8.3](#m8-3) | SQLite与真实PostgreSQL升级、并发和备份恢复 |
-| 102 | [M8.4](#m8-4) | 真实HTTP浏览器、安全会话与界面验收 |
+| 102 | [M8.4](#m8-4) | 已移出：剩余浏览器验收 |
 | 103 | [M8.5](#m8-5) | 原101/283真实模型回归 |
 | 104 | [M8.6](#m8-6) | 多轮闭环与未调参保留集验收 |
-| 105 | [M8.7](#m8-7) | Windows隔离预览启动、关闭和恢复 |
-| 106 | [M8.8](#m8-8) | Linux独立worker部署与恢复演练 |
-| 107 | [M8.9](#m8-9) | 员工试用与效率验收 |
-| 108 | [M8.10](#m8-10) | 发布门槛、交付包与回退清单 |
+| 105 | [M8.7](#m8-7) | 已移出：独立Windows验收 |
+| 106 | [M8.8](#m8-8) | 已移出：独立Linux验收 |
+| 107 | [M8.9](#m8-9) | 业主安排：员工试用与人工验收 |
+| 108 | [M8.10](#m8-10) | 代码、架构与维护交接 |
 
 ## M0：外部验证与可信基线
 
@@ -4080,84 +4083,9 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 
 <a id="m8-4"></a>
 
-## M8.4 真实HTTP浏览器、安全会话与界面验收
+## M8.4 后续浏览器验收（已移出）
 
-**状态**：todo
-
-**2026-09-30 本轮新入口补充证据（不启动新里程碑、不改原验收门槛）**：业主当前授权的代码与点击交付以 `tests/browser_click/run.py` 替代已外部归档的旧工作区入口，`.github/workflows/browser-click-checks.yml` 采用同一入口。automatic07原生HTTP/Chrome实际注册执行通过13/13、exit0；390/768/1440、中文输入/Shift+Enter/30秒刷新焦点、草稿保护、切店/退出迟到响应、有效深链接、原Cookie/CSRF/CSP/SSE、缺CSRF写及伪造身份403已有本轮证据。193项编号与原名检索、111工作流、70原人工页面、9原表单打开取消分层报告完整；完整业务链路0、193业务验收false，4原报表来源不足警示保留。IAB同指纹人工六项评分3/3/3/4/3/3，开发者审阅不替代员工试用或效率。生产/脚本指纹与M8.1新记录一致，报告见 `docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md`。独立PG前置、HTTPS、OS输入法候选、断网按seq补读、浏览器重启、同组批量等原完整验收尚缺，故状态仍todo/CP-36 not_ready；新远端CI尚未推送运行。下文是旧入口历史实测，保留原文，不继承为新入口成绩。
-
-**2026-09-30 真实浏览器流水线（单一入口）已交付并实测，M8.4 仍为 `todo`**：新增
-`tests/assistant_offline/run_browser_pipeline.py`（预检 → 全新外部目录 → 原生执行 → 证据核对，退出码
-0/2/3/4）与 `tests/assistant_offline/browser_evidence.py`（只从既有证据文件汇总，不启动浏览器、不联网），
-`browser_harness.py` 记录真实网络请求、浏览器版本与可执行文件及 CSP 事实，`run_validation.py` 在浏览器
-步骤后写出 `browser-evidence.json`，页数与实际执行数不符即失败；新增 13 项合同套件
-`tests/assistant_offline/tests/test_browser_pipeline.py`；CI 原生步骤改用同一入口。
-
-**本批实测（Windows 本机真实 Chrome 154.0.8037.58，非 Playwright 自带包）**：
-`python tests/assistant_offline/run_browser_pipeline.py --browser-mode native --browser "C:\Program Files\Google\Chrome\Application\chrome.exe"`
-→ `browser-pipeline.json` 为 `verified=true`、`problems=[]`、`native_transport=true`；
-`run-summary.json` 为 `complete=true`、`scope=full`、`browser_transport=native`、`real_model_calls=0`、
-`release_accepted=false`；**280 项**（后端 211＋前端 55＋原生页面 14）全部命令退出码 0。
-真实浏览器事实：14 页逐页 `/api/` 真实流量全部非零（14—46 条，状态码含 200/201/202/401/422/503），
-含真实 `POST /api/auth/login` → 200、真实 SSE 补读 `GET /runs/<id>/events?after_seq=0` → 200、
-真实人工确认 `POST …/proposals/<id>/confirm` → 200；`page_errors_total=0`；观测到 `script-src 'self'`
-的应用 CSP。证据目录（仓库外）
-`C:\Users\tiefu\.codex\HuaKangOS-agent-validation\runtime-v1\browser\browser-native-20260929T164304Z\evidence`；
-生产源码指纹 `a7c0cd8fe38d8eb5101ffcf92fba07e1780f59b29e6bf368acf522fbf38ae8e4`；
-测试套件指纹 `36370e655814085e86b5ba7ad402b38ceb3461225fd7e1153d574d837e8f49a4`；证据目录
-`…\browser\browser-native-20260930T001744Z\evidence`。
-
-**核对规则（拒绝伪装）**：`browser_transport` 必须等于请求模式；原生模式要求 `complete=true` 且
-`scope=full`、逐页 `/api/` 流量 > 0、`page_errors_total=0`、必须记录真实浏览器版本、必须观测到
-`script-src 'self'`；任一不满足即 `verified=false`、退出码 4。原生失败**不自动降级**为 `fixture`。
-
-**Linux CI 独立复跑（连续四次运行全部保留，最终一次为权威结论）**：第 1 次 run `36644421471` 结论
-**success**，但对照日志发现它跑的是**主机自带 chromium**（`browser_executable=/usr/bin/chromium`，
-`browser_source` 当时尚未记录）。修正浏览器优先级后第 2 次 run `36645406272`、第 3 次 run `36647479427`
-**连续 failure**：改用固定版本自带 Chromium 143.0.7499.4 后 `test_07` 每次都在 `asyncSetUp` 登录步骤
-失败。新增的只读诊断 `LOGIN-STATE` 给出真实根因——`POST /api/auth/login` 返回 **503**
-（`app/main.py:200-203` 对 `OperationalError` 的既有处理，文案本身即「可重试、不会重复录单」），
-隔离 worker 与登录共用同一个 SQLite 库，**一次瞬时写竞争**被单发登录放大成 14 个与页面无关的错误。
-装置改为**仅对该瞬时状态**做最多 3 次有界重试，并补两处证据：`asyncSetUp` 失败的页面也会在关闭浏览器
-**之前**留截图与请求清单并标记 `setup_failed`；导航未出现时打印 URL、导航项数、登录表单是否仍在、可见
-文本与最近请求。第 4 次 run `36650238893`（提交 `71a4b51`）结论 **success**：`verified=true`、
-`problems=[]`、`native_transport=true`、`page_count=14`、`page_errors_total=0`、`real_model_calls=0`、
-`browser-final` 为 `Ran 14 tests`/`OK`，**`browser_source=playwright-bundled`**、
-`browser_version=143.0.7499.4`，逐套件计数后端 211＋前端 55＋浏览器 14＝**280**。
-
-**本机一个真实约束（如实保留）**：Playwright 自带 Chromium 未能安装（下载子进程 `spawn EPERM`；
-改用仓库内 `PLAYWRIGHT_BROWSERS_PATH` 后被陈旧 `__dirlock` 拒绝），按使用者「可以安装插件」的授权改用
-本机已安装 Chrome；未修改任何浏览器安全策略、未关闭 CSP、未降级传输；CI 侧自带浏览器已安装成功并成为
-首选。
-
-**本批明确未覆盖（故 M8.4 不记 done）**：三种宽度与中文/组合输入、焦点与未发草稿、换店迟到结果、
-断网重连按 `seq` 补读、伪造内部身份 header 无效、缺 CSRF 写被拒、HTTPS 会话与浏览器重启；M8.3 的
-独立 PostgreSQL 前置亦未满足。详见 `docs/implementation-checkpoints/M8-4-browser-pipeline-checkpoint-v1.md`。
-
-**全局顺序前置**：M8.3 done。
-
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
-
-
-**目标**：验证真实浏览器直接访问隔离Web服务的Cookie/CSRF/CSP/SSE及员工操作体验。
-
-**依赖**：界面/认证/事件API完成，M8.1–M8.3 done；可运行真实浏览器与隔离HTTP/HTTPS服务。
-
-**读/写边界**：读取当前web、真实HTTP安全配置和路由；写V/browser、tests/frontend、本次合成浏览器截图/日志。只启合成数据服务，截图不能含客户资料。
-
-**允许/禁止**：允许真实登录、原确认点击、切店、退出、断网/重连和浏览器重启；禁止通过ASGI桥接或mock cookie冒充真实浏览器链路，禁止关闭CSP/CSRF来通过。
-
-**步骤**：在390/768/1440宽度检查默认助手、有效深链接、原模块/待办/指引；输入中文及组合输入，后台事件到达时检查焦点/光标/未发文字/补填答案；覆盖同组批量失败暂停、旧卡、换店迟到结果、退出清理；断开SSE后重连按seq补读，确认Run继续；验证伪造内部身份header无效、缺CSRF写被拒绝、Cookie及CSP满足对应环境；模型故障仍可用原业务。
-
-**状态转移与异常路径**：无法直接导航隔离服务则blocked，并记录桥接结果仅作辅助；UI静态截图不能替代交互。
-
-**命令**：`& $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.4`
-
-**完成检查**：
-- [ ] 真实HTTP/HTTPS会话、CSRF、CSP、SSE证据齐全。
-- [ ] 三种宽度、中文输入、草稿与答案保护通过。
-- [ ] 单张/同组确认仍须员工点击，失败即暂停。
-- [ ] UI状态均来自服务器真实记录，原人工入口始终可用。
+**状态**：removed_by_owner（2026-10-05）。业主取消本项剩余执行计划。原条目与历史结果保留于Git历史；本次未执行内容不记通过、不作为源码交接或真实模型复验前置。范围依据：PATCH-SCOPE-MAINTENANCE-20261005-01。
 
 <a id="m8-5"></a>
 
@@ -4165,14 +4093,14 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 
 **状态**：todo
 
-**全局顺序前置**：M8.4 done。
+**全局顺序前置**：M8.3 done；维护整理后的当前源码冻结。M8.4已由业主取消，不再作为前置。
 
 **执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
 
 
 **目标**：对当前实现取得真实模型报告，保留原场景口径与历史结果区别。
 
-**依赖**：M8.1–M8.4 done；原场景和冻结定义完整；用户显式允许本轮付费live调用、外部私有配置、实际额度和网络。
+**依赖**：M8.1–M8.3 done；原场景和冻结定义完整；业主已明确授权本地真实模型API复验，使用外部私有配置和既有预算，不读取公司数据。
 
 **读/写边界**：读取当前provider适配/工具schema、归档101/283定义与冻结提示词；仅写V/live-evaluation定义适配及本轮脱敏报告。不得改历史场景、成绩或使用真实客户数据。
 
@@ -4227,129 +4155,37 @@ runner先检查外部live gate；缺失则仅生成清单并标blocked，不自�
 
 <a id="m8-7"></a>
 
-## M8.7 Windows隔离预览启动、关闭和恢复
+## M8.7 独立Windows环境验收（已移出）
 
-**状态**：todo
-
-**全局顺序前置**：M8.6 done。
-
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
-
-
-**目标**：验证Windows预览与worker共享同一明确实例，启动/退出/休眠恢复不丢委托、不串库。
-
-**依赖**：Windows启动及worker功能实现，M8.1–M8.6 done；可执行隔离Windows预览环境。
-
-**读/写边界**：读取`start-preview.cmd`、`start-preview.ps1`、`scripts/preview_launcher.ps1`、`start.ps1`、worker及功能开关；写V/deployment/windows和外部合成实例。不得启动/修改用户原预览实例、账号或数据。
-
-**允许/禁止**：允许通过当前启动脚本启动隔离副本和隐藏后台辅助进程；禁止改日报开关、重置原账号、借用公司配置或用仅unit mock代替进程恢复。
-
-**步骤**：干净合成实例正常启动并验证Web/worker DB标识一致；双次启动不重复worker；开启与暂停grant、普通即时run、退出登录分别验证；终止worker再起、关闭应用再起、模拟机器不可用后到期补查；分别关闭新首页/运行/跟进/通知开关验证原业务可用；异常端口、错误路径、缺迁移时明确失败。
-
-**状态转移与异常路径**：缺Windows执行面为blocked；跨实例串库或退出后即时run仍执行使测试failed、里程碑保持in_progress。机器睡眠期间不能运行必须如实呈现，不承诺离线机器持续执行。
-
-**命令**：`& $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.7`
-
-**完成检查**：
-- [ ] Web/worker实例及源码指纹一致，原预览未触碰。
-- [ ] 重启、关闭、缺迁移及开关组合有真实进程证据。
-- [ ] 委托恢复不重放业务，普通即时run遵守登录状态。
-- [ ] 退出后受托查询准备符合产品选择，撤权即时停止。
+**状态**：removed_by_owner（2026-10-05）。业主取消本项剩余执行计划。原条目与历史结果保留于Git历史；本次未执行内容不记通过、不作为源码交接或真实模型复验前置。范围依据：PATCH-SCOPE-MAINTENANCE-20261005-01。
 
 <a id="m8-8"></a>
 
-## M8.8 Linux独立worker部署与恢复演练
+## M8.8 独立Linux环境验收（已移出）
 
-**状态**：todo
-
-**全局顺序前置**：M8.7 done。
-
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
-
-
-**目标**：验证真实Linux部署的独立Web/worker、健康状态、重启恢复和配置隔离。
-
-**依赖**：Linux部署文件和worker实现，M8.7 done；独立Linux测试机/容器、合成数据库、明确服务配置。
-
-**读/写边界**：读取`Dockerfile`、`compose.yml`、`start.sh`、实际新增worker服务说明及`app/assistant_worker.py`；仅写V/deployment/linux证据及独立Linux合成实例。禁止SSH/部署公司服务器或修改既有服务。
-
-**允许/禁止**：允许运行真实Linux进程/容器并模拟终止；禁止用Windows-only结果代替Linux、把健康HTTP200等同后台任务健康、执行破坏性迁移降级。
-
-**步骤**：使用本次source镜像建立Linux实例，Web/worker共享相同代码配置与合成DB；运行worker `--once`、常驻模式、双worker争抢；验证心跳/队列积压/最后成功时间，终止及重启恢复；演练HTTPS/安全Cookie/明确Host/ClamAV及legacy write禁止的生产配置校验；关闭新功能后原业务读取/操作仍可用，保留所有既有事实。
-
-**状态转移与异常路径**：没有真实Linux、TLS/ClamAV等所需环境时记录对应blocked，不能称生产验收通过；代码/配置问题使测试failed、里程碑保持in_progress。
-
-**命令**：`& $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.8`
-runner将本轮安全镜像及不含凭据的执行清单交给已提供的Linux验证入口；只接受带同一source fingerprint的回传结果，缺执行环境不得模拟passed。
-
-**完成检查**：
-- [ ] 真实LinuxWeb/worker运行、`--once`、健康与重启证据齐全。
-- [ ] 双worker无重复准备，旧租约无晚写。
-- [ ] 生产必需配置单列通过/blocked，无“源码包开箱即生产”结论。
-- [ ] 回退为功能开关，不删除计划/原单/流水，不降级破坏数据。
+**状态**：removed_by_owner（2026-10-05）。业主取消本项剩余执行计划。原条目与历史结果保留于Git历史；本次未执行内容不记通过、不作为源码交接或真实模型复验前置。范围依据：PATCH-SCOPE-MAINTENANCE-20261005-01。
 
 <a id="m8-9"></a>
 
-## M8.9 员工试用与效率验收
+## M8.9 员工试用与人工验收（业主安排）
 
-**状态**：todo
-
-**全局顺序前置**：M8.8 done。
-
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
-
-
-**目标**：确认员工实际完成高频任务更省事，业务人员认可等待、拒绝与协作表达。
-
-**依赖**：M8.1–M8.8 done；用户安排真实销售/服务顾问/库管/财务/店长代表和试用时间；默认仍用专门合成验收环境。若进入真实单店试用，另有明确部署与数据授权，不由本计划自动执行。
-
-**读/写边界**：读取已冻结场景、能力矩阵和新旧界面；只写V/employee-acceptance脱敏任务记录/时间/操作统计/员工结论。不得收集客户原资料、聊天内容或真实截图作为默认证据。
-
-**允许/禁止**：允许员工用原页面与助手各完成同一组合成任务；禁止以开发者自测代替员工验收、挑选少量有利案例或把等待客户/到货时间计入节省时间。
-
-**步骤**：固定任务与角色、交叉安排先后顺序；记录有效操作时间、点击/填写次数、追问和回退次数；复核结果是否事实正确；收集需要原页面协作的业务；中位有效操作时间至少降低20%，同时守住关键正确性0错误；反馈修改后只重测受影响项及必要回归，不覆盖原记录。
-
-**状态转移与异常路径**：无人实际参与为blocked，不替员工填写认可；速度达标但正确性失败使测试failed、里程碑保持in_progress，不能上线。
-
-**命令**：`& $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.9`
-runner只核验事先录入且可追溯的员工验收记录及计算指标；没有真实记录时输出blocked，不自动生成意见。
-
-**完成检查**：
-- [ ] 指定岗位员工实际参与，记录对应版本及任务。
-- [ ] 中位有效操作时间较原页面降低≥20%，口径排除外部等待。
-- [ ] 关键正确性守卫通过；真实反馈、缺陷及复测可追溯。
-- [ ] 实际试用范围和未验收领域清楚，不扩大结论。
+**状态**：manual_followup。由业主后续安排，不进入本次自动交付待办，不作为维护交接前置。模型不代填员工意见或效率成绩，历史指标和原业务规则不因此获得通过结论。
 
 <a id="m8-10"></a>
 
-## M8.10 发布门槛、交付包与回退清单
+## M8.10 代码、架构与维护交接
 
 **状态**：todo
 
-**全局顺序前置**：M8.9 done。
+**当前范围**：按2026-10-05业主指令，先推送现有main，再整理源码职责/关键事务及确认边界注释、架构实况、配置与维护入口、精确源码打包文档。维护完成后冻结源码执行本地真实模型复验；不等待已移出环境项或员工验收。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**允许修改**：AGENTS.md、README.md、ARCHITECTURE.md、CODEX_EXECUTION_PROMPT.md、DEEPSEEK_TESTING_HANDOFF.md、docs维护入口；app/web关键职责注释；scripts/package_source.py仅精确加入现行必要根文档。总计划total_plan.md保持原文；不改业务行为、迁移历史或确认接口。
 
-
-**目标**：将源码实现、自动验证、真实模型、运行环境及员工验收分别核实，再形成可评审的发布候选。
-
-**依赖**：全部要求的实现里程碑及M8.1–M8.9 done，无未解决关键缺陷；真实发布另外遵循用户部署授权。
-
-**读/写边界**：读取manifest全部结果、当前源码/迁移/工作流、`scripts/package_source.py`、README/交接/检查点；允许仅按下述规则更新`scripts/package_source.py`根文档精确白名单，更新仓库交付说明和事实检查点、外部release-gate报告及源码包。不得提交/打包真实env、密钥、DB、证据附件、日志、备份或客户截图。
-
-**允许/禁止**：允许更新`scripts/package_source.py`的根文档白名单，仅新增`total_plan.md`、`PROJECT_SPEC.md`、`ARCHITECTURE.md`、`implementation_plan.md`、`ASTRA_LOW_EXECUTION_PROMPT.md`、`DEEPSEEK_HANDOFF.md`、`DEEPSEEK_EXECUTION_PROMPT.md`这7个精确文件名；AGENTS.md沿用原必要文档规则。保留现有所有数据/凭据排除策略，不扩大任意根文件或E盘目录入包。允许生成仓库外包并扫描内容、hash和迁移完整性；禁止从未通过候选上宣称已上线，不执行公司生产迁移/部署或破坏性回滚。
-
-**步骤**：逐项审计所有状态与源码指纹，过期报告不直接继承；核验要求的0错误项、95%保留集、20%效率指标，确认M0.2的baseline_defects全部关闭；确认完整迁移和四个默认关闭的功能开关；更新打包根文档精确白名单并生成源码包，检查这7份文件均存在且大小写准确；检查公开包仅含当前安全源码/必要文档/完整迁移，不含V、归档E盘测试、测试数据库、日志、模型报告、截图或员工记录。文档写清“已实现/已验证/待部署”和真实外部限制；提供新环境备份→迁移副本验证→恢复验证→小范围部署→扩大范围的发布检查表，以及仅关功能的回退步骤。
-
-**状态转移与异常路径**：任一强制里程碑非done或其要求的测试blocked/failed则发布gate不通过：外部条件缺失使M8.10 blocked，发现需本项修复的问题保持in_progress；不得将里程碑写成failed/passed。可以交付开发源码，但显式标“未达发布门槛”，不能把文档记录完成当软件验收完成。
-
-**命令**：`& $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.10`
-manifest内部调用本次镜像的`python scripts/package_source.py --output <外部唯一包路径>`（若该工具依赖Git，使用只读当前工作树打包并对照本轮fingerprint），然后审计包；不得让打包依赖去读取旧source或私有数据。
+**验证**：注释/文档按实际源码核对，Python AST/JS语法和链接检查；打包在仓库外生成，核对白名单、迁移完整、无环境凭据/数据。真实模型结果单列于M8.5/M8.6，不因维护任务新增全量长回归。
 
 **完成检查**：
-- [ ] 每项强制验证有当前候选证据，外部条件没有假通过。
-- [ ] 源码包无敏感材料，完整迁移及原193需求/111工作流保留。
-- [ ] 7份根文档精确入包且保留AGENTS.md；E盘外部测试、fixture、日志、报告、截图和员工材料全部不入公开源码包。
-- [ ] M0.2基线缺陷备案全部关闭，四个新开关代码默认false。
-- [ ] 检查点分开记录实现、自动测试、真实模型、员工和部署状态。
-- [ ] 发布顺序与功能开关回退可执行，生产动作尚需其真实授权与环境。
+- [ ] 根阅读入口能解释Web、业务Runtime、确认链和独立运维助手的实际职责。
+- [ ] 配置归属、独立环境依赖/启动/迁移/验证入口明确，不要求访问本机历史目录才能维护。
+- [ ] 关键事务、权限、租约及未知结果边界有准确注释，业务行为未改变。
+- [ ] 安全源码包包含现行必要文档和完整迁移，无凭据/数据库/日志/原始模型报告。
+- [ ] 本轮范围和已验证/未验证事实清楚，提交推送main；不宣称生产验收。
