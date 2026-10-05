@@ -63,7 +63,9 @@ def provider_request(config, messages, thinking=False, stream=False):
     body={'model':config.model,'messages':messages,'tools':service.tools_for_config(config),
           'tool_choice':'auto','thinking':{'type':'enabled' if thinking else 'disabled'}}
     if stream:body['stream']=True
-    if thinking:body['reasoning_effort']='low'
+    # Business answers must reconcile native facts across tools. The low-effort
+    # DeepSeek comparison still confused candidate lists with current inventory.
+    if thinking:body['reasoning_effort']='high' if config.provider=='deepseek' else 'low'
     else:body['temperature']=0.3 if config.provider=='mimo' else 0.1
     if config.provider=='deepseek':
         endpoint='https://api.deepseek.com/chat/completions'
