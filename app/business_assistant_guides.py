@@ -156,4 +156,9 @@ def find_workflows(query, role='', category=''):
     for item in items:
         item['next'] = ('告诉员工入口、岗位和本次要准备的资料；账号、密码和配置留在原页面；其它业务能否准备按操作目录和原单权限判断，不按动作名称一概限制。'
                         if item['entry']['can_enter'] else item['entry']['role_note'])
-    return {'items': items}
+    return {'items': items, 'notice': (
+        '这是当前发布的工作流帮助，未读取或核对任何具体原单的kind、flow_version、当前版本及父单授权。'
+        'entry.can_enter仅表示该帮助入口的岗位匹配，不证明本人能办理旧原单。'
+        '涉及已有Flow原单须以本人get_case返回的actions、fields、enabled、reason为准；其它领域按原授权详情和操作目录核对。指引不能替代原版本守卫。'
+        '涉及父单步骤须先按本人权限读取父单；读取被拒时等待有权限岗位，'
+        '不得承诺拿到单号即可准备，也不能按本指引猜填旧单字段。')}

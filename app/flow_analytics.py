@@ -149,7 +149,7 @@ def build_analytics(db,user,start=None,end=None,cash_definition_version=7,includ
                 if a['due_cents']<=0:continue
                 late=bool(a['due_date'] and a['due_date']<today())
                 current_due+=a['due_cents'];overdue_due+=a['due_cents'] if late else 0
-                add(receivable_rows,[r.number,store,a['payer_name'],'维修多方承担',yuan(a['amount_cents']),yuan(a['paid_cents']),yuan(a['due_cents']),'已超约定日期' if late else '尚待收取'],route,amount_cents=a['due_cents'])
+                add(receivable_rows,[r.number,store,a['payer_name'],'维修多方承担',yuan(a['amount_cents']),yuan(a['paid_cents']),yuan(a['due_cents']),'已超约定日期' if late else '尚待收取'],route,amount_cents=a['due_cents'],payer_type=a['payer_type'],payer_name=a['payer_name'])
         if r.kind=='retail' and r.flow_version==2:
             from .retail_service import totals as retail_totals
             amount=retail_totals(db,r);gap=amount['receivable_cents']
@@ -186,7 +186,15 @@ def build_analytics(db,user,start=None,end=None,cash_definition_version=7,includ
             charge=net_charge(db,r);gap=charge-paid
             due=r.due_date;overdue=bool(due and due<today() and (r.state in {'delivered','credit_open','completed'}))
             current_due+=gap;overdue_due+=gap if overdue else 0
-            add(receivable_rows,[r.number,store,customer,SPECS[r.kind]['label'],yuan(charge),yuan(paid),yuan(gap),receipt_state(charge,paid,overdue)],route,amount_cents=gap)
+            if r.kind=='repair':
+                payer=r.data.get('payer')
+                payer_type={'客户':'customer','保险公司':'insurer','厂家':'manufacturer','内部':'internal'}.get(payer) if isinstance(payer,str) else None
+                payer_name=payer if payer_type is not None else None
+            else:
+                # These original non-detailed customer-charge families are explicit in business_finance_sources.
+                payer_type='customer' if r.kind in {'order','addon','agency','insurance'} else None
+                payer_name=customer if payer_type is not None else None
+            add(receivable_rows,[r.number,store,customer,SPECS[r.kind]['label'],yuan(charge),yuan(paid),yuan(gap),receipt_state(charge,paid,overdue)],route,amount_cents=gap,payer_type=payer_type,payer_name=payer_name)
     for r in legacy_sales:
         store=stores.get(r.store_id,'');route={'type':'legacy','module':'sales','id':r.id}
         if in_period(r.business_date):
