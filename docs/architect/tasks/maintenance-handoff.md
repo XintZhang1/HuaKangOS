@@ -9,3 +9,5 @@
 当前：维护内容已推送main的9e0f41f，M8.10 done、CP-39仅维护范围released。91链接、无注释AST一致及外部安全包核对通过，详M8-10-maintenance-review-v1。当前唯一执行项为M8.5本地真实模型；两次真实代表请求均在S01协议校验失败，实际HTTP200的非流式tool_calls附带index已确认为原因。按PATCH-M8-5-LOCAL-LIVE-01修复provider规范化，先离线定向检查再真实代表；原283/101及M8.6尚未执行，不预记通过。
 
 最新：855a1b9修复经原6离线节点通过，真实5代表完整通过并完成语义审阅；首次全量044407Z-aab598b6e1在28例后暂停，255未运行。S08批量无卡原因待安全定位；客户GET误403已确认为get_write_db同Engine的OptionEngine包装识别问题；S07有无依据车型归属。root集成/车型notice、regression_harness身份包装修复、mobile_closeout现适配器透明失败诊断、day_boundary已跑28例语义及身份定向测试。均属M8.5一个当前项；原报告和费用保留，M8.6未实施。
+
+后续实测：原身份边界14+1定向通过；402b664八代表053829Z-05dbff7d80实际43POST、结构8/8，身份查询与S08三行批量恢复，但S07车型层级及M02采购源查询仍语义失败。root按实际工具轨迹修正既有prompt业务目录，mobile_closeout独审语义/映射，day_boundary核三行与真实卡；同原八例再次验证后才进入完整283。未开放确认或生产功能，M8.6仍未实施。

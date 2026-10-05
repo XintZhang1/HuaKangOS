@@ -120,7 +120,7 @@
 | CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | implementation_released | docs/implementation-checkpoints/M7-12-1-review-v1.md；M7-12-2-review-v1.md；M7-12-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验通过，过程中发现并修复真实缺陷：`service.external_approved` 要求原模型不存在的 `results[].case_id`，使该事实在真实数据上永不成立（见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）；外部合同夹具另按真实形状对齐六处并保留原件。M7 章节收口，继续 M8.1（CP-35） |
 | CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | released | docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md；M8-1-closeout-checkpoint-v1.md；M8-2-regression-checkpoint-v1.md；M8-2-closeout-checkpoint-v1.md；docs/implementation-patches/PATCH-CP-00B-09.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md；docs/implementation-checkpoints/M8-2-v23-review-v1.md | M8.1 记 **`implemented`**：清单①—⑤全部落地，工作区门禁两次完整运行逐套件计数与双指纹一致（293 项、`accepted=true`），完成检查 4 条满足、1 条部分满足（完整批量行逐行核对依赖归档组）。M8.2 记 **`implemented`**：归档基线 M0.2.B 在 `7211e7f`（`working_tree` 干净）上 **3336 passed / 0 failed / 1 skipped**，`inventory/coverage_complete` 均 true、`missing/extra/duplicate` 全 0、六项未变指纹全 true；逐项比较声明 193 模块、声明未执行 0、执行未声明 0；193/111 契约检查与 293 项当前适用回归通过；唯一 skip 为已登记符号链接环境缺口。业主批准的 `PATCH-CP-00B-09` 两处归档断言已对齐（第一版被真实运行否证后修正，均如实登记）。**仅放行后续编码**：真实模型、PostgreSQL、独立 Linux、员工试用仍属 M8.3—M8.9，故不记 `released`，不勾选整体验收；2026-09-30新点击交付：上述293/3336为各自历史指纹证据，不继承到新代码；M8.1对象接线及本轮观察缺陷实现审阅，恢复implemented。automatic07同次13/13及同指纹IAB评分达到标准，193完整业务false，原M8未满足条件保留；仅implementation_released。；2026-10-03本轮原M8.1五条完成检查已done，Windows11/19/80及同输入独立26、Linux原80实际证据已核；新增真实Date已实际同原实例10-03→10-04 verify完成，两个技术子范围通过，原stage false及193/人工/部署边界保留。当时M8.2唯一in_progress，原3336等只作历史；2026-10-04已因缺失M7正文/provider及最终回执真实前置暂停为blocked，按原顺序回补；当前全量未通过故本CP仍仅implementation_released，见M8-1-human-acceptance-closeout-v1及PATCH-M8-2-CURRENT-REGRESSION-01。 2026-10-04 v22-r1 原件：Windows 4229通过/19准备错误，Linux 4238通过/10原平台不适用；已定位并修复迁移工具异常路径私有engine泄漏，本地原business01全153通过。M8.2当前仍in_progress，修复提交双平台完整复验待做，本CP不追加released；详见docs/implementation-checkpoints/M8-2-v22-review-v1.md。 2026-10-05 v22-r2 同d794123双平台完整执行：Linux4238通过/10NA，Windows4239通过/9原PowerShell20秒超时；原迁移153项通过。两平台原件独审完成，当前按WINDOWS-PROBE补丁先原组诊断，M8.2仍in_progress，本CP不追加released；见M8-2-v22-review-v2。 **2026-10-05 v23正式放行**：M8.1已done；本次同541a21f双平台101/101完整原件独审，Windows4248全过、Linux4238过/10原NA，四条原检查逐项满足。M8.2 done，本CP在M8.1—M8.2范围released；下一项M8.3，PG/live/原生浏览器/独立环境/员工及生产边界分别保留，旧成绩不继承。 |
 | CP-36 | M8.3—M8.4 | 数据库已验，剩余浏览器范围移出 | scope_revised | docs/implementation-checkpoints/M8-3-database-closeout-review-v1.md；PATCH-SCOPE-MAINTENANCE-20261005-01 | M8.3 done；M8.4剩余验收由业主取消，非测试通过，不阻塞本地模型或维护交接。 |
-| CP-37 | M8.5—M8.6 | 本地真实模型与保留集 | not_ready | PATCH-SCOPE-MAINTENANCE-20261005-01 | 本地隔离与外部API已获授权，既有预算保留，尚未执行本轮真实复验。 |
+| CP-37 | M8.5—M8.6 | 本地真实模型与保留集 | not_ready | PATCH-SCOPE-MAINTENANCE-20261005-01；PATCH-M8-5-LOCAL-LIVE-01 | M8.5真实代表及首轮部分全量已执行，已观察失败正在修复；完整283/101与M8.6尚未通过，既有累计预算保留。 |
 | CP-38 | M8.7—M8.8 | 独立环境恢复演练 | removed_by_owner | PATCH-SCOPE-MAINTENANCE-20261005-01 | 业主取消剩余计划，未执行不记通过；生产配置合同保持。 |
 | CP-39 | M8.10 | 代码/架构维护交接 | released | docs/implementation-checkpoints/M8-10-maintenance-review-v1.md | 维护文档/关键注释/精确源码白名单已核；仅放行维护交接，不代替真实模型或人工、生产验收。 |
 
@@ -4101,6 +4101,8 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 
 **修复后实测**：855a1b9 provider修复的6个原离线节点通过；新strict043939Z-aa7cb711ff后，代表044022Z-d2f5367fc7完整5例、20真实POST、78.515秒，结构及独立语义核对通过。全量044407Z-aab598b6e1在28例后由root持原费用锁于case间停止，255未运行、153真实POST已全部结算、进程正常排空；27例结构通过，S08无批量卡失败，语义另发现S07无依据车型归属及客户GET的同库身份包装误403。旧代表通过不覆盖这些新失败。本项保持in_progress：按PATCH-M8-5-LOCAL-LIVE-01修复同Engine包装识别/车型notice，并给S08添加有限故障定位，修复后再完整复验。
 
+**八代表复验**：402b664的身份定向052721Z-7e77533df3为原14+1节点通过；strict053759Z-32d2323b64后代表053829Z-05dbff7d80完整8例/43真实POST/119.172秒，source=fd9fc0bd820a0bc695ec8a85e06dcf663fcf30048b21aa12532c695dba7b0db2，输入前后相同。S08三卡及客户GET200实际成立，旧S08失败原因仍不能追认；S07车系当车型、M02查询源遗漏仍属语义失败，不启动full。依据实际工具轨迹修正原prompt业务目录说明，再复验同八例；所有旧报告和累计费用保留。
+
 
 **目标**：对当前实现取得真实模型报告，保留原场景口径与历史结果区别。
 
@@ -4118,7 +4120,7 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 ```powershell
 & $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.5 --phase full
 ```
-按 PATCH-M8-5-LOCAL-LIVE-01 增加有限当前 Runtime 适配，原场景和101子集字节保留。先用 `--phase representative` 执行5条代表路径；`--phase full` 独立执行原283并单列101子集，不自动再执行代表命令。所有尝试共用预算，代表结果不拼入全量。runner核验专用外部live gate与同五输入strict；未具备则拒绝付费。员工登录后原Run API入队，由当前worker/provider读取与准备，密钥不进入命令行；旧run_tools路径不能作为Runtime通过证据。
+按 PATCH-M8-5-LOCAL-LIVE-01 增加有限当前 Runtime 适配，原场景和101子集字节保留。先用 `--phase representative` 执行8条代表路径（原5例及已观察失败对应S07/V02/M02）；`--phase full` 独立执行原283并单列101子集，不自动再执行代表命令。所有尝试共用预算，代表结果不拼入全量。runner核验专用外部live gate与同五输入strict；未具备则拒绝付费。员工登录后原Run API入队，由当前worker/provider读取与准备，密钥不进入命令行；旧run_tools路径不能作为Runtime通过证据。
 
 **完成检查**：
 - [ ] 报告证明真实生成请求、目标provider及本次源码指纹。
