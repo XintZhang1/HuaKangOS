@@ -120,7 +120,7 @@
 | CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | implementation_released | docs/implementation-checkpoints/M7-12-1-review-v1.md；M7-12-2-review-v1.md；M7-12-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验通过，过程中发现并修复真实缺陷：`service.external_approved` 要求原模型不存在的 `results[].case_id`，使该事实在真实数据上永不成立（见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）；外部合同夹具另按真实形状对齐六处并保留原件。M7 章节收口，继续 M8.1（CP-35） |
 | CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | released | docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md；M8-1-closeout-checkpoint-v1.md；M8-2-regression-checkpoint-v1.md；M8-2-closeout-checkpoint-v1.md；docs/implementation-patches/PATCH-CP-00B-09.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md；docs/implementation-checkpoints/M8-2-v23-review-v1.md | M8.1 记 **`implemented`**：清单①—⑤全部落地，工作区门禁两次完整运行逐套件计数与双指纹一致（293 项、`accepted=true`），完成检查 4 条满足、1 条部分满足（完整批量行逐行核对依赖归档组）。M8.2 记 **`implemented`**：归档基线 M0.2.B 在 `7211e7f`（`working_tree` 干净）上 **3336 passed / 0 failed / 1 skipped**，`inventory/coverage_complete` 均 true、`missing/extra/duplicate` 全 0、六项未变指纹全 true；逐项比较声明 193 模块、声明未执行 0、执行未声明 0；193/111 契约检查与 293 项当前适用回归通过；唯一 skip 为已登记符号链接环境缺口。业主批准的 `PATCH-CP-00B-09` 两处归档断言已对齐（第一版被真实运行否证后修正，均如实登记）。**仅放行后续编码**：真实模型、PostgreSQL、独立 Linux、员工试用仍属 M8.3—M8.9，故不记 `released`，不勾选整体验收；2026-09-30新点击交付：上述293/3336为各自历史指纹证据，不继承到新代码；M8.1对象接线及本轮观察缺陷实现审阅，恢复implemented。automatic07同次13/13及同指纹IAB评分达到标准，193完整业务false，原M8未满足条件保留；仅implementation_released。；2026-10-03本轮原M8.1五条完成检查已done，Windows11/19/80及同输入独立26、Linux原80实际证据已核；新增真实Date已实际同原实例10-03→10-04 verify完成，两个技术子范围通过，原stage false及193/人工/部署边界保留。当时M8.2唯一in_progress，原3336等只作历史；2026-10-04已因缺失M7正文/provider及最终回执真实前置暂停为blocked，按原顺序回补；当前全量未通过故本CP仍仅implementation_released，见M8-1-human-acceptance-closeout-v1及PATCH-M8-2-CURRENT-REGRESSION-01。 2026-10-04 v22-r1 原件：Windows 4229通过/19准备错误，Linux 4238通过/10原平台不适用；已定位并修复迁移工具异常路径私有engine泄漏，本地原business01全153通过。M8.2当前仍in_progress，修复提交双平台完整复验待做，本CP不追加released；详见docs/implementation-checkpoints/M8-2-v22-review-v1.md。 2026-10-05 v22-r2 同d794123双平台完整执行：Linux4238通过/10NA，Windows4239通过/9原PowerShell20秒超时；原迁移153项通过。两平台原件独审完成，当前按WINDOWS-PROBE补丁先原组诊断，M8.2仍in_progress，本CP不追加released；见M8-2-v22-review-v2。 **2026-10-05 v23正式放行**：M8.1已done；本次同541a21f双平台101/101完整原件独审，Windows4248全过、Linux4238过/10原NA，四条原检查逐项满足。M8.2 done，本CP在M8.1—M8.2范围released；下一项M8.3，PG/live/原生浏览器/独立环境/员工及生产边界分别保留，旧成绩不继承。 |
 | CP-36 | M8.3—M8.4 | 数据库已验，剩余浏览器范围移出 | scope_revised | docs/implementation-checkpoints/M8-3-database-closeout-review-v1.md；PATCH-SCOPE-MAINTENANCE-20261005-01 | M8.3 done；M8.4剩余验收由业主取消，非测试通过，不阻塞本地模型或维护交接。 |
-| CP-37 | M8.5—M8.6 | 本地真实模型与保留集 | not_ready | PATCH-SCOPE-MAINTENANCE-20261005-01；PATCH-M8-5-LOCAL-LIVE-01 | 62a739e5的20代表结构通过但C03/B04/HELP125/158等语义未过；撤回B04旧兼容判据。累计2753次保守占173.760565元，七条旧未知保留。补原purpose校验/真实办理人及帮助源后定向，再新全量；M8.6未开始。 |
+| CP-37 | M8.5—M8.6 | 本地真实模型与保留集 | not_ready | PATCH-SCOPE-MAINTENANCE-20261005-01；PATCH-M8-5-LOCAL-LIVE-01 | 26c7b41六代表通过；212053全量40/283后因V05/V07语义错误安全停止。2973次保守占182.911052元，七条未知保留。原接口目录说明收紧后待定向复验；M8.6未开始。 |
 | CP-38 | M8.7—M8.8 | 独立环境恢复演练 | removed_by_owner | PATCH-SCOPE-MAINTENANCE-20261005-01 | 业主取消剩余计划，未执行不记通过；生产配置合同保持。 |
 | CP-39 | M8.10 | 代码/架构维护交接 | released | docs/implementation-checkpoints/M8-10-maintenance-review-v1.md | 维护文档/关键注释/精确源码白名单已核；仅放行维护交接，不代替真实模型或人工、生产验收。 |
 
@@ -4091,38 +4091,13 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 
 ## M8.5 原101/283真实模型回归
 
-2026-10-06当前：62a739e5/source920104e0的新20代表 `20261005T202422Z-98724cc4ff` 已自然排空，CLI0/450.172秒、原结构20/20及focus4/4，但语义仍有C03实际办理人、B04正向积分、HELP125审批岗位、HELP158统计范围错误；010开头与正文矛盾、059额外不同人限制也须纠正，不能放行。59次POST全部结算2.848083元；累计2753次，已结算107.438133元加七条旧未知66.322432元，保守占用173.760565元，280元/6000次上限不变。**撤回此前B04“符合当前合同”结论及兼容判据**：原Points不接受values.points，adjust实际为扣减；旧完整283语义应为263可接受、20失败。全部旧报告与评分保留并追加纠正。仅M8.5 in_progress，M8.6未开始。
-
-**当前执行更新（覆盖下列历史结果的时序）**：2026-10-06当前：15135b2d/source3353d120的新全量 `20261005T180742Z-a5f76d8a36` 已自然终局，283/283原件齐、101为同一集合子集，877次模型尝试全部结算40.255395元，CLI1/6089.625秒。全部输入与依赖未变、进程drained/无清理；原结构281/283、focus99/101；语义263可接受+B04当前合同正确但旧raw失败，另19实际产品失败含6岗位说明错误，实际无越权执行，仍不能放行。累计2694次，已结算104.590050元加七条旧未知66.322432元，保守占用170.912482元；预算280元/6000次和未知停止不变。root登记并集成；day_boundary修待补资料request_id清理；mobile_closeout修帮助字段含义、已观察分支说明及历史办理人归属；regression_harness核终局、复用原F节点并窄适配B04旧观察合同。仅M8.5 in_progress；M8.6未开始。以下为历史过程。
-
 **状态**：in_progress
 
-**当前结果**：1e373cfd/source5c902929的日期原GET定向091544通过，新strict092643通过；真实14代表092736Z-6ab857a52a完整55POST/180.765秒/CLI0，结构与两份独立语义审阅全部通过，业务467表不变，无新增未知。详 `docs/implementation-checkpoints/M8-5-local-live-review-v1.md`。累计730次/保守占用38.342414元，包含三次未知15.728640元。业主已明确余额280多可继续，采用280元累计上限，保持原账本及6000次保护。下一步原283全量单列101子集；旧代表和两轮部分全量不拼入新成绩，不重复无生产变化的代表或日期节点。以下为历史过程，预算待答复的旧记录不再是当前阻塞。
+**当前记录**：2026-10-06：26c7b41/source264241ff 的原会员准备和Task办理人两个定向节点通过；新6代表 `20261005T211507Z-266388c430` 结构、逐例语义6/6通过。随后独立全量 `20261005T212053Z-9f4d3d32d9` 在40/283后安全停止、243未运行、CLI1/1412.859秒：V05将12条作业候选误称当前库存，V07未读取导入目录就错误说明模板。已付198次POST全结算8.248189元；累计2973次，已结算116.588620元加七条旧未知66.322432元，保守占用182.911052元，280元/6000次上限不变。仅M8.5 in_progress；M8.6未开始。两处原route.summary已收紧，独立静审通过，真实定向复验待完成，不预记修复成功。
 
-**全局顺序前置**：M8.3 done；维护整理后的当前源码冻结。M8.4已由业主取消，不再作为前置。
-
-**执行记录**：2026-10-05代表入口首次实际失败；strict035234Z-25952b01d5为18通过，代表035315Z-95d79a755f同五指纹/CLI1。S01真实POST1、usage11029/113/11142、工具和卡0、业务无变化；后4例未运行，全量未运行。source=e9295ca1a52817743b162c8d959459d7a22e7d6383cb5c6502420e299a15f358。原5.242880元预算占用保留；按PATCH-M8-5-LOCAL-LIVE-01补安全异常位置诊断，未确定原因前不修改生产协议或声称通过。
-
-**后续实证**：新strict041644Z-f08b4308be通过；代表041711Z-cfb01c6aca仍CLI1，S01实际POST1、HTTP200、usage11028/115/11143，卡片及业务变化均0。安全诊断确认非流式tool_calls含合法index0/1，被provider原精确键集合拒绝；据PATCH-M8-5-LOCAL-LIVE-01做最小规范化修复及定向复验。两次累计POST2、保守预算占用10.485760元，不是成功业务或实际账单；其余代表与283全量尚未运行。
-
-**修复后实测**：855a1b9 provider修复的6个原离线节点通过；新strict043939Z-aa7cb711ff后，代表044022Z-d2f5367fc7完整5例、20真实POST、78.515秒，结构及独立语义核对通过。全量044407Z-aab598b6e1在28例后由root持原费用锁于case间停止，255未运行、153真实POST已全部结算、进程正常排空；27例结构通过，S08无批量卡失败，语义另发现S07无依据车型归属及客户GET的同库身份包装误403。旧代表通过不覆盖这些新失败。本项保持in_progress：按PATCH-M8-5-LOCAL-LIVE-01修复同Engine包装识别/车型notice，并给S08添加有限故障定位，修复后再完整复验。
-
-**八代表复验**：402b664的身份定向052721Z-7e77533df3为原14+1节点通过；strict053759Z-32d2323b64后代表053829Z-05dbff7d80完整8例/43真实POST/119.172秒，source=fd9fc0bd820a0bc695ec8a85e06dcf663fcf30048b21aa12532c695dba7b0db2，输入前后相同。S08三卡及客户GET200实际成立，旧S08失败原因仍不能追认；S07车系当车型、M02查询源遗漏仍属语义失败，不启动full。依据实际工具轨迹修正原prompt业务目录说明，再复验同八例；所有旧报告和累计费用保留。
-
-**参数拒绝定位**：223a890的新strict054955Z-5ced37bc9e后，八代表055027Z-ccedf77b29实际33POST/110.813秒，CLI1、输入不变。S07已区分具体车型和目录，M02已核对原Flow四条采购及各空来源；额外追问/范围措辞列体验观察。S08被完整registry校验以422拒绝：唯一prepare_business_batch调用多一个顶层键，三个行对象的values/summary类型正常，未checkpoint、卡0、业务不变。按PATCH-M8-5-LOCAL-LIVE-01仅补这个确定格式拒绝的原循环反馈；不放松schema或吞字段，不泛化重试、不继承旧S08通过。累计251次尝试、费用保守占用18.173600元（其中10.485760元为最初两次未知占用），余31.826400元，未重置额度。本项仍in_progress。
-
-
-**实际纠正复验**：8f9c1a2原F定向062034Z-d6be4bf788通过；strict062957Z-dd43719ba0后八代表063029Z-b17f37c1b3完整8例、53POST、151.843秒、CLI1。S08因下一轮仍缺少具体被拒调用的内存上下文，22次相同类型422后达到24轮，0卡；S07未委托接待前置卡、M02采购数量放大1000倍均为语义失败。S01/S04/V02/F08/D04语义通过，八例业务467表保持，无确认写入。修复按PATCH-M8-5-LOCAL-LIVE-01进行，暂不启动full。累计304次尝试、保守占用19.698166元、余30.301834元；历史费用和原件保留。本项仍in_progress。
+逐轮证据与失败纠正集中见 [M8-5-mode-comparison-review-v1](docs/implementation-checkpoints/M8-5-mode-comparison-review-v1.md)。旧B04兼容豁免已撤回：Points不接受values.points，adjust为扣减；旧180742全量语义为263可接受/20失败。原报告保留，代表结果不拼入完整283。
 
 **目标**：对当前实现取得真实模型报告，保留原场景口径与历史结果区别。
-
-**当前语义结果**：51ffd82/sourcef5c06ad2、strict082615Z-03f3cb1343后，14代表082653Z-47037c4c27完整14/64HTTP200/171.109秒/CLI0，所有业务467表不变，新增未知0。语义12项通过，F01准确区分7笔客户承担297500元与保险公司500元；F02使用Flow cash表默认9/6–10/5却称本月，M04仅find_cases未查原动作/父单授权又保证准备退料，二者仍失败。按PATCH-M8-5-LOCAL-LIVE-01补实际响应中的版本/父单与期间信息，不改原业务规则或自动推定员工目标。累计622次、保守占34.855524元、余15.144476元，三条未知全保留。本项仍in_progress，完整283/101及M8.6未通过。
-
-**最新执行失败**：e401338/sourcecfe83f99的strict084950Z-cce46bc60b通过；14代表085020Z-493f3c1983完整14/53POST/165.281秒、CLI1，全部HTTP200已结算，业务467表不变。13项语义通过，M04当前合理消歧等待；F02已给出正确10/1–10/5现金查询参数，但原GET前read未关联Work即runtime_unavailable。源码定位原date直接进入JSON意图，原日志无异常类证据；按PATCH-M8-5-LOCAL-LIVE-01仅补日期序列化并做原read路径定向。累计675次、保守占36.573856元、余13.426144元，三次未知占15.728640不释放；完整283/101与M8.6仍未通过，50元额度不变，扩额待业主答复。
-
-**最新代表结果**：17a1565/source178edad8的原日期定向075146Z-c2bb1b4202通过；新strict080221Z-bada609f26之后，14代表080317Z-847a1c99fa执行12/14、48次尝试、215.203秒、CLI1。独立语义9项通过，F01把混合待收款中的保险公司承担500元归为客户；M04等待来源正确但后续承诺未核旧v2父单权限/字段，均失败。F02首次模型发送未完整返回，558保留完整未知费用，后续重试被原预算守卫拒绝，未得原GET结果，不能称日期实测通过；F08/D04未运行。全部12例467业务表前后相同，无确认写入。按PATCH-M8-5-LOCAL-LIVE-01补原行承担方metadata及帮助适用说明，不改旧报表定义或权限，不自动重发未知Run。累计558次/保守占用32.719784元/余17.280216元，原50元上限保持；M8.5仍in_progress。
-
-**当前实测与修复**：faa2d54的strict065142Z-debdbfff67和F定向065221Z-4f37ebd356通过，重新绑定后的strict070319Z-6be9607fc7与八代表070402Z-c7d6b4bb06同五输入，8例/37POST/151.375秒、关键语义通过。S08一次registry422后纠正三行卡，M02实际数量80/24/4/10正确，S07无额外前置卡，英文开场及重复追问仍记录为体验观察。同源全量070940Z-c904408cfc执行34/283后因V01库存范围及F02自然月查询错误由root持原账本锁正常停止；169POST全结算、374.813秒、CLI1、249未运行、467业务表前后相同。另核原单任务依赖和业务来源，不把结构34通过记语义通过。累计510次尝试、保守占用25.940190元（包含最初未知占用10.485760元）、余24.059810元。按PATCH-M8-5-LOCAL-LIVE-01修复当前范围/日期及必要目录说明；本项仍in_progress。
 
 **依赖**：M8.1–M8.3 done；原场景和冻结定义完整；业主已明确授权本地真实模型API复验，使用外部私有配置和既有预算，不读取公司数据。
 
@@ -4138,7 +4113,7 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 ```powershell
 & $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.5 --phase full
 ```
-按 PATCH-M8-5-LOCAL-LIVE-01 增加有限当前 Runtime 适配，原场景和101子集字节保留。当前 `--phase representative` 执行21条代表路径（S01/S04/S06/S07/S08、V01/V02/V03/V05/V08、M02/M03/M04、F01/F02/F08、B01、A03/A06/A07、D04），thinking参数以已冻结manifest及报告为准；`--phase full` 独立执行原283并单列101子集，不自动再执行代表命令。所有尝试共用预算，代表结果不拼入全量。runner核验专用外部live gate与同五输入strict；未具备则拒绝付费。员工登录后原Run API入队，由当前worker/provider读取与准备，密钥不进入命令行；旧run_tools路径不能作为Runtime通过证据。
+按 PATCH-M8-5-LOCAL-LIVE-01 增加有限当前 Runtime 适配，原场景和101子集字节保留。当前 `--phase representative` 的有限选择按冻结manifest登记，本批为V01/V05/V07/V08；`--phase full` 独立执行原283并单列101子集，不自动再执行代表命令。所有尝试共用预算，代表结果不拼入全量。runner核验专用外部live gate与同五输入strict；未具备则拒绝付费。员工登录后原Run API入队，由当前worker/provider读取与准备，密钥不进入命令行；旧run_tools路径不能作为Runtime通过证据。
 
 **完成检查**：
 - [ ] 报告证明真实生成请求、目标provider及本次源码指纹。

@@ -30,7 +30,7 @@ class Reassign(Reason):
     assignee_id:int=Field(strict=True,gt=0)
 
 
-@router.get('/catalog')
+@router.get('/catalog',summary='读取整车导入目录及按kind固定的CSV列、单位和字段含义（csv_headers/csv_field_notes）；列格式不按采购单变化，具体行引用另与原采购单核对')
 def catalog(user=Depends(get_user),db=Depends(get_db)):
     allowed=not getattr(user,'_aggregate_scope',False) and user.role in service.READ
     return {'can_read':allowed,'prepare_kinds':[k for k,r in service.PREP.items() if allowed and user.role in r],'kinds':service.LABELS if allowed else {},

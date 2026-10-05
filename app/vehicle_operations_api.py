@@ -69,7 +69,7 @@ def listing(page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),q:str=Que
         rows=db.scalars(query.order_by(Case.id.desc()).offset((page-1)*page_size).limit(page_size))
         return {'items':[svc.describe(db,user,r) for r in rows],'total':total,'page':page,'page_size':page_size}
 
-@router.get('/vehicles')
+@router.get('/vehicles',summary='车辆作业候选（不是当前库存清单，也不代表可以办理）；读取每行销售占用及库位阻断，再核对选定车辆的原业务条件')
 def vehicles(db=Depends(get_db),user=Depends(get_user)):
     with svc.authority(db,user,{'admin','manager','inventory'}):
         unavailable=svc.unavailable_vehicle_ids(db)
