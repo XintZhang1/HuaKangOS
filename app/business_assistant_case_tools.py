@@ -34,8 +34,8 @@ def _guidance(data):
     waiting=[item for item in actions if not item.get('enabled')]
     tasks=[item for item in (data.get('tasks') or []) if isinstance(item,dict) and item.get('status')=='open']
     if ready:
-        notes.append('现在就能办：'+ '、'.join('「%s」' % (item.get('label') or item['key']) for item in ready[:3])
-                     +'。员工确认前不要声称已经办理。')
+        notes.append('本单当前动作条件满足：'+ '、'.join('「%s」' % (item.get('label') or item['key']) for item in ready[:3])
+                     +'。这不表示员工已选定本单或要求办理；仅对员工明确选定且属于本次目标的原单准备，确认前不要声称已经办理。')
     if waiting:
         first=waiting[0]
         reason=str(first.get('reason') or '').strip()
@@ -172,7 +172,7 @@ async def resolve_preparation(db,request,user,thread_id,name,args,config):
             'next_page':page+1 if more else None,'selection_required':len(items)>1 or more,
             'next':('有后续查询页；本页没有匹配不代表全部没有，请继续查询。' if more else
                     '找到一个候选，可读取原单核对后继续，无需重复索要编号。' if len(items)==1 else
-                    '请让员工从姓名、单号和状态中选择，不要自动选第一条。' if len(items)>1 else
+                    '这些候选用于确定本次要办的原单；员工尚未明确选定本次原单、也未明确要求全部或逐个办理时，请先列出姓名、单号和状态让其选择。不要自动选第一条，也不要给各候选分别建卡让员工事后取舍。' if len(items)>1 else
                     '本次未找到本人负责记录，可用visible查询本店当前可见记录。' if scope=='mine' else
                     '未找到记录，请补充客户姓名或业务单号。')},'route':'cases/'+kind if kind else 'work'}
     case_id=_case_id(args)
