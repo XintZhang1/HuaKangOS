@@ -164,12 +164,20 @@ def _finite(value):
     raise ValueError('tool arguments')
 
 
-def _complete_tools(calls, service):
+def _complete_tools(calls, service, *, allow_index=False):
     """Validate the whole response without rewriting its native argument JSON."""
     if type(calls) is not list or len(calls) > service.HARD_TOOLS:
         raise ValueError('tools')
     seen = set()
-    for call in calls:
+    normalized = []
+    for position, call in enumerate(calls):
+        # Non-stream replies may carry the provider's array index. Validate it
+        # before removing this transport metadata from our internal tool calls.
+        if allow_index and type(call) is dict and 'index' in call:
+            index = call['index']
+            if type(index) is not int or not 0 <= index < service.HARD_TOOLS or index != position:
+                raise ValueError('tool index')
+            call = {key: value for key, value in call.items() if key != 'index'}
         if type(call) is not dict or set(call) != {'id', 'type', 'function'}:
             raise ValueError('incomplete tool')
         ident = call['id']
@@ -195,10 +203,11 @@ def _complete_tools(calls, service):
         if type(decoded) is not dict:
             raise ValueError('tool arguments')
         _finite(decoded)
-    return calls
+        normalized.append(call)
+    return normalized if allow_index else calls
 
 
-def _complete_reply(reply, finish, service, *, require_finish):
+def _complete_reply(reply, finish, service, *, require_finish, allow_tool_index=False):
     if finish == 'length':
         raise service.ModelOutputTruncated()
     if finish not in ({'stop', 'tool_calls'} if require_finish else {None, 'stop', 'tool_calls'}):
@@ -216,7 +225,7 @@ def _complete_reply(reply, finish, service, *, require_finish):
             raise ValueError('reasoning limit')
         reasoning.encode('utf-8')
     calls = reply.get('tool_calls')
-    calls = [] if calls is None else _complete_tools(calls, service)
+    calls = [] if calls is None else _complete_tools(calls, service, allow_index=allow_tool_index)
     if finish is not None and (finish == 'tool_calls') != bool(calls):
         raise ValueError('tool finish mismatch')
     return calls
@@ -269,7 +278,10 @@ async def _nonstream(config, messages, thinking, usage, before_request=None):
             if type(choice.get('index', 0)) is not int or choice.get('index', 0) != 0:
                 raise ValueError('choices')
             reply = choice['message']
-            calls = _complete_reply(reply, choice.get('finish_reason'), service, require_finish=False)
+            calls = _complete_reply(reply, choice.get('finish_reason'), service,
+                                    require_finish=False, allow_tool_index=True)
+            if reply.get('tool_calls') is not None:
+                reply = dict(reply, tool_calls=calls)
             usage.tool_count = len(calls)
             return reply
         except httpx.TimeoutException:

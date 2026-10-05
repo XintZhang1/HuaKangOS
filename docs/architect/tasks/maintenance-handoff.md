@@ -6,4 +6,4 @@
 
 分工：root集成/计划/Git及本地真实模型；mobile_closeout维护架构与阅读入口；day_boundary补关键源码注释和精确打包文档；regression_harness核对既有真实模型入口。业务行为保持；文档和注释用静态检查，打包用安全白名单检查，不因此重跑数小时全量CI。
 
-当前：main首次同步b92c5f7已完成，维护文档/五生产注释/精确打包白名单已审，M8.10 done、CP-39仅维护范围released。91链接、无注释AST一致及外部安全包核对通过，详M8-10-maintenance-review-v1。当前唯一执行项为M8.5本地真实模型；先5代表再完整283并单列101，模型调用尚未执行，不预记通过。
+当前：维护内容已推送main的9e0f41f，M8.10 done、CP-39仅维护范围released。91链接、无注释AST一致及外部安全包核对通过，详M8-10-maintenance-review-v1。当前唯一执行项为M8.5本地真实模型；两次真实代表请求均在S01协议校验失败，实际HTTP200的非流式tool_calls附带index已确认为原因。按PATCH-M8-5-LOCAL-LIVE-01修复provider规范化，先离线定向检查再真实代表；原283/101及M8.6尚未执行，不预记通过。

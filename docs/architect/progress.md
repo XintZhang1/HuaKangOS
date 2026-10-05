@@ -1,6 +1,6 @@
 # 当前交付任务
 
-2026-10-05维护交接收口：根入口、架构、五条读码路径和关键事务注释已审；五生产文件无注释AST一致、91链接及安全源码打包核对通过，M8.10 done/CP-39仅维护范围released。当前唯一执行项转M8.5本地真实模型复验，按PATCH-M8-5-LOCAL-LIVE-01补齐有限授权入口后执行。真实生成调用尚未开始，已取消环境项不恢复。
+2026-10-05维护交接收口并推送main 9e0f41f：五生产文件无注释AST一致、91链接及安全源码打包核对通过，M8.10 done/CP-39仅维护范围released。当前唯一执行项M8.5已实际调用两次DeepSeek，均停于S01；安全诊断确认HTTP200非流式工具附带index，被provider精确键校验拒绝。按PATCH-M8-5-LOCAL-LIVE-01修复并定向复验；原283/101全量与M8.6未执行，已取消环境项不恢复。
 
 2026-10-05业主调整：先推送main的数据库修复4138b85和本轮范围说明，再转维护交接与本地真实模型复验。未运行M8.4候选已外部归档撤回，不再启动HTTPS/IME或独立Windows/Linux验收。当前入口为[tasks/maintenance-handoff.md](tasks/maintenance-handoff.md)，实施范围以PATCH-SCOPE-MAINTENANCE-20261005-01为准；以下为历史记录。
 
