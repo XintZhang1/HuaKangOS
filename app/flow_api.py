@@ -77,8 +77,10 @@ def task_info(db,user,t,row):
     reason=''
     if t.status=='open' and relevant and all(not a['enabled'] for a in relevant):reason=relevant[0]['reason']
     owner=db.get(User,t.assignee_id)
+    done_by=db.get(User,t.done_by) if t.done_by is not None else None
     return {'id':t.id,'case_id':t.case_id,'entry_route':case_entry_route(row),'case_kind':row.kind,'module':SPECS[row.kind]['module'],'key':t.key,'title':t.title,'role':t.role,'role_label':ROLES.get(t.role,t.role),
         'assignee_id':t.assignee_id,'assignee_name':owner.display_name if owner else '待配置','status':t.status,'due_date':t.due_date.isoformat(),
+        'done_by':t.done_by,'done_by_name':done_by.display_name if done_by else None,'done_at':t.done_at.isoformat()+'Z' if t.done_at is not None else None,
         'overdue':t.status=='open' and t.due_date<today(),'blocked':bool(reason),'block_reason':reason,'version':t.version,
         'case_number':row.number,'case_title':row.title,'kind_label':SPECS[row.kind]['label'],'state_label':STATES[row.state],
         'updated_at':t.updated_at.isoformat()+'Z'}

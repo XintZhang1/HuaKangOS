@@ -115,6 +115,10 @@ def body_schema(gateway, operation_id, path_args, body, question_fields=None):
     native = operation.get('action_schemas', {}).get((path_args or {}).get('action'))
     if native is not None:
         values = deepcopy(native)
+    elif operation.get('purpose_schemas'):
+        purpose = (body or {}).get('purpose')
+        if isinstance(purpose, str):
+            values = deepcopy(operation['purpose_schemas'].get(purpose))
     elif operation_id.startswith(('POST /api/masters/', 'PUT /api/masters/')):
         from .master_data import CATALOG
         if kind in CATALOG:

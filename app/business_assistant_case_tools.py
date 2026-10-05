@@ -47,7 +47,7 @@ def _guidance(data):
     if not actions:
         state=str(data.get('state_label') or data.get('state') or '').strip()
         notes.append('这一状态下没有需要你办的事项%s，不要凭空建议下一步。' % (('（当前进度：'+state+'）') if state else ''))
-    notes.append('任务的assignee或assignee_name只说明分派负责人，不证明该人完成了历史动作；历史办理人仅引用与所述动作确切对应的事件actor_name，无法对应就说明未知，不从任务归属推断。')
+    notes.append('任务的assignee或assignee_name只说明分派负责人；status为done时，实际任务完成者和完成时间引用原done_by、done_by_name及done_at，缺失就说明未知。status为cancelled时这些字段记录终止任务的人和时间，不表示完成业务；其它历史动作仅引用确切对应的事件actor_name，不从任务归属或猜测事件关系推断。')
     if data.get('kind')!='lead':
         return notes
     state=data.get('state')

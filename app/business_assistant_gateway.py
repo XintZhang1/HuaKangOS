@@ -302,6 +302,13 @@ def _native_action_schemas(op):
     return {}
 
 
+def _native_purpose_schemas(op):
+    if op['method']=='POST' and op['path']=='/api/membership/orders':
+        from .membership_api import PURPOSE_SCHEMAS
+        return PURPOSE_SCHEMAS
+    return {}
+
+
 def inspect_operation(operation_id):
     op=_operation(operation_id);route=op['route']
     result={k:copy.deepcopy(v) for k,v in op.items() if k!='route'}
@@ -326,7 +333,11 @@ def inspect_operation(operation_id):
     if schemas:
         result['action_schemas']={key:schema.model_json_schema() for key,schema in schemas.items()}
         result['hint']=result.get('hint','')+' 按action_schemas中本次action的定义填写values；顶层原因与明细行不可混用。'
-    if op['body_schema'] and 'values' in op['body_schema'].get('properties',{}):
+    purposes=_native_purpose_schemas(op)
+    if purposes:
+        result['purpose_schemas']={key:schema.model_json_schema() for key,schema in purposes.items()}
+        result['hint']=result.get('hint','')+' 按body.purpose对应的purpose_schemas填写values。正向积分赠送用benefit_issue/grant及units，先由GET /api/group/benefits/rules核对真实kind=points规则；原规则版本、发行门店、适用门店和零售价须满足原接口。查不到适用积分规则先等待核对，不猜规则编号。points_adjust/adjust是扣减，不是增加；不能填写values.points代替units。'
+    if not purposes and op['body_schema'] and 'values' in op['body_schema'].get('properties',{}):
         result['hint']=result.get('hint','')+' values字段定义由对应catalog或原单当前actions给出。'
     if op['path'].startswith('/api/flow/master/{kind}'):
         from .flow_api import MASTERS
@@ -388,11 +399,18 @@ def validate_operation(operation_id,path_args=None,query=None,body=None):
     # 就按员工本人身份准备；能不能办由原接口的岗位、门店、状态与版本决定，被拒时再走评审申请。
     op=_operation(operation_id);path_args,query=_parameters(op,path_args or {},query or {})
     value=copy.deepcopy(body)
+    purposes=_native_purpose_schemas(op) if op['write'] else {}
+    purpose_validated=False
     if op['method']=='GET':
         if value not in (None,{}):raise HTTPException(422,'查询操作不能提交修改内容')
         value=None
     elif op['route'].body_field:
         if not isinstance(value,dict):raise HTTPException(422,'请补充办理内容')
+        # Validate a selected purpose before missing outer facts trigger a probe.
+        if isinstance(value.get('purpose'),str) and value['purpose'] in purposes:
+            from .membership_api import validate_purpose_values
+            value['values']=validate_purpose_values(value['purpose'],value.get('values',{}))
+            purpose_validated=True
         try:value=op['route'].body_field.type_.model_validate(value).model_dump(mode='json',exclude_unset=True)
         except ValidationError as exc:
             # The rejected envelope may contain a malformed kind/object. Only
@@ -404,13 +422,17 @@ def validate_operation(operation_id,path_args=None,query=None,body=None):
     # These generic envelopes have dynamic fields. Validate them now so missing
     # facts trigger a question before confirmation; the native API validates again.
     schemas=_native_action_schemas(op) if op['write'] else {}
-    if op['write'] and isinstance(value,dict) and (schemas or isinstance(value.get('values'),dict)):
+    if op['write'] and isinstance(value,dict) and (schemas or purposes or isinstance(value.get('values'),dict)):
         from .master_data import CATALOG
         from .flow_api import MASTERS
         from .flow_specs import SPECS,parse_fields
         kind=path_args.get('kind')
         try:
-            if schemas:
+            if purposes:
+                if not purpose_validated:
+                    from .membership_api import validate_purpose_values
+                    value['values']=validate_purpose_values(value.get('purpose'),value.get('values',{}))
+            elif schemas:
                 schema=schemas.get(path_args.get('action'))
                 if schema is None:raise HTTPException(422,'本次办理动作不存在，请先核对原单当前可用动作')
                 schema.model_validate(value.get('values',{}))

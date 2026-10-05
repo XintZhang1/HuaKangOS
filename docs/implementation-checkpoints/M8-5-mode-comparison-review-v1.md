@@ -1,4 +1,16 @@
-# M8.5 同源21代表模式对照
+# M8.5 本地真实模型逐轮审阅
+
+2026-10-06当前：62a739e5/source920104e0的新20代表 `20261005T202422Z-98724cc4ff` 已自然排空，CLI0/450.172秒、原结构20/20及focus4/4，但语义仍有C03实际办理人、B04正向积分、HELP125审批岗位、HELP158统计范围错误；010开头与正文矛盾、059额外不同人限制也须纠正，不能放行。59次POST全部结算2.848083元；累计2753次，已结算107.438133元加七条旧未知66.322432元，保守占用173.760565元，280元/6000次上限不变。**撤回此前B04“符合当前合同”结论及兼容判据**：原Points不接受values.points，adjust实际为扣减；旧完整283语义应为263可接受、20失败。全部旧报告与评分保留并追加纠正。仅M8.5 in_progress，M8.6未开始。
+
+## 62a739e5的20代表及原字段修复
+
+本轮五指纹及三份文件表与strict `20261005T202345Z-d6d28fffde` 精确相同：1329源码、34harness、775external；输入/依赖均未变，20条原件均逐表467全等且无确认。终局独审 `V/closeout-20261005/m85-representative20-202422-regression-review/independent-terminal-review.json` SHA `a4a6677f42d1cda66217518991a79e0e991c95b18964df9194b97e3ec4684a2a`；root逐原件归并 `m85-representative20-202422-root-review.json` SHA `8de5c8103b2bfd56377d239debc81fe253e7612bad2312672a0d8705b963c6e4`。原结构20/20、focus4/4，语义14可接受/6失败：C03、B04、HELP010/059/125/158；其中B04方向及125岗位说明为关键错误，实际未发生越权执行。旧B04豁免和“263+1可接受”结论已撤回，原件不覆盖。
+
+本批生产修复静审：会员三文件从原API共享9个purpose schemas及exchange交叉规则；先核内部values，再核外层缺资料，Field只添原业务含义不改required/default，原HTTP调用与其它定义AST保持。静审 `m85-membership-purpose-schema-candidate-20261005T204113Z-a98c338ee2/static-review.json` SHA `b56dec7c6c8ba78c74fd609ade5d2081ceeb610e2ffb7bb144a5ea00438be1e0`。Task投影只添既有done_by/name/done_at并按done/cancelled说明；帮助仅改5条原guide（010、059、两条本金退款、158），拆清原岗位动作与范围；111/193和覆盖文件原字节保持，3生成物LF、原发布/check成功。该静审 SHA `bc4f01bd06dae4e7f95f0749546234841e8902879a4edc8ccb06ed0a9d1b2671`，独审 `m85-post20-task-guide-review-day-20261005T205243Z-e648bc3c68/independent-review-day.json` SHA `27e6350811b9a15c29faf4811d98ed6c2fc9c585434447a7062a549508b829b5`。root已核原积分正负、退款主管/财务、仓储待办守卫、应收gap及逐文件差异；不导入app的AST检查通过。
+
+外部仅撤回错误B04 shim、保原评分与有限selector；复用原F与原get_case节点验证准备/真实办理人，不增框架。上述静审不是离线或真实模型通过；正式新指纹定向与6个失败原例仍待运行，M8.5保持in_progress。
+
+以下为历史记录；被明确撤回的B04判断不再有效。
 
 日期：2026-10-05。结论：**M8.5仍in_progress；本报告不放行完整283或M8.6。**
 
