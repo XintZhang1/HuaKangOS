@@ -34,6 +34,9 @@ class Reassign(Reason):
 def catalog(user=Depends(get_user),db=Depends(get_db)):
     allowed=not getattr(user,'_aggregate_scope',False) and user.role in service.READ
     return {'can_read':allowed,'prepare_kinds':[k for k,r in service.PREP.items() if allowed and user.role in r],'kinds':service.LABELS if allowed else {},
+        'prepare_role_permissions':{kind:{'role_can_prepare':user.role in roles,'preparer_roles':sorted(roles)}
+            for kind,roles in service.PREP.items()} if allowed else {},
+        'permission_notice':'能读取CSV格式不表示本人能编制该类清单。各类role_can_prepare只核当前岗位；不允许时须由该类原岗位办理，不能指导当前员工本人确认。允许也仍须核原采购、版本和任务；试执行及正式确认均由同批原编制人按原守卫办理，另须主管独立复核。' if allowed else '',
         'csv_headers':{kind:list(fields) for kind,fields in HEADERS.items()} if allowed else {},
         'csv_field_notes':{
             'source_row':'来源文件中的行编号，不是采购明细行ID。',
