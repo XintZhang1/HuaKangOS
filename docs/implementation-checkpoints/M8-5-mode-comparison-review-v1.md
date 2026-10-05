@@ -14,6 +14,12 @@
 - `representative21-high-semantic-mobile-20261005T114345Z-36b71dad1e/independent-review.json`，SHA256 `dbc554966ea3ae65a3379810e6e58996b11c9883f27a3c8b9defa2e416558ba1`。
 - `m85-attempt1257-ack-candidate-20261005T112136Z-c8c2cfa2d1/independent-high-review.json`，SHA256 `b7e90e7c713063a20121fb28df26b5a2c87cb6d42a984a05d31c36e6a255aa83`。
 
+## V03合成复现与Pro入口审阅
+
+在`1fa5b5b`/source `90991484d0869aacf687c0992aa4740eb9297d4fe33193d08f812197d0408ab2`，strict `121122Z-fac723948f`通过；`121153Z-710253bbe8`经原M8.2完整collector（3410节点、464.594秒）执行唯一新增读取复现节点（34.234秒），diagnostic_passed、真实模型0、进程正常排空、五输入未变。九轮原已接受工具意图加一轮固定终局回复共10次合成响应；错误实体URL的422已反馈，后续两个find_cases均succeeded，零卡、业务快照不变。此结果**未复现**真实high中的中断，不据此改生产守卫或宣布真实V03已修复。安全诊断SHA `7c9f99b7db9bdac982eae241aa9dbaa0686c68968d300bed11eb9986223d8164`；run SHA `8cab20cdfaf980758eeeee32548ccce23fbb5efedc9ef22767a67dbd51ab9b75`。
+
+Pro入口与费用两源已独立静审并在诊断排空后应用：外部live_gate SHA `8fdf41ec1226b7a485c9c991527b022452ec005ce68849e52c24efa968bbfc92`，适配器模型入口SHA `28218d1a904e63282fa1d16f920042538b35928a60f3c5f610f87b5a3e5d6c4c`。固定Pro及其高峰费率，完整缓存分项按登记规则计费，旧1402行/73.044270元原额保留；应用回执SHA `e105daf39977dd7703e7f6104f1e29568b095bd05217ca217812dd3315b8435d`。真实Pro尚未调用，仍待有限工具异常诊断、明确1402保留恢复和新strict。离线诊断与后续费用入口的指纹不同，不拼成同一全量成绩；原E节点不因独立费用代码变更重复运行。
+
 ## 此前同源普通/low对照
 
 受检HEAD为`3a28f3562c0fc33f430ed82efa7671cd06b21573`，源码指纹为`f6331e8d5815b492e7bdbc096394a452eeb49dc8e8b9df838448ce4587d2206f`。同一DeepSeek Flash、21条原代表、原283/101定义、合成夹具和工具；通过真实员工Run接口、worker及provider执行。每例独立恢复合成基线，没有模型确认工具。模式参数显式记录，未修改产品默认。
