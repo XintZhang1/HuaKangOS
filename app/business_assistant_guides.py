@@ -159,6 +159,9 @@ def find_workflows(query, role='', category=''):
     return {'items': items, 'notice': (
         '这是当前发布的工作流帮助，未读取或核对任何具体原单的kind、flow_version、当前版本及父单授权。'
         'entry.can_enter仅表示该帮助入口的岗位匹配，不证明本人能办理旧原单。'
+        'entry.roles不是每一步办理、审批或收款的岗位清单；按steps.actor、action、expected及exceptions说明分工，多岗位并列不表示可互相替代。'
+        'prerequisites是整条指引的准备说明，不自动成为每一步前置；同一指引收录多个事项时，只解释本次事项对应的动作和分支，不把其它事项的步骤或字段列为必备。'
+        '按明确的步骤条件说明先后与等待；“包括”项不是唯一范围，不把列举项目缩成排他条件。'
         '涉及已有Flow原单须以本人get_case返回的actions、fields、enabled、reason为准；其它领域按原授权详情和操作目录核对。指引不能替代原版本守卫。'
         '涉及父单步骤须先按本人权限读取父单；读取被拒时等待有权限岗位，'
         '不得承诺拿到单号即可准备，也不能按本指引猜填旧单字段。')}

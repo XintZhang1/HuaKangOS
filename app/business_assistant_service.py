@@ -553,7 +553,8 @@ def resolve_preparation(db,user,session_id,args,*,question_fields=None):
     else:
         payload={key:normalized.get(key,{}) for key in ('path_args','query','body')}
         if not isinstance(payload.get('body'),dict):payload['body']={}
-        if generate_request_id:payload['body'].pop('request_id',None)
+    # Probe drafts also omit supplied IDs; persistence assigns the real UUID.
+    if generate_request_id:payload['body'].pop('request_id',None)
     if len(json.dumps(payload,ensure_ascii=False))>24000:raise HTTPException(422,'本次内容过多，请拆成几步办理')
     if scrub(payload)!=payload:raise HTTPException(422,'操作内容含密码、密钥或过长字段，请回到原页面处理')
     # 业主 2026-09-25 第二条限制：中间单据不能凭空建。前序事实既要真的回到模型手里（否则"逐项确认"

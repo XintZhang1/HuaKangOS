@@ -2139,7 +2139,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "mode": "write"
       },
       "prerequisites": [
-        "已有接待单；本次购车需求及下一次跟进日期。"
+        "已有接待单；未分派时先按原单当前动作分派接待员工，不必等转为意向后才能分派。意向跟进再核本次购车需求及下一次跟进日期。"
       ],
       "manual": [
         {
@@ -2426,7 +2426,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "actor": "服务顾问、技师",
           "where": "原车辆订单",
           "action": "登记交车检查；不合格先由技师登记缺陷处理，再由检查岗位复检。",
-          "expected": "合格前不能出库。"
+          "expected": "检查按原单当前版本条件办理，实际收到车款不是PDI的普遍前提；合格前不能出库，出库另核原单要求的合同、车款及服务事实。"
         },
         {
           "actor": "库管、销售",
@@ -2547,7 +2547,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "mode": "write"
       },
       "prerequisites": [
-        "原预订单及退订原因；核对是否已领料、代缴、出保或交付。"
+        "原预订单及退订原因；尚未交车不代表尚未履约，须核对实际领料、代缴、出保、出库及交付等原事实后判断能否普通退订。"
       ],
       "manual": [
         {
@@ -2963,7 +2963,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "actor": "财务",
           "where": "保险原单",
           "action": "代收模式登记实际代收及按原款代缴；直付模式核对客户直付证明。",
-          "expected": "客户保费与保险公司收款相互对应。"
+          "expected": "财务按本版授权、实际凭据及本人待办核对代收代缴；代收不以已经出保为前提，承保结果由保险经办人另行记录。"
         },
         {
           "actor": "保险经办人、店长、财务",
@@ -3643,7 +3643,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
       "id": "wf-vehicle-batch-import",
       "title": "批量导入车辆请款发运和到货",
       "category": "整车仓储",
-      "summary": "每行请款、发运或到货有原采购来源，重复导入不重复记账。",
+      "summary": "每批只导入请款、发运或到货中的一种，逐行关联原采购；试执行成功并回滚后再独立复核及正式确认，重复导入不重复记账。",
       "keywords": [
         "车辆请款导入",
         "批量发货",
@@ -3682,7 +3682,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "actor": "原经办人",
           "where": "整车采购原单",
           "action": "点“查看原单与待办交接”，再点“车辆请款与交接清单”；选择导入请款、发运或到货，按页面固定字段准备CSV。",
-          "expected": "清单仅对应这张采购单。"
+          "expected": "清单仅对应这张采购单及本批选定的一种类别；请款、发运、到货不能合成同一批次。预检后须试执行成功并回滚，再由另一主管复核。"
         },
         {
           "actor": "原经办人",
@@ -3705,7 +3705,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
       ],
       "assistant": {
         "mode": "guide",
-        "prompt": "我想批量导入车辆请款发运和到货。请先说明原采购单的批量清单入口和所需列，帮助我整理资料；文件上传、预检、试执行和正式批次确认由我在原页面操作。不得假定已到账、已交付、已签字或已检查；需要我上传凭据或现场办理时请告诉我。",
+        "prompt": "我想按请款、发运、到货分别建立单一种类的导入批次。请说明原采购单的批量清单入口和所需列；每批由我在原页面上传预检、试执行成功并回滚，再独立复核及正式确认。不得假定已到账、已交付、已签字或已检查；需要真实凭据或现场办理时请告诉我。",
         "steps": [
           {
             "actor": "员工",
@@ -6363,7 +6363,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "actor": "销售或服务顾问、财务",
           "where": "精品原单",
           "action": "“确认客户接收”；财务按原方案登记实际收款，若使用会员权益在“办理原付款与原退”中先核对方案。",
-          "expected": "现金及权益分别计入本单，维修款不重复登记。"
+          "expected": "客户接收由销售或服务顾问确认，实际收款由财务登记；收款核原获批报价及可收金额，不以已出库、已安装或客户已接收为前提。现金及权益分列，维修款不重复。"
         }
       ],
       "assistant": {
@@ -7701,7 +7701,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "actor": "经办人",
           "where": "客户档案 → 编辑",
           "action": "补填后来取得的电话或联系说明，再回到原接待单安排回访。",
-          "expected": "原客户继续使用，不必重建业务。"
+          "expected": "原客户继续使用，不必重建业务；维护客户资料不等于具有接待回访权限，回访仍由原接待单当前动作允许的岗位办理。"
         }
       ],
       "assistant": {
@@ -9058,7 +9058,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "mode": "write"
       },
       "prerequisites": [
-        "已开通会员；有明确原积分批次及已配置的兑换规则。",
+        "已开通会员；本次原积分批次明确。兑换才需已配置的目标券包规则，普通扣减不附兑换目标。",
         "调整须有原因与凭据。"
       ],
       "manual": [
@@ -9089,7 +9089,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
       ],
       "assistant": {
         "mode": "prepare",
-        "prompt": "帮我办理积分兑换或调整，先查询原批次、可用积分和待追回欠额，再问我目标券包、数量及依据；积分不能当现金充值。先问缺少的信息，只使用我确认的事实；准备表单后等我核对确认，不编造收付款、客户授权或履约结果。",
+        "prompt": "帮我办理积分兑换或调整，先查询原批次、可用积分和待追回欠额；兑换才问目标券包和兑换数量，扣减只核本次数量、真实原因及凭据，不先兑换。积分不能当现金充值。只使用我确认的事实；准备表单后等我核对，不编造收付款、授权或履约。",
         "steps": [
           {
             "actor": "经办人",
@@ -9209,7 +9209,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "actor": "财务／指定办理人",
           "where": "会员业务办理",
           "action": "收费续会确认真实到账账户、凭证及客户依据，点“确认本次实际办理”。",
-          "expected": "会员有效期间形成或顺延，实际会费记账。"
+          "expected": "等级调整由原待办指定办理人完成，不产生续会会费；收费续会才由财务核真实到账并记会费，会员有效期间按本次规则形成或顺延。"
         },
         {
           "actor": "前台／财务",
@@ -9220,7 +9220,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
       ],
       "assistant": {
         "mode": "prepare",
-        "prompt": "帮我办理会员续会或等级调整，先查现有有效期间和适用规则；客户未确认、未到账的事情保持待办；未生效退会费走原期间退款。先问缺少的信息，只使用我确认的事实；准备表单后等我核对确认，不编造收付款、客户授权或履约结果。",
+        "prompt": "帮我办理会员续会或等级调整，先查现有有效期间和适用规则；按本次事项区分，收费续会才核真实到账，不把等级调整当收款。客户未确认的事情保持待办，未生效退会费走原期间退款。只使用我确认的事实；准备表单后等我核对，不编造授权或履约。",
         "steps": [
           {
             "actor": "经办人",
@@ -9459,8 +9459,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "mode": "write"
       },
       "prerequisites": [
-        "已开通会员。",
-        "管理员已发布适用门店、发行期间、本金、赠品与整份退款条款。"
+        "配置组合规则先核公司确认的本金、赠品、适用门店、发行期间及退款条款；客户购买或退款才需已开通的真实会员。",
+        "客户购买时须已有管理员发布的适用版本；配置新规则不以已有客户会员或已有规则为前提。"
       ],
       "manual": [
         {
@@ -9490,7 +9490,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
       ],
       "assistant": {
         "mode": "prepare",
-        "prompt": "帮我办理充值组合，先查询有效规则和会员，问我份数及客户确认；退组合要查询原批次和完整可退份额，不能通过普通退款拆掉赠品条件。先问缺少的信息，只使用我确认的事实；准备表单后等我核对确认，不编造收付款、客户授权或履约结果。",
+        "prompt": "帮我按本次事项配置、购买或退回充值组合；配置先核公司条款，客户购买才查有效规则和会员、份数及客户确认；退款查原批次和完整可退份额，不通过普通退款拆掉赠品条件。只使用我确认的事实；准备表单后等我核对，不编造收付款、授权或履约。",
         "steps": [
           {
             "actor": "经办人",

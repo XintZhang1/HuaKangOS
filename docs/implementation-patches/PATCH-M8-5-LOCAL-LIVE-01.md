@@ -1,5 +1,22 @@
 # 本地真实模型复验入口
 
+## 完整283实测后的卡片与帮助说明修复
+
+2026-10-06，`20261005T180742Z-a5f76d8a36` 在15135b2d/source3353d120上从零完成原283，101是其中重叠子集，未继承旧例；CLI1/6089.625秒，输入与依赖不变、自然排空。877次本轮尝试均结算40.255395元，无新增未知；累计2694次保守占用170.912482元，七条旧未知66.322432元原样保留。结构失败B04/D05与逐案语义失败分别记录，不能因无业务写入就把错误岗位说明记为正确。完整原件、旧失败与原评分保留；终局独立语义审计写入现有检查点报告。
+
+本次只修已经观察到的原因，允许范围如下：
+
+- `app/business_assistant_service.py::resolve_preparation`：缺必需关系时probe分支复制了模型request_id，而普通分支才清理；原Runtime随后按generate_request_id合同拒绝，D05没有生成卡。把已有清理移到两分支共同出口，仍不将临时品牌probe写入原草稿；服务器生成真实UUID、原权限/版本/幂等和人工确认不变。原完整工具输入与确定代码路径支持此定位，原报告没有捕到409最初异常帧，不伪造动态栈证据。
+- `app/business_assistant_guides.py::find_workflows`：在原成功notice澄清入口岗位不代表每步办理/审批岗，按steps.actor/action/expected与exceptions解释分工；整体prerequisites不自动成为某一步前提；同指南的其它事项不变成本次必办分支。包括项不改成唯一范围。保留现有原单、版本、父单和原API权限合同，不硬编码案例ID、角色规则，不对回答加正则或后处理。
+- `app/business_assistant_case_tools.py::_guidance`：C03把任务assignee当实际历史办理人。只补事实含义：任务被分派人与真实事件办理人分开，实际历史动作引用对应事件，不猜关联或补造执行人；原DTO、查询与业务状态不变。
+- `docs/workflow-source/business.json`、`docs/workflow-source/services.json`：只在本轮V08及HELP004/010/037/058/059/077/082/087/089/092/098/120/121/123/125/158对应既有指引存在歧义处，依据原API澄清单批种类、试算回滚再复核、办理步骤/角色/资料与范围。已有清楚的分支不重复扩写；不改变111工作流、193需求映射、入口、业务守卫或岗位。仅用原发布生成器同步 `web/workflow-guides.json`、`web/workflow-handbook.html`、`docs/全量工作流手册.html`，保留原覆盖映射。
+- 外部V原 `tests/m82-closeout/runtime-boundaries/test_runtime_provider_budget.py`（镜像节点 `tests/m82_runtime_boundaries/test_runtime_provider_budget.py::test_actual_provider_usage_is_durable_and_unknown_attempt_is_not_free[complete]`）：复用原节点追加一次D05原HTTP建Run→真实Worker.tick→准备待补品牌卡，核probe不落库、服务端UUID、同Work幂等同卡及467业务图不变；不增加测试平台或节点。保留该节点原费用、畸形输入及SQLite配对断言。
+- 外部V原M8.5适配与原登记文件：B04原提示明确要求“帮我准备”，实际卡保留缺会员/原因并提供真实候选，符合R4既有缺资料卡合同。冻结283/101定义、原no_proposals观察与原结构分数保持；仅追加B04当前合同独立判据（0卡或至多1张pending积分调整卡，100为严格整数且来自原提示，会员/原因未猜填、真实授权候选、必答问题、无确认及业务图不变），其它原检查全部保持，不把旧失败抹成原分数通过。原representative有限选择表补入此次已观察失败ID和B04，argparse从同一固定表派生避免双表遗漏；本轮按原顺序只执行这些受影响案例。
+
+先完成代码与适配审阅、原F定向，再登记新源码/输入指纹与live gate，执行受影响原例的真实定向；这些通过后重新从零执行原283并单列101。不得混拼旧结果、修改历史费用、自动重试未知请求或因本轮结束降低语义门槛。M8.5保持in_progress。
+
+前置修复的证据亦保留：原F `173741Z-bcf87278aa` 的DELETE/WAL实际GET配对分别阻塞心跳33.25秒/正常0.032秒，证明锁条件差异，未复现旧自然timer取消，不能追认其唯一根因。原四代表 `175949Z-2693969fb6` 完整22POST/CLI0，S07/V07/V08/R02当次通过；本次全量V08的新说明错误仍有效。`175415Z-38fb5bdf3c` 是argparse选择遗漏导致的0模型调用启动失败，已有限修复并保留原件。
+
 ## 原生目录读取取消与导入说明
 
 本轮R02还在工位真实为空时建议改为现场来访绕过，并承诺只补车牌/时间即可成卡。原 `AppointmentSave(Slot)` 及 `appointment_create` 对预约、现场来访都要求真实resource_id，这是一项流程说明错误，未发生错误卡或业务写入。允许 `app/service_intake_service.py::catalog` 仅附原必需条件说明：两种模式均需真实客户车辆、启用工位和完整时段；没有工位时等待有维护权限岗位配置，不通过切模式绕过。原/resources数组结构、查询、角色、Slot及动作守卫保持。有限代表再补原R02（22变23），本轮定向四项按原顺序S07/V07/V08/R02，不改原场景或评分。
