@@ -13,7 +13,7 @@ from .models import User,Store,Vehicle,Sale,AuditLog
 from .tenancy import single_store,accessible_stores
 from .services import plain,audit
 from .flow_models import Case,Task,Customer,FlowEvent,RequestReceipt,PaymentLink,Account,Item,StockMove,Member,MemberEntry,Reference,DocTemplate,FileAsset,VehicleHold
-from .flow_specs import SPECS,STATES,MODULES,TERMINAL,parse_fields,f,flow_spec,CURRENT_FLOW_VERSION
+from .flow_specs import SPECS,STATES,MODULES,TERMINAL,parse_fields,f,flow_spec,CURRENT_FLOW_VERSION,QTY
 from . import flow_engine as eng
 from .flow_navigation import case_entry_route
 from .task_views import WORK_AREAS, filter_task_view
@@ -48,13 +48,22 @@ def describe_case(db,user,row):
         completed_date=row.completed_date.isoformat() if row.completed_date else None,updated_at=row.updated_at.isoformat()+'Z')
     # Original field types define storage units; only expose already-authorized values.
     info['data_fields']=[]
-    for field in spec['fields']:
+    fields=spec['fields'];material_quantity=row.kind in {'material_issue','material_return'}
+    quantity_unit=None
+    if material_quantity:
+        # These children carry the original repair action's QTY, not create fields.
+        fields=[*fields,QTY] if not any(field['key']==QTY['key'] for field in fields) else fields
+        item_id=info['data'].get('item_id')
+        if user.role in MASTERS['items']['read'] and type(item_id) is int and item_id>0:
+            item=db.scalar(select(Item).where(Item.id==item_id,Item.store_id==row.store_id))
+            if item is not None and isinstance(item.unit,str) and item.unit.strip():quantity_unit=item.unit
+    for field in fields:
         kind=field['type'];value=info['data'].get(field['key'])
         if kind not in {'money','money_zero','quantity','quantity_zero'} or type(value) is not int:continue
         money=kind.startswith('money');scale=100 if money else 1000
         info['data_fields'].append({'key':field['key'],'label':field['label'],'type':kind,
             'storage_unit':'分' if money else '千分之一实际数量','scale':scale,
-            'display':format(Decimal(value)/scale,'f'),'unit':'元' if money else '实际数量'})
+            'display':format(Decimal(value)/scale,'f'),'unit':'元' if money else quantity_unit if material_quantity else '实际数量'})
     owner=db.get(User,row.owner_id);info['owner_name']=owner.display_name if owner else '待配置'
     store=db.get(Store,row.store_id);info['store_name']=store.name if store else ''
     if eng.money_visible(user,row):info.update(amount_cents=row.amount_cents,paid_cents=eng.paid_amount(db,row))
@@ -283,8 +292,13 @@ def lookup(kind:str,q:str=Query('',max_length=100),case_id:int|None=None,db=Depe
         model=config['model'];stmt=select(model)
         if hasattr(model,'active'):stmt=stmt.where(model.active.is_(True))
         if q:
-            field=model.number if kind=='member' else model.name
-            stmt=stmt.where(field.contains(q))
+            if kind=='member':
+                # The picker displays both card number and customer name. Match
+                # that same local customer without borrowing another store's identity.
+                customers=select(Customer.id).where(Customer.store_id==Member.store_id,Customer.name.contains(q))
+                stmt=stmt.where(or_(Member.number.contains(q),Member.customer_id.in_(customers)))
+            else:
+                stmt=stmt.where(model.name.contains(q))
         if kind=='customer' and user.role in {'sales','reception'}:stmt=stmt.where(Customer.owner_id==user.id)
         for obj in db.scalars(stmt.order_by(model.id.desc()).limit(101)):
             label=obj.name if hasattr(obj,'name') else obj.number
@@ -342,7 +356,11 @@ def master_list(kind:str,q:str=Query('',max_length=100),page:int=Query(1,ge=1),d
     if kind=='customers' and user.role in {'sales','reception'}:stmt=stmt.where(Customer.owner_id==user.id)
     if q:
         columns=[getattr(model,k) for k in ('name','phone','sku','number','title') if hasattr(model,k)]
-        stmt=stmt.where(or_(*[c.contains(q) for c in columns]))
+        matches=[c.contains(q) for c in columns]
+        if kind=='members':
+            customers=select(Customer.id).where(Customer.store_id==Member.store_id,Customer.name.contains(q))
+            matches.append(Member.customer_id.in_(customers))
+        stmt=stmt.where(or_(*matches))
     total=db.scalar(select(func.count()).select_from(stmt.subquery()))
     rows=list(db.scalars(stmt.order_by(model.id.desc()).offset((page-1)*30).limit(30)))
     return {'items':[master_info(db,user,kind,r) for r in rows],'total':total,'page':page,'page_size':30}

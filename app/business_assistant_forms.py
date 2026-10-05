@@ -34,7 +34,7 @@ def normalize_questions(raw, sanitize):
         key = sanitize(item.get('key') or '', 120).strip()
         label = sanitize(item.get('label') or '', 160).strip()
         if (not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*(?:\.(?:[A-Za-z_][A-Za-z0-9_]*|[0-9]+))*', key)
-                or len(key) > 120 or not label or any(p.lower() in PROTECTED for p in key.split('.'))):
+                or len(key) > 120 or not label or any(p.lower() in PROTECTED or p.lower().endswith('_version') for p in key.split('.'))):
             raise HTTPException(422, '请按真实业务字段填写缺项；内部版本、提交标识和门店应由系统读取')
         if key in seen:
             raise HTTPException(422, '同一字段不要重复提问：' + label)
