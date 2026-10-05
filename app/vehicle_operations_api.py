@@ -81,7 +81,10 @@ def vehicles(db=Depends(get_db),user=Depends(get_user)):
             p=db.scalar(select(VehiclePosition).where(VehiclePosition.vehicle_id==r.id))
             result.append({'id':r.id,'vin':r.vin,'model':r.model,'generation':r.inventory_generation,'location_id':p.location_id if p else None,
                 'location':svc.location_name(db,p.location_id) if p else '尚无明确库位','position_status':p.status if p else 'unlocated'})
-        return {'items':result}
+        return {'items':result,'scope':{'view':'vehicle_operation_candidates','approval_state':'approved',
+            'excluded_operations':'non_terminal','current_inventory_list':False,'operation_eligibility_verified':False,
+            'local_move_requires_position_status':'stored'},
+            'notice':'本列表只核对本店车辆已批准并排除在办车辆作业，不是当前在库或可移库车辆清单；销售占用、已交付、调拨及具体作业条件仍须核对原事实。position_status=unlocated不满足店内移库，须先完成原现场库位登记；店内移库还要求原位置状态为stored。'}
 
 @router.post('/orders',status_code=201)
 def create(body:Create,db=Depends(get_write_db),user=Depends(get_user)):

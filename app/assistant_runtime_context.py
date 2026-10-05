@@ -11,6 +11,7 @@ from hashlib import sha256
 import json
 import re
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from pydantic import TypeAdapter, ValidationError
@@ -429,10 +430,15 @@ async def build_context(db, principal, *, system_prompt, thinking=False, tool_me
     if _source_guard(_source(db, principal)) != _source_guard(state):
         _conflict()
     older, recent, current = _window(state)
-    draft = _summary(principal, state, older, accessible, gaps, _time(clock()))
+    from .config import settings
+    now = _time(clock())
+    business_date = now.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(settings.timezone)).date()
+    draft = _summary(principal, state, older, accessible, gaps, now)
     public_summary = {key: deepcopy(draft[key]) for key in ('through_message_id', 'goal', 'constraints',
         'confirmed_selections', 'open_questions', 'evidence_refs', 'unverified_notes')} if draft else None
     context = {
+        # Refresh from the server clock each round; it is not a saved history fact.
+        'business_date': business_date.isoformat(), 'timezone': settings.timezone,
         'principal': {'actor_id': principal.actor_id, 'store_id': principal.store_id,
                       'role': principal.role, 'session_id': principal.session_id},
         'goal_constraints': {'plan_id': principal.plan_id, 'goal_version': principal.goal_version,

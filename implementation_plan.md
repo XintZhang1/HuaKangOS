@@ -4110,6 +4110,8 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 
 **目标**：对当前实现取得真实模型报告，保留原场景口径与历史结果区别。
 
+**当前实测与修复**：faa2d54的strict065142Z-debdbfff67和F定向065221Z-4f37ebd356通过，重新绑定后的strict070319Z-6be9607fc7与八代表070402Z-c7d6b4bb06同五输入，8例/37POST/151.375秒、关键语义通过。S08一次registry422后纠正三行卡，M02实际数量80/24/4/10正确，S07无额外前置卡，英文开场及重复追问仍记录为体验观察。同源全量070940Z-c904408cfc执行34/283后因V01库存范围及F02自然月查询错误由root持原账本锁正常停止；169POST全结算、374.813秒、CLI1、249未运行、467业务表前后相同。另核原单任务依赖和业务来源，不把结构34通过记语义通过。累计510次尝试、保守占用25.940190元（包含最初未知占用10.485760元）、余24.059810元。按PATCH-M8-5-LOCAL-LIVE-01修复当前范围/日期及必要目录说明；本项仍in_progress。
+
 **依赖**：M8.1–M8.3 done；原场景和冻结定义完整；业主已明确授权本地真实模型API复验，使用外部私有配置和既有预算，不读取公司数据。
 
 **读/写边界**：读取当前provider适配/工具schema、归档101/283定义与冻结提示词；仅写V/live-evaluation定义适配及本轮脱敏报告。不得改历史场景、成绩或使用真实客户数据。
@@ -4124,7 +4126,7 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 ```powershell
 & $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.5 --phase full
 ```
-按 PATCH-M8-5-LOCAL-LIVE-01 增加有限当前 Runtime 适配，原场景和101子集字节保留。先用 `--phase representative` 执行8条代表路径（原5例及已观察失败对应S07/V02/M02）；`--phase full` 独立执行原283并单列101子集，不自动再执行代表命令。所有尝试共用预算，代表结果不拼入全量。runner核验专用外部live gate与同五输入strict；未具备则拒绝付费。员工登录后原Run API入队，由当前worker/provider读取与准备，密钥不进入命令行；旧run_tools路径不能作为Runtime通过证据。
+按 PATCH-M8-5-LOCAL-LIVE-01 增加有限当前 Runtime 适配，原场景和101子集字节保留。先用 `--phase representative` 执行14条代表路径（原8例加已观察失败的S06/V01/V05/M04/F01/F02）；`--phase full` 独立执行原283并单列101子集，不自动再执行代表命令。所有尝试共用预算，代表结果不拼入全量。runner核验专用外部live gate与同五输入strict；未具备则拒绝付费。员工登录后原Run API入队，由当前worker/provider读取与准备，密钥不进入命令行；旧run_tools路径不能作为Runtime通过证据。
 
 **完成检查**：
 - [ ] 报告证明真实生成请求、目标provider及本次源码指纹。

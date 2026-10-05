@@ -244,6 +244,12 @@ def build_vehicle_period(db, user, start=None, end=None, vin=None):
         for f in details: f.pop('value_cents')
         for r in transit: r.pop('value_cents')
     return {'date_from': start.isoformat(), 'date_to': end.isoformat(), 'as_of': as_of(), 'can_money': can_money,
+            'scope': {'view': 'vehicle_period_reconstruction', 'rows_unit': '原车辆VIN及库存代次核对行',
+                      'rows_are_current_stock': False, 'current_availability_included': False,
+                      'closing_quantity_metric': 'metrics.vehicle_period_closing_count',
+                      'closing_quantity_date': end.isoformat(),
+                      'quantity_note': 'rows包含原车辆及历史代次，不是当前在库清单。期末台数只读closing_quantity_metric；complete为false或该指标为null时数量未知，不能用行数补算。期末截至date_to，不等于当前在库或当前可配。',
+                      'current_stock_operation': 'GET /api/vehicle-catalog'},
             'complete': complete, 'transit_complete': transit_complete, 'rows': rows, 'details': details, 'transit': transit,
             'tables': tables, 'charts': charts, 'definition': DEFINITION, 'definitions': [DEFINITION],
             'metrics': {'vehicle_period_complete': complete, 'vehicle_period_unverified_generations': sum(not r['reconciled'] for r in rows),

@@ -249,4 +249,13 @@ def catalogue(db,user,q='',brand_id=None,series_id=None,fuel_type=None,min_seats
         'series':[{'id':r.id,'brand_id':r.brand_id,'name':r.name} for r in series.values() if r.active and brands.get(r.brand_id) and brands[r.brand_id].active],
         'unclassified':unclassified[(unclassified_page-1)*12:unclassified_page*12],
         'unclassified_total':len(unclassified),'unclassified_page':unclassified_page,
+        'unclassified_available_count':sum(vehicle['available'] for vehicle in unclassified),
+        'scope':{'view':'current_vehicle_catalog','items_unit':'车型','total_unit':'车型',
+            'filters':{'q':q,'brand_id':brand_id,'series_id':series_id,'fuel_type':fuel_type,
+                'min_seats':min_seats,'max_price_cents':max_price_cents,'available_only':available_only,
+                'model_id':model_id,'include_inactive':include_inactive},
+            'items_page_size':12,'unclassified_page_size':12,'unclassified_unit':'当前在库VIN',
+            'unclassified_paging':'独立使用unclassified_page；total和page仅属于车型列表',
+            'unclassified_filtering':'未分类车辆不按q、品牌、车系、动力、座位、价格或available_only筛选；明确model_id时仍按该原车型筛选',
+            'availability':'available_only只筛有可配车辆的车型组，不裁剪组内vehicles或unclassified；每车是否可配以原available为准。未分类在库及可配总数分别为unclassified_total和unclassified_available_count'},
         'notice':'展示本店已确认车型及在库车辆，已出库待交接和已交付车辆不计入在库。品牌与车系是不同层级的筛选目录；未分类车辆仅保留原车型文字，尚未确认所属品牌、车系或车型，不能按目录中的名称推定归属。可选配仅为当前提示，正式配车仍需后台重新核对占用。指导价是主档参考，不是本单核准售价。'}
