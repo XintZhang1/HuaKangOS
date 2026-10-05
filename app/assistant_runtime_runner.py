@@ -2383,7 +2383,7 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                         raise
                     if budget.tool_count > limits['call_budget']:
                         raise _LoopBudget('tool_budget')
-                    # Reject this whole fragment before checkpointing; do not retain its arguments or reasoning.
+                    # This provider-validated rejection pair stays in memory, never in a checkpoint.
                     correction = ('本次执行中曾有一个完整片段因工具参数格式（422）被服务端拒绝；'
                         '该被拒片段的工具未执行、未新增卡片。请严格按当前工具schema重新表达员工原请求的'
                         '完整剩余步骤和每一行；按本次已发布工具schema核对顶层和每行字段、字段类型、必填项，'
@@ -2391,6 +2391,17 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                         '此前及之后已接受的成果以当前真实工具结果和卡片为准，不重复准备，不漏行，不编造办理结果。')
                     if correction not in instructions:
                         instructions.append(correction)
+                    rejected = {'role': 'assistant',
+                        'content': _safe_display(reply.get('content') or '', final=True) or None,
+                        'tool_calls': deepcopy(calls)}
+                    if thinking:
+                        rejected['reasoning_content'] = reply.get('reasoning_content', '')
+                    error = json.dumps(service.scrub({'status': 422,
+                        'error': service.safe_text(invalid_tools.detail, 600),
+                        'executed': False, 'fragment_executed': False}), ensure_ascii=False)
+                    chain.append(rejected)
+                    chain.extend({'role': 'tool', 'tool_call_id': call['id'], 'content': error}
+                        for call in calls)
                     continue
                 if budget.tool_count > limits['call_budget']:
                     raise _LoopBudget('tool_budget')

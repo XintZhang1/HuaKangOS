@@ -41,10 +41,20 @@ class AssignInput(Strict):
 
 
 def describe_case(db,user,row):
+    spec=flow_spec(row.kind,row.flow_version)
     info={key:getattr(row,key) for key in ['id','number','kind','state','title','owner_id','customer_id','parent_id','vehicle_id','version','flow_version','store_id']}
-    info.update(kind_label=flow_spec(row.kind,row.flow_version)['label'],state_label=STATES.get(row.state,row.state),data=eng.safe_data(row.data,user,row),
+    info.update(kind_label=spec['label'],state_label=STATES.get(row.state,row.state),data=eng.safe_data(row.data,user,row),
         business_date=row.business_date.isoformat(),due_date=row.due_date.isoformat() if row.due_date else None,
         completed_date=row.completed_date.isoformat() if row.completed_date else None,updated_at=row.updated_at.isoformat()+'Z')
+    # Original field types define storage units; only expose already-authorized values.
+    info['data_fields']=[]
+    for field in spec['fields']:
+        kind=field['type'];value=info['data'].get(field['key'])
+        if kind not in {'money','money_zero','quantity','quantity_zero'} or type(value) is not int:continue
+        money=kind.startswith('money');scale=100 if money else 1000
+        info['data_fields'].append({'key':field['key'],'label':field['label'],'type':kind,
+            'storage_unit':'分' if money else '千分之一实际数量','scale':scale,
+            'display':format(Decimal(value)/scale,'f'),'unit':'元' if money else '实际数量'})
     owner=db.get(User,row.owner_id);info['owner_name']=owner.display_name if owner else '待配置'
     store=db.get(Store,row.store_id);info['store_name']=store.name if store else ''
     if eng.money_visible(user,row):info.update(amount_cents=row.amount_cents,paid_cents=eng.paid_amount(db,row))
