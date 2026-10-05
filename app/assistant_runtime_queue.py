@@ -1226,6 +1226,8 @@ def _budget_view(run, ledger, now):
     limits = ledger['limits']
     if limits is None or run.started_at is None:
         _conflict('Runtime budget has not been configured')
+    # Recovery or a new lease/fence must retain the first start time and every
+    # reserved round, including unknown usage. This is a Run limit, not billing.
     elapsed = max(0.0, (now - _time(run.started_at)).total_seconds())
     remaining = max(0.0, limits['turn_timeout_seconds'] - elapsed)
     count = sum(row['usage']['tool_count'] for row in ledger['rounds'] if row['usage'] is not None)

@@ -336,6 +336,12 @@ class Worker:
                  runner=None, queue=None, config=None, check_seconds=CHECK_SECONDS,
                  heartbeat_seconds=HEARTBEAT_SECONDS, cleanup_seconds=CLEANUP_SECONDS,
                  stop_event=None, read_session_factory=None, bound_engine=None, outbox=None):
+        """Override database dependencies together, retaining one Engine identity.
+
+        When overriding storage, session_factory() and read_session_factory(bind)
+        must create fresh Sessions on the same supplied bound_engine.
+        config selects provider settings, never a database.
+        """
         self.worker_id = worker_id or new_worker_id()
         worker_key(self.worker_id)
         self.lease_owner = lease_owner or ('worker:' + self.worker_id)

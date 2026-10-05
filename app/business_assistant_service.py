@@ -1601,7 +1601,8 @@ async def decide_proposal(db,request,user,session_id,row,digest,cancel=False,ans
     """一张卡自己的全套校验与它自己的那一次原接口调用（单张确认和批量确认共用）。
 
     批量确认只是"员工一次点击、服务端逐张照办"：每张仍然各自校验 digest、岗位、门店、版本、
-    过期与业务规则，各自独立提交和留痕；任何一张失败都不影响其它张，也绝不合并成一次写。
+    过期与业务规则，各自独立提交和留痕，绝不合并成一次写。首个拒绝、失败或结果不明会停止
+    后续提交；后续只列为本次 skipped，不改原卡状态，也不回滚此前已成功的原业务。
     answers 是员工在卡片必填项里填的值：没填完不放行，填了就并进这次办理的内容再校验一次。
     """
     from . import business_assistant_gateway as gateway

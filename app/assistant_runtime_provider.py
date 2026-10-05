@@ -95,6 +95,8 @@ class _Usage:
     reports: list = field(default_factory=list, repr=False)
 
     def request_started(self):
+        # Count each HTTP attempt, including retries, after the immediate guard
+        # and before POST; a model round or successful reply is not this count.
         self.http_requests += 1
         self.retries = max(0, self.http_requests - 1)
         self.reports.append({})

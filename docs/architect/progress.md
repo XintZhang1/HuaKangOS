@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-05维护交接收口：根入口、架构、五条读码路径和关键事务注释已审；五生产文件无注释AST一致、91链接及安全源码打包核对通过，M8.10 done/CP-39仅维护范围released。当前唯一执行项转M8.5本地真实模型复验，按PATCH-M8-5-LOCAL-LIVE-01补齐有限授权入口后执行。真实生成调用尚未开始，已取消环境项不恢复。
+
 2026-10-05业主调整：先推送main的数据库修复4138b85和本轮范围说明，再转维护交接与本地真实模型复验。未运行M8.4候选已外部归档撤回，不再启动HTTPS/IME或独立Windows/Linux验收。当前入口为[tasks/maintenance-handoff.md](tasks/maintenance-handoff.md)，实施范围以PATCH-SCOPE-MAINTENANCE-20261005-01为准；以下为历史记录。
 
 2026-10-05 M8.3收口：完整run021313Z-4db44dd34a实际1节点通过/284.797秒、strict18同五指纹，SQLite及真实PG各3次旧计划idle、各12并发阶段、21/16拒绝和独立联合恢复全部执行。root和独立原件审阅支持原四条检查，实施计划登记M8.3 done；PG正常停止、模型0。CP-36仍not_ready，下一项M8.4，真实模型/独立环境/员工与人工验收保留。详 `docs/implementation-checkpoints/M8-3-database-closeout-review-v1.md`，任务 `tasks/m83-database-closeout.md`；当前修复与本项记录先本地保存，最终交付一并推送。

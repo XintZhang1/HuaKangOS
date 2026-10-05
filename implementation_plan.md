@@ -122,7 +122,7 @@
 | CP-36 | M8.3—M8.4 | 数据库已验，剩余浏览器范围移出 | scope_revised | docs/implementation-checkpoints/M8-3-database-closeout-review-v1.md；PATCH-SCOPE-MAINTENANCE-20261005-01 | M8.3 done；M8.4剩余验收由业主取消，非测试通过，不阻塞本地模型或维护交接。 |
 | CP-37 | M8.5—M8.6 | 本地真实模型与保留集 | not_ready | PATCH-SCOPE-MAINTENANCE-20261005-01 | 本地隔离与外部API已获授权，既有预算保留，尚未执行本轮真实复验。 |
 | CP-38 | M8.7—M8.8 | 独立环境恢复演练 | removed_by_owner | PATCH-SCOPE-MAINTENANCE-20261005-01 | 业主取消剩余计划，未执行不记通过；生产配置合同保持。 |
-| CP-39 | M8.10 | 代码/架构维护交接 | not_ready | docs/architect/tasks/maintenance-handoff.md | 按新范围整理并同步main；M8.9员工和人工验收交业主安排，不由模型代签。 |
+| CP-39 | M8.10 | 代码/架构维护交接 | released | docs/implementation-checkpoints/M8-10-maintenance-review-v1.md | 维护文档/关键注释/精确源码白名单已核；仅放行维护交接，不代替真实模型或人工、生产验收。 |
 
 CP-39完成后也先提交候选审阅，不能因源码包生成而宣称上线。上述门禁放行不代替真实模型、独立环境、员工数据或生产部署的另外授权条件。
 
@@ -4091,7 +4091,7 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 
 ## M8.5 原101/283真实模型回归
 
-**状态**：todo
+**状态**：in_progress
 
 **全局顺序前置**：M8.3 done；维护整理后的当前源码冻结。M8.4已由业主取消，不再作为前置。
 
@@ -4112,9 +4112,9 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 
 **命令**：
 ```powershell
-& $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.5
+& $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.5 --phase full
 ```
-runner先检查外部live gate；缺失则仅生成清单并标blocked，不自动付费。gate具备后，调用被审过的原`test_assistant_live.py --live --suite all --transport sse --output <本次外部报告>`等manifest命令，provider/预算由gate明确指定，不通过命令行传密钥。
+按 PATCH-M8-5-LOCAL-LIVE-01 增加有限当前 Runtime 适配，原场景和101子集字节保留。先用 `--phase representative` 执行5条代表路径；`--phase full` 独立执行原283并单列101子集，不自动再执行代表命令。所有尝试共用预算，代表结果不拼入全量。runner核验专用外部live gate与同五输入strict；未具备则拒绝付费。员工登录后原Run API入队，由当前worker/provider读取与准备，密钥不进入命令行；旧run_tools路径不能作为Runtime通过证据。
 
 **完成检查**：
 - [ ] 报告证明真实生成请求、目标provider及本次源码指纹。
@@ -4175,7 +4175,7 @@ runner先检查外部live gate；缺失则仅生成清单并标blocked，不自�
 
 ## M8.10 代码、架构与维护交接
 
-**状态**：todo
+**状态**：done
 
 **当前范围**：按2026-10-05业主指令，先推送现有main，再整理源码职责/关键事务及确认边界注释、架构实况、配置与维护入口、精确源码打包文档。维护完成后冻结源码执行本地真实模型复验；不等待已移出环境项或员工验收。
 
@@ -4184,8 +4184,10 @@ runner先检查外部live gate；缺失则仅生成清单并标blocked，不自�
 **验证**：注释/文档按实际源码核对，Python AST/JS语法和链接检查；打包在仓库外生成，核对白名单、迁移完整、无环境凭据/数据。真实模型结果单列于M8.5/M8.6，不因维护任务新增全量长回归。
 
 **完成检查**：
-- [ ] 根阅读入口能解释Web、业务Runtime、确认链和独立运维助手的实际职责。
-- [ ] 配置归属、独立环境依赖/启动/迁移/验证入口明确，不要求访问本机历史目录才能维护。
-- [ ] 关键事务、权限、租约及未知结果边界有准确注释，业务行为未改变。
-- [ ] 安全源码包包含现行必要文档和完整迁移，无凭据/数据库/日志/原始模型报告。
-- [ ] 本轮范围和已验证/未验证事实清楚，提交推送main；不宣称生产验收。
+- [x] 根阅读入口能解释Web、业务Runtime、确认链和独立运维助手的实际职责。
+- [x] 配置归属、独立环境依赖/启动/迁移/验证入口明确，不要求访问本机历史目录才能维护。
+- [x] 关键事务、权限、租约及未知结果边界有准确注释，业务行为未改变。
+- [x] 安全源码包包含现行必要文档和完整迁移，无凭据/数据库/日志/原始模型报告。
+- [x] 本轮范围和已验证/未验证事实清楚，提交推送main；不宣称生产验收。
+
+**本轮执行记录**：2026-10-05；五生产文件无注释AST与b92c5f7一致，91链接有效，打包仅六文档增项；安全检查包1276文件/69迁移文件、CRC及逐字节一致，无禁用路径或凭据模式。审阅见 `docs/implementation-checkpoints/M8-10-maintenance-review-v1.md`；真实模型另列M8.5/M8.6，不借此记通过。

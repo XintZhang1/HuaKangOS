@@ -1,33 +1,55 @@
 # HuaKangOS · 华慷集团
 
-2026-10-05 当前交付范围已调整为代码/架构维护交接和本地真实模型复验；取消尚未执行的HTTPS/OS输入法及独立Windows/Linux验收计划。此前全量回归与SQLite/PostgreSQL结果保留，员工和生产验收不代签。详见[范围调整](docs/implementation-patches/PATCH-SCOPE-MAINTENANCE-20261005-01.md)及[实施计划](implementation_plan.md)。下方日期段为各轮历史。
+HuaKangOS 是面向多门店 4S 店业务的专用助手与人工业务系统。员工本人查询、准备卡片，再点击原业务确认接口办理；后台跟进只查询和准备，保留原岗位、门店、版本、状态和事实守卫。
 
-2026-10-04 已将业务助手、Cutie/DeepSeek 运维修复与旧工作区界面改动整合到 `main`，整合提交为 `f1b6d74`，其它分支已清理。当前里程碑、实际验收和剩余事项只查 [实施计划](implementation_plan.md)；源码合并不代表生产验收。
+2026-10-05 当前交付范围是代码/架构维护交接及本地真实模型复验。业主已取消尚未执行的 HTTPS/OS 输入法与独立 Windows/Linux 验收计划；取消不计通过，已完成的回归和 SQLite/PostgreSQL 证据保留，员工及生产验收不代签。当前状态只查[实施计划](implementation_plan.md)，范围见[本次调整](docs/implementation-patches/PATCH-SCOPE-MAINTENANCE-20261005-01.md)。
 
-2026-09-30 按业主要求重新组织测试：旧测试与旧套件 CI 移出工作区，新验证以 [浏览器实际点击](tests/browser_click/README.md) 为入口，使用当前源码、原登录和业务 API、仓库外合成数据库及离线模型响应。2026-10-04 按业主最新要求，Playwright 浏览器任务已移出 GitHub CI，浏览器验证在本地隔离环境执行；CI 保留手动触发的 Windows/Linux 独立回归，并在相关 PR 或 main 改动上运行 Python/Node 运维合成检查；两者均不依赖浏览器、真实模型凭据或公司服务。运行截图、日志和密码不进入仓库。PostgreSQL、真实模型、员工试用等门槛仍按计划保留。
+## 从源码开始
 
-历史业务源码基线为 R4-B1-20260927，迁移头 `h52j_assistant_work_plans`。当前分支另已追加 `h53k_assistant_runtime`；迁移文件存在不代表已有数据库已升级。原多门店业务、岗位待办、库存/财务/会员记账、人工确认与本地 MCP 接入继续保留。
+建议从 Git 克隆维护，以获得迁移、源内检查和提交历史。Python 支持 3.11–3.13；前端是原生 JavaScript，没有 `package.json` 或构建步骤。
 
-2026-09-27 按要求精简本地仓库：测试套件、测试入口、历史截图/报告及重复说明已移至仓库外可恢复归档。业务代码和现有数据保持原样。本次清理没有验证模型能力或生产可用性。
+```text
+git clone <仓库地址> HuaKangOS
+cd HuaKangOS
+python -m venv .venv
+```
 
-## 启动
+Windows 激活 `.venv\Scripts\Activate.ps1`，Linux/macOS 激活 `.venv/bin/activate`，然后安装：
 
-Python 3.11–3.13。Windows 双击 `start-preview.cmd`，按提示打开本地页面；保留同路径原预览账号和数据。也可运行 `start.ps1`；Linux/macOS 运行 `bash start.sh`。配置参考 `.env.example`。
+```text
+python -m pip install -r requirements.txt
+```
 
-已有库升级前须一致性备份、在副本迁移并验证恢复；升级应包含对应版本的完整迁移链，不能只替换前端。不要对已有库执行演示初始化。
+从 [.env.example](.env.example) 建立自己的私有配置，先确认 `DATABASE_URL` 指向全新开发库，附件和备份目录在源码外。仅对新实例运行：
 
-## 保留的维护入口
+```text
+python -m app.cli init
+python -m app.run
+```
 
-- [0927_bugfix 修复及 DeepSeek 复测交接](docs/0927_bugfix-Codex修复与复测.md)
-- [业务助手交接](docs/业务助手交接.md)
-- [R4 实现与验收边界](docs/R4-B1-实现与验收说明.md)
-- [本地 MCP 接入](docs/R4-B1-MCP接入说明.md)
-- [独立运维反馈服务与历史试运行](docs/阿里云试运行与运维助手.md)及[运维隔离检查](tests/ops_review/run_isolated.py)
-- [2026-10-04 来源整合范围](docs/implementation-patches/PATCH-INTEGRATION-20261004-01.md)
-- [交付说明](docs/交付说明.md)
-- [原始需求](docs/原始功能需求表.docx)与[工作流手册](docs/全量工作流手册.html)
-- [检查点](CHECKPOINT_STATUS.json)与[开发约束](AGENTS.md)
+默认页面为 `http://127.0.0.1:8000`，初始化会交互创建第一个管理员。普通开发不需要模型密钥；四个 Runtime 功能开关默认关闭。使用 PostgreSQL 时安装 [requirements-postgres.txt](requirements-postgres.txt)，数据库服务及其工具另行提供。
 
-手册源为 `docs/workflow-source/`；生成与检查分别运行 `python scripts/build_workflow_guides.py` 和 `python scripts/build_workflow_guides.py --check`。
+## 启动入口的区别
 
-源码打包运行 `python scripts/package_source.py`，读取当前工作树，排除环境、数据和凭据，输出到仓库外。生产仍需 HTTPS、安全 Cookie、明确 Host、ClamAV、备份恢复与公司验收。
+| 入口 | 实际行为 |
+|---|---|
+| [start-preview.cmd](start-preview.cmd) / [start-preview.ps1](start-preview.ps1) | Windows 持久本地预览；按仓库身份绑定 `LOCALAPPDATA/huakangos` 下的外部实例，保留该实例账号和数据 |
+| [start.ps1](start.ps1) / [start.sh](start.sh) | 普通启动快捷脚本，安装依赖并调用 `app.cli init`、`app.run`；使用自己的 `.env`/环境配置 |
+| `python -m app.run` | Web；普通部署不会自动启动业务 Runtime worker |
+| `python -m app.assistant_worker` | 使用已迁移的同一业务实例领取 Run；`--once` 单周期，`--health` 只读健康检查 |
+
+只有经过本地预览配置与实例标记验证的 Web，才会嵌入同一 Runtime worker 核心。Web 与独立 worker 必须使用同一业务库、附件根及业务助手配置。意见反馈、运维模型和邮件另有进程、存储和凭据，见[维护交接](docs/维护交接.md)。
+
+已有库升级前先一致性备份、在副本迁移并验证恢复，再使用 `python -m app.cli migrate`。当前迁移链包含历史 `h52j_assistant_work_plans` 和 Runtime `h53k_assistant_runtime`；文件存在不表示实例已经升级。不要用演示初始化代替升级，也不要只替换前端。
+
+## 维护与验证
+
+先读[维护交接](docs/维护交接.md)的模块图、五条读码路径和配置表，再查[架构合同](ARCHITECTURE.md)、[开发约束](AGENTS.md)及[执行入口](CODEX_EXECUTION_PROMPT.md)。真实模型复验另见[验证交接](DEEPSEEK_TESTING_HANDOFF.md)。
+
+Git 中保留的[运维隔离检查](tests/ops_review/run_isolated.py)和[浏览器点击入口](tests/browser_click/run.py)可在新环境使用仓库外合成实例。完整归档回归及原 101/283 模型定义依赖另行交付的验证材料；不要求开发者拥有本机历史 V 路径，也不能把源内检查冒称完整归档验收。当前普通 CI 没有浏览器任务。
+
+原需求仍为 193 项、111 条发布工作流；目录可检索、页面覆盖和具体业务验收分别记录。历史实现边界见 [R4 说明](docs/R4-B1-实现与验收说明.md)，整合来源见[整合补丁](docs/implementation-patches/PATCH-INTEGRATION-20261004-01.md)。
+
+工作流源为 `docs/workflow-source/`，生成与检查分别使用 `python scripts/build_workflow_guides.py`、`python scripts/build_workflow_guides.py --check`。原人工模块、深链接与待办保持可用。
+
+`python scripts/package_source.py --output <仓库外的新ZIP路径>` 打包当前工作树。源码 ZIP 不含 Git 历史、测试目录、CI、外部验证胶囊、依赖环境、数据、附件、日志或密钥；测试维护优先使用 Git 克隆，验证材料单独按指纹交接。源码交付不等于上线；生产的 HTTPS、安全 Cookie、Host、ClamAV、联合备份恢复及人工验收合同保持。

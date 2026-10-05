@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {
     '.dockerignore', '.env.example', '.gitattributes', '.gitignore',
     'AGENTS.md', 'CHECKPOINT_STATUS.json', 'README.md', 'Dockerfile',
+    'ARCHITECTURE.md', 'PROJECT_SPEC.md', 'implementation_plan.md', 'total_plan.md',
+    'CODEX_EXECUTION_PROMPT.md', 'DEEPSEEK_TESTING_HANDOFF.md',
     'alembic.ini', 'compose.yml', 'requirements.txt', 'requirements-postgres.txt',
     'start.ps1', 'start.sh', 'start-preview.cmd', 'start-preview.ps1',
 }

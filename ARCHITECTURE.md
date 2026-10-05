@@ -1,10 +1,10 @@
 # HuaKangOS 专用业务 Runtime：实施架构合同
 
-版本：runtime-v1 / 2026-09-27。本文描述待实施结构；不得将接口、表或测试写成已经存在。产品规则见`PROJECT_SPEC.md`，实施次序与写入边界见`implementation_plan.md`。
+版本：runtime-v1 / 维护说明更新于 2026-10-05。本文保留架构合同，并给出当前源码的职责与入口；模块存在不等于相应验收通过。产品规则见 [PROJECT_SPEC.md](PROJECT_SPEC.md)，唯一里程碑状态、实施门禁和补丁范围见 [implementation_plan.md](implementation_plan.md)。
 
-实施计划及其审阅补丁控制检查点和限定基线纠偏，不修改本架构。2026-09-28 用户改为两阶段：本轮 Codex 按依赖优先完成实现，后续由 DeepSeek 集中执行原全部验收并修复。编码产物和人工代码审查完成后记 `implemented`，全部验收满足才记 `done`；编码 CP 可记 `implementation_released` 继续后项，不代表测试通过或允许启用。实施 CP 与下文运行时恢复检查点不同。
+当前用户范围为代码/架构维护交接及本地真实模型复验；尚未执行的 HTTPS/OS 输入法和独立 Windows/Linux 验收任务已撤回，撤回不计通过。已有回归及 SQLite/PostgreSQL 证据保留，员工试用与生产验收不代签。范围调整见 [PATCH-SCOPE-MAINTENANCE-20261005-01](docs/implementation-patches/PATCH-SCOPE-MAINTENANCE-20261005-01.md)。
 
-当前不新增/运行测试、不扩 runner、不调用真实模型，也不做浏览器、PostgreSQL 或故障演练；必要轻量静态检查不代替验收。原接口、权限、业务确认、状态机、事务和默认关闭开关不变。历史 M0.2.A 纠偏与 CP-00B-v5 报告保留，未测的符号链接条件后移，不借此修改产品合同或 OS。执行与测试分别见 `CODEX_EXECUTION_PROMPT.md`、`DEEPSEEK_TESTING_HANDOFF.md`。
+`implemented` 表示实现与代码审查完成，`done` 仍须该项有效验收条件及真实证据；检查点状态只由实施计划维护。本文的恢复检查点是运行中持久化边界，不是实施放行。开发读码和环境配置见 [维护交接](docs/维护交接.md)，编码与真实模型规则分别见 [CODEX_EXECUTION_PROMPT.md](CODEX_EXECUTION_PROMPT.md)、[DEEPSEEK_TESTING_HANDOFF.md](DEEPSEEK_TESTING_HANDOFF.md)。
 
 ## A. 系统边界和数据流
 
@@ -24,6 +24,23 @@
                     结果/事件 → 条件核对 → 下一步准备
 ```
 
+实际入口为 `app.run` → `app.main` 和 `app.assistant_worker` → `assistant_runtime_runner`。Web 负责登录、原人工 API、卡片确认与事件订阅；独立 worker 领取数据库 Run。只有经 `local_preview` 标记验证的本地预览才可在 Web 生命周期内嵌入同一 worker 核心。
+
+运维反馈有独立链路，不能复用业务助手身份或确认权限：
+
+```text
+员工意见 → ops_feedback_api → 独立 OpsStore
+                                 │
+                            ops_worker
+                         ┌───────┴────────┐
+                     ops_mcp          运维模型
+                  固定源码只读       输出修改建议
+                         └───────┬────────┘
+                       Node 邮件 outbox → SMTP 服务接受 → 人工评审
+```
+
+运维 worker 不修改业务数据、源码或 Git；反馈已接收不表示代码已修复，邮件 `sent` 只表示 SMTP 服务接受，不表示收件人已评审。它的数据库、模型配置和角色凭据与业务实例分开。
+
 - 一个逻辑业务Agent；模型循环、权限、工具、计划、队列分别组织为Python模块。
 - 不替换ERP域模型，不建立第二套销售／维修／财务状态机。
 - PostgreSQL与SQLite共享逻辑；不改变`app/db.py`现有隔离级别和租户过滤来解决并发。
@@ -32,7 +49,7 @@
 
 ## B. 模块职责和接口
 
-下列是规定的新模块。未轮到对应里程碑前，不提前实现其业务逻辑。
+下列职责对应当前 `app/` 源码；修改前仍须核对实施计划中的当前项与允许范围。模块名在表内省略 `app/` 前缀。
 
 | 模块 | 负责 | 禁止 |
 |---|---|---|
@@ -50,12 +67,16 @@
 | `assistant_runtime_events.py` | RunEvent序号、可展示快照、事件补读 | 原始推理/凭据事件 |
 | `assistant_runtime_runner.py` | 单次Run，完整工具意图落库、读取与准备检查点 | 业务确认、后台调用原业务POST |
 | `assistant_runtime_receipts.py` | 冻结提交读取、受评审回执核对、恢复分类 | 找不到回执就重放 |
+| `assistant_runtime_receipts_common.py` 与 `assistant_runtime_receipts_{commercial,care,inventory}.py` | 固定原生族的摘要、回执指针和本人授权 GET 核对 | 反射表名、猜 API 前缀、把其他对象编号当提交结果 |
 | `assistant_runtime_outbox.py` | 原事务signal、分发、去重、定时补漏 | 在原业务事务中调用模型/网络队列 |
 | `assistant_runtime_workspace.py` | 授权侧栏投影、通知读取与计数 | 放宽原任务查询、混算总量 |
 | `assistant_runtime_api.py` | HTTP DTO、授权、返回语义 | 第二个业务确认入口 |
 | `assistant_worker.py` | 相同worker核心的CLI/单次运行/关闭 | 初始化现有库、隐式连接公司库 |
+| `assistant_runtime_integrity.py`、`business_assistant_plan_integrity.py` | SQLite/PostgreSQL 完整图、冻结快照与引用校验 | 修写损坏记录、弱化 NULL/JSON 或跨员工引用守卫 |
 
 原`business_assistant_service.py`保留兼容入口、确认主流程和原消息/卡展示；只拆出上述职责，不整文件重写。
+
+`app/db.py`、`app/models.py`、各原业务 API/service 与 `migrations/` 仍拥有业务库和状态机。`app/ops_store.py` 的运维 SQLite 库由自己的初始化入口管理，不进入业务 Alembic 迁移链；Node 邮件 outbox 也独立建库。进程、配置归属与五条读码路径见 [维护交接](docs/维护交接.md)。
 
 ### B1. 适配器最小协议
 
@@ -101,7 +122,7 @@ ResolvedPreparation是服务器内部类型，不是模型输入/HTTP权限凭�
 
 ## C. 数据模型与约束
 
-新增迁移头：`h53k_assistant_runtime`，父版本`h52j_assistant_work_plans`。迁移前先完成ORM和schema，确认冻结持久化在迁移之后实施。若编号已被其他工作使用，停止报告冲突，不改旧迁移或猜新父版本。
+Runtime 迁移为 `h53k_assistant_runtime`，父版本 `h52j_assistant_work_plans`。当前实例版本须查该实例的迁移记录；源码文件存在不表示库已升级。后续迁移只追加，不改历史版本或猜父版本。
 
 ### C1. 公共规则
 
@@ -319,7 +340,7 @@ entry_context按source_type恰好接受对应的一种引用，服务器重新�
 
 事件类型最少：run.queued/run.started/run.progress/tool.finished/proposal.prepared/plan.updated/run.completed/run.failed/run.cancelled。只有数据库实际状态产生事件。完整最终回复仍存原AssistantMessage并按原request_id去重。展示用display_text先脱敏，最多每秒合并更新一次；原始推理和认证数据不得进入事件。
 
-旧`/messages`保持返回SessionView，内部入队并等待同一Run；正常完成返回旧形状。运行超过旧等待窗口返回明确503/504及同一run_id，重发同request_id只查原Run。旧`/messages/stream`转换同一Run事件为原前端形状，断开只停止订阅。旧confirmation/cancel/batch路由及已知HTTP语义保留；旧批量接口原继续执行语义不在本轮悄悄修改。
+旧`/messages`保持返回SessionView，内部入队并等待同一Run；正常完成返回旧形状。运行超过旧等待窗口返回明确503/504及同一run_id，重发同request_id只查原Run。旧`/messages/stream`转换同一Run事件为原前端形状，断开只停止订阅。原 confirmation/cancel/batch 路由保留；已批准的批量合同为逐张独立事务，首个失败或不确定结果后停止，后续只标本次 `skipped`，不改原卡状态或回滚此前业务成功。
 
 以上入队/断流解耦行为以runtime开关开启为条件。关闭时旧消息/流入口继续走原会话执行路径，新Run创建返回503；旧人工确认仍可处理有效卡。关闭runtime同时停止领取新Run与后台准备，已存在记录保留，恢复开启后按授权、租约及原幂等规则恢复。不能把开关关闭实现成旧助手不可用。
 
@@ -337,20 +358,20 @@ provider仅抽取原实现并保持行为；usage缺失显示unknown，不能当
 
 四个新开关固定为`ASSISTANT_HOME_ENABLED`、`ASSISTANT_RUNTIME_ENABLED`、`ASSISTANT_FOLLOWUP_ENABLED`、`ASSISTANT_NOTIFICATIONS_ENABLED`，代码默认false；测试可显式开启。开启followup要求runtime已开启，否则配置报错而非悄悄降级。
 
-worker CLI：`python -m app.assistant_worker`；`--once`完成一次领取/分发循环后退出。导入模块不启动worker。SQLite与Postgres初期均一个执行槽，运行健康只报告实例身份、心跳、队列数、错误分类，不报告个人业务内容。
+Web CLI 为 `python -m app.run`；worker CLI 为 `python -m app.assistant_worker`，`--once` 完成一次领取/分发循环后退出。每个 worker 为一个执行槽；普通 Web 启动不会自动启动它。worker 在连接前验证显式实例配置与迁移，不负责初始化库。运行健康只报告实例身份、心跳、队列数、错误分类，不报告个人业务内容。
 
 健康信息复用现有AppMetadata，不加领域表：键前缀`assistant_runtime_worker:`加本worker的32字符UUID hex，总长57字符、不超过原String(60)；值仅保存心跳时间、源码指纹、实例安全标识和错误分类，每20秒短事务更新。`--health`只读聚合60秒内有效心跳、队列数及Run最近完成时间，输出不得含DB URL或个人资料；只清理该预留前缀7日前过期项。健康写入失败不能改原业务结果。Web不公开无鉴权个人队列信息。
 
-Windows预览在`local_preview.configure()`后用相同worker核心，复用同实例路径与数据库；不改变原日报关闭状态，不从仓库.env偷换配置。Linux独立服务与Web共享经过确认的部署配置。关机休眠不承诺运行，重启按数据库记录恢复。
+Windows 预览经 `local_preview.configure()` 和实例标记验证后使用同一 worker 核心，复用其独立路径与数据库；不改变原日报关闭状态，不从仓库 `.env` 偷换配置。普通独立 worker 与 Web 共享业务数据库、附件根和 `BUSINESS_ASSISTANT_CONFIG`；运维 `OPS_CONFIG`、日报 `DEEPSEEK_*` 和邮件配置不参与这份共享。关机休眠不承诺运行，重启按数据库记录恢复。
 
 迁移只在合成库/获授权升级副本执行。先检验h52j含历史会话/卡/计划的副本升级、外键与原业务行指纹，再做备份恢复。本文不授权触碰现有公司/预览库。回退只关新功能，不降级删除表、不撤销已成功业务。
 
-## I. 测试位置和实施顺序规则
+## I. 开发、验证材料与实施边界
 
-测试环境根按本轮用户批准固定为 NTFS 上的 `C:/Users/tiefu/.codex/HuaKangOS-agent-validation/runtime-v1`，原 E: 根保留历史证据；迁移按 PATCH-CP-00B-03，不改变产品存储合同。M0建立runner。runner每次把当前源码白名单镜像到外部source、设置测试数据库与附件根、再导入应用。不能直接import工作树app做“只读检查”，因为`app/db.py`导入会创建data目录。
+维护者可从 Git 克隆、安装 `requirements.txt`，在自己的仓库外目录建立开发库和附件根；不需要已有维护机器的 V 路径。`tests/ops_review/run_isolated.py` 和 `tests/browser_click/run.py` 是源内隔离入口，分别有自己的材料与执行面。完整归档回归、冻结模型场景及统一 `run_validation.py`/harness/锁文件另行按清单和 SHA 交付，不能因这些材料不在源码 ZIP 中而假称已复验。
 
-全部新增测试、恢复的历史测试、日志、截图和合成数据库放在外部根，仓库仅保留实现代码、必要文档和迁移。没有`package.json`，不新增npm工程来凑`npm build`验收。
+执行前先白名单镜像当前源码，绑定新的合成数据库、配置与附件根，再导入应用。不能直接 import 工作树 app 做静态检查：`app/db.py` 导入会初始化存储路径。数据库、密码、日志和截图留在源码外，不连接公司库或用户原预览库。所有进程收尾后才能改变该次输入；报告记录实际注册、退出状态及源码/测试/执行器/依赖指纹。
 
-实施顺序由 implementation_plan 的索引决定；本轮编码依赖接受 `implemented` 或 `done`，但前项实际接口、schema 和迁移文件必须已实现。schema/迁移文件先于冻结提交实现，后台接口先于 UI，具体领域适配先于该链真实模型验收；迁移执行与其它纯验证任务后移。每项只允许列出的生产文件及本项记录修改，外部测试和 runner 工作留待集中测试阶段。纯测试项不因交接而记为 implemented/done，其验收清单完整保留。
+前端仍是原生 JavaScript，没有 `package.json` 或 `npm build`。源码包只交付允许的代码、迁移和文档，不包含测试、CI、环境、私有数据或外部验证胶囊；维护检查优先用 Git，完整验收需要相应材料。193 项需求映射与 111 条发布工作流不是业务验收成绩；合成 provider 也不是真实模型结果。
 
-架构冲突必须停下报告，不靠兼容“兜底”放宽原权限、状态和事实守卫。原实体新需求或原API缺少必要能力须明确报告，而不是在adapter里直接写表。
+实施次序、一次一个里程碑和写入范围由 [实施计划](implementation_plan.md) 及已登记补丁控制。按最新范围保留本地真实模型复验，不继续撤回的未执行任务，不把人工或生产验收代签。架构冲突必须报告，不靠兼容“兜底”放宽权限、状态和事实守卫；原 API 缺少必要能力时不能由 adapter 直接写表替代。

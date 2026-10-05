@@ -405,6 +405,8 @@ def native_reader_for_principal(db, principal, allowed_operations, *, client_fac
     request = request_for_principal(db, principal, client_factory=client_factory)
 
     async def transport(operation_id, *, path_args=None, query=None, body=None):
+        # Access can change during the original GET's await. Both fresh checks
+        # are required so a late result cannot escape under obsolete authority.
         revalidate_principal(db, principal)
         result = await invoke(request, principal, operation_id, path_args, query, body)
         revalidate_principal(db, principal)
