@@ -1324,8 +1324,13 @@ def _read_intent(name, args):
     operation = normalized['operation']
     if operation['method'] != 'GET' or operation.get('write'):
         raise HTTPException(403, '查询不能提交业务修改')
-    return {'operation_id': operation['id'], 'path_args': deepcopy(normalized.get('path_args') or {}),
-            'query': deepcopy(normalized.get('query') or {}), 'body': None}
+    from datetime import date
+    # Native GET validation yields date scalars; freeze their ISO values in JSON.
+    return _json({'operation_id': operation['id'],
+        'path_args': {key: value.isoformat() if type(value) is date else deepcopy(value)
+                      for key, value in (normalized.get('path_args') or {}).items()},
+        'query': {key: value.isoformat() if type(value) is date else deepcopy(value)
+                  for key, value in (normalized.get('query') or {}).items()}, 'body': None})
 
 
 def _accept_read_work(db, principal, item_id, intent, *, clock=None):

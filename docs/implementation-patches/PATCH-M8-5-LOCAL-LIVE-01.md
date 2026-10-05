@@ -97,3 +97,9 @@ M04的具体原因还有帮助结果的适用范围未明：`business_assistant_
 51ffd82/sourcef5c06ad2的新strict082615Z-03f3cb1343通过，14代表082653Z-47037c4c27完整14/64次尝试/171.109秒、CLI0，新增未知0，所有业务表不变；结构通过仍非语义通过。F01已准确区分7笔客户承担297500元和1笔保险公司承担500元。F02真实GET转用了flow/analytics，tables=cash未带日期仍返回默认9/6–10/5，答案错误称本月；先前dashboard参数说明不能代替该报表合同。M04本次未调用find_workflows/get_case，帮助notice未进入上下文，仅find_cases就保证拿到单号后本人立即准备退料，原候选投影又丢弃原API已给的flow_version/version/parent_id；前轮帮助范围修复不能算本例已有效。
 
 允许 `app/business_assistant_case_tools.py` 的find_cases投影仅保留原API已有的flow_version/version/parent_id，并在原notice说明候选只证明可检索，未核可办动作及父单权限；选定后用本人原get_case核对，不能凭编号保证准备。不新增父单读取、权限、状态机或按案例号分支。允许 `app/flow_analytics.py::build_analytics` 仅附加scope元数据，说明实参起止日期是否省略、实际期间、默认起点取结束日前29日，以及期间cash与当前快照不同；原默认值、计算、冻结报表与权限保持。原prompt同步此接口的date_from/date_to及自然月参数，不能自动猜用户目标或改业务日期。仍按原14真实路径验证，不重复无变化的日期单元或扩执行框架。
+
+## 原生日期查询的持久意图
+
+e401338/sourcecfe83f99经strict084950Z-cce46bc60b通过，14代表085020Z-493f3c1983完整执行53次POST、165.281秒、CLI1，全部HTTP200并结算，新增未知0。独立语义13例通过；M04当前正确消歧等待，不把未选原单前没有get_case判失败，也未验证旧单后续权限。F02本次已生成cash及2026-10-01至2026-10-05准确参数，但model checkpoint成功后read仍running、Work为0、原GET为0，最后runtime_unavailable。原日志为空，不能把推断异常类写成实测证据。全部14例467业务表不变；累计675次、保守占用36.573856元（含三次未知15.728640）、余13.426144元，50元上限仍保持。
+
+源码核对显示原gateway._parameters把日期按原API类型校验为date，runner._read_intent直接深复制该值给WorkItem.validated_intent JSON列，尚未转回可持久JSON。允许仅修改 `app/assistant_runtime_runner.py::_read_intent` 的原生日期序列化及说明，保留原gateway类型验证、GET限定、原查询和同事务关联。只将原已验证date转ISO日期，其他有限JSON值保留；禁止default=str、全局JSON serializer、浮点金额转换、绕过原校验或更改确认路径。复用现M8.2真实read检查；若现节点包含独立崩溃/24轮合同而不宜混入，允许仅在原 `test_runtime_checkpoint_recovery.py` 加一条小的真实Run→日期GET→Work落盘→原结果及零业务变化检查，同步原manifest/restoration，不建新执行框架。按V原入口定向通过后再真实复验；旧日期context节点未变，不重复它。此项是已观察执行失败的修复，不据正确模型参数就宣称F02通过。
