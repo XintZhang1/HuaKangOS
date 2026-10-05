@@ -2376,7 +2376,22 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                 reply = answer.message
                 calls = reply.get('tool_calls')
                 calls = [] if calls is None else calls
-                registry_for_config(config).validate_calls(calls)
+                try:
+                    registry_for_config(config).validate_calls(calls)
+                except HTTPException as invalid_tools:
+                    if invalid_tools.status_code != 422:
+                        raise
+                    if budget.tool_count > limits['call_budget']:
+                        raise _LoopBudget('tool_budget')
+                    # Reject this whole fragment before checkpointing; do not retain its arguments or reasoning.
+                    correction = ('本次执行中曾有一个完整片段因工具参数格式（422）被服务端拒绝；'
+                        '该被拒片段的工具未执行、未新增卡片。请严格按当前工具schema重新表达员工原请求的'
+                        '完整剩余步骤和每一行；按本次已发布工具schema核对顶层和每行字段、字段类型、必填项，'
+                        '不要添加schema未声明的键。只能使用真实必填事实；无法核对的事实明确追问。'
+                        '此前及之后已接受的成果以当前真实工具结果和卡片为准，不重复准备，不漏行，不编造办理结果。')
+                    if correction not in instructions:
+                        instructions.append(correction)
+                    continue
                 if budget.tool_count > limits['call_budget']:
                     raise _LoopBudget('tool_budget')
                 text = _safe_display(reply.get('content') or '', final=True)
