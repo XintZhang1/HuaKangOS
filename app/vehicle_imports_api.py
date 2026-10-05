@@ -33,7 +33,17 @@ class Reassign(Reason):
 @router.get('/catalog')
 def catalog(user=Depends(get_user),db=Depends(get_db)):
     allowed=not getattr(user,'_aggregate_scope',False) and user.role in service.READ
-    return {'can_read':allowed,'prepare_kinds':[k for k,r in service.PREP.items() if allowed and user.role in r],'kinds':service.LABELS if allowed else {}}
+    return {'can_read':allowed,'prepare_kinds':[k for k,r in service.PREP.items() if allowed and user.role in r],'kinds':service.LABELS if allowed else {},
+        'csv_headers':{kind:list(fields) for kind,fields in HEADERS.items()} if allowed else {},
+        'csv_field_notes':{
+            'source_row':'来源文件中的行编号，不是采购明细行ID。',
+            'line_id':'本张原采购单的采购明细行ID。',
+            'manifest_row_id':'本张原采购单已确认请款清单的行ID，须从原manifest读取，不是采购明细行ID。',
+            'location_id':'本店实际整车仓或混合仓的库位ID，须读取并核对真实库位。',
+            'amount_cents':'请款金额，须为正整数，单位为分，不是元。',
+            'shipped_date':'实际发运日期，须为 YYYY-MM-DD。',
+            'expected_date':'预计到货日期，须为 YYYY-MM-DD。',
+            'received_date':'实际验收日期，须为 YYYY-MM-DD。'} if allowed else {}}
 
 
 @router.get('/orders/{case_id}/batches')

@@ -2047,7 +2047,7 @@ def _outcome_text(facts, reason):
         'recheck_required': '执行来源已变化，需要重新核对后继续。',
         'runtime_unavailable': '助手本次未取得完整结果，请核对已保留成果后继续。',
         'configuration_unavailable': '业务助手尚未连接，请联系管理员配置。',
-        'needs_input': '请补充或核对原卡所列资料。',
+        'needs_input': '请补充或核对本次办理所需资料。',
     }
     return messages.get(reason, '本次执行已结束。') + text
 

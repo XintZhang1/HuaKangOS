@@ -2,6 +2,20 @@
 
 日期：2026-10-05。结论：**M8.5仍in_progress；本报告不放行完整283或M8.6。**
 
+## 3d0f34d新全量的读取取消与导入说明问题
+
+strict `165157Z-347d373a9e` 18通过后，full `165227Z-80ca31882e` 同五指纹从零执行，source `59d2a474a19fdb15a2e5ccf2135a8710504c085c7e747f9722cd640279ac0285`；实际21/283、95 POST、640.313秒、CLI1，root在R05边界停止，262未执行，输入未变且自然排空。S04真实列出81/82两个原单并请员工选择，0卡/业务未变，case SHA `f9e6f9b9f6fba20a1c488f2f65f4eb8bde670b1d93dbefc555038e963ace932d`；当前说明窄修取得这一次实际效果，不宣称消除了模型所有指代错误。S01首尾明确待确认，中间“已另建档案”措辞不准确，按完整上下文记体验观察，实际仅有pending卡。
+
+S07首POST完成后，在第三个discover的原目录GET中出现CancelledError，final Run为failed/precondition_conflict，0卡却提示核对原卡，原contract_failed有效。safe5只保存取消子任务的注册帧，没有heartbeat原异常；实际53.185秒、第一POST19.483秒，不能归为600秒或90秒预算到期。只读PRAGMA证实本次外置活动库和基线均DELETE，而产品初始化为WAL；这是待离线配对验证的环境差异，尚不能据此追认根因。case SHA `895d0487af8edb2b1e9a76012c8c7f04cce468171d5b5eaf8d7023527131930c`。
+
+V01—V06可接受；V07自称固定必需列却遗漏日期字段，实际catalog未给HEADERS；V08已读到采购指引的入库说明仍误称到货不增加库存。原批量导入末步说明较抽象，按窄补丁补清原目录和三类正式确认效果，不改业务规则。8例均无卡、467业务表全等、0确认。该组独审 `m85-full-semantic-mobile-20261005T165400Z-1165adedd3/terminal-review.json` SHA `3b15c51756554636794a4cd264d93dc1855ecc9f3d10426ce9492e9cfb25954e`。
+
+对应代码审阅：catalog原allowed与prepare_kinds保持，仅授权范围内补原HEADERS及ID/整数分/日期说明；无新数据库读取，未授权与集团汇总新增字典为空。导入guide仅末步expected改变，原生成器发布及一致性核对均CLI0，111条工作流/193项映射/70张合成图保持，coverage字节未变；三个生成物逆向替回这一个文本后逐字节等于原件。外置静审 `m85-import-catalog-guide-candidate-20261005T171303Z-da43c8b0e6/static-review.json` SHA `c67eebba0063a566b2b0a59f2ae2f7f2815f387f6145df3152f0fb46b91c927b`。另将通用needs_input说明“原卡所列资料”改为“本次办理所需资料”，逆向单字符串后可执行AST全等；没有改变失败原因分类或重试行为。三项真实效果待定向复验。
+
+后续复核R02确认另一条流程说明错误：实际工位为空，模型建议改为现场来访并只补车牌/时间即可出卡。原Slot及appointment_create要求两种mode都具备resource_id，不能这样绕过。仅在原service-intake/catalog追加共同必需条件说明；原resources数组、查询、权限及Slot/动作守卫不变。四个已观察问题按原S07/V07/V08/R02定向复验，原283/101评分不改；R01/R03/R04/R05可接受。
+
+全部95次请求已结算3.899930元，累计1795次保守占用129.730620元，余150.269380元；七条原未知66.322432元保留。终局独审 `m85-full-165227-regression-semantic-review/terminal-independent-review.json` SHA `f861a39c47435013dbe481326f02b7bd33bf9a90bc1ee44fdda2e0aba8846653`，原账本行无变更。前两次尝试停止分别遇报告尚未落盘的边界窗口、50秒内未得费用锁，均无写；第三次在完整R05之后成功设置runtime_review_stop，无强杀、无中断付费请求。原件全部保留。
+
 ## 90秒配置的原全量与同名候选失败
 
 外部首次HTTP异常诊断及同指纹显式续跑经 `161955Z-88eaa3da52` 原F节点通过（collector446.219秒、目标32.281秒），strict `162921Z-75186e90c5` 18通过。full `163025Z-b2317976ba` 从零运行，没有继承旧45秒成绩；HEAD13ac2bae/source ba4c965d，实际S01—S07、31 POST、324.297秒。S04已观察对象错误后root在S07边界持原费用锁停止，CLI1，自然drained、输入不变，276未执行。

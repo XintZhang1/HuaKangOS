@@ -90,7 +90,8 @@ def catalog(db,user):
     resources=[{'id':r.id,'version':r.version,'code':r.code,'name':r.name,'resource_type':r.resource_type,'active':r.active,'in_use':r.active_case_id is not None} for r in _rows(db,ServiceResource)]
     presets=[{'id':p.id,'version':p.version,'code':p.code,'name':p.name,'profile':p.profile,'active':p.active,
         'lines':[{'work_item_id':l.work_item_id,'quantity_milli':l.quantity_milli} for l in _rows(db,QuickPresetLine,preset_id=p.id)]} for p in _rows(db,QuickPreset)]
-    return {'vehicles':vehicles,'resources':resources,'presets':presets}
+    return {'vehicles':vehicles,'resources':resources,'presets':presets,
+        'appointment_requirements':'预约和现场来访都必须选择真实客户车辆、启用工位及开始和结束时段。没有工位时应等待有工位维护权限的岗位配置或启用；不能改为现场来访绕过工位要求，也不能只补车牌和到店时间就承诺可以办理。'}
 def resource_create(db,user,key,v):
     _role(user,MANAGE)
     def run():
