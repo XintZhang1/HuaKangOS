@@ -2376,7 +2376,7 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                         if budget.tool_count > limits['call_budget']:
                             raise _LoopBudget('tool_budget')
                         if not stream and not wrapped and queue.mark_loop_flag(db, principal, 'arguments', clock=clock):
-                            instructions.append('本次执行中曾有一个完整非流式回复的工具参数语法（422）不合法，该被拒片段的工具均未执行、未新增卡片。'
+                            instructions.append('本次执行中曾有一个完整非流式回复的工具参数JSON语法无效，该被拒片段的工具均未执行、未新增卡片。'
                                 '已有完整成果保留；请严格按当前工具schema重新表达员工原请求的完整剩余步骤和每一行。'
                                 '不要重复已接受成果，不能漏行、编造事实或为查询生成写入卡；无法核对的事实明确追问或等待。')
                             continue
