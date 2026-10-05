@@ -1,5 +1,9 @@
 # 当前交付任务
 
+2026-10-05：本次 main `541a21f` 的完整回归已自然结束并完成双平台原件独审：Windows4248 passed，Linux4238 passed/10原平台NA；每平台101条完整命令、74有序数组、原203真实执行及五指纹均核对。原四条检查逐项满足，实施计划登记M8.2 done、CP-35 released。详情见 `docs/implementation-checkpoints/M8-2-v23-review-v1.md`；下一项是独立PostgreSQL的M8.3，尚未启动，员工试用与人工验收保留。
+
+## 历史记录（保留当时结果）
+
 v23 本地原组结果：strict18通过，business-11 104通过/1原本机符号链接权限skip，整体仍diagnostic_failed；此前九PS探测实际全部通过且八阶段完整。新asset610531872（73337ace…）及固定Windows诊断workflow已审阅，下一步真实CI原组复验。M8.2/CP-35未放行，精确记录仍见M8-2-v22-review-v2。
 
 2026-10-05：同提交 d794123 的 v22-r2 双平台完整原件已审。Linux 4238 passed/10 NA；Windows 4239 passed/9 个原 PowerShell 20秒超时，迁移原153项全过。当前仅 M8.2；按 PATCH-M8-2-WINDOWS-PROBE-01 固定测试内置模块并记录阶段，先原 business-11 整组 CI 诊断，保持全部断言和完整门槛。精确结果与耗时见 M8-2-v22-review-v2，后续 PG 等尚未实施。
