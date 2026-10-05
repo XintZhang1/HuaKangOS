@@ -249,4 +249,4 @@ def catalogue(db,user,q='',brand_id=None,series_id=None,fuel_type=None,min_seats
         'series':[{'id':r.id,'brand_id':r.brand_id,'name':r.name} for r in series.values() if r.active and brands.get(r.brand_id) and brands[r.brand_id].active],
         'unclassified':unclassified[(unclassified_page-1)*12:unclassified_page*12],
         'unclassified_total':len(unclassified),'unclassified_page':unclassified_page,
-        'notice':'展示本店已确认车型及在库车辆，已出库待交接和已交付车辆不计入在库。可选配仅为当前提示，正式配车仍需后台重新核对占用。指导价是主档参考，不是本单核准售价。'}
+        'notice':'展示本店已确认车型及在库车辆，已出库待交接和已交付车辆不计入在库。品牌与车系是不同层级的筛选目录；未分类车辆仅保留原车型文字，尚未确认所属品牌、车系或车型，不能按目录中的名称推定归属。可选配仅为当前提示，正式配车仍需后台重新核对占用。指导价是主档参考，不是本单核准售价。'}

@@ -16,6 +16,7 @@ import re
 from fastapi import HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
+from sqlalchemy.engine.base import OptionEngine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import SingletonThreadPool, StaticPool
 
@@ -91,6 +92,31 @@ def _issued(principal):
     return principal
 
 
+def _source_engine(db):
+    """Resolve only get_write_db's SQLite write option to its original Engine.
+
+    Authorization readers use the ordinary root, never BEGIN IMMEDIATE. Roots
+    remain object-identical; shared URLs/pools and other options prove nothing.
+    """
+    bind = db.get_bind()
+    wrapped = False
+    seen = set()
+    while isinstance(bind, OptionEngine):
+        options = bind.get_execution_options()
+        if (type(bind) is not OptionEngine or bind.dialect.name != 'sqlite'
+                or set(options) != {'huakangos_sqlite_write_transaction'}
+                or options['huakangos_sqlite_write_transaction'] is not True
+                or id(bind) in seen):
+            return None
+        seen.add(id(bind))
+        wrapped = True
+        bind = bind._proxied
+    if (not isinstance(bind, Engine) or wrapped
+            and (bind.dialect.name != 'sqlite' or bind.get_execution_options())):
+        return None
+    return bind
+
+
 @contextmanager
 def _reader(db, factory=None):
     """An injected factory must return a fresh Session bound to this same Engine.
@@ -99,7 +125,7 @@ def _reader(db, factory=None):
     pool cannot safely be treated as an independent authorization snapshot.
     In-memory databases retain their original semantics, never become files.
     """
-    bind = db.get_bind()
+    bind = _source_engine(db)
     if not isinstance(bind, Engine):
         raise HTTPException(409, '身份核对需要独立的同库读取连接')
     if db.in_transaction() and isinstance(bind.pool, (StaticPool, SingletonThreadPool)):
@@ -203,7 +229,7 @@ def principal_for_run(db, run_id, *, lease_owner, fence, clock=_utcnow, read_ses
         _identity(reader, values['actor_id'], values['store_id'], values['role'],
                   values['access_version'], values['session_id'])
     return RuntimePrincipal(**values, _issuer=_ISSUER, _clock=clock,
-                            _read_session_factory=read_session_factory, _bind=db.get_bind())
+                            _read_session_factory=read_session_factory, _bind=_source_engine(db))
 
 
 def _grant_probe_values(reader, grant_id, now):
@@ -244,13 +270,13 @@ def principal_for_grant_probe(db, grant_id, *, clock=_utcnow, read_session_facto
     with _reader(db, read_session_factory) as reader:
         values = _grant_probe_values(reader, grant_id, _time(clock()))
     return RuntimePrincipal(**values, _issuer=_ISSUER, _clock=clock,
-                            _read_session_factory=read_session_factory, _bind=db.get_bind())
+                            _read_session_factory=read_session_factory, _bind=_source_engine(db))
 
 
 def revalidate_principal(db, principal, *, clock=None, read_session_factory=None):
     """Recheck all frozen authority against a fresh committed snapshot; no writes."""
     principal = _issued(principal)
-    if db.get_bind() is not principal._bind:
+    if _source_engine(db) is not principal._bind:
         raise HTTPException(403, '身份来源与当前数据库不一致')
     clock = principal._clock if clock is None else clock
     factory = principal._read_session_factory if read_session_factory is None else read_session_factory
@@ -306,7 +332,7 @@ def principal_for_request(db, request, user, session_id, *, clock=_utcnow, read_
         _identity(reader, actor_id, store_id, role, version, session_id)
     return RuntimePrincipal(actor_id, store_id, role, version, session_id, 'login',
         _login_ref=login_ref, _issuer=_ISSUER, _clock=clock,
-        _read_session_factory=read_session_factory, _bind=db.get_bind())
+        _read_session_factory=read_session_factory, _bind=_source_engine(db))
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -382,7 +408,8 @@ def internal_user(request, db):
     call = request.scope.get(_SCOPE_KEY)
     if type(call) is not _InternalCall or call.issuer is not _ISSUER:
         _denied()
-    if not isinstance(db.get_bind(), Engine) or db.get_bind() is not call.context.db.get_bind():
+    bind = _source_engine(db)
+    if not isinstance(bind, Engine) or bind is not _source_engine(call.context.db):
         raise HTTPException(403, '内部查询与身份来源数据库不一致')
     _check_call(request, call)
     principal = revalidate_principal(db, call.context.principal)
@@ -447,7 +474,7 @@ def revalidate_control_principal(db, principal, *, clock=None):
     revalidation. Queue CAS must additionally guard its own final status write.
     """
     if (type(principal) is not RuntimePrincipal or principal._issuer is not _ISSUER
-            or db.get_bind() is not principal._bind or principal.run_id is None):
+            or _source_engine(db) is not principal._bind or principal.run_id is None):
         _denied()
     from .assistant_runtime_models import Run
     now = _time((principal._clock if clock is None else clock)())
@@ -468,7 +495,7 @@ def revalidate_control_principal(db, principal, *, clock=None):
 def identity_is_current(db, principal):
     """Control-only check: logout is not an employee/store permission change."""
     if (type(principal) is not RuntimePrincipal or principal._issuer is not _ISSUER
-            or db.get_bind() is not principal._bind):
+            or _source_engine(db) is not principal._bind):
         _denied()
     with _reader(db, principal._read_session_factory) as reader:
         try:
