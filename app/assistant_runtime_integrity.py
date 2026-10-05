@@ -1,4 +1,4 @@
-"""Read-only SQLite backup checks for Runtime structure and private references.
+"""Read-only SQLite/SQLAlchemy backup checks for Runtime private references.
 
 This module imports only pure contracts. It neither authorizes current business
 actions nor repairs historical or interrupted work. Errors contain no row data.
@@ -84,14 +84,27 @@ def _fail(table, ident, code):
     raise ValueError(f'Runtime integrity: table={table} id={safe_id} code={code}') from None
 
 
-def _execute(connection, sql):
+def _execute(connection, sql, parameters=None):
     # All statements and identifiers here are fixed by this module, not row data.
     if hasattr(connection, 'exec_driver_sql'):
+        if parameters is not None:
+            from sqlalchemy import text
+            return connection.execute(text(sql), parameters)
         return connection.exec_driver_sql(sql)
-    return connection.execute(sql)
+    return connection.execute(sql) if parameters is None else connection.execute(sql, parameters)
+
+
+def _names(connection):
+    if hasattr(connection, 'dialect'):
+        from sqlalchemy import inspect
+        return set(inspect(connection).get_table_names())
+    return {row[0] for row in _execute(connection, "SELECT name FROM sqlite_master WHERE type='table'")}
 
 
 def _columns(connection, table):
+    if hasattr(connection, 'dialect'):
+        from sqlalchemy import inspect
+        return {column['name'] for column in inspect(connection).get_columns(table)}
     return {row[1] for row in _execute(connection, f'PRAGMA table_info("{table}")')}
 
 
@@ -117,7 +130,13 @@ def _json_pairs(pairs):
 
 
 def _rows(connection, table, columns):
-    query = 'SELECT ' + ','.join('"' + column + '"' for column in columns)
+    postgres = getattr(getattr(connection, 'dialect', None), 'name', None) == 'postgresql'
+    # The JSON driver decoder would lose duplicate keys and conflate JSON null
+    # with SQL NULL. Select text only for these fixed, known JSON columns.
+    query = 'SELECT ' + ','.join(
+        'CAST("' + column + '" AS TEXT) AS "' + column + '"'
+        if postgres and column in _JSON_COLUMNS else '"' + column + '"'
+        for column in columns)
     query += ' FROM "' + table + '"'
     rows = {}
     for values in _execute(connection, query):
@@ -208,9 +227,8 @@ def _acyclic(graph, table):
 
 
 def validate(connection):
-    """Validate a SQLite backup connection without modifying it or any files."""
-    names = {row[0] for row in _execute(
-        connection, "SELECT name FROM sqlite_master WHERE type='table'")}
+    """Validate raw SQLite or SQLAlchemy SQLite/PG without modifying records."""
+    names = _names(connection)
     plan_table = PREFIX + 'work_plans'
     proposal_table = PREFIX + 'proposals'
     plan_columns = _columns(connection, plan_table) if plan_table in names else set()

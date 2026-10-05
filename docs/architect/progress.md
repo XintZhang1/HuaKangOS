@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-05 M8.3收口：完整run021313Z-4db44dd34a实际1节点通过/284.797秒、strict18同五指纹，SQLite及真实PG各3次旧计划idle、各12并发阶段、21/16拒绝和独立联合恢复全部执行。root和独立原件审阅支持原四条检查，实施计划登记M8.3 done；PG正常停止、模型0。CP-36仍not_ready，下一项M8.4，真实模型/独立环境/员工与人工验收保留。详 `docs/implementation-checkpoints/M8-3-database-closeout-review-v1.md`，任务 `tasks/m83-database-closeout.md`；当前修复与本项记录先本地保存，最终交付一并推送。
+
 2026-10-05：本次 main `541a21f` 的完整回归已自然结束并完成双平台原件独审：Windows4248 passed，Linux4238 passed/10原平台NA；每平台101条完整命令、74有序数组、原203真实执行及五指纹均核对。原四条检查逐项满足，实施计划登记M8.2 done、CP-35 released。详情见 `docs/implementation-checkpoints/M8-2-v23-review-v1.md`；下一项是独立PostgreSQL的M8.3，尚未启动，员工试用与人工验收保留。
 
 ## 历史记录（保留当时结果）

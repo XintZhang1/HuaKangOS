@@ -116,7 +116,7 @@
 | CP-33 | M7.11.1—M7.11.4 | 基础资料、系统管理、评审边界 | implementation_released | docs/implementation-checkpoints/M7-11-1-review-v1.md；M7-11-2-review-v1.md；M7-11-3-review-v1.md；M7-11-4-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验：M7.11.1—M7.11.4 全部 passed；系统管理只读面与“人工办理不由助手代办”的边界保留；继续 M7.12.1—M7.12.3（CP-34） |
 | CP-34 | M7.12.1—M7.12.3 | 保险、加装、代办 | implementation_released | docs/implementation-checkpoints/M7-12-1-review-v1.md；M7-12-2-review-v1.md；M7-12-3-review-v1.md；docs/implementation-checkpoints/CP-29-34-verification-v1.md | 同批复验通过，过程中发现并修复真实缺陷：`service.external_approved` 要求原模型不存在的 `results[].case_id`，使该事实在真实数据上永不成立（见 PATCH-M8-1-SERVICE-EXTERNAL-RESULT-01）；外部合同夹具另按真实形状对齐六处并保留原件。M7 章节收口，继续 M8.1（CP-35） |
 | CP-35 | M8.1—M8.2 | 综合恢复、全量不退化 | released | docs/implementation-checkpoints/M8-1-remaining-items-checkpoint-v1.md；M8-1-closeout-checkpoint-v1.md；M8-2-regression-checkpoint-v1.md；M8-2-closeout-checkpoint-v1.md；docs/implementation-patches/PATCH-CP-00B-09.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md；docs/implementation-checkpoints/M8-2-v23-review-v1.md | M8.1 记 **`implemented`**：清单①—⑤全部落地，工作区门禁两次完整运行逐套件计数与双指纹一致（293 项、`accepted=true`），完成检查 4 条满足、1 条部分满足（完整批量行逐行核对依赖归档组）。M8.2 记 **`implemented`**：归档基线 M0.2.B 在 `7211e7f`（`working_tree` 干净）上 **3336 passed / 0 failed / 1 skipped**，`inventory/coverage_complete` 均 true、`missing/extra/duplicate` 全 0、六项未变指纹全 true；逐项比较声明 193 模块、声明未执行 0、执行未声明 0；193/111 契约检查与 293 项当前适用回归通过；唯一 skip 为已登记符号链接环境缺口。业主批准的 `PATCH-CP-00B-09` 两处归档断言已对齐（第一版被真实运行否证后修正，均如实登记）。**仅放行后续编码**：真实模型、PostgreSQL、独立 Linux、员工试用仍属 M8.3—M8.9，故不记 `released`，不勾选整体验收；2026-09-30新点击交付：上述293/3336为各自历史指纹证据，不继承到新代码；M8.1对象接线及本轮观察缺陷实现审阅，恢复implemented。automatic07同次13/13及同指纹IAB评分达到标准，193完整业务false，原M8未满足条件保留；仅implementation_released。；2026-10-03本轮原M8.1五条完成检查已done，Windows11/19/80及同输入独立26、Linux原80实际证据已核；新增真实Date已实际同原实例10-03→10-04 verify完成，两个技术子范围通过，原stage false及193/人工/部署边界保留。当时M8.2唯一in_progress，原3336等只作历史；2026-10-04已因缺失M7正文/provider及最终回执真实前置暂停为blocked，按原顺序回补；当前全量未通过故本CP仍仅implementation_released，见M8-1-human-acceptance-closeout-v1及PATCH-M8-2-CURRENT-REGRESSION-01。 2026-10-04 v22-r1 原件：Windows 4229通过/19准备错误，Linux 4238通过/10原平台不适用；已定位并修复迁移工具异常路径私有engine泄漏，本地原business01全153通过。M8.2当前仍in_progress，修复提交双平台完整复验待做，本CP不追加released；详见docs/implementation-checkpoints/M8-2-v22-review-v1.md。 2026-10-05 v22-r2 同d794123双平台完整执行：Linux4238通过/10NA，Windows4239通过/9原PowerShell20秒超时；原迁移153项通过。两平台原件独审完成，当前按WINDOWS-PROBE补丁先原组诊断，M8.2仍in_progress，本CP不追加released；见M8-2-v22-review-v2。 **2026-10-05 v23正式放行**：M8.1已done；本次同541a21f双平台101/101完整原件独审，Windows4248全过、Linux4238过/10原NA，四条原检查逐项满足。M8.2 done，本CP在M8.1—M8.2范围released；下一项M8.3，PG/live/原生浏览器/独立环境/员工及生产边界分别保留，旧成绩不继承。 |
-| CP-36 | M8.3—M8.4 | 独立PG升级/恢复、真实HTTP浏览器 | not_ready | docs/implementation-checkpoints/M8-4-browser-pipeline-checkpoint-v1.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M8.4 仍 `todo`：真实浏览器流水线单一入口已交付并在 Windows 本机真实 Chrome 上实测（277 项、`verified=true`、14 页原生流量非零、`page_errors_total=0`），但三种宽度/IME、断网重连按 `seq` 补读、伪造身份 header、缺 CSRF 写与 HTTPS 会话仍未覆盖；M8.3 因缺独立 PostgreSQL 测试服务按计划待判 `blocked`，其全局顺序前置未满足，故不记 `released`；2026-09-30新入口补充：上述旧run未覆盖项已有三宽度/中文/焦点草稿/切店退出/伪造身份与缺CSRF本轮证据，automatic07原生HTTP13/13，193/111/70/9分层覆盖及IAB评分。原PG前置、HTTPS、OS IME候选、断网按seq、浏览器重启/完整批量仍缺，M8.4仍todo、门禁not_ready，不以本轮交付释放原验收。 |
+| CP-36 | M8.3—M8.4 | 独立PG升级/恢复、真实HTTP浏览器 | not_ready | docs/implementation-checkpoints/M8-4-browser-pipeline-checkpoint-v1.md；docs/implementation-checkpoints/M8-4-browser-click-checkpoint-v2.md | M8.4 仍 `todo`：真实浏览器流水线单一入口已交付并在 Windows 本机真实 Chrome 上实测（277 项、`verified=true`、14 页原生流量非零、`page_errors_total=0`），但三种宽度/IME、断网重连按 `seq` 补读、伪造身份 header、缺 CSRF 写与 HTTPS 会话仍未覆盖；M8.3 因缺独立 PostgreSQL 测试服务按计划待判 `blocked`，其全局顺序前置未满足，故不记 `released`；2026-09-30新入口补充：上述旧run未覆盖项已有三宽度/中文/焦点草稿/切店退出/伪造身份与缺CSRF本轮证据，automatic07原生HTTP13/13，193/111/70/9分层覆盖及IAB评分。原PG前置、HTTPS、OS IME候选、断网按seq、浏览器重启/完整批量仍缺，M8.4仍todo、门禁not_ready，不以本轮交付释放原验收。 **2026-10-05当前状态**：M8.3已done，同一完整run 20261005T021313Z-4db44dd34a通过SQLite与真实PG升级、并发、联合恢复及37拒绝场景，原四条经独立审阅满足，详见docs/implementation-checkpoints/M8-3-database-closeout-review-v1.md；上述PG缺失为历史。M8.4尚待本轮HTTPS/IME等原条件，CP-36继续not_ready。 |
 | CP-37 | M8.5—M8.6 | 经live gate授权的真实模型和保留集 | not_ready | — | — |
 | CP-38 | M8.7—M8.8 | 隔离Windows/Linux恢复演练 | not_ready | — | — |
 | CP-39 | M8.9—M8.10 | 员工试用、发布候选；此后无自动部署 | not_ready | — | — |
@@ -4031,12 +4031,32 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 
 ## M8.3 SQLite与真实PostgreSQL升级、并发和备份恢复
 
-**状态**：todo
+**状态**：done（2026-10-05；同一完整run `20261005T021313Z-4db44dd34a`实际通过原四条检查，strict18同五指纹；SQLite与真实PG升级/重复迁移、旧计划三tick、并发和联合恢复/拒绝均完整执行。root及独立原件审阅完成，见 `docs/implementation-checkpoints/M8-3-database-closeout-review-v1.md`。CP-36仍待M8.4，不代表生产验收。）
 
 **全局顺序前置**：M8.2 done。
 
-**执行记录**：完成日期=—；修改文件=—；源码指纹=—；测试结果=未执行；命令/退出码=—；证据路径=—；遗留/阻塞=—。
+**首探针登记时记录（历史，后续实测见下段）**：完成日期=—；当前修改范围=PATCH-M8-3-OWNED-PG-PROBE-01所列外部探针/所有权助手、既有helper原字节副本、来源登记与PG URL脱敏；生产代码只读；当前基线=`bf08ec11abead3a0703d264d1441d98b37160d5f`（相对已验541a21f仅验收文档变化）；最近实测源码指纹=`e90ac72d6b0c56404155af4b9044b12554529839cfd0f088aab4789372b541ac`，新候选五指纹须由下一strict另记，不继承旧通过；测试结果=未执行；命令/退出码=待原统一入口M0.1 strict与M8.3；证据路径=待全新V/runs记录；遗留=本项原四条与PG并发/备份恢复仍未完成。
 
+2026-10-05首次动态记录：正式strict `20261005T004325Z-890277a866` 18通过/exit0；M8.3 `20261005T004405Z-a5a0da8c12` 1执行/1error/exit1，21.25秒自然退出，五指纹相同且未变。当前源码指纹`3b6929672767c6201ab509cb977fd905a578f29a59d1435cf9f0a000b837cb1f`。实际员工HTTP/3次合成provider、h52j投影和h53k升级已执行，原计划完整性拒绝夹具多余status字段；PG、联合恢复尚未执行。仅修正该夹具键，原失败保留且不计阶段通过，详首探针补丁；原四条仍全部待完成。
+
+
+2026-10-05第二轮：strict `20261005T004800Z-f73271e14c` 18通过；首探针 `20261005T004837Z-4cd69a12b0` 1执行/1error/exit1、44.407秒自然退出，同五指纹稳定。SQLite升级及原联合备份恢复已实际完成；PG init/start后在DDL前遇所有权比较不匹配，正常stop且原PID/pidfile消失。只补有限安全比较诊断后重验；PG迁移和并发等仍未完成，不拼接两轮部分成绩。
+
+第三轮诊断 `20261005T005549Z-020d3ee13a`（strict `20261005T005517Z-f138030a71` 18通过）1error/exit1、31.953秒自然退出；五指纹稳定，原PG停止证据完整。唯一不匹配为实际地址`127.0.0.1/32`与无掩码文本比较，其他10项匹配；按PG官方host函数修正这一固定查询，保持严格身份判定。原三次失败不覆盖、不计首探针通过。
+
+第四轮 `20261005T010103Z-f53841ca0e`（strict `20261005T010006Z-119aa9f05e` 18通过）45.89秒后1error/exit1，PG身份全通过，实际旧库迁移到n46a时SQLSTATE53200，server.log确认共享锁不足。仅去掉测试助手将initdb默认100连接降为20的覆盖，不改迁移事务；本轮五指纹稳定、PG正常停止并排空，PG迁移未计完成。
+
+第五轮 `20261005T010657Z-d02027bf91`（strict `20261005T010624Z-81f0f06494` 18通过）56.719秒自然exit1；PG已完成h52j旧库、原行投影、h53k升级及旧值核对，在Runtime完整性读取sqlite_master时SQLSTATE42P01。属于真实生产方言缺口；按PATCH-M8-3-PG-INTEGRITY-01只修两处只读完整性接口，保留原业务/JSON/迁移守卫。五指纹相同且未变、PG正常停止，PG联合恢复未执行。
+
+第六轮完整首探针 `20261005T011722Z-77b19bb18d` 实际1项通过/exit0、84.844秒；strict `20261005T011612Z-7a4e2b079c` 18通过。五指纹相同且运行前后稳定，源码 `86aee34dab4184d9d9bf59805b24033ca4b5b8d2f43d9e01f81bfdfa18faa220`。两种数据库均保留475张旧表中的19个非空表/31行，完成h53k升级和独立恢复，1件私有附件字节与hash一致；PG16.15原生dump/restore及12次身份核验成功，PG正常停止并排空。3次合成provider、真实模型0；本次仅首探针phase通过，milestone_complete=false，空Runtime表不覆盖后续并发/损坏数据验收。详情见 `docs/implementation-checkpoints/M8-3-first-probe-review-v1.md`；原五次失败分别保留，不拼接成绩。
+
+完整扩展首轮 `20261005T015431Z-7ee005cea8`（strict `20261005T015350Z-35bdb3a64d` 18通过）实际1error/exit1，164.719秒自然排空，五指纹相同且未变、PG正常停止；source `430bda06aaa2115332c65e9902342e7a8636d2b665bb656c8aa46c63a08ce883`。SQLite旧计划三tick/重复迁移、21拒绝、实际双Worker/outbox/CAS及前三唯一已走通，停于下一唯一检查的临时数据提交；修正测试准备阶段第二连接仍持有读事务的生命周期，不改生产或断言。整轮仍失败、PG后续合同未执行，详DATABASE-CONTRACTS补丁。
+
+完整扩展第二轮 `20261005T020357Z-95accd942e`（strict020311Z-a803f771b1 18通过）147.453秒后1error/exit1；SQLite21拒绝和12并发子阶段及原行/完整性核对均执行，末尾发现测试在已结束plan上又加入结构active授权，二次revoke按正确原幂等不处理。仅将测试前次revoke改为pause，保持最终revoke和无active断言；不改生产规则。五指纹一致稳定，PG正常停止，PG扩展未执行，整轮仍failed。
+
+完整扩展第三轮 `20261005T021313Z-4db44dd34a`通过，strict `20261005T021219Z-f699b0cc5f` 18通过；实际完整节点1pass/exit0、284.797秒、无skip/timeout、自然排空。source `bd6d63ff6209ccd0ed85dfa975a55b43a880f251129a10489aa0ee7c9dc00082`，五指纹/三个文件映射与strict一致且运行前后未变。两库各3个旧计划idle tick、各12并发阶段、SQLite21/PG16拒绝全部实际通过；475旧表/19非空31行和1合成附件升级与独立恢复保持。PG13身份/16安全比较、原生dump/restore及正常停止实证完整；25合成provider、真实模型0。原四检查按root26项原件复核与独审完成登记done；runner原milestone_complete=false未改、不拼失败片段。验后仅更新记录；下一项M8.4。
+
+本轮精确补丁：`docs/implementation-patches/PATCH-M8-3-OWNED-PG-PROBE-01.md`、`docs/implementation-patches/PATCH-M8-3-PG-INTEGRITY-01.md`、`docs/implementation-patches/PATCH-M8-3-DATABASE-CONTRACTS-01.md`；任务索引：`docs/architect/tasks/m83-database-closeout.md`。
 
 **目标**：验证从h52j合成旧库升级、完整性守卫及两种数据库上的运行时并发语义。
 
@@ -4053,10 +4073,10 @@ BATCH-01` 与仓库 `test_batch_confirmation.py`）为「首个失败即停、�
 **命令**：`& $VPython "$V/run_validation.py" --repo "$RepoRoot" --milestone M8.3`
 
 **完成检查**：
-- [ ] h52j→新头唯一、可重复验证；原业务行和旧记录完整。
-- [ ] 旧计划没有自动启动；恢复不补造确认冻结证据。
-- [ ] SQLite与真实PG迁移/并发均有本轮证据。
-- [ ] 联合备份恢复成功，错误引用与缺附件均被拒绝。
+- [x] h52j→新头唯一、可重复验证；原业务行和旧记录完整。
+- [x] 旧计划没有自动启动；恢复不补造确认冻结证据。
+- [x] SQLite与真实PG迁移/并发均有本轮证据。
+- [x] 联合备份恢复成功，错误引用与缺附件均被拒绝。
 
 <a id="m8-4"></a>
 
