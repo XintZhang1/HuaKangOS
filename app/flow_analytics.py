@@ -29,6 +29,7 @@ def yuan(n):return format(Decimal(n)/100,'.2f') if n is not None else '—'
 
 
 def build_analytics(db,user,start=None,end=None,cash_definition_version=7,include_vehicle_income=True):
+    start_explicit=start is not None;end_explicit=end is not None
     end=end or today();start=start or end-timedelta(days=29)
     if start>end or end>today() or (end-start).days>365:raise HTTPException(422,'请选择不晚于今天、跨度不超过一年的日期范围')
     in_period=lambda d: d is not None and start<=d<=end
@@ -549,6 +550,12 @@ def build_analytics(db,user,start=None,end=None,cash_definition_version=7,includ
         tables.update(report['tables']);charts.extend(report['charts'])
     risk=[dict(title='超过计划日期的任务',value=overdue,table='tasks'),dict(title='需要补货的物资',value=low_stock,table='materials'),dict(title='超过90天的库存车',value=aging['90天以上'],table='inventory')]
     return {'date_from':start.isoformat(),'date_to':end.isoformat(),'stock_as_of':today().isoformat(),'generated_at':utcnow().isoformat()+'Z',
+        'scope':{'view':'flow_analytics','date_from_explicit':start_explicit,'date_to_explicit':end_explicit,
+            'period':{'date_from':start.isoformat(),'date_to':end.isoformat(),'inclusive':True,
+                'omitted_date_from_rule':'date_to_minus_29_days','omitted_date_to_rule':'server_business_date','natural_month_default':False},
+            'cash':{'table':'cash','basis':'actual_cash_in_selected_period','income_metric':'cash_in_cents','expense_metric':'cash_out_cents'},
+            'current_snapshot':{'as_of_field':'stock_as_of','tables':['inventory','materials','members','tasks'],'basis':'current_effective_records','not_period_end_snapshot':True},
+            'notice':'未指定date_from时默认date_to及之前29天，未指定date_to时默认服务器业务日期；默认近30天不是自然月。cash为所选期间的实际收支，当前库存、储值余额和未完成任务按stock_as_of最新有效记录统计；待收按当前有效原单计算，不是期间收款。'},
         'scope_name':stores.get(db.info.get('write_store'),'已授权门店汇总'),
         'metrics':dict(new_orders=new_orders,delivery_count=delivery_count,delivery_cents=delivery_total,delivery_margin_cents=None if delivery_missing else delivery_total-delivery_cost,
             delivery_missing_cost=delivery_missing,new_repairs=new_repairs,repair_cents=repair_total,cash_in_cents=income,cash_out_cents=expense,cash_net_cents=income-expense,

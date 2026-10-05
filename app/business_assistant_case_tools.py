@@ -159,8 +159,12 @@ async def resolve_preparation(db,request,user,thread_id,name,args,config):
         if scope=='mine':rows=[r for r in rows if r.get('owner_id')==user.id]
         more=page*listing.get('page_size',30)<listing.get('total',0)
         fields=('id','number','title','kind','kind_label','state','state_label','owner_id','owner_name','customer_id','business_date','due_date')
-        items=[{**{key:row.get(key) for key in fields},'route':'case/'+str(row['id'])} for row in rows]
-        notice='结果仅覆盖本次员工、门店、业务类别、关键词和页码；单一类别或筛选为空，不代表本店全部业务都没有记录。'
+        items=[{**{key:row.get(key) for key in fields},
+                **{key:row[key] for key in ('flow_version','version','parent_id') if key in row},
+                'route':'case/'+str(row['id'])} for row in rows]
+        notice=('结果仅覆盖本次员工、门店、业务类别、关键词和页码；单一类别或筛选为空，不代表本店全部业务都没有记录。'
+                '候选只证明本次可检索，未核本单可办动作或父单权限；选定后必须以本人get_case返回的动作、字段和拒绝原因判断能否准备，不能承诺凭单号即可办理。'
+                '子单可见不表示本人可以读取或办理父单，父单须按本人当前权限单独核对。')
         if kind in {'purchase','procurement'}:
             notice+='物资采购同时保留purchase（物资采购入库）和procurement（采购与原单退货）原单类别。查询总体采购及入库情况需分别查这两类并核对原单，不得把一类为空当作没有采购，也不得把付款当作到货。'
         return {'status':200,'data':{'items':items,'scope':scope,'page':page,'has_more':more,

@@ -91,3 +91,9 @@ F02没有原业务GET结果，不能判日期修复有效或失败；实际预�
 M04的具体原因还有帮助结果的适用范围未明：`business_assistant_guides.py::find_workflows` 返回当前发布指引及按岗位计算的entry.can_enter，并未读取原单或评估旧flow_version。允许仅在该成功响应加固定notice，说明入口岗位匹配不证明旧单可办，办理须回原get_case动作/字段/拒绝原因，父单须按本人权限读取，拒绝等待有权岗位。原指引、检索、入口权限和原API守卫均不改变，不自动读父单或新增业务状态机。
 
 558的首次未知费用仍保留完整预留，不释放或冒充结算；本轮网络异常不能用修改业务守卫解决。root审阅其固定run/attempt/账本及停机事实后，可显式留存原件，将该唯一reserved标记为uncertain_occupied并记一次人工审阅恢复，以新Run继续既有本地复验。原累计558次和50元上限保持，旧两次未知占用及历史停止记录均保留；下一未知仍停止，不自动循环恢复。新查询范围/帮助元数据只作静态差异审阅及原14真实路径复验，不因这些变化重复已通过且源码未变的日期定向节点。
+
+## 实际检索投影与Flow报表期间
+
+51ffd82/sourcef5c06ad2的新strict082615Z-03f3cb1343通过，14代表082653Z-47037c4c27完整14/64次尝试/171.109秒、CLI0，新增未知0，所有业务表不变；结构通过仍非语义通过。F01已准确区分7笔客户承担297500元和1笔保险公司承担500元。F02真实GET转用了flow/analytics，tables=cash未带日期仍返回默认9/6–10/5，答案错误称本月；先前dashboard参数说明不能代替该报表合同。M04本次未调用find_workflows/get_case，帮助notice未进入上下文，仅find_cases就保证拿到单号后本人立即准备退料，原候选投影又丢弃原API已给的flow_version/version/parent_id；前轮帮助范围修复不能算本例已有效。
+
+允许 `app/business_assistant_case_tools.py` 的find_cases投影仅保留原API已有的flow_version/version/parent_id，并在原notice说明候选只证明可检索，未核可办动作及父单权限；选定后用本人原get_case核对，不能凭编号保证准备。不新增父单读取、权限、状态机或按案例号分支。允许 `app/flow_analytics.py::build_analytics` 仅附加scope元数据，说明实参起止日期是否省略、实际期间、默认起点取结束日前29日，以及期间cash与当前快照不同；原默认值、计算、冻结报表与权限保持。原prompt同步此接口的date_from/date_to及自然月参数，不能自动猜用户目标或改业务日期。仍按原14真实路径验证，不重复无变化的日期单元或扩执行框架。
