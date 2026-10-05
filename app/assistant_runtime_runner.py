@@ -2177,7 +2177,7 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
     feature flag. All native GETs precede their short fenced write transactions.
     """
     from .assistant_runtime_principal import revalidate_principal
-    from .assistant_runtime_provider import ModelProtocolError, call_model
+    from .assistant_runtime_provider import ModelProtocolError, ModelToolArgumentsInvalid, call_model
     from .assistant_runtime_registry import registry_for_config
     from . import assistant_runtime_queue as queue
     from .assistant_runtime_events import _safe_display
@@ -2367,11 +2367,19 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                         usage = getattr(exc, 'runtime_usage', None)
                         if usage is None:
                             usage = captured_usage
-                        queue.finish_model_round(db, principal, round_no, usage, clock=clock)
+                        budget = queue.finish_model_round(db, principal, round_no, usage, clock=clock)
                     except Exception:
                         if isinstance(exc, asyncio.CancelledError):
                             raise exc from None
                         raise
+                    if type(exc) is ModelToolArgumentsInvalid:
+                        if budget.tool_count > limits['call_budget']:
+                            raise _LoopBudget('tool_budget')
+                        if not stream and not wrapped and queue.mark_loop_flag(db, principal, 'arguments', clock=clock):
+                            instructions.append('本次执行中曾有一个完整非流式回复的工具参数语法（422）不合法，该被拒片段的工具均未执行、未新增卡片。'
+                                '已有完整成果保留；请严格按当前工具schema重新表达员工原请求的完整剩余步骤和每一行。'
+                                '不要重复已接受成果，不能漏行、编造事实或为查询生成写入卡；无法核对的事实明确追问或等待。')
+                            continue
                     if isinstance(exc, service.ModelOutputTruncated):
                         if not wrapped and queue.mark_loop_flag(db, principal, 'truncation', clock=clock):
                             instructions.append('上一段输出被服务商截断，整个片段的工具均未执行。已有完整成果保留；'

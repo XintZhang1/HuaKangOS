@@ -1349,10 +1349,11 @@ def finish_model_round(db, principal, round_no, usage, *, clock=None):
 
 
 def mark_loop_flag(db, principal, flag, *, clock=None):
-    """Persist the one correction/replan allowance before its model request."""
-    name = {'correction': 'corrected', 'truncation': 'truncation_replanned'}.get(flag)
+    """Persist correction or the shared truncation/argument replan allowance."""
+    name = {'correction': 'corrected', 'truncation': 'truncation_replanned',
+            'arguments': 'truncation_replanned'}.get(flag)
     if name is None:
-        raise ValueError('Only the original two loop allowances are supported')
+        raise ValueError('Only correction and the shared truncation/arguments allowance are supported')
 
     def mark(run, ledger, now):
         _budget_view(run, ledger, now)

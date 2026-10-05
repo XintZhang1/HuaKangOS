@@ -26,6 +26,12 @@ class ModelProtocolError(HTTPException):
         super().__init__(status_code=503, detail=detail)
 
 
+class ModelToolArgumentsInvalid(ModelProtocolError):
+    """One complete non-stream reply rejected only for argument JSON syntax."""
+    def __init__(self):
+        super().__init__('工具参数JSON语法无效，整个片段的工具未执行。')
+
+
 class SafeDeltas:
     """Hold partial credential tokens until they can be redacted as a whole."""
     def __init__(self,sanitize):self.pending='';self.sanitize=sanitize
@@ -166,7 +172,7 @@ def _finite(value):
     raise ValueError('tool arguments')
 
 
-def _complete_tools(calls, service, *, allow_index=False):
+def _complete_tools(calls, service, *, allow_index=False, argument_error_names=None):
     """Validate the whole response without rewriting its native argument JSON."""
     if type(calls) is not list or len(calls) > service.HARD_TOOLS:
         raise ValueError('tools')
@@ -201,15 +207,31 @@ def _complete_tools(calls, service, *, allow_index=False):
         if type(arguments) is not str or not arguments.strip() or len(arguments) > service.MODEL_ARGUMENT_CHARS:
             raise ValueError('tool arguments')
         arguments.encode('utf-8')
-        decoded = json.loads(arguments, object_pairs_hook=_pairs, parse_constant=_invalid_constant)
+        normalized.append(call)
+    # Check every envelope first; a syntax error must not hide another invalid tool.
+    invalid_arguments = False
+    for call in normalized:
+        try:
+            decoded = json.loads(call['function']['arguments'], object_pairs_hook=_pairs,
+                                 parse_constant=_invalid_constant)
+        except json.JSONDecodeError:
+            if argument_error_names is None:
+                raise
+            invalid_arguments = True
+            continue
         if type(decoded) is not dict:
             raise ValueError('tool arguments')
         _finite(decoded)
-        normalized.append(call)
+    if invalid_arguments:
+        if any(call['function']['name'] not in argument_error_names for call in normalized):
+            raise ValueError('tool name')
+        # No reply, argument text or reasoning is attached to this fixed exception.
+        raise ModelToolArgumentsInvalid()
     return normalized if allow_index else calls
 
 
-def _complete_reply(reply, finish, service, *, require_finish, allow_tool_index=False):
+def _complete_reply(reply, finish, service, *, require_finish, allow_tool_index=False,
+                    argument_error_names=None):
     if finish == 'length':
         raise service.ModelOutputTruncated()
     if finish not in ({'stop', 'tool_calls'} if require_finish else {None, 'stop', 'tool_calls'}):
@@ -227,7 +249,8 @@ def _complete_reply(reply, finish, service, *, require_finish, allow_tool_index=
             raise ValueError('reasoning limit')
         reasoning.encode('utf-8')
     calls = reply.get('tool_calls')
-    calls = [] if calls is None else _complete_tools(calls, service, allow_index=allow_tool_index)
+    calls = [] if calls is None else _complete_tools(calls, service, allow_index=allow_tool_index,
+                                                    argument_error_names=argument_error_names)
     if finish is not None and (finish == 'tool_calls') != bool(calls):
         raise ValueError('tool finish mismatch')
     return calls
@@ -259,6 +282,11 @@ async def _nonstream(config, messages, thinking, usage, before_request=None, *, 
             endpoint, body = service.provider_request(config, messages, thinking=thinking)
             if not allow_tools:
                 body['tool_choice'] = 'none'
+            definitions = body.get('tools')
+            published_names = frozenset(tool['function']['name'] for tool in definitions
+                if type(tool) is dict and tool.get('type') == 'function'
+                and type(tool.get('function')) is dict
+                and type(tool['function'].get('name')) is str) if type(definitions) is list else frozenset()
             async with httpx.AsyncClient(timeout=config.timeout_seconds, follow_redirects=False, trust_env=False) as client:
                 usage.request_started()
                 response = await client.post(endpoint, headers={'Authorization': 'Bearer ' + config.api_key}, json=body)
@@ -282,8 +310,20 @@ async def _nonstream(config, messages, thinking, usage, before_request=None, *, 
             if type(choice.get('index', 0)) is not int or choice.get('index', 0) != 0:
                 raise ValueError('choices')
             reply = choice['message']
-            calls = _complete_reply(reply, choice.get('finish_reason'), service,
-                                    require_finish=False, allow_tool_index=True)
+            safe_usage = usage.snapshot()
+            tokens = safe_usage['tokens']
+            # Only an explicit complete, single billed non-stream reply can re-express syntax.
+            argument_error_names = published_names if (response.status_code == 200 and allow_tools
+                and choice.get('finish_reason') == 'tool_calls' and type(reply) is dict
+                and reply.get('role') == 'assistant' and safe_usage['http_requests'] == 1
+                and safe_usage['retries'] == 0 and safe_usage['token_usage_status'] == 'known'
+                and tokens['total_tokens'] == tokens['prompt_tokens'] + tokens['completion_tokens']) else None
+            try:
+                calls = _complete_reply(reply, choice.get('finish_reason'), service,
+                    require_finish=False, allow_tool_index=True, argument_error_names=argument_error_names)
+            except ModelToolArgumentsInvalid:
+                usage.tool_count = len(reply['tool_calls'])
+                raise
             if reply.get('tool_calls') is not None:
                 reply = dict(reply, tool_calls=calls)
             usage.tool_count = len(calls)

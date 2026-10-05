@@ -2,6 +2,16 @@
 
 日期：2026-10-05。结论：**M8.5仍in_progress；本报告不放行完整283或M8.6。**
 
+## 2a76定向通过及后续全量失败
+
+受检HEAD `2a76e245f016b051d4ae32d70ad67ab5eebb2a42`，source `a069c6443f1adbd77451802add1aa920cfe0dd78108f148f9af8cd578936a795`。离线定向 `140005Z-8aed14b538` 的provider、Runtime预算、恢复收尾与车辆候选原GET四节点各1通过；完整collector446.609秒、目标26.407/156.297/27.562/21.375秒，真实模型0，diagnostic_passed而非全量。此前134338轮C夹具误用不存在的client属性，保留失败；仅改为原sales员工client后重跑通过，未改生产权限或断言。诊断报告SHA `ab5da5d5e558197f1d8311f0842652d2f9ffd6d0d4b4448e53eea395f245007d`。
+
+纯gate重绑后，strict `141854Z-e58abfa7be` 18项通过（SHA `11415034e0946dd5263aa855b4c89575f578ff292ee8fed30b66f4e1dd9372ee`）。真实定向 `142008Z-e7e5267213` 完整2例、33 POST、350.719秒、CLI0，SHA `c288dba687fa822905276058a68057c2f6666148d9f725f792e0bc49573bcf46`。V05正确区分12候选、3台销售占用、全部未定位而当前不能移库；M03准确展示4单/各4升、1待确认发料与3完成，基于父单404/客户403明确等待，未错误认定对应指定客户。两例无卡/确认、各467业务表全等。最高22轮，未触发真实强制收尾分支；该分支仅有上述离线证据。独审 `mode-semantic-review/day_boundary/20261005T142008Z-e7e5267213-v05-m03-20261005T142931Z-536cc66f83/semantic-review.json` SHA `ba345fc192b68e2e03da6cbf370bd7cdb597927f21b5967f834a387570747794`。
+
+同五输入全量 `142833Z-935eedbad6` 自然CLI1、165.39秒，只完成5/283、20 POST，278项未运行，SHA `c62360ecce8ab02b36180490d8046527034918f522ae4e71e1a6a05a23e2a258`。S01—S04语义可接受；S05真实定位原lead20及9名候选后，第1607次HTTP200回复在 `_complete_tools` 的参数JSON解析发生JSONDecodeError，被正确拒绝，0卡、无业务写。没有把格式拒绝当业务成果，也不能把本轮写成全量通过。19次已结算0.889892元，1607次20.054016元预留保持；累计保守占用100.939422元，旧五次未知26.214400元不释放。按PATCH-M8-5-LOCAL-LIVE-01补完整参数语法拒绝的一次原预算内纠正后再验，原件及失败保留。
+
+全量费用/终态独审 `m85-full-142833-regression-semantic-review-20261005T143236Z-8101e46d22/terminal-independent-review.json` SHA `fb9f4e57645a5eca9222eb74b8e29a57ac1f5ee8a781d6f813ecd3a95312cfa7`；五例语义独审在上述day目录的 `full-20261005T142833Z-935eedbad6-semantic-review-final.json`，SHA `e1cb082510ed45f42f217ff32107fc22d7d74d03a9f6d9d29df39b51806472eb`。原件均位于V/closeout-20261005，后续安全栈定位补充语义审阅当时尚未确定的原因，不改旧报告。
+
 ## Pro high代表终局
 
 受检HEAD `c93b7eede7e2d301827fababe73acfb7cd3d12d7`，source `e604280f6bf37817da87e3c082e4bfb06644ebdb755ff2d9001a495b8b1897be`。新strict `124039Z-09bf864f89` 18项通过（报告SHA `b4aae1697b793579479b8a93372bd46adf8206eee692830de925dbb53b072c2e`）；实际Pro high代表 `124118Z-875bdaf3ad` 21条、152 POST、1201.766秒、CLI1，报告SHA `3408b23e31bf587f71ef987c932e97e9babe36978a982197ce8cb2100e7be5e3`。进程自然排空、无超时，没有默认模型或默认思考模式通过的含义。

@@ -1,6 +1,6 @@
 # 维护交接整理
 
-2026-10-05当前：Pro high代表21条自然排空，152 POST/1201.766秒/CLI1；累计78.912116元，旧未知保持。root登记/集成，day_boundary负责车辆作业候选逐行事实，mobile_closeout负责既有收尾阶段禁止继续工具调用的接线，regression_harness负责原节点/费用/新输入登记。仅修本次V05语义与M03轮数失败，保留原权限和24轮/600秒；按PATCH-M8-5-LOCAL-LIVE-01先受影响定向再完整283。M8.5唯一in_progress，M8.6未开始。
+2026-10-05当前：2a76的4项离线定向和V05/M03真实定向通过；全量142833仅5例/20 POST/165.39秒，S05完整回复的工具参数JSON语法被拒，278未运行。累计1607次/100.939422元保守占用，新增20.054016元预留不释放。root登记/集成；day_boundary负责完整非流式语法错误的窄分类；mobile_closeout负责原Run一次固定纠正与既有截断额度共用；regression_harness负责完整已知usage的精确结算和两个原节点。范围见PATCH-M8-5-LOCAL-LIVE-01，坏片段不执行、不保存、不猜补，原24轮/600秒不增。M8.5唯一in_progress，M8.6未开始。以下为历史过程。
 
 当前续接：Flash high的21代表仍失败，V03需离线复现第九轮原单检索，D04为畸形工具参数JSON；M02/V08/A07语义问题保留。regression_harness负责原读取测试合成复现；mobile_closeout仅制作外部Pro固定模型/费率候选，day_boundary核旧1402行与逐行费用守卫，root登记与集成。累计占73.044270元、总限280元；明确区分Flash与Pro，不改变生产模型/思考默认。先诊断后有限Pro21对照，M8.5唯一in_progress，M8.6未开始。
 
