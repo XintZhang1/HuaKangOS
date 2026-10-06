@@ -1,6 +1,8 @@
 # 当前交付任务
 
-2026-10-07 当前M8.5：`94cf417` 受审预算400元/12000次；新strict18/18，真实Flash三代表结构3/3、11次全结算，M07语义可接受、S07/F08普通失败、零关键，账本暂停且旧七未知保留。PATCH-M8-5-REP-SEMANTICS-02 仅补提示并通过独立静审；待新源码strict、S07/F08定向，再从零283/同批101。CP-37仍not_ready，M8.6仍todo。
+2026-10-07 最新M8.5：`8df1656` 新 strict 18/18、来源无网诊断 2/2 后，30 个原失败代表 `20261006T232345Z-8df8cf0f66` 结构30/30、逐例语义25可接受／5普通失败／0关键；104次Flash全结算，累计9058次、保守占289.702228元（含旧七未知），账本显式halt。PATCH-M8-5-REP30-SEMANTICS-05 候选只修五处原事实和预检来源，待独审、登记、新无网检查、真实代表及从零283／同批101。CP-37仍not_ready，M8.6仍todo。
+
+2026-10-07 早先M8.5（当时记录）：`94cf417` 受审预算400元/12000次；新strict18/18，真实Flash三代表结构3/3、11次全结算，M07语义可接受、S07/F08普通失败、零关键，账本暂停且旧七未知保留。PATCH-M8-5-REP-SEMANTICS-02 仅补提示并通过独立静审；待新源码strict、S07/F08定向，再从零283/同批101。CP-37仍not_ready，M8.6仍todo。
 
 唯一里程碑与检查点状态查 [implementation_plan](../../implementation_plan.md)，当前工作入口为 [M8.5本地真实模型回归收口](tasks/m85-live-closeout.md)。逐轮真实模型报告查 [M8-5审阅](../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)，失败和旧未知费用保留。
 

@@ -22,6 +22,10 @@ from .assistant_runtime_schemas import BusinessObjectType
 ToolKind = Literal['read', 'prepare', 'plan']
 
 
+class NativeReadRolePrecheckDenied(HTTPException):
+    """The role hint rejected a GET before the original API transport ran."""
+
+
 def _invalid():
     raise HTTPException(422, '工具调用格式不完整或字段不正确，请重新核对') from None
 
@@ -407,8 +411,10 @@ def make_native_reader(transport, user, allowed_operations):
         if path_args is not None and type(path_args) is not dict or query is not None and type(query) is not dict:
             _invalid()
         declared = gateway.inspect_operation(operation_id)
-        if declared['method'] != 'GET' or declared['write'] or gateway.role_may_read(user.role, declared) is False:
+        if declared['method'] != 'GET' or declared['write']:
             raise HTTPException(403, '当前岗位不能使用此原业务查询')
+        if gateway.role_may_read(user.role, declared) is False:
+            raise NativeReadRolePrecheckDenied(403, '当前岗位不能使用此原业务查询')
         try:
             path = _json_copy(path_args if path_args is not None else {})
             params = _json_copy(query if query is not None else {})

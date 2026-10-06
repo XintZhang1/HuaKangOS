@@ -1774,7 +1774,7 @@ async def execute_tools(db, principal, config, checkpoint_value, *, max_preparat
     returns a freshly issued principal; a changed goal stops this old run.
     """
     from .assistant_runtime_principal import revalidate_principal, request_for_principal
-    from .assistant_runtime_registry import registry_for_config
+    from .assistant_runtime_registry import NativeReadRolePrecheckDenied, registry_for_config
     from .assistant_runtime_objects import resolve_result
     if max_preparations is not None and (type(max_preparations) is not int or max_preparations < 0):
         raise HTTPException(422, '准备预算必须是非负整数')
@@ -1859,6 +1859,9 @@ async def execute_tools(db, principal, config, checkpoint_value, *, max_preparat
             revalidate_principal(db, principal, clock=clock)
             _save_tool_result(db, principal, item_id, status='failed', error_code=_error_code(exc.status_code), clock=clock)
             result = {'status': exc.status_code, 'error': service.safe_text(exc.detail, 600), 'prepared': False}
+            if call.kind == 'read' and call.name == 'read_data' and isinstance(exc, NativeReadRolePrecheckDenied):
+                # This is a role precheck, not a refusal from the original GET.
+                result.update(request_executed=False, refusal_source='native_reader_role_precheck')
             needed = True
         messages.append(_message(call.id, result))
         if await reached():
@@ -2071,18 +2074,18 @@ def _visibly_incomplete_final(text):
 
 
 def _catalog_only_denial_reply(text, chain, cards):
-    """Correct a claimed native refusal when this Run only consulted static help.
+    """Correct a claimed original-API refusal from pre-transport evidence.
 
-    A catalogue role hint is useful for navigation, but it is not a request to
-    the original API. Only replace an explicit claim of an executed query or
-    original-API 403; ordinary guide answers must pass through unchanged.
+    Static role hints and native-reader role prechecks do not call the original
+    GET. Actual original-API replies, including a real 403, pass unchanged.
     """
     if cards or type(text) is not str or type(chain) not in (list, tuple):
         return None
     asserted = False
     for clause in re.split(r'[\n。！？!?；;]', text):
-        for pattern in (r'实际(?:发起|执行|进行)(?:了)?[^\n。！？!?；;]{0,16}(?:查询|请求)',
-                        r'(?:原业务接口|原接口)[^\n。！？!?；;]{0,10}(?:直接拒绝|返回(?:了)?\s*403|报(?:了)?\s*403)'):
+        for pattern in (r'实际(?:发起|执行|进行|调用)(?:了)?[^\n。！？!?；;]{0,16}(?:查询|请求)',
+                        r'(?:查询|请求)[^\n。！？!?；;]{0,16}实际(?:发起|执行|进行|调用)(?:了)?',
+                        r'(?:原业务接口|原接口)[^\n。！？!?；;]{0,16}(?:直接拒绝|返回(?:了)?[^\n。！？!?；;]{0,8}403|报(?:了)?[^\n。！？!?；;]{0,8}403)'):
             match = re.search(pattern, clause)
             if match is None:
                 continue
@@ -2104,6 +2107,7 @@ def _catalog_only_denial_reply(text, chain, cards):
 
     pending = {}
     denied = []
+    precheck_denied = False
     seen = set()
     for message in chain:
         if type(message) is not dict:
@@ -2116,7 +2120,7 @@ def _catalog_only_denial_reply(text, chain, cards):
                 if type(call) is not dict or type(call.get('function')) is not dict:
                     return None
                 name, call_id = call['function'].get('name'), call.get('id')
-                if name not in {'list_operations', 'find_workflows', 'inspect_operation'} or type(call_id) is not str:
+                if name not in {'list_operations', 'find_workflows', 'inspect_operation', 'read_data'} or type(call_id) is not str:
                     return None
                 if call_id in pending:
                     return None
@@ -2132,7 +2136,14 @@ def _catalog_only_denial_reply(text, chain, cards):
                 return None
             if type(result) is not dict:
                 return None
-            if name == 'list_operations':
+            if name == 'read_data':
+                if (result.get('status') != 403
+                        or result.get('request_executed') is not False
+                        or result.get('refusal_source') != 'native_reader_role_precheck'
+                        or result.get('prepared') is not False):
+                    return None
+                precheck_denied = True
+            elif name == 'list_operations':
                 items = result.get('items', [])
                 if type(items) is not list:
                     return None
@@ -2149,11 +2160,16 @@ def _catalog_only_denial_reply(text, chain, cards):
                             denied.append(label[:80])
         else:
             return None
-    if pending or not denied:
+    if pending or not (denied or precheck_denied):
         return None
     labels = '、'.join(denied[:4]) + ('等' if len(denied) > 4 else '')
-    return ('本轮只核对了操作目录和已发布指引，未发起原业务查询，也没有收到原接口 403。'
-            f'目录按当前岗位预判这些查询暂不可用：{labels}。'
+    if precheck_denied:
+        provenance = ('本轮只读工具在原业务 GET 前的岗位预检中返回 403，'
+                      '未发起原接口请求，也没有收到原接口 403。')
+    else:
+        provenance = '本轮只核对了操作目录和已发布指引，未发起原业务查询，也没有收到原接口 403。'
+    scope = f'目录按当前岗位预判这些查询暂不可用：{labels}。' if labels else '当前岗位不能使用该原业务查询。'
+    return (provenance + scope +
             '请由有权限的岗位在原页面核对；如需调整员工岗位或角色，由系统管理员办理，助手不会代改。')
 
 
