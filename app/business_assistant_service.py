@@ -317,13 +317,40 @@ def proposal_view(row):
     from .business_assistant_presentation import fields_for
     business_fields=fields_for(row)
     if business_fields is not None:fields=business_fields
+    questions=deepcopy(row.questions or [])
+    for question in questions:
+        # The snapshot is server-only. Runtime tool results and MCP callers
+        # also use proposal_view; none needs the phone or candidate digest.
+        for key in ('customer_review_phone','customer_review_hash','customer_review_count'):
+            question.pop(key,None)
     return {'id':row.id,'turn':row.request_id or '','step':row.step_label or '','step_order':int(row.step_order or 0),
-            'questions':scrub(row.questions or []),
+            'questions':scrub(questions),
             'operation_id':row.operation_id,'label':row.label,'summary':row.summary,
             'details':scrub(row.payload),'display_fields':fields,'manual_route':manual_route,'digest':row.digest,'status':status,
             'expires_at':stamp(row.expires_at),
             'created_at':row.created_at.isoformat(timespec='microseconds')+'Z' if row.created_at else None,
             'result':scrub(receipt_result_view(row))}
+
+
+def proposal_employee_view(db,user,row):
+    """Show only current, authorized same-phone candidates to this employee."""
+    view=proposal_view(row)
+    if view['status']!='pending':return view
+    for question,stored in zip(view['questions'],row.questions or []):
+        if stored.get('server_attestation')!='confirm_new_customer':continue
+        question['customer_review_ready']=False
+        question['customer_review_changed']=True
+        question['customer_candidates']=[]
+        phone=stored.get('customer_review_phone')
+        if not isinstance(phone,str) or not phone:continue
+        try:review=customer_review_snapshot(db,user,phone)
+        except HTTPException:continue
+        if (review['count'] and review['count']==stored.get('customer_review_count')
+                and hmac.compare_digest(review['hash'],stored.get('customer_review_hash') or '')):
+            question['customer_review_ready']=True
+            question['customer_review_changed']=False
+            question['customer_candidates']=review['items']
+    return view
 
 
 def session_view(db,user,session_id):
@@ -365,7 +392,7 @@ def session_view(db,user,session_id):
     if settings.assistant_runtime_enabled and runtime_waiting:brief['busy']=True
     return {**brief,'work_plans':plan_briefs(db,user,session_id),'last_request':last_request,'messages':[{'id':m.id,'role':m.role,'content':m.content,
             'request_id':m.request_id,'thinking':m.thinking,'created_at':stamp(m.created_at)} for m in messages],
-            'proposals':[proposal_view(p) for p in proposals]}
+            'proposals':[proposal_employee_view(db,user,p) for p in proposals]}
 
 
 def create_session(db,user,title='新对话'):
@@ -401,6 +428,71 @@ def proposal_digest(user,store_id,operation_id,payload):
 def sanitize_questions(raw):
     from .business_assistant_forms import normalize_questions
     return normalize_questions(raw, safe_text)
+
+
+def customer_new_attestation_target(operation_id,path_args,body):
+    """Locate the three reviewed new-customer envelopes, never a generic bool."""
+    if not isinstance(body,dict):return None
+    if operation_id=='POST /api/flow/cases':
+        values=body.get('values')
+        if not isinstance(values,dict) or values.get('customer_id'):return None
+        return values,'values.confirm_new_customer',values.get('customer_phone')
+    if (operation_id=='POST /api/flow/master/{kind}' and isinstance(path_args,dict)
+            and path_args.get('kind')=='customers'):
+        values=body.get('values')
+        if not isinstance(values,dict) or values.get('customer_id'):return None
+        return values,'values.confirm_new_customer',values.get('phone')
+    if operation_id=='POST /api/sales-quotes/orders' and not body.get('customer_id'):
+        return body,'confirm_new_customer',body.get('customer_phone')
+    return None
+
+
+def customer_review_snapshot(db,user,phone):
+    """Current authorized same-phone identities, bound without storing their names."""
+    from .customer_choice import matches,normalized_phone
+    phone=normalized_phone(phone)
+    result=matches(db,user,phone=phone)
+    if result['has_more']:
+        raise HTTPException(422,'同号客户超过20条，请在原业务页面缩小范围并核对后办理')
+    items=sorted(result['items'],key=lambda item:item['id'])
+    encoded=json.dumps({'phone':phone,'items':items},ensure_ascii=False,sort_keys=True,separators=(',',':'))
+    return {'phone':phone,'count':len(items),'hash':hashlib.sha256(encoded.encode('utf-8')).hexdigest(),
+            'items':items}
+
+
+def employee_customer_attestation(db,user,operation_id,path_args,body,questions):
+    """A model-supplied duplicate override becomes an authorized employee choice.
+
+    Ordinary new-customer cards remain unchanged. The model cannot supply the
+    choice or same-phone candidates: those are read from the current store.
+    """
+    target=customer_new_attestation_target(operation_id,path_args,body)
+    if target is None:return questions,None
+    values,key,phone=target
+    attempted=values.get('confirm_new_customer') is True
+    model_question=any(q['key']==key for q in questions)
+    if not (attempted or model_question):
+        return questions,None
+    values.pop('confirm_new_customer',None)
+    questions=[q for q in questions if q['key']!=key]
+    # No exact phone or no authorized duplicate needs no bypass. A new match
+    # appearing before confirmation is still rejected by the original API.
+    if not isinstance(phone,str) or not phone.strip():return questions,None
+    review=customer_review_snapshot(db,user,phone)
+    if not review['count']:return questions,None
+    from .business_assistant_forms import MAX_QUESTIONS
+    if len(questions)>=MAX_QUESTIONS:raise HTTPException(422,'这张卡的问题过多，请拆分办理')
+    question=sanitize_questions([{'key':key,'label':'核对以下同号档案后，是否仍要另建独立档案',
+        'options':[{'label':'是，仍另建','value':'true'},{'label':'否，按原同号规则核对','value':'false'}],
+        'required':True}])[0]
+    # normalize_questions strips unknown model fields; only this path can add
+    # the marker later required by both single and batch confirmation.
+    question['server_attestation']='confirm_new_customer'
+    question['customer_review_phone']=review['phone']
+    question['customer_review_hash']=review['hash']
+    question['customer_review_count']=review['count']
+    questions.append(question)
+    return questions,key
 
 
 def unanswered_questions(row,answers=None):
@@ -529,9 +621,10 @@ def resolve_preparation(db,user,session_id,args,*,question_fields=None):
     # M2.1 请求号只生成一次：只要这个操作在 schema 里暴露 request_id，它就是服务端事实。
     # 模型或员工自带的那个值在这里就被丢弃、绝不出现在卡片里，准备落库时再生成真正的提交标识。
     generate_request_id=isinstance(body,dict) and 'request_id' in properties
+    questions=sanitize_questions(args.get('questions'))
+    questions,_=employee_customer_attestation(db,user,operation_id,path_args,body,questions)
     validation_body=deepcopy(body)
     if generate_request_id:validation_body['request_id']='00000000-0000-0000-0000-000000000000'
-    questions=sanitize_questions(args.get('questions'))
     if questions:
         from .business_assistant_forms import describe_questions
         questions=describe_questions(gateway,operation_id,path_args,body,questions,question_fields)
@@ -652,6 +745,8 @@ def build_proposal(db,user,session_id,resolved,*,source_work_item_id=None):
         if old.operation_id==operation_id and old.owner_role==user.role and old.access_version==user.access_version and intent(old.payload)==intent(payload):
             if old.status in {'executing','uncertain'}:
                 raise HTTPException(409,'这项操作正在办理或结果待核对，请先到原页面核对记录，不能重复提交')
+            if preparation_question_intent(old.questions or [])!=preparation_question_intent(checked.questions or []):
+                raise HTTPException(409,'已有同内容待确认卡的员工核对项不同，请先取消旧卡再重新准备；本次未执行业务')
             if 'request_id' in properties:
                 request_spec=properties['request_id']
                 old_id=(old.payload.get('body') or {}).get('request_id')
@@ -1635,6 +1730,26 @@ async def decide_proposal(db,request,user,session_id,row,digest,cancel=False,ans
     normalized=gateway.validate_operation(row.operation_id,execution.get('path_args') or {},
                                           execution.get('query') or {},execution.get('body') or {})
     execution={key:normalized.get(key) for key in ('path_args','query','body')}
+    customer_target=customer_new_attestation_target(row.operation_id,execution.get('path_args') or {},
+                                                   execution.get('body') or {})
+    if customer_target is not None:
+        values,key,phone=customer_target
+        original=customer_new_attestation_target(row.operation_id,row.payload.get('path_args') or {},
+                                                 row.payload.get('body') or {})
+        question=next((q for q in (row.questions or []) if q.get('key')==key
+                       and q.get('server_attestation')=='confirm_new_customer'),None)
+        if question is not None:
+            if (original is None or original[0].get('confirm_new_customer') is True
+                    or not isinstance(phone,str) or phone.strip()!=question.get('customer_review_phone')):
+                raise HTTPException(409,'同号客户核对内容已变化，请取消旧卡后重新准备')
+            review=customer_review_snapshot(db,user,phone)
+            if (not review['count'] or review['count']!=question.get('customer_review_count')
+                    or not hmac.compare_digest(review['hash'],question.get('customer_review_hash') or '')):
+                raise HTTPException(409,'同号客户候选已变化，请重新查询并准备确认卡')
+        if values.get('confirm_new_customer') is True:
+            employee_answer=(answers or {}).get(key) if isinstance(answers,dict) else None
+            if question is None or employee_answer!='true':
+                raise HTTPException(409,'另建独立客户档案须由员工核对同号候选后单独选择；请取消旧卡后重新准备')
     if (execution.get('body') or {}).get('request_id')!=(row.payload.get('body') or {}).get('request_id'):
         raise HTTPException(409,'提交标识已变化，请重新核对待确认卡')
     from .business_assistant_presentation import with_answers
