@@ -2,7 +2,11 @@
 
 唯一里程碑与检查点状态查 [implementation_plan](../../implementation_plan.md)，当前工作入口为 [maintenance-handoff](tasks/maintenance-handoff.md)。逐轮真实模型报告查 [M8-5审阅](../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)，失败和旧未知费用保留。
 
-当前由root集成原查询目录说明与维护交接；mobile_closeout核目录说明和车辆/物资语义，day_boundary核销售/维修/财务语义，regression_harness核原件、输入指纹和费用。全部为同一M8.5任务，生产功能开关保持关闭。
+当前由root登记本地`deepseek-flash`模型切换及350元累计私有门禁；mobile_closeout核模型/费用接线，day_boundary核销售/维修/财务语义，regression_harness核原件、输入指纹和费用。全部为同一M8.5任务，生产默认、Runtime适配器及功能开关不改。
+
+2026-10-06业主已明确授权350元累计上限；当天[官方更新日志](https://api-docs.deepseek.com/updates/)及[人民币价格](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)标明当前`deepseek-flash`为V4.1 Flash，峰时命中/未命中/输出0.04/2/8元每百万token，保守POST预留5.242880元。旧3984次保守占230.037690元、含七条未知66.322432元，原行与报告不重价、不释放。外部helper历史分段为1—1402旧Flash、1403—3984旧Pro、3985起新Flash，旧Flash后台版本不自行追认；此前280元仍作为历史运行条件保留。
+
+拟先同源新strict及原F[complete]夹具接口同步定向验证，再复验S01/S08/V03/X03/F02/B03/HELP021/HELP041八例，随后从零完整283并单列101；新模型尚未执行，代表不拼入全量。M8.5仍in_progress、CP-37 not_ready，M8.6未开始；正式状态只在实施计划维护。
 
 以下历史记录及Git中的旧进度仅供追溯，不能作为当前放行状态。
 
