@@ -58,11 +58,15 @@ def project_case_read(operation_id,result):
                 'roles':list(action.roles),'states':list(action.states),
                 'fields':[{'key':field['key'],'label':field['label']} for field in action.fields]}
                 for action in spec['actions']]}
-    for task in projected['data'].get('tasks',[]):
+    responsibility_records=[]
+    for task in data.get('tasks',[]):
         if task.get('status') not in {'done','cancelled'}:continue
+        # A finished task keeps its recorded actor beside its action title.
+        # Preserve former responsibility separately, linked by the native task
+        # ID; it is neither the event actor nor an action's business recipient.
         assignment={key:task.pop(key) for key in ('role','role_label','assignee_id','assignee_name') if key in task}
-        if assignment:
-            task['original_assignment']={'meaning':'该任务原办理责任：assignee记录接下这项待办的员工，不能据此确定动作输入中的业务接手对象；例如不能据分派接待任务的负责人确定被分派接待的销售。实际完成或终止任务的人另看done_by，业务接手对象另核对应事件detail，不从任务负责人或当前owner倒推。',**assignment}
+        if assignment:responsibility_records.append({'task_id':task['id'],**assignment})
+    if responsibility_records:data['task_responsibility_records']=responsibility_records
     return projected
 
 

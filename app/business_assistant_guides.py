@@ -161,10 +161,23 @@ def find_workflows(query, role='', category=''):
         return {'items': [], 'notice': '操作指引暂时读不到；请告诉员工按左侧“操作指引”或搜索框自己查找，不要凭记忆编入口。'}
     if not items:
         return {'items': [], 'notice': '本次查询未匹配，不代表系统没有该功能。请缩短为原需求名称或核心业务词、去掉可能错误的category后重查；仍无结果再如实说明，不凭相邻接口猜流程。'}
+    normalized=normalize(str(query or '').strip()[:200])
+    exact_requirements=[]
+    for item in items:
+        for requirement in item['matched_requirements']:
+            if normalize(requirement['title'])==normalized and requirement not in exact_requirements:
+                exact_requirements.append(dict(requirement))
+    exact_titles=[item['workflow_id'] for item in items if normalize(item['title'])==normalized]
+    query_match={
+        'kind':'exact_published_name' if exact_requirements or exact_titles else 'related_candidates',
+        'query':str(query or '').strip()[:200],
+        'exact_requirements':exact_requirements,
+        'exact_workflow_titles':exact_titles,
+        'returned_workflow_ids':[item['workflow_id'] for item in items]}
     for item in items:
         item['next'] = ('告诉员工入口、岗位和本次要准备的资料；账号、密码和配置留在原页面；其它业务能否准备按操作目录和原单权限判断，不按动作名称一概限制。'
                         if item['entry']['can_enter'] else item['entry']['role_note'])
-    return {'items': items, 'notice': (
+    return {'items': items, 'query_match': query_match, 'notice': (
         '这是当前发布的工作流帮助，未读取或核对任何具体原单的kind、flow_version、当前版本及父单授权。'
         'entry.can_enter仅表示该帮助入口的岗位匹配，不证明本人能办理旧原单。'
         'entry.roles不是每一步办理、审批或收款的岗位清单；按steps.actor、action、expected及exceptions说明分工，多岗位并列不表示可互相替代。'
