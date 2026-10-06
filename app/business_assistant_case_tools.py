@@ -47,7 +47,14 @@ def _guidance(data):
     if not actions:
         state=str(data.get('state_label') or data.get('state') or '').strip()
         notes.append('这一状态下没有需要你办的事项%s，不要凭空建议下一步。' % (('（当前进度：'+state+'）') if state else ''))
-    notes.append('任务的assignee或assignee_name只说明分派负责人；status为done时，实际任务完成者和完成时间引用原done_by、done_by_name及done_at，缺失就说明未知。status为cancelled时这些字段记录终止任务的人和时间，不表示完成业务；其它历史动作仅引用确切对应的事件actor_name，不从任务归属或猜测事件关系推断。')
+    completed=[item for item in (data.get('tasks') or []) if isinstance(item,dict) and item.get('status')=='done']
+    if completed:
+        # Keep the recorded actor beside the completed action. Its assignee is
+        # a responsibility field and may never have performed that action.
+        notes.append('本单已完成任务的原记录：'+'；'.join(
+            '%s：实际完成人=%s，完成时间=%s' % (item.get('title') or item.get('key') or '未记录任务名称',
+            item.get('done_by_name') or '未记录',item.get('done_at') or '未记录') for item in completed)+'。')
+    notes.append('任务的assignee或assignee_name只说明分派负责人，不能代替上述实际完成人或推断为当前员工本人；未记录的完成者和时间保持未知。status为cancelled时done_by、done_by_name及done_at记录终止任务的人和时间，不表示完成业务；其它历史动作仅引用确切对应的事件actor_name。')
     if data.get('kind')!='lead':
         return notes
     state=data.get('state')
@@ -55,7 +62,7 @@ def _guidance(data):
     elif state in {'contacting','reminder'}:
         notes.append('安排接待回访可同时补充尚未填写的联系电话；电话已有值时，更正电话请使用客户资料入口。')
     elif state=='intent':
-        notes.append('客户正在意向跟进中。“记录意向跟进”可以登记下次处理日期；补充或更正电话请使用客户资料入口，不要退回售前接待。')
+        notes.append('客户正在意向跟进中。“记录意向跟进”确认后保存本次真实沟通结果，并按下次处理日期继续保留意向跟进待办，不表示本单跟进任务或客户跟进已经结束。“结束跟进”是另一个原动作。补充或更正电话请使用客户资料入口，不要退回售前接待。')
     elif state=='closed':notes.append('接待已结束。需要继续联系时，先按原单重新跟进；不能绕过客户的联系意愿。')
     notes.append('沟通结果必须来自员工本次提供的真实沟通事实。只说安排明天回访不代表已经联系；若员工明确今天尚未联系，不要建议用“未联系、计划明日回访”冒充本次沟通结果。先查是否有独立提醒动作；当前动作只能登记已发生沟通时，应说明等待实际结果，不能生成假反馈或联系成功。')
     return notes
@@ -91,25 +98,30 @@ async def _customer_record(db,request,user,thread_id,config,data):
 
 
 async def _employee_choices(db,request,user,thread_id,config,data):
-    fields=[field for action in data.get('actions',[]) for field in action.get('fields',[])
-            if field.get('type')=='employee']
-    if not fields:
-        return data
-    result=await _read(db,request,user,thread_id,config,'GET /api/flow/lookup/{kind}',
-                       {'kind':'employee'},{'case_id':data['id']})
-    lookup={'operation_id':'GET /api/flow/lookup/{kind}','path_args':{'kind':'employee'},
-            'query':{'case_id':data['id']}}
-    listing=result.get('data') if result.get('status')==200 else None
-    for field in fields:
-        field['candidate_lookup']=lookup
-        if isinstance(listing,dict):
-            field['candidates']=[{'label':x['label'],'value':x['id']} for x in listing.get('items',[])
-                                 if type(x.get('id')) is int and isinstance(x.get('label'),str)]
-            field['candidates_has_more']=bool(listing.get('has_more') or listing.get('truncated'))
-        else:
-            field['candidate_lookup_error']='本次员工候选未读取成功；不要冒充没有员工，也不要猜编号。'
+    found=False
+    for action in data.get('actions',[]):
+        fields=[field for field in action.get('fields',[]) if field.get('type')=='employee']
+        if not fields:continue
+        found=True
+        # Candidate eligibility belongs to this native action, not to every
+        # employee who can be found in the store's general directory.
+        query={'case_id':data['id'],'action':action['key']}
+        result=await _read(db,request,user,thread_id,config,'GET /api/flow/lookup/{kind}',
+                           {'kind':'employee'},query)
+        lookup={'operation_id':'GET /api/flow/lookup/{kind}','path_args':{'kind':'employee'},'query':query}
+        listing=result.get('data') if result.get('status')==200 else None
+        for field in fields:
+            field['lookup_action']=action['key']
+            field['candidate_lookup']=lookup
+            if isinstance(listing,dict):
+                field['candidates']=[{'label':x['label'],'value':x['id']} for x in listing.get('items',[])
+                                     if type(x.get('id')) is int and isinstance(x.get('label'),str)]
+                field['candidates_has_more']=bool(listing.get('has_more') or listing.get('truncated'))
+            else:
+                field['candidate_lookup_error']='本次员工候选未读取成功；不要冒充没有员工，也不要猜编号。'
+    if not found:return data
     data.setdefault('assistant_guidance',[]).append(
-        '员工候选来自本店业务选择器，不是管理员账号目录；已给姓名可在真实候选中唯一匹配后填写编号，'
+        '员工候选来自本店原动作的接手选择器，不是一般员工或管理员账号目录；已给姓名可在真实候选中唯一匹配后填写编号，'
         '未选人则用中文候选缺项卡。同名或候选未列完须进一步查找，不自动选第一项。')
     return data
 
@@ -217,10 +229,19 @@ async def resolve_preparation(db,request,user,thread_id,name,args,config):
     if args.get('questions'):
         for question in args['questions']:
             field=next((f for f in question_fields if 'values.'+f['key']==question.get('key')),None)
-            if field and field.get('type')=='employee' and not question.get('options'):
-                if field.get('candidates_has_more') or not field.get('candidates'):
-                    raise HTTPException(422,'员工候选未完整确定，请按已提供的candidate_lookup按姓名缩小查询，不要让员工手抄编号')
-                question['options']=field['candidates']
+            if field and field.get('type')=='employee':
+                if not question.get('options'):
+                    if field.get('candidates_has_more') or not field.get('candidates'):
+                        raise HTTPException(422,'员工候选未完整确定，请按已提供的candidate_lookup按姓名缩小查询，不要让员工手抄编号')
+                    question['options']=field['candidates']
+                elif not field.get('candidates_has_more') and 'candidates' in field:
+                    # A model-supplied list may be a valid subset, but cannot
+                    # add people from the broader directory or relabel them.
+                    from .business_assistant_forms import option_value
+                    choices={option_value(item):item for item in field['candidates']}
+                    if any(option_value(item) not in choices for item in question['options']):
+                        raise HTTPException(422,'员工选项不属于本动作的真实接手候选，请按candidate_lookup重新核对')
+                    question['options']=[choices[option_value(item)] for item in question['options']]
         from . import business_assistant_gateway as gateway
         from .business_assistant_service import sanitize_questions,answer_probe
         questions=sanitize_questions(args['questions'])

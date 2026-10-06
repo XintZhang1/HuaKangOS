@@ -57,7 +57,7 @@ function lookupSearch(input,immediate=false){
  s.timer=setTimeout(async()=>{
   if(!s.root.isConnected||s.run!==run||context!==liveChoiceContext()||input.disabled)return;
   liveChoiceMessage(s,'正在查找…');
-  try{const p=new URLSearchParams({q:query});if(s.root.dataset.case)p.set('case_id',s.root.dataset.case);
+  try{const p=new URLSearchParams({q:query});if(s.root.dataset.case)p.set('case_id',s.root.dataset.case);if(s.root.dataset.action)p.set('action',s.root.dataset.action);
    const data=s.loader?await s.loader(query):await api((s.root.dataset.typed==='1'?'/api/masters/lookup/':'/api/flow/lookup/')+s.root.dataset.kind+'?'+p);
    if(s.root.isConnected&&s.run===run&&context===liveChoiceContext()&&!input.disabled)lookupResults(s.root,data.items,data.has_more);
   }catch(error){if(s.root.isConnected&&s.run===run&&context===liveChoiceContext()&&!input.disabled)liveChoiceMessage(s,error.message||'查找失败，请重试',true);}

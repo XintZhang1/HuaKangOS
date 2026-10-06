@@ -30,6 +30,8 @@ class FindObjects(Strict):
     kind: Literal['case','customer','vehicle','employee','member','material','master']
     query: str = Field(default='', max_length=100)
     case_id: int | None = Field(default=None, gt=0)
+    action: str = Field(default='', max_length=60,
+        description='为原单选择接手员工时，传get_case给出的原动作key；一般员工目录不代表该动作的可选人。')
     business_kind: str = Field(default='', max_length=60)
     master_kind: str = Field(default='', max_length=60)
     page: int = Field(default=1, ge=1, le=10000)
@@ -172,6 +174,11 @@ def checked(result):
 
 async def find_objects(db,request,user,sid,c,args):
     kind=args['kind'];query=args['query']
+    action=args.get('action','')
+    if action and (kind!='employee' or not args['case_id']):
+        raise HTTPException(422,'员工动作候选须同时指定原单与原动作')
+    if kind=='employee' and args['case_id'] and not action:
+        raise HTTPException(422,'请使用原单employee字段candidate_lookup中的action查询本动作接手员工')
     if kind=='case':
         from .business_assistant_case_tools import handle_case_tool
         return await handle_case_tool(db,request,user,sid,'find_cases',
@@ -184,7 +191,8 @@ async def find_objects(db,request,user,sid,c,args):
         if args['page']!=1: raise HTTPException(422,'该业务选择器按关键词缩小范围，不支持页码；请补充姓名或编码')
         lookup='item' if kind=='material' else kind
         result=await native(db,request,user,sid,c,'GET /api/flow/lookup/{kind}',{'kind':lookup},
-                            {'q':query,**({'case_id':args['case_id']} if args['case_id'] else {})})
+                            {'q':query,**({'case_id':args['case_id']} if args['case_id'] else {}),
+                             **({'action':action} if action else {})})
     data=checked(result)
     items=data.get('items',[])
     more=bool(data.get('has_more') or data.get('truncated') or
@@ -286,7 +294,8 @@ async def candidates(db,request,user,sid,c,form,field,query='',selected_id=None)
         if not query and isinstance(field.get('candidates'),list) and not field.get('candidates_has_more'):
             return deepcopy(field['candidates']),False
         result=await native(db,request,user,sid,c,'GET /api/flow/lookup/{kind}',{'kind':kind},
-                            {'q':query,**({'case_id':case_id} if case_id else {})})
+                            {'q':query,**({'case_id':case_id} if case_id else {}),
+                             **({'action':field['lookup_action']} if kind=='employee' and field.get('lookup_action') else {})})
         return choices_from_native(checked(result))
     if kind=='ref' and field.get('ref_kind'):
         ref=field['ref_kind']

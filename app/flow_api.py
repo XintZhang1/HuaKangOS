@@ -247,11 +247,28 @@ def download(file_id:int,db=Depends(get_audited_read_db),user=Depends(get_user))
 
 
 @router.get('/lookup/{kind}')
-def lookup(kind:str,q:str=Query('',max_length=100),case_id:int|None=None,db=Depends(get_db),user=Depends(get_user)):
+def lookup(kind:str,q:str=Query('',max_length=100),case_id:int|None=None,
+           action:str|None=Query(None,max_length=80),db=Depends(get_db),user=Depends(get_user)):
     row=eng.get_case(db,user,case_id) if case_id else None
     results=[]
     if kind=='employee':
         store=single_store(db);ids={u.id:u for role in ROLES for u in eng.eligible_users(db,role,store)}
+        if action is not None:
+            if not row:raise HTTPException(422,'请先选择业务单据')
+            current=next((a for a in eng.available_actions(db,user,row) if a['key']==action
+                          and any(f.get('type')=='employee' for f in a['fields'])),None)
+            if current is None or row.kind!='lead' or action!='assign':
+                raise HTTPException(422,'当前业务没有此员工选择步骤')
+            if not current['enabled']:raise HTTPException(409,current['reason'] or '当前步骤尚不可办理')
+            # Apply the same current-store target check used by confirmation.
+            # A general employee/task lookup without action keeps its old scope.
+            candidates={}
+            for candidate in ids.values():
+                try:target=eng.assignable(db,candidate.id,row.store_id,eng.LEAD_ASSIGNEE_ROLES)
+                except HTTPException as exc:
+                    if exc.status_code!=422:raise
+                else:candidates[target.id]=target
+            ids=candidates
         results=[{'id':u.id,'label':u.display_name+' · '+ROLES[u.role]} for u in ids.values()]
     elif kind=='vehicle':
         if user.role not in {'admin','manager','inventory','sales'}:raise HTTPException(403,'没有查看车辆的权限')

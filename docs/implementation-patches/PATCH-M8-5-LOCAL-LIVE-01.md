@@ -1,5 +1,15 @@
 # 本地真实模型复验入口
 
+## Flash首次完整队列：真实任务效果与员工选择器（2026-10-06）
+
+bc81a7a/source6776ccc 的新strict `20261006T021613Z-33eb4e44d3` 通过，原F[complete]定向 `20261006T021701Z-da89ee7a63` 通过。Flash八代表 `20261006T022631Z-879bd0f790` 自然CLI0/216.672秒，原及当前结构8/8、101同批7/7，独立语义8/8；30次真实POST全部结算0.446153元。S08查询范围措辞、V03两次参数纠正和冗余追问另留观察，不删原件。
+
+随后同五输入完整队列 `20261006T023936Z-c619bffc05` 暴露S03确认后把续开的跟进任务误称完成、S05候选员工含原分派接口拒绝的岗位、S06把分派负责人当实际完成者（含“你本人”）。root持原预算锁在场景边界明确停止，实际10/283已运行、273未运行，101同批10/101，CLI1/270.75秒自然排空；原结构10/10、独立语义7可接受/3失败。48POST全部结算0.576235元，无新增未知或预留；累计4062条，已结算164.737646元加七条旧未知66.322432元，保守占231.060078元。停止前后只变halted/halt_reason，原行和费用保持；旧报告不被新代表覆盖。
+
+允许本次最小生产范围：`app/business_assistant_case_tools.py` 的既有原单指导明确登记本次意向沟通后仍保留下次跟进，并从原done_by_name/done_at单列已完成任务事实，缺失保持未知、cancelled不作完成；原数据、状态机和确认行为不变。`app/flow_api.py` 的employee选择器增加明确原action上下文，并与 `app/flow_engine.py` 原lead.assign共享接手岗位合同，逐候选复用原assignable的启用、本店岗位和权限检查；先鉴权原单并核当前实际动作，不能用动作执行人岗位冒充接手岗位。无动作的一般员工查询保持。原动作employee字段附lookup_action，`web/app.js` 与 `web/livechoices.js` 在初始加载、手动搜索和防抖搜索都传同一上下文，保留换店与过期请求保护。`app/business_assistant_business_tools.py` 的对象查询可传该动作，原单工具按各动作分别取候选；原prompt员工查询说明同步，不增加任意写入能力。
+
+外部仅复用原 `tests/baseline/overlay/tests/test_store_roles.py::test_assignment_uses_store_specific_role_without_mutation` 及原 `scripts/check_assistant_r3t3.py::NativeRepairs.test_reception_candidates_from_business_picker_not_accounts`、`scripts/check_assistant_business.py::NativeTests.test_action_by_name_with_live_version` 核合法/拒绝岗位、当前店投影、停用/跨店及原单读取拒绝；保留原断言，不新建框架或改冻结283/101。必要manifest/来源SHA按原位置更新。停止的完整原件、逐例SHA和终态审计留在V/closeout-20261006/flash-full-023936-review；本次是已知语义主动停止，修复后可显式核固定停后账本SHA `13cd772c24f0b319802f8a61c7b8ad74b3195e83ec90d009cdb6b4a63181d289` 保存前后原件后仅解除该次停止，七条未知及350元/6000次不变，不自动恢复以后停止。完整原候选已取得时，模型自带选项逐项核对原ID并恢复原label，保留合法子集和原字符串ID兼容，不静默过滤未知人。外部m85适配器仅补有限代表S03/S05原ID，登记S03/S05/S06三例，原评分与冻结输入不改。先定向复验受影响例，再从零完整283/101；M8.5仍in_progress、CP-37 not_ready。
+
 ## 350元累计授权与当前V4.1 Flash切换（2026-10-06）
 
 业主已明确将本地真实模型复验切到当前官方ID`deepseek-flash`，并授权350元累计上限；不是另开350元预算或清空旧消耗。此前280元门禁和Pro运行记录按当时条件保留。`20261006T010901Z-4881d6c544`四例已自然排空，累计3984次、已结算163.715258元，七条未知仍全额占66.322432元，保守总占230.037690元；全部旧行、metadata、金额、未知占用和报告保持，不重价、不释放、不自动重放。

@@ -17,6 +17,8 @@ from .services import audit
 
 MANAGEMENT={'admin','manager','auditor','finance'}
 FINANCE_ACTIONS={'receive','late_receive','refund','topup_receive','member_refund_pay','apply_balance'}
+# Assignment targets differ from the roles allowed to perform the assignment.
+LEAD_ASSIGNEE_ROLES=frozenset({'sales','reception'})
 READ_KINDS={
 'reception':{'customer_care','lead','callback'}, 'sales':{'retail','customer_care','lead','order','addon','insurance','agency','callback','complaint'},
 'inventory':{'retail','vehicle_procurement','order','repair','purchase','procurement','material_transfer','vehicle_transfer','material_issue','material_return','stock_count'},
@@ -546,7 +548,10 @@ def available_actions(db,user,row):
             except HTTPException as exc:
                 if exc.status_code!=409:raise
                 reason=exc.detail
-        fields=action.fields
+        # Add lookup context only to this authorized projection, never to the
+        # preserved catalogue shared by other cases or process versions.
+        fields=[{**field,'lookup_action':action.key} if field.get('type')=='employee' else field
+                for field in action.fields]
         if row.kind=='lead' and action.key=='remind':
             customer=scoped_get(db,Customer,row.customer_id) if row.customer_id else None
             if not customer or not customer.phone:
@@ -676,7 +681,7 @@ def _apply_action_v1(db,user,row,key,v):
     if row.kind=='lead':
         customer=scoped_get(db,Customer,row.customer_id)
         if key=='assign':
-            target=assignable(db,v['assignee_id'],row.store_id,{'sales','reception'})
+            target=assignable(db,v['assignee_id'],row.store_id,LEAD_ASSIGNEE_ROLES)
             row.owner_id=target.id
             if customer and customer.owner_id==row.created_by:customer.owner_id=target.id
             row.state='contacting';finish_task(db,row,'assign',user)
