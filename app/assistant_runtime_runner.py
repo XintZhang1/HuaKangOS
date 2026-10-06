@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from hashlib import sha256
 import json
+import re
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -2069,6 +2070,93 @@ def _visibly_incomplete_final(text):
         ('（', '）'), ('(', ')'), ('【', '】'), ('《', '》'), ('「', '」')))
 
 
+def _catalog_only_denial_reply(text, chain, cards):
+    """Correct a claimed native refusal when this Run only consulted static help.
+
+    A catalogue role hint is useful for navigation, but it is not a request to
+    the original API. Only replace an explicit claim of an executed query or
+    original-API 403; ordinary guide answers must pass through unchanged.
+    """
+    if cards or type(text) is not str or type(chain) not in (list, tuple):
+        return None
+    asserted = False
+    for clause in re.split(r'[\n。！？!?；;]', text):
+        for pattern in (r'实际(?:发起|执行|进行)(?:了)?[^\n。！？!?；;]{0,16}(?:查询|请求)',
+                        r'(?:原业务接口|原接口)[^\n。！？!?；;]{0,10}(?:直接拒绝|返回(?:了)?\s*403|报(?:了)?\s*403)'):
+            match = re.search(pattern, clause)
+            if match is None:
+                continue
+            preceding = clause[:match.start()]
+            claim = match.group(0)
+            following = clause[match.end():match.end() + 5]
+            if (re.match(r'\s*(?:如果|假如|若|倘若)', clause)
+                    or re.search(r'(?:未|没有|并非|不是|不能|不应|不得|可能)[^，,]{0,5}$', preceding)
+                    or any(word in claim for word in ('没有', '尚未', '并未', '未返回', '没返回',
+                                                      '可能', '会直接', '会返回', '不会', '将返回', '不直接'))
+                    or any(word in following for word in ('不成立', '不属实', '不代表'))):
+                continue
+            asserted = True
+            break
+        if asserted:
+            break
+    if not asserted:
+        return None
+
+    pending = {}
+    denied = []
+    seen = set()
+    for message in chain:
+        if type(message) is not dict:
+            return None
+        if message.get('role') == 'assistant':
+            calls = message.get('tool_calls') or []
+            if type(calls) is not list or pending:
+                return None
+            for call in calls:
+                if type(call) is not dict or type(call.get('function')) is not dict:
+                    return None
+                name, call_id = call['function'].get('name'), call.get('id')
+                if name not in {'list_operations', 'find_workflows', 'inspect_operation'} or type(call_id) is not str:
+                    return None
+                if call_id in pending:
+                    return None
+                pending[call_id] = name
+        elif message.get('role') == 'tool':
+            call_id = message.get('tool_call_id')
+            if type(call_id) is not str or call_id not in pending or type(message.get('content')) is not str:
+                return None
+            name = pending.pop(call_id)
+            try:
+                result = json.loads(message['content'])
+            except (TypeError, ValueError):
+                return None
+            if type(result) is not dict:
+                return None
+            if name == 'list_operations':
+                items = result.get('items', [])
+                if type(items) is not list:
+                    return None
+                for item in items:
+                    if type(item) is not dict:
+                        return None
+                    if (item.get('role_may_read') is False
+                            and item.get('role_source') == 'static_catalog'
+                            and item.get('request_executed') is False
+                            and item.get('write') is False):
+                        label = item.get('label')
+                        if type(label) is str and label and label not in seen:
+                            seen.add(label)
+                            denied.append(label[:80])
+        else:
+            return None
+    if pending or not denied:
+        return None
+    labels = '、'.join(denied[:4]) + ('等' if len(denied) > 4 else '')
+    return ('本轮只核对了操作目录和已发布指引，未发起原业务查询，也没有收到原接口 403。'
+            f'目录按当前岗位预判这些查询暂不可用：{labels}。'
+            '请由有权限的岗位在原页面核对；如需调整员工岗位或角色，由系统管理员办理，助手不会代改。')
+
+
 _FOLLOWUP_OUTCOME_REASONS = frozenset({
     'model_round_budget', 'time_budget', 'tool_budget', 'preparation_budget',
     'context_budget_exceeded', 'source_message_missing', 'recheck_required',
@@ -2461,6 +2549,9 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                         incomplete_final_retry = True
                         continue
                     facts = _actual_outcomes(db, principal, clock=clock)
+                    catalog_reply = _catalog_only_denial_reply(text, chain, facts['cards'])
+                    if catalog_reply is not None:
+                        text = catalog_reply
                     if service.claimed_actions(text) and facts['cards'] == 0:
                         if queue.mark_loop_flag(db, principal, 'correction', clock=clock):
                             previous = {'role': 'assistant', 'content': text or None}
