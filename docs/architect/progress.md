@@ -2,7 +2,9 @@
 
 唯一里程碑与检查点状态查 [implementation_plan](../../implementation_plan.md)，当前工作入口为 [M8.5本地真实模型回归收口](tasks/m85-live-closeout.md)。逐轮真实模型报告查 [M8-5审阅](../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)，失败和旧未知费用保留。
 
-当前同一M8.5：ddff3fe 的外部 manifest 旧 gate SHA 首次付费前拒绝、零调用，注册单字段修复后新 strict 18/18、七节点7/7。新五原代表 `20261006T160311Z-696a2907de` 结构5/5、零业务写入；V04/M08/S04可接受、S08核心三卡正确，S01仍误称同号409会自动再询问，并把姓名空查询扩成无已有档案，语义失败。17次Flash均结算，累计7661次保守占272.653756元、旧七未知保留，已显式halt（SHA `a1e8a87049dcc3af7d2f57364cd984348be947b8e54f9dd4f60d5cd4662178ed`）。原补丁范围内只补准确409/检索提示，待新strict/S01代表后从零283；M8.5 in_progress、CP-37 not_ready、M8.6 todo。
+当前同一M8.5：0fd21f35 一体重绑后新 strict 18/18，五原代表 `20261006T162921Z-8e92058682` 结构5/5、467表逐例等值、四卡 pending、零确认。S01/S04/V04/M08语义可接受，S08仅按电话查却称无同名档案，普通语义失败；20次新Flash全结算，累计7681次保守占272.880764元，旧七未知保留，账本显式halt SHA `0a11dc5eac6a44824d809e5c5fb534df806e37404bd2fc45f2cbde12e9310d4a`。仅修提示中的姓名/电话查询范围，待新strict/原五代表后从零283；M8.5 in_progress、CP-37 not_ready、M8.6 todo。
+
+上一轮同一M8.5：ddff3fe 的外部 manifest 旧 gate SHA 首次付费前拒绝、零调用，注册单字段修复后新 strict 18/18、七节点7/7。新五原代表 `20261006T160311Z-696a2907de` 结构5/5、零业务写入；V04/M08/S04可接受、S08核心三卡正确，S01仍误称同号409会自动再询问，并把姓名空查询扩成无已有档案，语义失败。17次Flash均结算，累计7661次保守占272.653756元、旧七未知保留，已显式halt（SHA `a1e8a87049dcc3af7d2f57364cd984348be947b8e54f9dd4f60d5cd4662178ed`）。原补丁范围内只补准确409/检索提示，待新strict/S01代表后从零283；M8.5 in_progress、CP-37 not_ready、M8.6 todo。
 
 上一轮同一M8.5：HEAD `fde57ba` 的strict 18/18、七个获权同号 TestClient 节点7/7；原五代表 `20261006T145631Z-e5a29adb13` 结构5/5，V04/M08/S04/S08语义可接受，S01卡无问项却被模型说成可在卡上勾选另建，语义未通过。467业务表等值、4卡pending、零确认；21次Flash请求均结算，累计7644次、保守占272.447422元，旧七未知仍占用，账本已显式halt（SHA `9380ce0244e576dccba40365eb0800dbb327e784461bc6fe18140821a370e794`）。已在原补丁范围只校正该提示，待新strict/S01真实代表；M8.5 in_progress、CP-37 not_ready、M8.6 todo。
 
