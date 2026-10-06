@@ -1,5 +1,11 @@
 # M8.5 本地真实模型逐轮审阅
 
+## fd54765：两代表1可接受/1失败
+
+2026-10-06：同输入strict `20261006T103948Z-4973bf7e90` 18通过；原HELP-HK-082/092代表 `20261006T104027Z-e72f546016` 自然CLI0/76.438秒、结构2/2，逐例语义1可接受/1失败。HELP082按原精品实际收款条件说明，不再加客户报价确认前置。HELP092只取精确HK-092销售退订/售后指引，前轮预收/会员范围错误未重现；但将指引“退车时”才需要的实车隔离与收车检查写成已履约售后的通用前置，误及未出库未提车退订。原`aftercare_service.py`仅在原销售已有VIN且已交付或实际出库时要求收车，未出库退订按原动作释放车辆占用。两例0卡/0确认、467业务表等值；五指纹、三映射及八项未变检查成立。审阅原件`V/closeout-20261006/representative082-092-business-20261006T104439Z-0ebbc1f4/review.json` SHA `43785fbcc42eb72e4842f0591d931282214f29e302e67a63c4fe30893f995bc9`，run.json SHA `9b72fbc8f4a121cce13d58346f886dbd76fc21f7e8012e3aa00d1cac162d4fe9`，终态审计`representative104027-independent-terminal/terminal-audit.json` SHA `516571a326634c3e0120ff3c749f57042c6f42783a3cb31fdda80315d662b7fe`。结构通过不等于语义通过，旧结果保留。
+
+4新POST全部结算0.072140元；累计6449次已结192.163759元，旧七未知66.322432元保守计入，共258.486191元，无新未知/预留。进程排空后root显式halt，账本SHA `15defe1725d57434c49d5402912f6be2a90aebdfa6a07fa5ee19958f046240df`，350元/9000次不变。按事前`PATCH-M8-5-LOCAL-LIVE-01`仅修`wf-sale-aftercare.manual[3].action`原文字段并同步三发布生成物，工作树改动待独立静审及原生成器核对；新strict、同两例及从零完整283/101仍待执行。M8.5 in_progress、CP-37 not_ready、M8.6 todo。
+
 ## 7f53759：两代表1可接受/1失败
 
 2026-10-06：同输入strict `20261006T101815Z-82af0347b3` 18通过；原HELP-HK-082/092代表 `20261006T101922Z-30ebb9b1be` 自然CLI0/79.547秒，结构2/2、语义1可接受/1失败，不继承旧结论。HELP082明确实际收款无需客户报价确认前置；HELP092首轮`find_workflows`已精确命中HK-092销售退订/售后及对应两条已发布指引，后续却把预收/会员未用余额与占额审批泛化为该需求的统一退款条件，语义失败。两例0卡/0确认、467业务表等值；五指纹、三映射及八项未变检查成立。原件`V/closeout-20261006/representative082-092-business-20261006T103307Z-120f3683/review.json` SHA `8743fca14799aeaf69aadc8bdc182b91b6dde94bedf3f92f8d7925f59ec7d704`，run.json SHA `d59f4b6d91c6a8fbb7d918dcfd08d6e35cb4f160dad5584a7cda838cf0d00316`，终态审计`help082-092-101922-terminal/terminal-audit.json` SHA `f5382020131c8b89d3b1db1e6083d6831eb2d072b7ed32c4b826429ea62b25a3`。
