@@ -41,7 +41,7 @@ def catalog(user=Depends(get_user),db=Depends(get_db)):
         'csv_field_notes':{
             'source_row':'来源文件中的行编号，不是采购明细行ID。',
             'line_id':'本张原采购单的采购明细行ID。',
-            'manifest_row_id':'本张原采购单已确认请款清单的行ID，须从原manifest读取，不是采购明细行ID。',
+            'manifest_row_id':'发运（ship）和到货（receive）都填写本张原采购单已确认请款清单的行ID，须从原manifest读取。不是采购明细行ID，也不是发运清单行ID；到货另需核对同一请款行已有真实发运记录，不能因此把引用来源换成发运行。',
             'location_id':'本店实际整车仓或混合仓的库位ID，须读取并核对真实库位。',
             'amount_cents':'请款金额，须为正整数，单位为分，不是元。',
             'shipped_date':'实际发运日期，须为 YYYY-MM-DD。',
