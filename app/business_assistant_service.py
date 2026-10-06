@@ -938,7 +938,8 @@ async def _run_registered_tool(db,request,user,thread_id,name,args,config,*,reso
         if result['status']>=400:
             record_issue(db,user,thread_id,'rule' if result['status']<500 else 'system',
                          '查询未成功：'+safe_text(result.get('data',{}).get('detail','请检查业务资料'),500),operation_id,result['status'],config.synthetic)
-        return scrub(result)
+        from .business_assistant_case_tools import project_case_read
+        return scrub(project_case_read(operation['id'],result))
     raise HTTPException(422,'业务助手调用了未支持的操作')
 
 

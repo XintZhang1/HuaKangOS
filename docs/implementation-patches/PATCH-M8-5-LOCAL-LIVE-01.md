@@ -1,5 +1,13 @@
 # 本地真实模型复验入口
 
+## 已办任务责任与实际办理者投影（2026-10-06）
+
+eeb88da/source712983e 的 strict `20261006T031032Z-e587b717fc`、84项定向 `20261006T031100Z-3f6b96a142`及真实三代表 `20261006T032120Z-dc120670f1`均通过；代表语义3/3，但S06完成者括注和跨岗顺序表述另记歧义观察。随后同五输入full `20261006T032447Z-75cd367cfe`在S06再次明确把分派负责人写成实际完成者。原完成记录正确，重复文字提醒不足以消除并列人名的混淆。root持原预算锁在场景边界停止，8/283已运行、275未运行，原结构8/8、语义7可接受/1失败；CLI1/199.031秒自然排空。33个新POST均结算0.435782元，累计4108次已结165.336975元加七条旧未知66.322432元，占231.659407元。原停止后账本SHA `32a4c7ddc334bf6be20ccc1d254cf16650d588f8cd2af1a221e20978fedd9ee8`，费用与旧行不变，不自动解除。
+
+本次精确生产范围为 `app/business_assistant_case_tools.py` 的纯只读模型结果投影，以及 `app/business_assistant_service.py` / `app/assistant_runtime_runner.py` 两条既有read_data返回接线。只处理已授权成功读取的原 `GET /api/flow/cases/{case_id}`：深复制结果，将done/cancelled任务的role、role_label、assignee_id、assignee_name收进明确标注含义的original_assignment；保留原done_by/done_by_name/done_at及缺失值，不把取消解释为完成，不改其它任务字段、顺序或open任务。原HTTP API、数据库、状态机、权限和原始历史不变，Runtime原生业务适配器读取合同不变。get_case、typed内部查询和直接read_data复用同一个投影；不靠新增提示词禁令或模型输出正则修正事实。
+
+外部仅扩展原 `test_get_case_returns_native_actions_and_missing_phone_prevents_any_draft` 节点，验证原API与open任务保持、实际完成/取消人和原分派责任分开、未知实际办理者不回填，及get_case/read_data一致；原准备/缺电话/取消断言保留。有限代表改选S06，不改冻结283/101或评分；重新绑定来源并通过strict、该原节点和S06真实复验后，再执行独立完整队列。root仅可在明确审阅此次停止、保留4108条原行与全部未知占用后解除这个停止状态；350元累计上限、6000次和异常停机规则不变，未来停止不自动恢复。
+
 ## Flash首次完整队列：真实任务效果与员工选择器（2026-10-06）
 
 bc81a7a/source6776ccc 的新strict `20261006T021613Z-33eb4e44d3` 通过，原F[complete]定向 `20261006T021701Z-da89ee7a63` 通过。Flash八代表 `20261006T022631Z-879bd0f790` 自然CLI0/216.672秒，原及当前结构8/8、101同批7/7，独立语义8/8；30次真实POST全部结算0.446153元。S08查询范围措辞、V03两次参数纠正和冗余追问另留观察，不删原件。

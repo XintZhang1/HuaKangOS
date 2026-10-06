@@ -990,7 +990,8 @@ async def runtime_read_tool(db, request, user, session_id, name, args, config, *
         reader = native_reader_for_principal(db, principal, (operation['id'],), client_factory=context.client_factory)
         db.rollback()
         result = await reader(operation['id'], path_args=args.get('path_args') or {}, query=args.get('query') or {}, body=None)
-        result = service.scrub(result)
+        from .business_assistant_case_tools import project_case_read
+        result = service.scrub(project_case_read(operation['id'], result))
     else:
         result = await spec.handler(db, request, principal, session_id, args, config, resolve_only=True)
     service.require_preparation_read_phase(db)

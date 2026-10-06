@@ -22,6 +22,24 @@ def _case_id(args):
     return value
 
 
+def project_case_read(operation_id,result):
+    """Separate former responsibility from recorded actors in model inputs.
+
+    Both assistant read lanes use this projection. Native API responses and
+    business adapters keep the original task contract and all historical facts.
+    """
+    if (operation_id!='GET /api/flow/cases/{case_id}' or result.get('status')!=200
+            or not isinstance(result.get('data'),dict)):
+        return result
+    projected=copy.deepcopy(result)
+    for task in projected['data'].get('tasks',[]):
+        if task.get('status') not in {'done','cancelled'}:continue
+        assignment={key:task.pop(key) for key in ('role','role_label','assignee_id','assignee_name') if key in task}
+        if assignment:
+            task['original_assignment']={'meaning':'原分派责任，不表示实际完成或终止任务的人',**assignment}
+    return projected
+
+
 def _guidance(data):
     """下一步推荐：用原单自己的进度、可办事项和待办任务说话，不猜流程、不编造。
 
