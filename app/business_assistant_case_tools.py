@@ -234,6 +234,8 @@ async def resolve_preparation(db,request,user,thread_id,name,args,config):
                     if field.get('candidates_has_more') or not field.get('candidates'):
                         raise HTTPException(422,'员工候选未完整确定，请按已提供的candidate_lookup按姓名缩小查询，不要让员工手抄编号')
                     question['options']=field['candidates']
+                elif not isinstance(question['options'],list):
+                    raise HTTPException(422,'员工候选必须按列表提供，请按candidate_lookup重新核对')
                 elif not field.get('candidates_has_more') and 'candidates' in field:
                     # A model-supplied list may be a valid subset, but cannot
                     # add people from the broader directory or relabel them.
