@@ -2,7 +2,9 @@
 
 唯一里程碑与检查点状态查 [implementation_plan](../../implementation_plan.md)，当前工作入口为 [M8.5本地真实模型回归收口](tasks/m85-live-closeout.md)。逐轮真实模型报告查 [M8-5审阅](../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)，失败和旧未知费用保留。
 
-当前同一M8.5：HEAD `215d363` 的四原代表结构/语义4/4；后续新full `20261006T131636Z-c6b51a4292` 因S01独立建客 true 未经员工同号核对，在47/283安全停批，236未运行且不继承。47例语义43可接受、S01关键、V04/M08普通错误；零确认、467业务表等值。累计7623次保守占272.198348元，旧七未知全额保留、账本halted。按PATCH-M8-5-LOCAL-LIVE-02修三入口另建客户的获权同号展示和确认重验，以及调拨/单VIN说明；动态测试及真实代表待做，M8.5 in_progress、CP-37 not_ready、M8.6 todo。
+当前同一M8.5：HEAD `fde57ba` 的strict 18/18、七个获权同号 TestClient 节点7/7；原五代表 `20261006T145631Z-e5a29adb13` 结构5/5，V04/M08/S04/S08语义可接受，S01卡无问项却被模型说成可在卡上勾选另建，语义未通过。467业务表等值、4卡pending、零确认；21次Flash请求均结算，累计7644次、保守占272.447422元，旧七未知仍占用，账本已显式halt（SHA `9380ce0244e576dccba40365eb0800dbb327e784461bc6fe18140821a370e794`）。已在原补丁范围只校正该提示，待新strict/S01真实代表；M8.5 in_progress、CP-37 not_ready、M8.6 todo。
+
+上一轮同一M8.5：HEAD `215d363` 的四原代表结构/语义4/4；后续新full `20261006T131636Z-c6b51a4292` 因S01独立建客 true 未经员工同号核对，在47/283安全停批，236未运行且不继承。47例语义43可接受、S01关键、V04/M08普通错误；零确认、467业务表等值。累计7623次保守占272.198348元，旧七未知全额保留、账本halted。按PATCH-M8-5-LOCAL-LIVE-02修三入口另建客户的获权同号展示和确认重验，以及调拨/单VIN说明；动态测试及真实代表待做，M8.5 in_progress、CP-37 not_ready、M8.6 todo。
 
 上一轮同项记录（历史保留）：HEAD `05fdd57` 的13原失败代表`20261006T124419Z-6805b5ce72`自然CLI0/324.39秒，结构13/13，同批101子集5/5；逐例语义9/13、同批101为4/5，A08与HELP034/036/079仍失败。run SHA `3aca818a184b1c083df62f70876eea4bd663b4baf9a509e06bd79003f88fd44f`，四非HELP审阅SHA `bc2d87f4d0c7e7fa6309595fa51ca5a52e8d8c7ead7aa648b5fd6759de651c41`、九HELP审阅SHA `3254ed93a7a03f8f7a0864c93c060e122d2ff046c14702911c86843e655966ab`、终态技术SHA `1908bfe7e652ed3e4aa0b410041c7951a249d4d3239e72adb5c903fbae6bafe6`；13例467表等值、1卡待确认、0确认。42新Flash POST结算0.551290元，累计7366次保守占269.532065元，旧七未知保留，排空后显式halt SHA `3ed752ae2eddd787d128e697be6550409a001ab0196f9188901dfed157f93eb4`。事前补丁的统计口径、指南next与维修步骤有限修订已完成独立静审和生成器核对；待新strict、四例及从零完整283/101。M8.5 in_progress、CP-37 not_ready、M8.6 todo。
 
