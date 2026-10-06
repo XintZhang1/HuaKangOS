@@ -23,7 +23,7 @@ def _case_id(args):
 
 
 def project_case_read(operation_id,result):
-    """Separate former responsibility from recorded actors in model inputs.
+    """Keep recorded actors and the case's own workflow version explicit.
 
     Both assistant read lanes use this projection. Native API responses and
     business adapters keep the original task contract and all historical facts.
@@ -32,6 +32,23 @@ def project_case_read(operation_id,result):
             or not isinstance(result.get('data'),dict)):
         return result
     projected=copy.deepcopy(result)
+    data=projected['data']
+    kind,version=data.get('kind'),data.get('flow_version')
+    spec=None
+    if isinstance(kind,str) and type(version) is int:
+        try:spec=flow_spec(kind,version)
+        except HTTPException as exc:
+            # An unknown version has no definition to publish. Never borrow the
+            # current catalogue or another version for a historical case.
+            if exc.status_code!=409:raise
+    if spec and spec['actions']:
+        data['workflow_definition']={
+            'kind':kind,'flow_version':version,'label':spec['label'],
+            'notice':'本原单固定版本的动作定义，解释原data字段与流程，不是当前可办清单。roles/states是定义范围，不表示当前授权、任务负责人、执行顺序或前后依赖；本人现在能否办理仍看原actions的enabled/reason及原接口守卫。其它版本指引的额外步骤不能直接套到本单。',
+            'actions':[{'key':action.key,'label':action.label,
+                'roles':list(action.roles),'states':list(action.states),
+                'fields':[{'key':field['key'],'label':field['label']} for field in action.fields]}
+                for action in spec['actions']]}
     for task in projected['data'].get('tasks',[]):
         if task.get('status') not in {'done','cancelled'}:continue
         assignment={key:task.pop(key) for key in ('role','role_label','assignee_id','assignee_name') if key in task}
