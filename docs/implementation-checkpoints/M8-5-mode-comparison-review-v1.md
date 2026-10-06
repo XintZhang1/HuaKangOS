@@ -1,5 +1,16 @@
 # M8.5 本地真实模型逐轮审阅
 
+## d4b24f4：二十代表19可接受/1失败
+
+source `c85ef5172a40677b103a78f14fd48dc879983f33fd282166b775c71cf950ec65`的strict `074545Z-da97e3e202`与三节点 `074617Z-2070c869d5`通过；后者清单3410完整、三节点9个setup/call/teardown均passed，无skip/xfail，进程自然排空。20代表`20261006T075631Z-e599d7eb0b`自然CLI0/383.375秒，结构20/20、同批focus7/7，五指纹和1329/775/34映射保持。
+
+语义19可接受/1失败；Y07确实取得空refusals后正确拒绝承诺评审，X02实际办理者、X03分支、盘点/当前客户车辆统计和HK178配置范围均已正确。S07结尾压缩措辞仍记观察，但前文明确批准后才能继续，不能仅因未逐句重复前置就判其否定审批。唯一失败HELP126明确将财务列为购买申请/授权办理人，原API/UI均不支持；原guide合并多岗位步骤造成误读，须按原岗位分清。7/8/5分片原件分别见`flash-20-mobile-review-20261006T075805Z`（SHA `0a4e957e3926b27073c0c60478285f5023dc711f2561f863fc7cdef3a4778213`）、`representative20-day-boundary-20261006T075738Z-c70ab69a`（`ad248e34f215d344af975530cace1fdccae993fdae055c9aba9fdc3d06e33893`）、`flash-representative-075631-review/root-review.json`（`4343618ebffefd0c6d5f0dd9c71c8989e43857fed869f2159b32b5ad5fc8b60b`），均位于V/closeout-20261006。
+
+全部20例0卡/0确认/467表等值；74新POST结算0.827486元，累计5431次占246.752665元（已结180.430233加旧七未知66.322432），无新未知/预留。终态审计`flash-20-terminal-20261006T080516Z/terminal-audit.json` SHA `98243cdc8bd5fe92be512754d2fdbde3e48f26808a29e715845c2324d3001ade`；排空后root显式halt SHA `c956bd88bf5a8e7aa0ba0322db0bb09b14ed4053c835a753714a16f3e08019f7`。仅两guide文字修复、生成器/新strict/HELP126及完整283待验证，不继承代表为全量；M8.5状态仍查实施计划。
+
+
+两guide岗位修正已按v2落盘，原生成器build/check通过；精确候选独审SHA 88b23b1b76938b441bfd8f0d378ebef2603fa7fb66e8c4c665b7ca707d803266。manual授权只描述当前页面FRONT可见路径，原API的manager权限保留；只有帮助文字及三生成物变化。冻结后新strict、HELP126代表和完整283仍待执行。
+
 ## 5f63427：二十代表结构通过，语义11可接受/9失败
 
 `20261006T071113Z-5aa1384574`自然CLI0/388.063秒，20例全部新执行，结构20/20、同批101子集7/7；0卡、0确认，467张业务表等值。当前输入为source `d0b55812f0c1d2523027c57ac6e46a1044317dd96b790dccb3f086566eae1b5c`、external `59d91b495513e774bb976602c5af9446dca41dd8d0e85160d79d789e5cfb625f`、harness `203f927b0e2b73eff0a69efc1e92d030211a8e9633efae855ac0707d06a08d2d`；与新strict `065927Z-ba14311333`、五节点定向 `065959Z-6e97bdee42`同五指纹三映射，不继承旧轮成绩。

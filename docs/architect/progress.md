@@ -2,9 +2,9 @@
 
 唯一里程碑与检查点状态查 [implementation_plan](../../implementation_plan.md)，当前工作入口为 [maintenance-handoff](tasks/maintenance-handoff.md)。逐轮真实模型报告查 [M8-5审阅](../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)，失败和旧未知费用保留。
 
-当前同一M8.5：5f63427新strict和五节点通过；20代表071113Z-5aa1384574结构20/20、语义11可接受/9失败，聚合SHA b0408c4d110c3a5ab0ad345d8840f6b8e7f59716a2e042ea6e267c10cffa45b2。完整Runtime证据纠正Y07“未尝试查询”的旧判断，失败仍为未取得真实可评审记录却承诺申请；原报告保留。root已按本地补丁合并有限修复，sales任务归属/精确检索与business盘点/套餐/快照条目准确合并，独立静审无阻断，原生成器build/check通过；terminal审两原测试及来源绑定。外部安装/绑定、新strict、三原节点、20代表及从零完整283待执行。
+当前同一M8.5：2026-10-06：d4b24f4/source c85ef517 的strict `20261006T074545Z-da97e3e202`及三原节点 `20261006T074617Z-2070c869d5`通过；20代表 `20261006T075631Z-e599d7eb0b`自然CLI0/383.375秒，结构20/20、同批101子集7/7，语义19可接受/1失败HELP-HK-126。聚合SHA `de1b03a756bb90ce47b84312bb10e4f6e9cfa4079e1fcff096c527f82732edac`，全部新执行，0卡/0确认/467业务图不变。唯一失败为合并的套餐购买步骤把财务列入申请/客户授权经办；按本地复验补丁仅修两guide的actor/action并同步原生成物，原API/岗位及步骤数保持。累计5431POST已结180.430233元加旧七未知66.322432元，占246.752665元；本轮74POST结算0.827486元，无新未知/预留。自然排空后显式halt SHA `c956bd88bf5a8e7aa0ba0322db0bb09b14ed4053c835a753714a16f3e08019f7`，旧行保持；350元/9000次保持。此次纯帮助文字不重复长collector；独立静审/原生成器后冻结、仅重绑source与原HELP126代表选择，新strict通过后显式ack该停止，真实单例再从零完整283/101。M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done，取消项不恢复。
 
-累计5357POST结算179.602747元加旧七未知66.322432元，占245.925179元；350元/9000次已绑定。自然排空后显式halt SHA 19004b998fd15fb74c07907b2db9a5c24ac0119fb37a5bf343fb4a174cec8787，费用行原样保留。通过新同五输入strict/三节点后才可一次显式ack，候选与结构结果不替代真实语义验收。状态只查实施计划；M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done，取消项不恢复。
+两guide最小修复已由root集成，sales独审v2通过，原生成器build/check通过；terminal完成20例聚合并准备仅bind/ack候选。正式状态只查实施计划；不并行实施M8.6，不重启取消项。
 
 ## 早先过程（保留当时结果与条件）
 
