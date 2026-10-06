@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-07 当前M8.5：`94cf417` 受审预算400元/12000次；新strict18/18，真实Flash三代表结构3/3、11次全结算，M07语义可接受、S07/F08普通失败、零关键，账本暂停且旧七未知保留。PATCH-M8-5-REP-SEMANTICS-02 仅补提示并通过独立静审；待新源码strict、S07/F08定向，再从零283/同批101。CP-37仍not_ready，M8.6仍todo。
+
 唯一里程碑与检查点状态查 [implementation_plan](../../implementation_plan.md)，当前工作入口为 [M8.5本地真实模型回归收口](tasks/m85-live-closeout.md)。逐轮真实模型报告查 [M8-5审阅](../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)，失败和旧未知费用保留。
 
 当前同一M8.5：cb984f9五原代表通过后从零283运行因B02权限疑虑安全停批56/283；合同复核证实B02本地原业务允许本店财务撤销，候选接口与V测试已撤回。前缀52可接受、四例普通语义失败、零关键；累计7954次、保守占275.734205元，旧七未知保留，账本显式halt。四例指南/提示定点后待新strict、真实代表及全量从零重跑；M8.5 in_progress、CP-37 not_ready、M8.6 todo。详本任务文档末尾。
