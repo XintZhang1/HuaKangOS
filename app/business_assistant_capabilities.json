@@ -1,7 +1,7 @@
 {
   "version": 1,
   "reviewed_on": "2026-09-24",
-  "policy": "Only these exact method and registered path pairs may be queried or prepared. New routes require explicit review. Native permissions and human confirmation remain mandatory.",
+  "policy": "Write preparation is restricted to these exact registered method and path pairs. GET discovery follows gateway domain boundaries and native route registration; listed GET entries are historical review records, not an additional query allowlist. Native role/store permissions and human confirmation remain mandatory.",
   "operations": [
     "GET /api/addon-orders",
     "GET /api/addon-orders/catalog",

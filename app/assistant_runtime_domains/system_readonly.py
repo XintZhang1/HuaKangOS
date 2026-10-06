@@ -1,10 +1,10 @@
 """系统只读面（system_readonly）适配器：原管理读取的受控只读投影。
 
-**经核对的事实（不猜、不越界）**：
-- reviewed catalog 内本域**只有两条只读**：`GET /api/stores` 与 `GET /api/parameters/catalog`；
-- 计划点名的 `GET /api/users`、`GET /api/audit` **不在 catalog 内**（用户与审计属原封闭面）→
-  **没有已评审读取可用**，只能如实报告边界，绝不绕道或借用管理员身份；
-- 原 `MANAGEMENT_READERS` 岗位校验仍是权威，适配器只调用原接口，不代替权限判断。
+**适配器注册与核心查询分开**：
+- 本适配器只注册 `GET /api/stores` 与 `GET /api/parameters/catalog`，不注册用户/审计事实；
+- 核心 read_data 的查询目录由 gateway 按开放领域和原 GET 路由生成，包含用户与审计读取；
+  它们能否查询由本人当前门店岗位及原接口决定，不因本适配器未注册就视为全局关闭；
+- 原 `MANAGEMENT_READERS` 岗位校验仍是权威，不得借用管理员身份。
 
 **`fact_keys=()`**：按计划不注册任何事实键——**查询权限配置不产生授权生效、密码变更或员工创建完成事实**。
 """
@@ -26,8 +26,8 @@ SYS_RECEIPT_OPERATIONS = frozenset()
 SYS_FACTS = ()
 QUERY_FROM_CORE = ('系统只读查询由核心运行时按员工本人的查询对象提供；适配器不读助手自己的对象表，'
                    '也不猜参数，请由核心传入查询意图或回到原管理页面查看。')
-NO_REVIEWED_READ = ('用户与审计属原封闭面：这两条读取不在已评审 catalog 内，助手没有可用读取，'
-                    '也不得借用管理员身份绕过岗位校验；请在原管理页面由本人在岗查看。')
+NO_REVIEWED_READ = ('本适配器不注册用户与审计读取或事实；核心查询目录另按本人当前门店岗位和原接口提供只读能力，'
+                    '不能从适配器未注册推断查询全局关闭，也不得借用管理员身份绕过岗位校验。')
 NO_SIDE_EFFECTS = ('查询权限配置不产生授权生效、密码变更或员工创建完成事实：'
                    '只读结果不代表任何授权、凭据或人员变更已完成')
 
@@ -41,7 +41,7 @@ def _invalid():
 
 
 class SystemReadonlyAdapter(FlowCaseAdapter):
-    """系统只读：仅暴露两条已评审只读；无写、无事实、无回执族。"""
+    """系统适配器仅注册两条只读；核心查询另走 gateway。无写、无事实、无回执族。"""
 
     name = 'system_readonly'
     object_types = (SYS_OBJECT_TYPE,)

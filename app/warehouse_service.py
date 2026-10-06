@@ -147,6 +147,10 @@ def stock_view(db,user,key,include_entries=True):
         'quantity_milli':item.quantity_milli,'available_milli':available_quantity(db,item),'reserved_milli':reserved_quantity(db,key),
         'balances':[{'id':b.id,'version':b.version,'location_id':b.location_id,'location_name':locs[b.location_id].name if b.location_id in locs else '店内移库在途',
             'transit_case_id':b.transit_case_id,'quantity_milli':b.quantity_milli,**({'value_cents':b.value_cents} if money else {})} for b in balances]}
+    result.update(item_active=item.active,location_ledger_enabled=result['enabled'],
+        field_notes={'enabled':'兼容字段：是否已核对并启用真实库位账，与 location_ledger_enabled 相同；不是物资档案启用状态。',
+            'location_ledger_enabled':'是否已核对并启用真实库位账；未启用不表示物资档案停用。',
+            'item_active':'物资档案是否启用，来自原物资 active。'})
     if money:result['value_cents']=item.inventory_value_cents
     if include_entries:
         entries=list(db.scalars(select(Entry).join(Balance,Balance.id==Entry.balance_id).where(Balance.item_id==key).order_by(Entry.id).limit(50001)))

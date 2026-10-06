@@ -139,7 +139,7 @@ ROUTES = {
 
 @lru_cache(maxsize=1)
 def _reviewed_operations():
-    """Static reviewed capability boundary; adding an API never grants model access."""
+    """Load the reviewed list used to gate non-GET routes; GET discovery has its own guards."""
     try:
         policy=json.loads(Path(__file__).with_name('business_assistant_capabilities.json').read_text(encoding='utf-8'))
         entries=policy['operations']
@@ -154,11 +154,12 @@ def _reviewed_operations():
 
 @lru_cache(maxsize=1)
 def _operations():
-    """Queries follow the employee's own role scope; write operations stay reviewed-only.
+    """Discover guarded GET routes and reviewed operations for write preparation.
 
-    Everything a role can read in its own pages may be read by the assistant (the endpoint still
-    enforces role, store scope and tenancy). Preparing writes beyond the reviewed list is a later,
-    risk-classified step; approval/void actions stay on the original page.
+    GET discovery obeys the registered domains and closed-route guards below; the native endpoint
+    enforces the employee's role, store and object scope. Non-GET routes require reviewed membership
+    and the remaining route guards. Reviewed approval/void operations may be prepared, while business
+    execution still requires the employee's original confirmation interface.
     """
     from .main import app
     reviewed=_reviewed_operations()
@@ -210,7 +211,8 @@ def role_note(role,op):
     if allowed is None:return ''
     if role in allowed:return ''
     from .security import ROLES
-    return '这个入口只对%s开放。' % '、'.join(sorted(ROLES.get(item,item) for item in allowed))
+    return ('这个入口只对%s开放。这是目录岗位规则提示，尚未发起该查询，不代表实际拒绝或已登记的拒绝记录；'
+            '评审资格须以本人的真实可评审拒绝记录为准。') % '、'.join(sorted(ROLES.get(item,item) for item in allowed))
 
 
 def _declared_dispatch(op,path):
@@ -270,7 +272,8 @@ def catalog(domain='',query='',role=None):
         row={k:op[k] for k in ('id','label','domain','description','write','idempotent','manual_route')}
         if role:
             may=role_may_read(role,op)
-            if may is not None:row['role_may_read']=may
+            if may is not None:
+                row.update(role_may_read=may,role_source='static_catalog',request_executed=False)
             note=role_note(role,op)
             if note:row['role_note']=note
         items.append(row)
@@ -652,6 +655,28 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
         # Never pretend a clipped JSON fragment is a complete business result.
         data={'detail':'结果较多，请指定资料类型、客户或单号查询','truncated':True,'top_level_fields':list(data) if isinstance(data,dict) else [],'total':data.get('total') if isinstance(data,dict) else None}
     result={'status':response.status_code,'data':data,'route':manual_route(operation_id,path_args,data)}
+    # These annotations describe only the rows already authorized and returned.
+    # They do not query another page or change the native business response.
+    if response.status_code==200 and isinstance(data,dict) and not data.get('truncated'):
+        rows=data.get('items')
+        if operation_id=='GET /api/audit' and isinstance(rows,list) and all(
+                isinstance(row,dict) and isinstance(row.get('action'),str)
+                and isinstance(row.get('entity_type'),str) for row in rows):
+            actions={};entities={}
+            for row in rows:
+                actions[row['action']]=actions.get(row['action'],0)+1
+                entities[row['entity_type']]=entities.get(row['entity_type'],0)+1
+            result['page_counts']={'scope':'returned_page','page':data.get('page'),
+                'returned_count':len(rows),'matching_total':data.get('total'),
+                'by_action':actions,'by_entity_type':entities,
+                'notice':'只统计本次返回页；matching_total是原查询匹配总数，不是本页条数。各页分别核对，不把其他页或初始化记录混入本页业务分类。'}
+        if (operation_id=='GET /api/flow/master/{kind}' and path_args.get('kind')=='customers'
+                and isinstance(rows,list)):
+            actor_id=getattr(user,'id',None)
+            result['customer_id_context']={'scope':'returned_page',
+                'id':'客户档案ID','owner_id':'负责员工ID',
+                'current_actor_id':actor_id if type(actor_id) is int and actor_id>0 else None,
+                'notice':'客户id不是员工ID；仅将owner_id与本次真实current_actor_id比较才能判断是否本人负责。未提供负责员工或当前员工ID时保留未知；可见不等于本人负责，当前页不能推出其他页或全店归属数量。'}
     if refusal is not None:result['refusal']=refusal
     if response.status_code>=400:
         category=refusal['category'] if refusal else None

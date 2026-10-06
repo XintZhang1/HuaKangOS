@@ -1,5 +1,40 @@
 # 本地真实模型复验入口
 
+## fd30372完整283后的集中修复登记（2026-10-06，实现已落盘，待验证）
+
+本节是本次精确允许范围；下方各轮记录保留当时结果与预算条件。集中实现已落盘并经root静审，生成器发布build及check通过；外部输入待绑定，新strict、五原节点、20代表及完整283均待验证，不预记修复成功。源码冻结后，外部动态绑定与后续执行结果在仓库外留证，不为补记绑定再次改动冻结源码。
+
+`fd30372065a132852529c324e8e116f4899cc5d5` / source `10a66e023ed2f678649e74dd8ecde35a4b38696275286effe05223c0ad9100ae` 的完整Flash运行 `20261006T052500Z-e070771e64` 自然CLI1/4416.875秒、无超时、进程drained，原283全部在同一轮新执行、0继承，101只是同批子集。原结构281/283、99/101；R4当前合同另列282/283、100/101。原失败B03/X03保留；B03十项原登记条件本轮成立仅影响另列R4判断，X03仍失败。逐例语义263可接受/20失败，0未运行；汇总 `V/closeout-20261006/flash-full-20261006T052500Z-e070771e64-review/aggregate-review.json` SHA `d72ecee11b6bea37b1b6ba58c63312e0088c5b50e1a235a82a41b9229e0e5621`。全部283例467业务表图不变、零确认请求，并不豁免回答及不当备卡错误。
+
+本批20个原失败ID：S07、M01、Y04、Y07、X02、X03、X08、HELP-HK-038、HELP-HK-048、HELP-HK-051、HELP-HK-061、HELP-HK-073、HELP-HK-101、HELP-HK-121、HELP-HK-122、HELP-HK-126、HELP-HK-131、HELP-HK-164、HELP-HK-178、HELP-HK-188。原提示词/expected_outcome、283及101定义、原结构评分和既有B03十条件保持；观察不扩成新增验收要求，不能为提高分数多备卡。
+
+| 允许生产文件 | 本次限定修复 |
+|---|---|
+| `app/warehouse_service.py` | 原stock_view保留enabled，复用已读取值补item_active、location_ledger_enabled及字段含义，区分物资档案与库位账；无新SQL，原列表/成本权限/UI旧字段行为不变（M01）。 |
+| `app/business_assistant_gateway.py` | 目录岗位说明附static_catalog/request_executed=false，不冒充已发查询或refusal；仅对已授权200且未截断的原audit页附本页分类计数、原customers页附客户ID/owner_id/当前员工ID含义，不追加读取、不改原data、权限或拒绝（Y04/Y07/X08）。同步两处过时职责注释。 |
+| `app/business_assistant_case_tools.py` | 仅澄清既有终态original_assignment.meaning：待办办理责任不是动作输入的业务接手对象，后者核原事件detail；实际完成者仍用done_by，原字段、深复制与native结果保持（X02）。 |
+| `app/business_assistant_prompt.py` | 原委托边界段说明拒绝绕过后不能擅自改办收款等其它业务；唯一可办动作不是员工委托，不加关键词拦截或业务特判，不改确认守卫（X03）。 |
+| `app/business_assistant_business_tools.py` | 完整筛选后的表单封装entries为空时附原操作目录尚未核对及list_operations/inspect_operation下一步；不把空封装当能力上限，不增renew快捷表单、API或卡（HELP122）。 |
+| `app/business_assistant_guides.py` | 仅模型帮助检索：规范化发布标题/原需求标题精确命中时保留全部精确命中，再沿原排序、投影、3项上限；未精确命中路径保持，不改变UI搜索、目录或权限（HELP164/178/188）。 |
+| `docs/workflow-source/business.json`、`docs/workflow-source/services.json` | 仅11条原guide：wf-sale-addon、wf-repair-rework、wf-material-other-in、wf-consumable-issue-return、wf-material-other-out、wf-material-local-move、wf-material-stock-count、wf-questionnaire-design-and-answer、wf-member-renew-tier、wf-coupons-and-benefits、wf-customer-repair-package。纠正创建加装与实际VIN条件、返修批准相对申请人、仓储当前待办权限及盘点初始approve、实际单选题型、会员身份与识别卡、当前岗位客户范围，以及套餐购买与本店实际使用映射条件。保留原业务守卫，不凭指引顺序加依赖。 |
+| `app/assistant_runtime_domains/system_readonly.py`、`app/business_assistant_capabilities.json`、`docs/维护交接.md` | 仅维护说明及本适配器unsupported事实原因的准确表达；说明共用project_case_read、原版本定义、终态真实办理者、金额展示和当前Flash。capabilities操作列表、路由/注册、事实键和权限不动。 |
+
+生成范围仅 `web/workflow-guides.json`、`web/workflow-handbook.html`、`docs/全量工作流手册.html`，用原 `scripts/build_workflow_guides.py` 发布构建及--check；111工作流、193需求映射、原截图和coverage原件保持。本批已使用原生成器完成发布build及check；此结果只证明生成物一致，不替代业务或模型验证。
+
+外部只扩以下五个原节点，保留原断言、节点数与原套件；不新增框架：
+
+- `V/tests/baseline/overlay/tests/test_business_assistant_case_tools.py::test_get_case_returns_native_actions_and_missing_phone_prevents_any_draft`：同步终态原责任含义，原真实两读取通道、版本定义、金额、未知成本等断言保持。
+- `V/tests/baseline/overlay/tests/test_business_assistant_gateway.py::test_catalog_subset_and_sanitizing_are_explicit`：原真实HTTP读取不变及授权返回页元数据、截断/拒绝不注释。
+- `V/tests/baseline/overlay/tests/test_business_assistant_scope.py::test_the_operation_list_hands_the_role_through_the_normal_tool_path`：目录岗位元数据无实际请求/refusal。
+- `V/tests/baseline/overlay/tests/test_business_assistant_guides.py::test_category_narrows_the_same_catalogue`：真实已发布标题/需求标题精确命中、多个原映射及各自岗位保持。
+- `V/tests/baseline/overlay/tests/test_warehouse.py::test_existing_ledger_activation_no_stock_duplication_and_stale_activation_refused`：物资启用与库位账启用独立、列表/详情一致及旧库存不变。
+
+外部适配与来源允许范围：同overlay的 `m85_runtime_live.py` 仅把上述既有20个失败ID补入REPRESENTATIVES允许选择集，不改夹具或评分；`V/archive/baseline-restoration.json` 仅按实际改动重绑来源并保留prior_registration；`V/validation-manifest.json` 仅设置20代表参数及gate SHA；`V/harness/live_gate.py` 仅MAX_ATTEMPTS由6000增至9000；`V/live-evaluation/gates/deepseek-current.json` 仅同步次数cap、固定四harness文件及source/external指纹绑定。既有runner、isolation、runtime_guard不改，不读取或将私有凭据写入报告。
+
+费用实录：本轮939次新POST全部HTTP200并结算11.017271元；累计5287条，已结算178.768292元，加七条旧未知66.322432元，保守占245.090724元，零新未知、零预留。原4348行和metadata保持，未知不释放、不重价、不重放。业主已授权次数6000→9000，金额仍为同一累计350元，不另开预算；此次外部上限与指纹变更待绑定，动态绑定证据留在仓库外。root已在自然排空后显式halt，5287条停后SHA `8246a889bb8d2d3f9685abdef770ee4437d14f595722345186d45ad61c840115`。仅在当前集中候选独立静审、新同五输入strict和上述精确五节点通过后，允许root显式一次ack解除该次固定停止；只能改halted/halt_reason，全部历史行/费用/metadata保持，不自动解除后续停止，不自动启动付费。
+
+执行顺序：本登记及上述精确生产/生成物已安装并核静态差异；冻结源码后，在仓库外绑定外部输入与新五指纹；新M0.1 strict及M8.2原五节点定向（3+1+1原节点组）通过后，核固定停止并显式ack，再新执行上述20原代表逐例语义审阅；随后从零单次新执行完整283并单列101子集。代表、旧R04和旧全量均不拼入新成绩。安全/未确认写入/隔离或费用异常立即停；一般语义问题完整采集后集中修复。当前M8.5 in_progress、CP-37 not_ready、M8.6 todo；M8.10 done，取消的OS/部署独立门槛不重启，total_plan.md不改。
+
 ## 原单金额的精确展示单位（2026-10-06）
 
 12d8602/source2fe16742 的strict `20261006T044929Z-607dc5ba47`和原节点定向 `20261006T045010Z-5180298be0`通过（清单收集495.843秒、目标25.64秒）。R04真实代表 `20261006T045959Z-2a7299aba3`自然CLI0/56.203秒，原版本workflow_definition已实际读到，回答不再新增新版独立费用承担步骤；但把原amount_cents=50000写成“应收50000元”，正确值是500元。结构1/1不能掩盖这次明确金额错误。

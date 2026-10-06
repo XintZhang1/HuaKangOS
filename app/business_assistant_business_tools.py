@@ -230,10 +230,16 @@ async def discover(db,request,user,sid,c,args):
         entries=exact
     entries.sort(key=lambda x:(x['module'],x['label'],x['form_ref']))
     offset,limit=args['offset'],args['limit'];page=entries[offset:offset+limit]
-    return {'status':200,'forms':page,'total':len(entries),'has_more':offset+len(page)<len(entries),
+    result={'status':200,'forms':page,'total':len(entries),'has_more':offset+len(page)<len(entries),
         'next_offset':offset+len(page) if offset+len(page)<len(entries) else None,
         'workflows':help_data,'coverage':'表单封装不是整个系统的能力上限；专用订单、财务明细及报表仍可用原已评审工具。',
         'notice':'这些是新建表单。查进度/退回/后续办理应先找已有原单，不为问做法创建卡片。'}
+    if not entries:
+        # An empty wrapper match is not an authorization or native capability verdict.
+        result['native_operation_discovery']={
+            'status':'not_checked','next_tools':['list_operations','inspect_operation'],
+            'notice':'本次只查了新建表单封装，尚未核对原业务操作目录。要判断该业务能否由助手准备，先用list_operations查原操作，再用inspect_operation核对；未核实前不能说助手不支持、不能代填或只能员工去页面提交。此说明不授权新业务，也不要求为了解做法创建卡片。'}
+    return result
 
 
 async def inspect_form(db,request,user,sid,c,ref):

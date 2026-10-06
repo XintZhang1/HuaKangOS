@@ -2815,14 +2815,16 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "mode": "write"
       },
       "prerequisites": [
-        "真实销售原单和已配VIN；启用物资、安装作业及实际约定。"
+        "真实销售原单；启用物资、安装作业及实际约定。",
+        "建立加装按原销售版本及授权条件核对，不以已配VIN作为统一前置；实际领料和安装须核对原销售已配VIN。",
+        "流程版本2的车辆订单批准后按原约定生成加装子单；已有子单沿原动作继续。本指引的明细报价、领料及安装步骤用于销售加装明细，不替代旧版子单动作。"
       ],
       "manual": [
         {
           "actor": "销售或服务顾问",
           "where": "销售加装明细",
-          "action": "从销售关联加装进入，或“建立销售加装”选择原销售；标明是否须交车前完成。",
-          "expected": "加装单与原订单、VIN关联。"
+          "action": "先查看销售关联加装，已有原单沿本版原动作继续；需要“建立销售加装”明细时选择真实原销售，标明是否须交车前完成。",
+          "expected": "加装明细先关联原销售；原VIN由实际领料时核对并绑定。"
         },
         {
           "actor": "销售、店长",
@@ -5049,9 +5051,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "expected": "返修申请关联原责任。"
         },
         {
-          "actor": "另一店长",
+          "actor": "店长（本次返修责任复核待办负责人）",
           "where": "返修原单",
-          "action": "核对责任和承担主体后“批准内部返修责任”。",
+          "action": "核对本次返修申请人与复核人、责任和承担主体后“批准内部返修责任”；独立性按本次申请及原单版本校验，不按是否参与原维修判断。",
           "expected": "确定本次内部承担范围。"
         },
         {
@@ -5434,21 +5436,21 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "expected": "形成待核对的入库申请。"
         },
         {
-          "actor": "另一店长",
+          "actor": "店长",
           "where": "原作业",
-          "action": "核对入库依据及价值后“批准作业”。",
+          "action": "由当前批准待办负责人核对入库依据及价值后“批准作业”。",
           "expected": "等待库管确认实际收货。"
         },
         {
           "actor": "库管",
           "where": "原作业",
-          "action": "上传实物凭据并“确认实际收发”。",
+          "action": "批准后，由当前实际收发待办负责人上传实物凭据并“确认实际收发”。",
           "expected": "本店库存和接收库位增加。"
         },
         {
           "actor": "库管、店长",
           "where": "原作业或仓储入口",
-          "action": "需退回时选择“退回这批”或“原其他入库退回”，选原批次、退量和原库位；批准后实际发出。",
+          "action": "需退回时选择“退回这批”或“原其他入库退回”，选原批次、退量和原库位；由当前批准待办负责人批准后，实际收发待办负责人核对实物发出并确认。",
           "expected": "退回关联原数量和原成本。"
         }
       ],
@@ -5550,9 +5552,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "expected": "生成领用申请。"
         },
         {
-          "actor": "另一店长",
+          "actor": "店长",
           "where": "原作业",
-          "action": "“批准作业”后由库管凭真实领用凭据“确认实际收发”。",
+          "action": "由当前批准待办负责人“批准作业”；批准后由库管按当前实际收发待办，凭真实领用凭据“确认实际收发”。",
           "expected": "库存按实际领用减少。"
         },
         {
@@ -5562,9 +5564,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "expected": "显示原批次及当前最多可退数量。"
         },
         {
-          "actor": "另一店长、库管",
+          "actor": "店长、库管",
           "where": "退回作业",
-          "action": "批准退回，库管实物收回后确认实际收发。",
+          "action": "由当前批准待办负责人批准退回；库管按当前实际收发待办，在实物收回后确认实际收发。",
           "expected": "按原领用批次恢复数量及成本。"
         }
       ],
@@ -5793,15 +5795,15 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "expected": "形成待主管批准的申请。"
         },
         {
-          "actor": "另一店长",
+          "actor": "店长",
           "where": "原作业",
-          "action": "核对数量、用途及依据后“批准作业”。",
+          "action": "由当前批准待办负责人核对数量、用途及依据后“批准作业”。",
           "expected": "占用相应物资，尚未扣减实际库存。"
         },
         {
           "actor": "库管",
           "where": "同一作业",
-          "action": "实物处理后上传交接凭据，点“确认实际收发”。",
+          "action": "实物处理后，由当前实际收发待办负责人上传交接凭据，点“确认实际收发”。",
           "expected": "实际库存与价值按本次数量减少。"
         }
       ],
@@ -6137,15 +6139,15 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "expected": "同店移库申请保存。"
         },
         {
-          "actor": "另一店长",
+          "actor": "店长",
           "where": "原移库单",
-          "action": "核对后“批准作业”。",
+          "action": "由当前批准待办负责人核对后“批准作业”。",
           "expected": "等待实际移出。"
         },
         {
           "actor": "库管",
           "where": "原移库单",
-          "action": "移出时“确认实际移出”，到目标位后按本次实际量“确认实际接收”。",
+          "action": "按当前实际交接待办，移出时“确认实际移出”，到目标位后按本次实际量“确认实际接收”。",
           "expected": "源位减少、店内在途及目标位数量对应。"
         }
       ],
@@ -6244,18 +6246,24 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "actor": "库管",
           "where": "库位与仓储作业",
           "action": "点“库位盘点”，选择本次物资、库位和盘点安排。",
-          "expected": "对本次范围建立盘点记录。"
+          "expected": "对本次范围建立待批准的盘点申请，尚不能提交实盘观察。"
+        },
+        {
+          "actor": "店长",
+          "where": "原盘点单",
+          "action": "由当前批准待办负责人核对本次物资、库位、盘点安排及凭据，点“批准作业”。",
+          "expected": "批准后记录本次盘点基准，产生现场清点待办。"
         },
         {
           "actor": "库管",
           "where": "原盘点单",
-          "action": "现场清点后“提交实盘观察”，填写实际数量、时点和凭据。",
+          "action": "批准后，由当前现场清点待办负责人清点并“提交实盘观察”，填写实际数量、时点和凭据。",
           "expected": "保存原观察，与期间收发分开。"
         },
         {
-          "actor": "另一店长",
+          "actor": "店长",
           "where": "盘点原单",
-          "action": "核对期间收发及差异后“批准盘点差异”。",
+          "action": "由当前差异复核待办负责人核对期间收发及差异后“批准盘点差异”。",
           "expected": "系统追加盘盈或盘亏库存流水。"
         },
         {
@@ -8079,7 +8087,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "mode": "write"
       },
       "prerequisites": [
-        "准备问卷名称、题目、题型和必答要求。",
+        "准备问卷名称、题目、题型和必答要求；现有题型为整数、是或否、文字、单选，单选题每次只能选择一个选项。",
         "由另一名主管复核题目版本。"
       ],
       "manual": [
@@ -9244,7 +9252,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "mode": "write"
       },
       "prerequisites": [
-        "已开通会员。",
+        "本店客户已关联并开通集团会员；会员关系与会员识别卡分开，续会或等级调整不以持有识别卡为前置。",
         "本店适用且已启用的集团等级及续会规则。"
       ],
       "manual": [
@@ -9662,7 +9670,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "mode": "write"
       },
       "prerequisites": [
-        "会员已开通。",
+        "会员已开通；客户范围按经办人当前门店岗位核对：销售／前台限自己负责客户，主管／管理员无须客户归属本人；具体办理仍按原门店及动作权限校验。",
         "主管已明确券面值、购买价格、有效期、适用店及优惠承担。"
       ],
       "manual": [
@@ -9804,7 +9812,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "mode": "write"
       },
       "prerequisites": [
-        "实际作业／配件目录已建立，规格和单位明确。",
+        "实际作业／配件目录已建立，规格和单位明确；各使用店组件映射在实际维修使用前确认，不作为购买、客户授权或实际到账发行的前置。",
         "会员及真实来源业务；套餐需另一主管独立批准。"
       ],
       "manual": [
@@ -9817,8 +9825,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         {
           "actor": "另一名店长",
           "where": "维修套餐 → 售前冻结套餐",
-          "action": "核对后“独立批准”；各使用店“确认本店”组件，选择规格和单位一致的实际作业／物资。",
-          "expected": "本店履约项目明确，不增加库存。"
+          "action": "核对后“独立批准”；各使用店在本店实际使用组件前“确认本店”，选择规格和单位一致的实际作业／物资。",
+          "expected": "批准后的套餐可按原条件申请购买；各店组件确认用于本店履约，不增加库存。"
         },
         {
           "actor": "服务顾问／销售／财务",
@@ -9841,7 +9849,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
       ],
       "assistant": {
         "mode": "prepare",
-        "prompt": "帮我办理会员维修套餐，先查原规则、会员、实际本店组件和来源单；购买、工单使用或原未用退款按当前目标准备表单，不能把已做工时当未用。先问缺少的信息，只使用我确认的事实；准备表单后等我核对确认，不编造收付款、客户授权或履约结果。",
+        "prompt": "帮我办理会员维修套餐，先查原规则、会员和来源单；工单使用时还须核对实际履约店组件映射。购买、工单使用或原未用退款按当前目标准备表单，不能把已做工时当未用。先问缺少的信息，只使用我确认的事实；准备表单后等我核对确认，不编造收付款、客户授权或履约结果。",
         "steps": [
           {
             "actor": "经办人",
@@ -9862,7 +9870,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
       },
       "exceptions": [
         {
-          "when": "本店组件尚未确认",
+          "when": "工单使用时，本店组件尚未确认",
           "action": "主管先在套餐中确认本店实际作业／配件及单位，不能用近似名称代替。"
         },
         {

@@ -62,7 +62,7 @@ def project_case_read(operation_id,result):
         if task.get('status') not in {'done','cancelled'}:continue
         assignment={key:task.pop(key) for key in ('role','role_label','assignee_id','assignee_name') if key in task}
         if assignment:
-            task['original_assignment']={'meaning':'原分派责任，不表示实际完成或终止任务的人',**assignment}
+            task['original_assignment']={'meaning':'该任务原办理责任：assignee记录接下这项待办的员工，不能据此确定动作输入中的业务接手对象；例如不能据分派接待任务的负责人确定被分派接待的销售。实际完成或终止任务的人另看done_by，业务接手对象另核对应事件detail，不从任务负责人或当前owner倒推。',**assignment}
     return projected
 
 

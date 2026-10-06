@@ -123,6 +123,14 @@ def search(query, role='', category='', limit=MAX_RESULTS):
     if not raw:
         return []
     rows=load_catalogue()
+    normalized=normalize(raw)
+    # One exact published name can map to several guides; do not add adjacent topics.
+    exact=[row for row in rows if normalized and (
+        normalize(row.get('title',''))==normalized
+        or any(normalize(item.get('title',''))==normalized
+               for item in row.get('requirements',[])))]
+    if exact:
+        rows=exact
     category_text=normalize(category) if category else ''
     scored=[]
     for row in rows:

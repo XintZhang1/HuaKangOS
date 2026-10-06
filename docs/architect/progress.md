@@ -2,6 +2,12 @@
 
 唯一里程碑与检查点状态查 [implementation_plan](../../implementation_plan.md)，当前工作入口为 [maintenance-handoff](tasks/maintenance-handoff.md)。逐轮真实模型报告查 [M8-5审阅](../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)，失败和旧未知费用保留。
 
+当前同一M8.5集中实现已落盘并经root静审，生成器发布build及check通过；外部输入待绑定，新strict/五原节点/20代表/完整283待验证。源码冻结后，外部动态绑定及执行证据留在仓库外，不为补记绑定再次改动冻结源码。fd30372完整Flash `20261006T052500Z-e070771e64`自然CLI1/4416.875秒，283/283全新，原结构281/283及99/101，R4当前282/283及100/101，独立语义263可接受/20失败。汇总SHA `d72ecee11b6bea37b1b6ba58c63312e0088c5b50e1a235a82a41b9229e0e5621`；无确认及467业务表不变不豁免语义失败。R04代表与完整轮各自可接受，业务值不跨run继承。
+
+本轮939POST结算11.017271元；累计5287次已结178.768292元加旧七未知66.322432元，占245.090724元，无新未知/预留。业主保持累计350元、授权次数6000→9000，待精确绑定；原账本已显式halt并保留旧行。按原补丁完成外部绑定后做新strict+五原节点，再显式一次ack、20原失败代表及从零完整283/101；候选存在和结构评分不替代新语义验收。正式状态仍查实施计划：M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done；取消项不恢复。
+
+## 早先过程（保留当时结果与条件）
+
 当前由root登记本地`deepseek-flash`模型切换及350元累计私有门禁；mobile_closeout核模型/费用接线，day_boundary核销售/维修/财务语义，regression_harness核原件、输入指纹和费用。全部为同一M8.5任务，生产默认、Runtime适配器及功能开关不改。
 
 2026-10-06业主已明确授权350元累计上限；当天[官方更新日志](https://api-docs.deepseek.com/updates/)及[人民币价格](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)标明当前`deepseek-flash`为V4.1 Flash，峰时命中/未命中/输出0.04/2/8元每百万token，保守POST预留5.242880元。旧3984次保守占230.037690元、含七条未知66.322432元，原行与报告不重价、不释放。外部helper历史分段为1—1402旧Flash、1403—3984旧Pro、3985起新Flash，旧Flash后台版本不自行追认；此前280元仍作为历史运行条件保留。
