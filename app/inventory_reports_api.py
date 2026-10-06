@@ -48,13 +48,13 @@ def build(kind, db, user, start, end, vin, item_id=None, warehouse_id=None):
     raise HTTPException(404, '报表不存在')
 
 
-@router.get('/{kind}')
+@router.get('/{kind}', summary='期间报表：vehicles整车、procurement物资订货、warehouses物资库位及在途、vehicle-transport原车运输；VIN仅vehicles，item_id/warehouse_id仅warehouses')
 def report(kind: str, date_from: date | None = None, date_to: date | None = None,
            vin: str | None = Query(None, max_length=17), item_id: int | None = Query(None, gt=0), warehouse_id: int | None = Query(None, gt=0), db=Depends(get_db), user=Depends(get_user)):
     return build(kind, db, user, date_from, date_to, vin, item_id, warehouse_id)
 
 
-@router.get('/{kind}/export/{table_key}')
+@router.get('/{kind}/export/{table_key}', summary='导出原期间报表同范围明细；VIN仅vehicles，item_id/warehouse_id仅warehouses，table_key取该报表实际返回表键')
 def export(kind: str, table_key: str, date_from: date | None = None, date_to: date | None = None,
            vin: str | None = Query(None, max_length=17), item_id: int | None = Query(None, gt=0), warehouse_id: int | None = Query(None, gt=0), db=Depends(get_audited_read_db), user=Depends(get_user)):
     result = build(kind, db, user, date_from, date_to, vin, item_id, warehouse_id)
