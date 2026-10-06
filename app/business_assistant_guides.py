@@ -175,7 +175,7 @@ def find_workflows(query, role='', category=''):
         'exact_workflow_titles':exact_titles,
         'returned_workflow_ids':[item['workflow_id'] for item in items]}
     for item in items:
-        item['next'] = ('告诉员工入口、岗位和本次要准备的资料；账号、密码和配置留在原页面；其它业务能否准备按操作目录和原单权限判断，不按动作名称一概限制。'
+        item['next'] = ('告诉员工入口、岗位和本次要准备的资料；其它业务能否准备按操作目录和原单权限判断，不按动作名称一概限制。'
                         if item['entry']['can_enter'] else item['entry']['role_note'])
     return {'items': items, 'query_match': query_match, 'notice': (
         '这是当前发布的工作流帮助，未读取或核对任何具体原单的kind、flow_version、当前版本及父单授权。'
