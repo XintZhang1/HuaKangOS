@@ -1,5 +1,11 @@
 # M8.5 本地真实模型逐轮审阅
 
+## 08be534：二十六代表24可接受/2失败
+
+2026-10-06：08be534/source 5c6690d9 新strict `20261006T100114Z-ee7f81d5c2` 18通过；同输入26代表 `20261006T100207Z-5c63532980` 自然CLI0/366.313秒，结构26/26、逐例语义24可接受/2失败（HELP082收款额外客户确认前置，HELP092售后方案提交及应用岗位混合）。聚合SHA `b85d7125e0483b52596394f4b540ef1449bb1b2d50a93fa0d0269761067ed78f`；全部26零卡/零确认、467表等值，五指纹/三映射/八标记保持。68新POST全200/Flash并结算0.915166元；累计6438次已结192.004796加旧七未知66.322432，占258.327228元，无新未知/预留。自然排空后root显式halt，停后SHA `d730b9595071fe1c8766a9f2c46b2eab49e8dd4570e16266cd27e5d4078eaf92`。按事前补丁仅修订business源的wf-retail-sale/wf-sale-aftercare说明及三发布生成物，不改app；外部仅选两原代表，原adapter/restoration/场景/评分保持。独审与原生成器build/check已通过；新strict、两例与从零完整283待验证；M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done。
+
+原件：V/closeout-20261006/representative26-100207-aggregate-v2.json，按4+11+11唯一case原件SHA合并，无继承。技术报告`representative26-100207-terminal/terminal-audit.json` SHA `148404aa12efda3e790b341efc5feb3ee61ff48185cd19321ce7dde3acc22b07`；run SHA `533407e495bae6a56700553f339b5bde1c34aa8ad60784d9c24a68d87c49c7cf`。细微措辞观察另列保留，未据结构检查宣布语义通过。前一完整283仍是自己的257/26，不被本代表覆盖。
+
 ## ecf73b7：完整283语义257可接受/26失败
 
 对应说明修订已独立静审：两app仅文字，12指南42字符串字段及三发布生成物，结构/入口/步骤数保持。原生成器build/check通过（193/111/70截图）；app及guide独审SHA分别为`5f5eea31d3111ddb19f59b7258a948ca07c0aef33f52a9672d8a222c3f72481a`、`f1f588f82d0bf3ba0752ac574e048727f8a9a634d8fca716883e72c47b3f9e43`。有限外部代表修改只选择原26失败，无原场景/评分变化。新strict、代表、完整真实复验均待执行。

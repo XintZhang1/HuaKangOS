@@ -2,9 +2,9 @@
 
 唯一里程碑与检查点状态查 [implementation_plan](../../implementation_plan.md)，当前工作入口为 [maintenance-handoff](tasks/maintenance-handoff.md)。逐轮真实模型报告查 [M8-5审阅](../implementation-checkpoints/M8-5-mode-comparison-review-v1.md)，失败和旧未知费用保留。
 
-当前同一M8.5：2026-10-06：ecf73b7/source a445578d 的strict `20261006T081833Z-a2d9f93770`及HELP126真实代表通过；完整轮`20261006T082328Z-58f97d40f2`从零283例，自然CLI0/4712.219秒。原结构282/283及同批101子集100/101，保留B03原检查；已审R4十条件口径另列283/283及101/101。五分片逐例语义257可接受/26失败，聚合SHA `d9753fc7fdda3cef60036fc52c6fa9640fc08b173ef9c61079853971c7375abf`，不能据结构通过放行。全部283例无确认请求、无执行卡，85张真实准备卡，467表等值；五输入、三映射及八稳定标记核对一致。937新POST全部200并结算10.629723元；累计6370次已结191.089630元加旧七未知66.322432元，占257.412062元，无新未知/预留。自然排空后root显式停止，停后SHA `b784268027e59d3c8a35f842ba09e6f008a0818d48fcc926fa5954be48af38f7`。按本地复验补丁事前范围集中修正原说明合同；原业务处理、权限和确认守卫不改。新代表和完整复验待做；M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done，取消项不恢复。
+当前同一M8.5：2026-10-06：08be534/source 5c6690d9 新strict `20261006T100114Z-ee7f81d5c2` 18通过；同输入26代表 `20261006T100207Z-5c63532980` 自然CLI0/366.313秒，结构26/26、逐例语义24可接受/2失败（HELP082收款额外客户确认前置，HELP092售后方案提交及应用岗位混合）。聚合SHA `b85d7125e0483b52596394f4b540ef1449bb1b2d50a93fa0d0269761067ed78f`；全部26零卡/零确认、467表等值，五指纹/三映射/八标记保持。68新POST全200/Flash并结算0.915166元；累计6438次已结192.004796加旧七未知66.322432，占258.327228元，无新未知/预留。自然排空后root显式halt，停后SHA `d730b9595071fe1c8766a9f2c46b2eab49e8dd4570e16266cd27e5d4078eaf92`。按事前补丁仅修订business源的wf-retail-sale/wf-sale-aftercare说明及三发布生成物，不改app；外部仅选两原代表，原adapter/restoration/场景/评分保持。独审与原生成器build/check已通过；新strict、两例与从零完整283待验证；M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done。
 
-当前同项分工：root维护提示词、报表接口说明、状态与Git；business仅实施两份工作流源的已登记节点；sales独审实际生产差异；terminal维护外部有限代表候选、输入绑定与技术证据。先完成当前说明修订和复验，不并行实施M8.6。
+当前同项分工：root维护补丁/计划/汇总、生成物、Git和付费执行；business仅实施business源两条已登记guide；sales独审；terminal准备有限两代表绑定及技术审计。不并行实施M8.6。
 
 ## 早先过程（保留当时结果与条件）
 

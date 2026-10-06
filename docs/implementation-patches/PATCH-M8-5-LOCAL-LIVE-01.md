@@ -1,5 +1,17 @@
 # 本地真实模型复验入口
 
+## 08be534二十六代表后的两条指南澄清（2026-10-06，事前范围登记）
+
+已实施并独审：仅两guide的5个既有字符串，原API/UI条件核对无阻挡；报告SHA `a745a4cdf43276d69b292008af95b34f23f7334adceee6b8ab691ac5a1bbdac6`。原生成器build/check通过，193需求/111流程/70截图保持，无app改动。26语义汇总v2 SHA `b85d7125e0483b52596394f4b540ef1449bb1b2d50a93fa0d0269761067ed78f`仅更新已封存分片原件路径，24/2结论及所有case SHA不变；原聚合保留。新strict、两代表及完整复验待执行。
+
+新strict `20261006T100114Z-ee7f81d5c2` 18通过；同五输入代表 `20261006T100207Z-5c63532980` 自然CLI0/366.313秒，26结构全部通过，语义24可接受/2失败。HELP082把客户报价确认列为精品实际收款必备；原`retail_service.py`的收款任务及receive守卫要求原报价已批准、可收金额、真实到账、凭据和原任务，不要求客户报价确认。HELP092将混合岗位分别绑定到“提交费用与原路方案”和“核实事实并应用纠正”；原`aftercare_service.ROLES`的plan/customer_confirm由销售、服务顾问或管理员办理，独立approve由主管岗位办理，apply/refund/collect由财务或管理员办理。
+
+本次生产范围仅`docs/workflow-source/business.json`的`wf-retail-sale`及`wf-sale-aftercare`：在原步骤及必要对应assistant/exceptions字符串内分清客户报价确认与现金收款条件、方案提交/独立批准/客户同意录入/财务应用及逐原款收退款岗位。保留原API权限、任务、版本、证据及资金守卫，保留guide结构、步骤数、入口、193/111及其余109条。使用原生成器更新三发布文件并check；不改任何app或测试节点。root维护本补丁、当前计划/CP与审阅记录，不改`total_plan.md`。
+
+68新POST结算0.915166元，累计6438次已结192.004796元，旧七未知66.322432元，占258.327228元。root已在进程排空后持原锁显式halt，停后SHA `d730b9595071fe1c8766a9f2c46b2eab49e8dd4570e16266cd27e5d4078eaf92`；其余行与metadata保持，原件在V/closeout-20261006/representative100207-explicit-stop。累计350元/9000次不变。
+
+外部只将原manifest代表参数选为原失败HELP-HK-082/092，两个ID已在allowlist，adapter/restoration/原283及101/评分全部不动。源码独审并冻结后重绑source及必要manifest/gate，新同五输入strict通过，root才可显式一次ack固定6438停止，再复验两原场景并从零完整283。只改说明，无新业务节点或长collector。M8.5保持in_progress、CP-37 not_ready，M8.6未开始。
+
 ## ecf73b7完整轮后的说明合同集中修复（2026-10-06，事前登记后已实施，待真实复验）
 
 有限修订已落盘：两份app文件仅原提示词和两个路由summary说明变化，去除对应文字后AST与ecf73b7一致；12指南共42字符串字段变化，结构、步骤数、入口/角色、截图及其余99条保持。原生成器build与`--check`通过，193需求/111流程、70截图及coverage保持。独立app审阅SHA `5f5eea31d3111ddb19f59b7258a948ca07c0aef33f52a9672d8a222c3f72481a`；指南原API/UI交叉审阅SHA `f1f588f82d0bf3ba0752ac574e048727f8a9a634d8fca716883e72c47b3f9e43`，证据均在V/closeout-20261006。完整轮最终聚合为257可接受/26失败（d9753fc7），下段保留事前登记时的汇总阶段。下一步冻结源码，绑定有限26代表输入，新strict通过后显式确认6370停止，再执行代表与从零完整复验；未预记通过。
