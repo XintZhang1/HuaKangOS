@@ -33,6 +33,15 @@ def project_case_read(operation_id,result):
         return result
     projected=copy.deepcopy(result)
     data=projected['data']
+    money_fields={}
+    for key in ('amount_cents','paid_cents','cost_cents'):
+        value=data.get(key)
+        if type(value) is not int:continue
+        # Format only values the native API already disclosed. Integer quotient
+        # and remainder preserve cents exactly, including negative adjustments.
+        display=f'{"-" if value<0 else ""}{abs(value)//100}.{abs(value)%100:02d}'
+        money_fields[key]={'storage_unit':'分','scale':100,'display':display,'unit':'元'}
+    if money_fields:data['money_fields']=money_fields
     kind,version=data.get('kind'),data.get('flow_version')
     spec=None
     if isinstance(kind,str) and type(version) is int:
@@ -44,7 +53,7 @@ def project_case_read(operation_id,result):
     if spec and spec['actions']:
         data['workflow_definition']={
             'kind':kind,'flow_version':version,'label':spec['label'],
-            'notice':'本原单固定版本的动作定义，解释原data字段与流程，不是当前可办清单。roles/states是定义范围，不表示当前授权、任务负责人、执行顺序或前后依赖；本人现在能否办理仍看原actions的enabled/reason及原接口守卫。其它版本指引的额外步骤不能直接套到本单。',
+            'notice':'本原单固定版本的动作与输入表单定义，不是当前可办清单。fields.label属于动作输入表单，不能作为原data数值的存储单位；金额展示使用money_fields/data_fields明确的单位与换算值。roles/states是定义范围，不表示当前授权、任务负责人、执行顺序或前后依赖；本人现在能否办理仍看原actions的enabled/reason及原接口守卫。其它版本指引的额外步骤不能直接套到本单。',
             'actions':[{'key':action.key,'label':action.label,
                 'roles':list(action.roles),'states':list(action.states),
                 'fields':[{'key':field['key'],'label':field['label']} for field in action.fields]}
