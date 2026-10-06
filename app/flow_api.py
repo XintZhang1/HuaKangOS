@@ -431,7 +431,7 @@ def edit_master(kind:str,record_id:int,body:MasterInput,db=Depends(get_write_db)
     db.commit();return master_info(db,user,kind,row)
 
 
-@router.get('/analytics')
+@router.get('/analytics',summary='业务统计：资金收支(cash)、应收(receivables)、消费券变动明细(benefit_coupon)、权益核销与优惠承担(benefit_redemptions)等，按tables选择原统计表')
 def analytics(date_from:date|None=None,date_to:date|None=None,tables:str|None=Query(None,max_length=400),db=Depends(get_db),user=Depends(get_user)):
     require_full(user)
     from .flow_analytics import build_analytics

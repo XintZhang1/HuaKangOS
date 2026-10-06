@@ -43,7 +43,7 @@ def _guidance(data):
                      % (first.get('label') or first['key'], ('：'+reason) if reason else ''))
     if tasks:
         notes.append('本单待办：'+ '、'.join('%s%s' % (item.get('title') or item.get('key') or '',
-                     ('（%s）' % item['assignee_name']) if item.get('assignee_name') else '') for item in tasks[:2]) + '。')
+                     ('（%s）' % item['assignee_name']) if item.get('assignee_name') else '') for item in tasks[:2]) + '。任务与动作的显示顺序不表示相互依赖或必须按该顺序办理；本人的可办性看actions的enabled/reason，其它岗位的任务状态不代替该岗位的原业务条件。')
     if not actions:
         state=str(data.get('state_label') or data.get('state') or '').strip()
         notes.append('这一状态下没有需要你办的事项%s，不要凭空建议下一步。' % (('（当前进度：'+state+'）') if state else ''))

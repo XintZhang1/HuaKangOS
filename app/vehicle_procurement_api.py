@@ -78,7 +78,12 @@ def catalog(db=Depends(get_db),user=Depends(get_user)):
             binding=entities.current_store_binding(db)
             if binding and db.scalar(select(EntityPolicy.id)):party=entities.legal_info(db,binding.revision_id)['legal_name']
     return {'operating_party':party,'can_read':allowed,'can_create':allowed and user.role in {'admin','manager','inventory'},'can_money':allowed and user.role in svc.MONEY,
-        'actions':svc.LABELS if allowed else {}}
+        'actions':svc.LABELS if allowed else {},
+        'action_role_permissions':{
+            action:{'role_allowed':user.role in roles,'roles':sorted(roles)}
+            for action,roles in svc.ROLES.items()
+        } if allowed else {},
+        'action_permission_notice':'can_money只表示可以查看资金字段，不表示可以申请或登记付款。action_role_permissions只核岗位，具体办理仍须核原单、状态、版本和真实事实；申请付款与登记实付分属各自岗位，付款、发运和实车验收分别记录。' if allowed else ''}
 
 @router.get('/orders')
 def listing(page:int=Query(1,ge=1),page_size:int=Query(30,ge=1,le=100),q:str=Query('',max_length=80),db=Depends(get_db),user=Depends(get_user)):
