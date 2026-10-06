@@ -7,7 +7,7 @@ const groupFinance=()=>canWrite()&&['admin','finance'].includes(state.user.role)
 function groupFen(value){return moneyFen(value,{label:'金额'});}
 async function groupPage(customerId,caseId){
  if(state.store==='all')return heading('集团会员')+storeNotice()+'<div class="notice">请选择办理门店查看会员权益及本店结算记录。集团合并往来请在数据可视化中查看。</div>';
- if(!customerId){const customers=await api(`/api/flow/master/customers?q=${encodeURIComponent(state.q)}&page=${state.page}`);return heading('集团会员','从本店客户档案识别集团会员，跨店业务历史按授权保留。',full()?b('open','本店会员对账','data-route="group-reconciliation"'):'')+searchBar()+panel('本店客户',table(['客户','联系电话',''],customers.items.map(c=>[E(c.name),E(c.phone),b('open','查询会员',`data-route="group/${c.id}"`)]))+pager(customers.total));}
+ if(!customerId){const customers=await api(`/api/flow/master/customers?q=${encodeURIComponent(state.q)}&page=${state.page}`);return heading('集团会员','从本店客户档案识别集团会员，跨店业务历史按授权保留。',(full()?b('open','本店会员对账','data-route="group-reconciliation"'):'')+(groupApprover()?b('open','本店权益规则','data-route="benefits"'):''))+searchBar()+panel('本店客户',table(['客户','联系电话',''],customers.items.map(c=>[E(c.name),E(c.phone),b('open','查询会员',`data-route="group/${c.id}"`)]))+pager(customers.total));}
  const response=await api(`/api/group/members?customer_id=${customerId}`);const source=caseId?await api(`/api/flow/cases/${caseId}`):null;
  if(source&&source.customer_id!==customerId)throw new Error('来源业务与所选客户不一致。');
  const data=response.member?await api(`/api/group/members/${response.member.id}`):null;

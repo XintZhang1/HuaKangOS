@@ -88,8 +88,11 @@ def task_info(db,user,t,row):
 
 @router.get('/catalog')
 def catalog(db=Depends(get_db),user=Depends(get_user)):
+    from .config import settings
     allowed=set(SPECS) if user.role in eng.MANAGEMENT else eng.READ_KINDS.get(user.role,set())
-    return {'flow_version':CURRENT_FLOW_VERSION,'modules':MODULES,'states':STATES,'kinds':{k:{'label':s['label'],'module':s['module'],'fields':s['fields'],'can_create':user.role in s['create_roles']} for k,s in SPECS.items() if k in allowed},
+    # Existing legacy invoice cases remain readable, but production creates use
+    # the dedicated invoices API; match new_case's production guard.
+    return {'flow_version':CURRENT_FLOW_VERSION,'modules':MODULES,'states':STATES,'kinds':{k:{'label':s['label'],'module':s['module'],'fields':s['fields'],'can_create':user.role in s['create_roles'] and not (k=='invoice' and settings.environment=='production')} for k,s in SPECS.items() if k in allowed},
         'today':today().isoformat(),'master_types':{k:{'label':v['label'],'fields':v['fields'],'can_write':user.role in v['write']} for k,v in MASTERS.items() if user.role in v['read']},
         'upload_categories':UPLOAD_LABELS,'document_types':DOC_TITLES,
         'capabilities':{'rework_extensions':True,'repair_packages':True,'member_pricing':True,'member_fee_corrections':True}}

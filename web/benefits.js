@@ -4,9 +4,20 @@ const benefitActions={correction:'原组合误记更正',purchase:'购买权益'
 const benefitUnit=k=>({bonus:'分',points:'积分',coupon:'张',package:'次'}[k]);
 function benefitNumber(value){const n=Number(value);if(!Number.isSafeInteger(n)||n<=0||n>100000000)throw new Error('权益数量必须为正整数，不能填小数。');return n;}
 function benefitMoney(value){return String(value).trim()==='0'?0:groupFen(value);}
+function currentBenefitRules(items){return items.filter(r=>r.issuer_store_id===Number(state.store)&&!items.some(x=>x.issuer_store_id===r.issuer_store_id&&x.code===r.code&&x.rule_version>r.rule_version));}
 async function benefitsPage(customerId,caseId){
  if(state.store==='all')return heading('集团权益')+storeNotice();
- if(!customerId)return heading('集团权益','请从本店客户的集团会员页面进入。',b('open','选择客户','data-route="group"'));
+ if(!customerId){
+  state.benefits=null;
+  const catalog=await api('/api/group/benefits/rules'),current=currentBenefitRules(catalog.items);
+  return heading('集团权益','本店冻结规则；客户权益办理请从原会员和业务单进入。',b('open','选择客户','data-route="group"'))+
+   panel('本店可发行规则',(groupApprover()?b('benefit-rule','新增冻结规则版本'):'')+
+    table(['名称／编码／版本','发行条件','使用与结算'],current.map(r=>[
+     `${E(r.name)} · ${E(r.code)} · ${r.rule_version}`,
+     `${E(benefitNames[r.kind]||r.kind)} · 每${benefitUnit(r.kind)}抵 ${money(r.credit_cents_per_unit)} 元；售价 ${money(r.sale_cents_per_unit)} 元；有效 ${r.validity_days} 天${r.kind==='package'?`；作业编码 ${E(r.service_code)}`:''}`,
+     `适用门店 ${E(r.allowed_store_ids.join('、'))}；${E({group:'集团',service_store:'履约门店'}[r.discount_bearer]||r.discount_bearer||'按当前岗位查看承担方')}${r.settlement_cents_per_unit==null?'':`承担差额；每单位内部结算 ${money(r.settlement_cents_per_unit)} 元`}`
+    ])));
+ }
  const d=await api(`/api/group/benefits/members?customer_id=${customerId}`),catalog=await api('/api/group/benefits/rules');
  const source=caseId?await api(`/api/flow/cases/${caseId}`):null;if(source&&source.customer_id!==customerId)throw new Error('办理来源与当前客户不一致。');
  state.benefits={customerId,caseId,source,detail:d,rules:catalog.items};
@@ -19,7 +30,7 @@ async function benefitsPage(customerId,caseId){
  html+=panel('本店待核销',table(['占额','单位与抵扣','状态','操作'],d.reservations.map(r=>[E(r.id),`${r.units} 单位 / ${money(r.credit_cents)} 元`,E({reserved:'待核销',captured:'已核销',released:'已释放'}[r.status]),r.status==='reserved'&&finance?`<div class="row">${b('benefit-action','确认核销',`data-key="capture" data-id="${r.id}"`,'primary')}${b('benefit-action','释放占额',`data-key="release" data-id="${r.id}"`)}</div>`:'—'])));
  html+=panel('原款退款',table(['申请','份数','状态','操作'],d.refunds.map(r=>{let buttons='';if(r.status==='requested'&&manager)buttons+=b('benefit-action','批准并占额',`data-key="refund_approve" data-id="${r.id}"`)+b('benefit-action','退回',`data-key="refund_reject" data-id="${r.id}"`);if(r.status==='approved'&&finance)buttons+=b('benefit-action','登记实际退款',`data-key="refund" data-id="${r.id}"`,'primary');if(['requested','approved'].includes(r.status)&&canWrite()&&(manager||r.requested_by===state.user.id))buttons+=b('benefit-action','撤销',`data-key="refund_cancel" data-id="${r.id}"`);return [E(r.id),r.units,E({requested:'待复核',approved:'已占额待退款',rejected:'已退回',cancelled:'已撤销',executed:'已退款'}[r.status]),`<div class="row">${buttons||'—'}</div>`];})));
  html+=panel('本店权益流水',table(['记录','动作','单位变化','本单抵扣（元）','操作'],d.entries.map(e=>[E(e.id),E(benefitActions[e.purpose]||{exchange_in:'兑换获得',exchange_out:'兑换扣减'}[e.purpose]||e.purpose),e.units,money(e.credit_cents),e.purpose==='capture'&&finance?b('benefit-action','原核销撤销',`data-key="reverse" data-id="${e.id}"`):'—'])));
- const current=catalog.items.filter(r=>r.issuer_store_id===Number(state.store)&&!catalog.items.some(x=>x.issuer_store_id===r.issuer_store_id&&x.code===r.code&&x.rule_version>r.rule_version));
+ const current=currentBenefitRules(catalog.items);
  html+=panel('本店可发行规则',(manager?b('benefit-rule','新增冻结规则版本'):'')+table(['名称／版本','固定规则','办理'],current.map(r=>[`${E(r.name)} · ${r.rule_version}`,`每${benefitUnit(r.kind)}抵 ${money(r.credit_cents_per_unit)} 元；有效 ${r.validity_days} 天${r.kind==='package'?'<br>作业编码 '+E(r.service_code):''}`,source?`<div class="row">${finance&&r.sale_cents_per_unit>0?b('benefit-action',`购买（${money(r.sale_cents_per_unit)}元/份）`,`data-key="purchase" data-rule="${r.id}"`):''}${manager&&r.sale_cents_per_unit===0?b('benefit-action','赠送',`data-key="grant" data-rule="${r.id}"`):''}</div>`:'从业务单进入办理'])));
  return html+'<p class="muted">这里只显示本店最近100条记录。每批权益保留发行时的使用门店、兑换率、退款和内部结算规则；新版本不修改原批次。次数套餐仅用于对应已授权作业。</p>';
 }

@@ -129,6 +129,7 @@ def search(query, role='', category='', limit=MAX_RESULTS):
         normalize(row.get('title',''))==normalized
         or any(normalize(item.get('title',''))==normalized
                for item in row.get('requirements',[])))]
+    exact_match=bool(exact)
     if exact:
         rows=exact
     category_text=normalize(category) if category else ''
@@ -147,8 +148,10 @@ def search(query, role='', category='', limit=MAX_RESULTS):
         item=project(row,role)
         item['requirement_ids']=list(row.get('requirement_ids') or [])
         item['matched_requirements']=[{'id':x.get('id'),'title':x.get('title')} for x in row.get('requirements',[])]
-        item['match_notice']=('按已发布名称/关键词检索的相关指引，请核对具体业务方向。' if in_category else
-                              '本结果不在传入分类内；分类已放宽，实际模块以本条category为准，不表示岗位获得权限。')
+        item['match_notice']=('已按发布的原需求名称或指引标题精确匹配；不必再按关键词猜业务方向。' if exact_match else
+                              '按已发布名称/关键词检索的相关指引，请核对具体业务方向。')
+        if not in_category:
+            item['match_notice']+='本结果不在传入分类内；分类已放宽，实际模块以本条category为准，不表示岗位获得权限。'
         result.append(item)
     return result
 

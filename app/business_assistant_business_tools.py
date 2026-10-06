@@ -209,6 +209,9 @@ async def discover(db,request,user,sid,c,args):
     entries=[]
     for prefix,rows in [('flow',flow.get('kinds',{})),('crm',flow.get('master_types',{})),('master',masters.get('kinds',{}))]:
         for kind,info in rows.items():
+            # The legacy Flow invoice remains readable for old cases. New
+            # invoice applications use the reviewed dedicated invoices API.
+            if prefix=='flow' and kind=='invoice': continue
             can=info.get('can_create') if prefix=='flow' else info.get('can_write')
             if not can: continue
             entries.append({'form_ref':prefix+':'+kind,'label':info['label'],
@@ -258,6 +261,8 @@ async def inspect_form(db,request,user,sid,c,ref):
     match=re.fullmatch(r'(flow|master|crm):([a-z_]{1,60})',ref)
     if not match: raise HTTPException(422,'表单引用无效，请从业务目录选择，不要填写接口或网址')
     prefix,kind=match.groups()
+    if prefix=='flow' and kind=='invoice':
+        raise HTTPException(409,'新开票申请请使用已评审的开票专用接口；旧开票原单仍可查询')
     catalog=checked(await native(db,request,user,sid,c,'GET /api/masters/catalog' if prefix=='master' else 'GET /api/flow/catalog',
         query={'assistant_kind':kind}))
     info=catalog.get('master_types' if prefix=='crm' else 'kinds',{}).get(kind)

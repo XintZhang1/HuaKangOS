@@ -2053,6 +2053,22 @@ def _outcome_text(facts, reason):
     return messages.get(reason, '本次执行已结束。') + text
 
 
+def _visibly_incomplete_final(text):
+    """Catch broken answer syntax, not short but complete employee replies.
+
+    A provider can report ``stop`` after spending nearly all completion tokens
+    on reasoning. An open phrase or delimiter must not become a successful
+    employee answer merely because the transport itself ended cleanly.
+    """
+    tail = text.rstrip()
+    if not tail:
+        return True
+    if tail.endswith(('，', ',', '：', ':', '；', ';', '、', '（', '(', '例如', '包括')):
+        return True
+    return any(tail.count(opening) > tail.count(closing) for opening, closing in (
+        ('（', '）'), ('(', ')'), ('【', '】'), ('《', '》'), ('「', '」')))
+
+
 _FOLLOWUP_OUTCOME_REASONS = frozenset({
     'model_round_budget', 'time_budget', 'tool_budget', 'preparation_budget',
     'context_budget_exceeded', 'source_message_missing', 'recheck_required',
@@ -2226,6 +2242,7 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
     heartbeat.start()
     chain, instructions = [], []
     needed = False
+    incomplete_final_retry = False
     yielded = None
 
     def remaining_preparations():
@@ -2350,7 +2367,7 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                         return await call_model(config, messages, thinking=thinking,
                             stream=stream, emit=emit if stream else None,
                             background=principal.auth_kind == 'grant', before_request=before_request,
-                            allow_tools=not wrapped)
+                            allow_tools=not wrapped and not incomplete_final_retry)
                     except BaseException as child_error:
                         # Budget cancellation reaches this child after its waiting parent.
                         # Keep only the provider's safe counters before the original drain.
@@ -2391,6 +2408,10 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                 reply = answer.message
                 calls = reply.get('tool_calls')
                 calls = [] if calls is None else calls
+                # An answer-only retry must never enter tool validation's
+                # 422 correction loop or dispatch another business tool.
+                if incomplete_final_retry and calls:
+                    return finish_reason('runtime_unavailable')
                 try:
                     registry_for_config(config).validate_calls(calls)
                 except HTTPException as invalid_tools:
@@ -2422,6 +2443,23 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                     raise _LoopBudget('tool_budget')
                 text = _safe_display(reply.get('content') or '', final=True)
                 if not calls:
+                    if _visibly_incomplete_final(text):
+                        # This allowance is shared with the existing truncated
+                        # fragment replan. Within this worker, retry one
+                        # answer-only round; accepted earlier tools remain
+                        # governed by their normal durable checkpoints.
+                        if (incomplete_final_retry or wrapped or
+                                not queue.mark_loop_flag(db, principal, 'truncation', clock=clock)):
+                            return finish_reason('runtime_unavailable')
+                        if text:
+                            previous = {'role': 'assistant', 'content': text}
+                            if thinking:
+                                previous['reasoning_content'] = reply.get('reasoning_content', '')
+                            chain.append(previous)
+                        instructions.append('上一条面向员工的答复为空或在句中截断，不能作为完整结果。'
+                            '请结合本轮已取得的事实重新给出完整答复；本次只回答，不调用工具、不新增确认卡。')
+                        incomplete_final_retry = True
+                        continue
                     facts = _actual_outcomes(db, principal, clock=clock)
                     if service.claimed_actions(text) and facts['cards'] == 0:
                         if queue.mark_loop_flag(db, principal, 'correction', clock=clock):

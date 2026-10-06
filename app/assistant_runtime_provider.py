@@ -320,7 +320,7 @@ async def _nonstream(config, messages, thinking, usage, before_request=None, *, 
                 and tokens['total_tokens'] == tokens['prompt_tokens'] + tokens['completion_tokens']) else None
             try:
                 calls = _complete_reply(reply, choice.get('finish_reason'), service,
-                    require_finish=False, allow_tool_index=True, argument_error_names=argument_error_names)
+                    require_finish=True, allow_tool_index=True, argument_error_names=argument_error_names)
             except ModelToolArgumentsInvalid:
                 usage.tool_count = len(reply['tool_calls'])
                 raise

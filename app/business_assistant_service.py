@@ -616,6 +616,8 @@ def resolve_preparation(db,user,session_id,args,*,question_fields=None):
     thread=owned_session(db,user,session_id)
     operation_id=args.get('operation_id','')
     path_args=args.get('path_args') or {};query=args.get('query') or {};body=deepcopy(args.get('body') or {})
+    if operation_id=='POST /api/flow/cases' and isinstance(body,dict) and body.get('kind')=='invoice':
+        raise HTTPException(409,'新发票申请请使用专用 /api/invoices/orders；旧Flow发票入口不可新建')
     declared=gateway.inspect_operation(operation_id)
     properties=(declared.get('body_schema') or {}).get('properties') or {}
     # M2.1 请求号只生成一次：只要这个操作在 schema 里暴露 request_id，它就是服务端事实。
@@ -846,7 +848,7 @@ def tool(name,description,properties,required=()):
 
 OP_ARGS={'operation_id':{'type':'string'},'path_args':{'type':'object'},'query':{'type':'object'},'body':{'type':'object'}}
 TOOLS=[
-    tool('list_operations','按目标查相关领域或关键词，允许跨领域规划。结果有next_offset时继续翻页；一页未命中不等于不支持。',{'domain':{'type':'string'},'query':{'type':'string'},'offset':{'type':'integer','minimum':0},'limit':{'type':'integer','minimum':1,'maximum':100}}),
+    tool('list_operations','按目标查相关领域或关键词，允许跨领域规划。domain须用目录返回的domains[].id或完整label，自然语言词放query；一页未命中时按next_offset翻页，空结果时换query或领域再查。',{'domain':{'type':'string'},'query':{'type':'string'},'offset':{'type':'integer','minimum':0},'limit':{'type':'integer','minimum':1,'maximum':100}}),
     tool('inspect_operation','只检查当前目标需要的一个操作，获取真实字段、类型和要求。成功检查过的操作会跨轮保留。',{'operation_id':{'type':'string'}},['operation_id']),
     tool('read_data','读取当前员工当前门店可见资料；不能执行新增或修改。',OP_ARGS,['operation_id']),
     tool('find_cases','先查员工负责的现有工单；员工没有给编号也可按业务类型查。多条再让员工选；分页未结束不能断言只有一条或没有记录。',
@@ -988,12 +990,12 @@ async def _run_registered_tool(db,request,user,thread_id,name,args,config,*,reso
     if name=='list_operations':
         if not args.get('domain') and not args.get('query') and hasattr(gateway,'DOMAINS'):
             return {'domains':[{'id':key,'label':label} for key,label in gateway.DOMAINS.items()],
-                    'next':'传入 domain 查找该领域可用操作，或传 query 用员工的说法搜索（采购、开票、调拨、账号、报表）'}
+                    'next':'domain 使用上列精确 id 或完整 label；员工口语请传 query 搜索（采购、开票、调拨、账号、报表）'}
         result=gateway.catalog(domain=args.get('domain',''),query=args.get('query',''),role=getattr(user,'role',''))
         if not result:
             # 搜不到不等于系统没有这个功能：把可选领域还给模型，让它换词再搜，而不是回答"没有入口"。
-            return {'items':[],'notice':'没有匹配到操作。换一个员工会用的词再搜一次（例如“开票”“调拨”“账号”“报表”“盘点”），'
-                                        '或直接传 domain；在真正换词搜过之前，不要对员工说“系统没有这个入口”。',
+            return {'items':[],'notice':'没有匹配到操作。若按domain检索，核对它是否为下列精确 id 或完整 label；员工口语应放query并换短词再搜（如“开票”“调拨”“账号”“报表”“盘点”）。'
+                                        '在真正换词或领域搜过之前，不要对员工说“系统没有这个入口”，也不要据此改用名称相似的旧表单。',
                     'domains':[{'id':key,'label':label} for key,label in gateway.DOMAINS.items()]}
         offset=args.get('offset',0);limit=args.get('limit',60)
         page=result[offset:offset+limit];more=offset+len(page)<len(result)

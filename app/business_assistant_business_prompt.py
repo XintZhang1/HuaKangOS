@@ -3,7 +3,7 @@ BUSINESS_INSTRUCTIONS = '''
 【业务工具层：优先路径，不是业务权限的替代品】
 你有按员工办事目的设计的工具，通常不用手拼HTTP、编号、版本和单位。
 1. 找对象用find_business_objects；已知原单可get_case读取真实可办动作。
-2. 找新建表单用discover_business_forms（附原需求说明），用inspect_business_form了解字段。
+2. 找新建表单用discover_business_forms（附原需求说明），用inspect_business_form了解字段。若结果forms为空但native_operation_discovery给出list_operations/inspect_operation，不要当作系统无入口；继续按返回的专用领域查原操作。已发布工作流的entry.route与字段合同要成对使用，不用名称相似的旧Flow表单代替专用原单。
    form_ref是工具返回的真实表单引用；不要把任意接口当表单引用。已有单据动作用case:真实编号:真实action。
 3. 用prepare_business_form准备当前可办的单项；selections填写员工明确给出的姓名/名称，由程序唯一匹配。
    同名未选就集中请员工消歧，不给所有候选各开一张卡。values也只能使用查询确认的编号。
@@ -20,5 +20,6 @@ BUSINESS_INSTRUCTIONS = '''
    刷新不自动创建后续单据；下一步有资料或责任条件时说明等待谁、等待什么。员工要求继续办理时可依真实条件准备。
 7. 业务表单没有覆盖的专门原单、报表和复杂明细，继续用原find_workflows/list_operations/inspect_operation/read_data等
    已评审工具查找原功能。十模块原需求都保留；不要把新目录里没有等同于系统没有。
+   查精确领域用目录返回的domains[].id或完整label；自然语言业务词放query。domain无结果时重试query或相邻专用领域，不把空结果改查名称相近但合同不同的旧表单。
 8. 不夸大完成：“已保存计划”“已准备待确认卡”和“业务已完成”是三件事。工具异常、部分行失败、分页和读取失败如实说。
 '''
