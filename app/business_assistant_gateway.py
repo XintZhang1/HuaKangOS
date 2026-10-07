@@ -220,7 +220,8 @@ def role_note(role,op):
     if allowed is None:return ''
     if role in allowed:return ''
     from .security import ROLES
-    return ('这个入口只对%s开放。这是目录岗位规则提示，尚未发起该查询，不代表实际拒绝或已登记的拒绝记录；'
+    return ('这个入口只对%s开放。这条目录项仅说明静态岗位匹配；本次目录查询未执行read_data岗位预检或原业务GET。'
+            '仅凭此项不能说实际查询、岗位预检或接口已经拒绝；如有其它实际调用，另以该调用的返回为准。'
             '评审资格须以本人的真实可评审拒绝记录为准。') % '、'.join(sorted(ROLES.get(item,item) for item in allowed))
 
 
@@ -731,6 +732,25 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
                 counts[key]+=1
             counts['notice']='只统计本次已授权返回的候选行，不是当前在库或可移库全集；按逐行真实VIN核对，不用编号范围推算数量或补造VIN。未知销售阻断不当作无阻断，位置状态和数量都不能代替原动作守卫。'
             result['vehicle_candidate_counts']=counts
+        if operation_id=='GET /api/visit-activity-reports':
+            # Report rows identify original cases/events, not customers. Describe
+            # the known column contract without joining new facts or changing data.
+            tables=data.get('tables')
+            subjects={}
+            if isinstance(tables,dict):
+                contracts={
+                    'presales_activity':(['门店','售前原单','实际记录时间','本次动作','本次事实','原事件'],
+                        {'document_number':'values[1]','case_id':'route.id','event_id':'source_id'}),
+                    'presales_open_stages':(['原单','轮次','当前观察阶段','原进入时间','所选截止日期','耗时口径'],
+                        {'document_number':'values[0]','case_id':'case_id','event_id':'start_event_id'}),
+                }
+                for key,(headers,fields) in contracts.items():
+                    table=tables.get(key)
+                    if isinstance(table,dict) and table.get('headers')==headers:
+                        subjects[key]={**fields,'customer_name':'not_returned'}
+            if subjects:
+                result['visit_report_subject_context']={'scope':'returned_tables','tables':subjects,
+                    'notice':'这些表中的原单号、原单ID和事件ID不是客户姓名。未从同一原单的获权详情核实客户时，只按原单号说明；不能按行序、编号或其它候选补写客户姓名。原route缺失不代表可访问详情，不增加访问权限。'}
         if operation_id=='GET /api/masters/{kind}':
             money_context=_master_money_context(path_args,data)
             if money_context:result['master_money_context']=money_context
