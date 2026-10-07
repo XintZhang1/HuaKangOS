@@ -704,6 +704,12 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
         # Never pretend a clipped JSON fragment is a complete business result.
         data={'detail':'结果较多，请指定资料类型、客户或单号查询','truncated':True,'top_level_fields':list(data) if isinstance(data,dict) else [],'total':data.get('total') if isinstance(data,dict) else None}
     result={'status':response.status_code,'data':data,'route':manual_route(operation_id,path_args,data)}
+    if (operation_id=='GET /api/flow/cases/{case_id}' and response.status_code in {403,404}
+            and type(path_args.get('case_id')) is int and path_args['case_id']>0):
+        # Echo only the requested ID already known to the caller. A failed read
+        # of this case says nothing about another linked parent's visibility.
+        result['read_scope']={'queried_case_id':path_args['case_id'],'detail_verified':False,
+            'notice':'仅本次queried_case_id的原单详情未能核实；不存在或不可查看沿原返回说明，不推断其它原因。此回包不说明其它关联原单是否读到，其它原单须分别按各自实际查询结果陈述，未查询的保留未核实。'}
     # These annotations describe only the rows already authorized and returned.
     # They do not query another page or change the native business response.
     if response.status_code==200 and isinstance(data,dict) and not data.get('truncated'):
