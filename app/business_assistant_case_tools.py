@@ -58,6 +58,22 @@ def project_case_read(operation_id,result):
                 'roles':list(action.roles),'states':list(action.states),
                 'fields':[{'key':field['key'],'label':field['label']} for field in action.fields]}
                 for action in spec['actions']]}
+        if kind=='repair' and version in {1,2}:
+            # Describe the fixed native branches only. Do not infer a selected
+            # branch, payment balance, readiness or permission from this text.
+            data['workflow_definition']['settlement_branches']={
+                'notice':'仅为本原单固定版本的结算分支说明，不是当前可办清单或已办理事实。按原报价结算方、已记录款项和批准事实核对适用分支；以下分支不能顺排成每单都必须完成的步骤。已完成动作不重复办理，当前可办性仍以原actions的enabled/reason及原接口守卫为准。',
+                'before_settling':[
+                    {'action':'finish','description':'working原单按真实施工结果报完工后进入quality；未完成领料、退料等原守卫仍须满足。'},
+                    {'action':'quality','description':'quality原单按真实质检凭据通过后进入settling，不能与该版本settling收款并行。'}],
+                'branches':[
+                    {'key':'settled','actions':['receive','apply_balance'],
+                     'description':'非内部承担按原已记录收款及结算事实核对是否结清后交车；receive仅登记真实到账。apply_balance仅适用于原报价由客户承担，且须本客户本人在本店的会员余额及原可用余额、可收金额守卫，不能用于保险公司或厂家承担。原单已结清不再重复收款。'},
+                    {'key':'credit','actions':['credit','late_receive'],
+                     'description':'非内部承担仍有未结款，可由店长按真实约定付款日和原因批准月结，再按原交车守卫办理release；部分已收款仍以原款项事实为准。交车后未结款待实际到账再由财务办理late_receive，不能把先结清全部款项作为月结交车的共同前置。'},
+                    {'key':'internal','actions':['internal_settle'],
+                     'description':'原报价结算方为内部时由店长确认内部承担，再按原交车守卫办理release；不生成客户收款，不用credit替代内部结算。'}],
+                'handover':{'action':'release','description':'服务顾问仍须真实接车凭据及原接口其它条件，包括集团会员权益占用已核销或撤销；收款、月结或内部承担的说明本身不证明可以交车。'}}
     responsibility_records=[]
     for task in data.get('tasks',[]):
         if task.get('status') not in {'done','cancelled'}:continue

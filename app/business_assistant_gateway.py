@@ -131,6 +131,15 @@ FIELD_LABELS = {
  'mandatory_terms':'必须确认的条款','rule_id':'规则编号','rule_version':'规则版本',
  'dispatch_id':'原出库批次','payer_id':'核赔单位编号',
 }
+# Read-side storage units for the four monetary native master fields. The
+# catalogue's ``money_cents`` type and （元） label describe form input, not
+# the integer cents returned by GET /api/masters/{kind}.
+MASTER_READ_CENTS_FIELDS = {
+ 'work_items': {'standard_fee_cents':'参考收费'},
+ 'agency_projects': {'service_fee_cents':'参考服务收费'},
+ 'vehicle_models': {'guide_price_cents':'指导价'},
+ 'member_tiers': {'annual_fee_cents':'参考年费'},
+}
 ROUTES = {
  'flow':'work','masters':'masters','vehicle-catalog':'vehicle-catalog','sales-quotes':'sales-quotes',
  'customer-service':'customer-service','customer-choice':'master/customers','group':'group',
@@ -520,6 +529,12 @@ def _field_labels(payload,operation_id=''):
     return labels
 
 
+def _format_cents_as_yuan(value):
+    """Render an integer number of storage cents exactly, without floats."""
+    amount=abs(value)
+    return ('-' if value<0 else '')+f'{amount//100}.{amount%100:02d}'
+
+
 def display_fields(payload,operation_id='',*,field_labels=None):
     """Show the exact immutable submission, including every line and unit."""
     from .master_data import CATALOG
@@ -548,8 +563,8 @@ def display_fields(payload,operation_id='',*,field_labels=None):
                     else:rows.append({'label':prefix+label+f' · 第{i}项','value':str(entry)})
             else:
                 if key.endswith('_cents') and type(item) is int:
-                    label=label.replace('（分）','（元）');amount=abs(item)
-                    shown=('-' if item<0 else '')+f'{amount//100}.{amount%100:02d}'
+                    label=label.replace('（分）','（元）')
+                    shown=_format_cents_as_yuan(item)
                 elif key.endswith('_milli') and type(item) is int:
                     label=label.replace('（千分之一）','');amount=abs(item)
                     shown=('-' if item<0 else '')+f'{amount//1000}.{amount%1000:03d}'.rstrip('0').rstrip('.')
@@ -581,6 +596,29 @@ def sanitize(value,depth=0):
     if isinstance(value,list):return [sanitize(v,depth+1) for v in value[:100]]+([{'more':'其余记录请缩小查询条件'}] if len(value)>100 else [])
     if isinstance(value,str):return re.sub(r'(?:sk|tp|ttp)-[A-Za-z0-9_-]{12,}','[密钥已隐藏]',value[:4000])
     return value
+
+
+def _master_money_context(path_args,data):
+    """Annotate only monetary fields visible in this authorized master page."""
+    kind=path_args.get('kind')
+    fields=MASTER_READ_CENTS_FIELDS.get(kind)
+    rows=data.get('items')
+    if not fields or not isinstance(rows,list):return None
+    amounts=[]
+    for index,row in enumerate(rows):
+        if not isinstance(row,dict) or type(row.get('id')) is not int:continue
+        for field,label in fields.items():
+            if field not in row:continue  # The native handler may hide this field by role.
+            raw=row[field]
+            if raw is not None and type(raw) is not int:continue
+            amounts.append({'source_path':f'data.items[{index}].{field}',
+                            'record_id':row['id'],'field':field,'label':label,
+                            'raw_cents':raw,
+                            'display_yuan':_format_cents_as_yuan(raw) if raw is not None else None})
+    if not amounts:return None
+    return {'scope':'returned_page','operation_id':'GET /api/masters/{kind}',
+            'kind':kind,'page':data.get('page'),'amounts':amounts,
+            'notice':'仅本次原业务查询已授权返回的字段：raw_cents 是原整数分，display_yuan 是精确元字符串；null 表示未知。原 data 不变。'}
 
 async def _internal_get(request, user, op, path, query, body):
     """Private ASGI GET through the full app and its ordinary authorization."""
@@ -659,6 +697,9 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
     # They do not query another page or change the native business response.
     if response.status_code==200 and isinstance(data,dict) and not data.get('truncated'):
         rows=data.get('items')
+        if operation_id=='GET /api/masters/{kind}':
+            money_context=_master_money_context(path_args,data)
+            if money_context:result['master_money_context']=money_context
         if operation_id=='GET /api/audit' and isinstance(rows,list) and all(
                 isinstance(row,dict) and isinstance(row.get('action'),str)
                 and isinstance(row.get('entity_type'),str) for row in rows):
