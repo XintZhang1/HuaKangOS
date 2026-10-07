@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-07 当前M8.5：3237588/source8e4a8c 下18/18 strict及指南1、UX31、工作区24、后端4定向检查通过；真实86原例110626自然CLI0/1081.735秒，结构86/86、逐例81可接受/5普通/0关键，同批101重叠8/8。2卡pending/0确认、逐例467表等值。186新请求全结2.601423元，累计12012次保守占330.098675元，8旧未知不变。字典HELP180/185有实际源actor错误，PATCH17只修三actor及生成物；另005/035/087保留源正确后的模型普通误述。七个字典原例及最终完整283待验，M8.5 in_progress、CP-37 not_ready、M8.6 todo。详[本轮终审](../implementation-checkpoints/M8-5-rep110626-review-v1.md)。以下记录按各自历史时点保留。
+
 2026-10-07 当前M8.5：完整091255原283结构通过，独审197可接受/86普通/0关键；同批101为93/8/0。主要修复旧指南入口读取岗位，快捷表单保留原办理限制；PATCH16实现中、动态及真实复验待做。详[本轮终审](../implementation-checkpoints/M8-5-full091255-review-v1.md)。M8.5 in_progress，CP-37 not_ready，M8.6 todo。以下记录按各自历史时点保留。
 
 2026-10-07 最新M8.5：1d65082/sourcebd289438、同五输入post-strict084358实际18/18后，四原例084731自然CLI0/131.718秒，结构4/4、独审3可接受/1普通（M06）/0关键/0技术失败；零卡零确认、逐例467表等值，八项不变性及commands_ok全true。M06漏已知库位账启用前置；14新调用全结0.183081元，累计10999次（10991已结、8旧未知、0预留），保守占317.199374元，排空后halt12449803。PATCH15仅该原指南前置及三生成物，build/check193/111、diff与A有限静审通过；新冻结/strict、同四原例和从零283/同101待实证，原输入不变。详 [rep084731终审](../implementation-checkpoints/M8-5-rep084731-review-v1.md) 与 [PATCH15](../implementation-patches/PATCH-M8-5-COUNT-ENROLLMENT-15.md)。M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done。
