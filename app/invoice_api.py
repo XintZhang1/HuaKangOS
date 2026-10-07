@@ -19,8 +19,8 @@ class Create(Request,Reason):
     amount_cents:int=Field(gt=0,le=100000000000,strict=True)
     issuer_name:str=Field(min_length=2,max_length=180)
     issuer_tax_id:str=Field(min_length=15,max_length=30,pattern=r'^[A-Z0-9]+$')
-    buyer_name:str=Field(min_length=2,max_length=160)
-    buyer_tax_id:str=Field(default='',max_length=20,pattern=r'^[A-Z0-9]*$')
+    buyer_name:str=Field(min_length=2,max_length=160,description='购买方实际开票抬头。红票沿用原蓝票；蓝票仅在选定来源的source_basis实际返回购买方快照时沿用，否则由员工明确核对提供。客户姓名不自动等于开票抬头，未读取或未返回时不能承诺自动带出。')
+    buyer_tax_id:str=Field(default='',max_length=20,pattern=r'^[A-Z0-9]*$',description='购买方实际税号，普通个人票可空。红票沿用原蓝票；蓝票使用选定来源实际返回的购买方税号或员工核对提供的值，保险佣金和整车其他收入仍遵循各自原来源守卫。缺少需要的税号时补充核对，不从客户姓名或销售方issuer猜填，也不能承诺系统必能自动读取。')
     due_date:date
 class Submit(Proof):reference:str=Field(min_length=1,max_length=160)
 class Actual(Proof):
