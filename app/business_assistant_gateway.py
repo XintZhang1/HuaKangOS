@@ -337,6 +337,8 @@ def inspect_operation(operation_id):
     elif op['path']=='/api/masters/catalog':
         result['parameters'].append({'name':'assistant_kind','in':'query','type':'string','required':False})
         result['hint']='传assistant_kind=vehicle_models/vehicle_brands/vehicle_series等，查询该类资料字段。金额输入以字段单位为准。'
+    elif operation_id=='GET /api/vehicle-imports/catalog':
+        result['hint']='原页面由员工选择真实UTF-8 CSV文件上传预检；原manifest供核对请款行编号和VIN，不自动生成发运或到货清单。下载的虚构示例不是实际来源文件；助手可查询及说明交接，不能承诺已自动带出完整清单或准备上传文件。'
     elif op['path'].endswith('/actions/{action}'):
         result['hint']='先读取同一原单和当前可用actions字段；不猜version、动作名、凭据或实际完成情况。'
     elif op['path']=='/api/claims' and op['write']:
@@ -351,6 +353,13 @@ def inspect_operation(operation_id):
         result['hint']=result.get('hint','')+' 按body.purpose对应的purpose_schemas填写values。正向积分赠送用benefit_issue/grant及units，先由GET /api/group/benefits/rules核对真实kind=points规则；原规则版本、发行门店、适用门店和零售价须满足原接口。查不到适用积分规则先等待核对，不猜规则编号。points_adjust/adjust是扣减，不是增加；不能填写values.points代替units。'
     if not purposes and op['body_schema'] and 'values' in op['body_schema'].get('properties',{}):
         result['hint']=result.get('hint','')+' values字段定义由对应catalog或原单当前actions给出。'
+    # Explain observed ambiguous native fields beside their unchanged schema.
+    # A field definition proves neither a value nor current business availability.
+    properties=(op['body_schema'] or {}).get('properties',{})
+    if operation_id=='POST /api/invoices/orders' and 'due_date' in properties:
+        result['field_semantics']={'body.due_date':'计划办理日期：本次开票或冲红申请的计划日期；后续登记外部实际发票的issued_on才是实际开票日期，不能混用。'}
+    elif operation_id=='POST /api/vehicle-procurement/orders' and 'contracting_party' in properties:
+        result['field_semantics']={'body.contracting_party':'实际采购经营主体：必填，核对原目录operating_party及实际主体资料；目录为空或未获权时补问真实主体，不猜填或承诺自动带出。存在本次冻结主体时由原接口检查一致性；为空不推断已有冻结主体。'}
     if op['path'].startswith('/api/flow/master/{kind}'):
         from .flow_api import MASTERS
         result['kind_names']={key:value['label'] for key,value in MASTERS.items() if key!='templates'}
@@ -712,7 +721,7 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
                 elif available==0:key='zero_available_count'
                 else:key='negative_available_count'
                 counts[key]+=1
-            counts['notice']='只统计本次已授权返回的items，不是原total或其它页数量。可开金额为正不证明申请其它条件已满足，零额不表示来源不存在，未知值不猜为零。'
+            counts['notice']='只统计本次已授权返回的items，不是原total或其它页数量。蓝票申请金额须为正且不超过所选来源当前可开金额；零额来源仍存在，但须等待原业务事实变化，不能以零额准备当前蓝票申请。可开金额为正不证明申请其它条件已满足，未知值不猜为零。'
             result['invoice_source_counts']=counts
         if operation_id=='GET /api/audit' and isinstance(rows,list) and all(
                 isinstance(row,dict) and isinstance(row.get('action'),str)
