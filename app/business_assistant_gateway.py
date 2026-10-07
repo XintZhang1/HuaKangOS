@@ -766,7 +766,7 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
                 elif available==0:key='zero_available_count'
                 else:key='negative_available_count'
                 counts[key]+=1
-            counts['notice']='只统计本次已授权返回的items，不是原total或其它页数量。蓝票申请金额须为正且不超过所选来源当前可开金额；零额来源仍存在，但须等待原业务事实变化，不能以零额准备当前蓝票申请。可开金额为正不证明申请其它条件已满足，未知值不猜为零。'
+            counts['notice']='只统计本次已授权返回的items，不是原total或其它页数量。蓝票申请金额须为正且不超过所选来源当前可开金额；零额来源仍存在，但须等待原业务事实变化，不能以零额准备当前蓝票申请。可开金额为正不证明申请其它条件已满足，未知值不猜为零。列表未返回销售方issuer；员工选定来源后须读取该来源详情核对冻结主体。详情issuer可能为空，确实为空时须补问真实销售方全称和税号；未选定并核实前不能保证员工无需补充这些资料。'
             result['invoice_source_counts']=counts
         if operation_id=='GET /api/audit' and isinstance(rows,list) and all(
                 isinstance(row,dict) and isinstance(row.get('action'),str)

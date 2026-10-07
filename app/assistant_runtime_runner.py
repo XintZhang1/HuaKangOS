@@ -2574,7 +2574,9 @@ async def run_once(db, principal, config=None, *, stream=True, clock=None,
                             if thinking:
                                 previous['reasoning_content'] = reply.get('reasoning_content', '')
                             chain.append(previous)
-                            instructions.append('事实核对：本次执行实际确认卡数量为0。请纠正有关卡片的表述，'
+                            instructions.append('事实核对：本次执行实际确认卡数量为0。前一答复尚未交付员工；'
+                                '请纠正有关卡片的表述，并重新完整回答员工原问题。保留本轮已核实的业务事实、'
+                                '本人下一步及需同事办理或等待的前序条件，不只回复更正说明或“其余不变”。'
                                 '不能为使一句话成立而新增业务。查询直接说明，只有员工原明确委托且事实确定才可准备卡。')
                             continue
                         text = '本次没有实际生成确认卡；此前关于卡片已准备的表述未得到记录支持。请核对原请求及资料。'
