@@ -323,8 +323,17 @@ def proposal_view(row):
         # also use proposal_view; none needs the phone or candidate digest.
         for key in ('customer_review_phone','customer_review_hash','customer_review_count'):
             question.pop(key,None)
+    editable_keys=[question['key'] for question in questions] if status=='pending' else []
+    if status!='pending':
+        edit_notice='这张卡不处于待确认状态，不能在卡片上填写资料或按待确认卡取消重备；先按实际状态核对原业务结果。'
+    elif editable_keys:
+        edit_notice='仅questions列出的字段可在确认前填写，其它展示资料只能核对，不能直接编辑。需要改其它资料时，由员工取消这张待确认卡，再按明确的新资料重新准备；填写不等于确认办理。'
+    else:
+        edit_notice='这张待确认卡没有可填写的问题，展示资料只能核对，不能在卡片上补任意可选项。需要改资料时，由员工取消旧卡，再按明确的新资料重新准备；尚未确认不表示已办理。'
     return {'id':row.id,'turn':row.request_id or '','step':row.step_label or '','step_order':int(row.step_order or 0),
             'questions':scrub(questions),
+            'question_edit_context':{'scope':'pending_questions_only' if status=='pending' else 'not_editable',
+                                     'editable_keys':editable_keys,'notice':edit_notice},
             'operation_id':row.operation_id,'label':row.label,'summary':row.summary,
             'details':scrub(row.payload),'display_fields':fields,'manual_route':manual_route,'digest':row.digest,'status':status,
             'expires_at':stamp(row.expires_at),

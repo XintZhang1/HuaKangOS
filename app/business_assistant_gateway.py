@@ -715,6 +715,14 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
     # They do not query another page or change the native business response.
     if response.status_code==200 and isinstance(data,dict) and not data.get('truncated'):
         rows=data.get('items')
+        if operation_id=='GET /api/users' and isinstance(rows,list) and all(
+                isinstance(row,dict) and type(row.get('id')) is int
+                and isinstance(row.get('username'),str) and isinstance(row.get('display_name'),str) for row in rows):
+            # sanitize() appends a marker if the native list exceeds its limit;
+            # that is not a complete employee page and has no employee ID/name.
+            result['employee_name_context']={'scope':'returned_items','returned_count':len(rows),
+                'items':[{key:row[key] for key in ('id','username','display_name')} for row in rows],
+                'notice':'仅本次原接口已授权返回的员工及原显示名，按display_name原值说明，不把岗位标签或账号名改写成姓名，不按行序、编号推测或默选员工。岗位和逐店授权仍以原data中的实际字段分别核对；原data不变。'}
         if operation_id=='GET /api/vehicle-operations/vehicles' and isinstance(rows,list) and all(
                 isinstance(row,dict) for row in rows):
             counts={'scope':'returned_items','returned_count':len(rows),'by_position_status':{},

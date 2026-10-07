@@ -1,5 +1,7 @@
 # M8.5 本地真实模型回归收口
 
+2026-10-07 当前：完整091255原283结构通过、197可接受/86普通/0关键，同101为93/8/0；自然排空并已halt。PATCH16按已定位来源修正页面读取岗位与快捷办理资格，另修8类具体说明/投影；当前实现中，隔离动态与真实复验待做。详 [本轮终审](../../implementation-checkpoints/M8-5-full091255-review-v1.md)。M8.5 in_progress，M8.6 todo。以下当前等措辞均属各自历史时点。
+
 2026-10-07 当前：1d65082/sourcebd289438同五输入post-strict084358实际18/18后，四原例084731结构4/4、独审3可接受/1普通（M06）/0关键/0技术失败，已自然排空并安全halt。PATCH15一项原启用前置及三生成物已落盘，A有限独立静审无静态阻塞；下一步冻结/新strict、保持原四例输入复验，实际错误消失后才从零完整283/同批101。详 [rep084731终审](../../implementation-checkpoints/M8-5-rep084731-review-v1.md)；M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done。
 
 2026-10-07 上一轮当前（历史保留）：冻结662b085/source897bf4在strict073232 18/18及gateway原API节点073312 1/1后，37原失败代表074423结构/独审语义37/37；从零full080101自然CLI1，在C07的provider_call_failed技术中断，只有47原case文件、46结构通过。三独审43可接受/3普通/0关键/1技术失败；余236未运行，同批101仅47覆盖/54未运行。47例业务表前后等值、零确认，不能与代表或旧283拼接。预算累计10985次，已结245.450981元＋原七未知66.322432元＋本笔reserved保守5.242880元＝317.016293元，该笔reserved已受审转unknown、halt保持，回执`full080101-terminal/ledger-conversion-installed.json` SHA `4be8b5ca47f8164b8e2fa1250105ded5bd015ddc7bc8bedcfd184ee1aa94f8a2`、账本SHA `441b611af06905804504ac68e6b927a9a7289db0de6cbca3284b198aa5c3f3e6`；旧full052312 Y07已据runtime失败工具原件纠错为可接受，现行247/35/1、同101 99/1/1。PATCH14只限runner纠正轮、gateway开票列表notice、wf-material-stock-count前置及生成物；有限静审已完成且无静态阻塞；待冻结strict/单独ACK、原四例真实复验，再从零283/同批101逐例审阅。详 [部分终稿](../../implementation-checkpoints/M8-5-full080101-review-v1.md)。M8.5 in_progress、CP-37 not_ready、M8.6 todo。

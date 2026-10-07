@@ -35,7 +35,7 @@ function paintWorkflowSearch(scroll=true){
  const s=workflowSearchState,ai=s.mode==='ai',local=WorkflowGuides.search(workflowCatalogue.workflows,s.query,state.user?.role),shown=local.slice(0,12),recommendations=s.aiItems||[];s.results=ai?recommendations:shown;
  s.index=Math.max(ai?-1:0,Math.min(s.index,s.results.length-1));
  dialog.querySelector('#workflow-search-status').textContent=local.length?`找到 ${local.length} 项操作${local.length>12?'，先显示 12 个，请继续输入缩小范围':''}`:'没有找到匹配的操作。';
- const option=(item,index)=>{const allowed=WorkflowGuides.canEnter(item,state.user?.role,state.store),form=globalThis.WORKFLOW_QUICK_FORMS?.[item.id];return `<div class="wf-search-hit"><button type="button" role="option" id="wf-${ai?'ai':'local'}-${index}" aria-selected="${index===s.index}" data-wf-action="result" data-id="${E(item.id)}"><span class="wf-result-title">${E(typeof uxEntryTitle==='function'?uxEntryTitle(item):item.title)}</span><span>${E(item.category)}</span></button><div class="wf-hit-actions"><button type="button" data-wf-action="manual" data-id="${E(item.id)}" ${allowed?'':'disabled'}>进入页面</button>${form?`<button type="button" data-wf-action="form" data-id="${E(item.id)}" ${allowed&&state.store!=='all'?'':'disabled'}>${E(form.label)}</button>`:''}<button type="button" data-wf-action="result" data-id="${E(item.id)}">操作指引</button></div></div>`;};
+ const option=(item,index)=>{const allowed=WorkflowGuides.canEnter(item,state.user?.role,state.store),form=globalThis.WORKFLOW_QUICK_FORMS?.[item.id];return `<div class="wf-search-hit"><button type="button" role="option" id="wf-${ai?'ai':'local'}-${index}" aria-selected="${index===s.index}" data-wf-action="result" data-id="${E(item.id)}"><span class="wf-result-title">${E(typeof uxEntryTitle==='function'?uxEntryTitle(item):item.title)}</span><span>${E(item.category)}</span></button><div class="wf-hit-actions"><button type="button" data-wf-action="manual" data-id="${E(item.id)}" ${allowed?'':'disabled'}>进入页面</button>${form?`<button type="button" data-wf-action="form" data-id="${E(item.id)}" ${WorkflowGuides.canOpenForm(item,state.user?.role,state.store)?'':'disabled'}>${E(form.label)}</button>`:''}<button type="button" data-wf-action="result" data-id="${E(item.id)}">操作指引</button></div></div>`;};
  dialog.querySelector('#workflow-search-results').innerHTML=ai?'':shown.map(option).join('');
  dialog.querySelector('#workflow-normal-section').hidden=ai;dialog.querySelector('#workflow-search-results').hidden=ai;dialog.querySelector('#workflow-ai-section').hidden=!ai;
  dialog.querySelector('#workflow-try-ai').hidden=ai||local.length>0||s.query.trim().length<2;
@@ -82,7 +82,7 @@ async function workflowOpenForm(id){
  const context=workflowContext(),data=await loadWorkflowGuides();
  if(context!==workflowContext()||!state.user||state.storeSwitch)return;
  const item=data.workflows.find(x=>x.id===id),form=globalThis.WORKFLOW_QUICK_FORMS?.[id];
- if(!item||!form||state.store==='all'||!WorkflowGuides.canEnter(item,state.user.role,state.store)){toast('请从对应业务页面办理。',true);return;}
+ if(!item||!form||!WorkflowGuides.canOpenForm(item,state.user.role,state.store)){toast('请从对应业务页面办理。',true);return;}
  if(document.querySelector('#modal[open]')){toast('请先完成或关闭当前表单。',true);return;}
  workflowFormIntent={context,route:item.entry.route,selector:form.selector};
  workflowNavigate(item.entry.route);

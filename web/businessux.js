@@ -71,7 +71,7 @@ function uxHandoffButton(ref,label){
 }
 function uxStartEntry(item,options,role,store){
  const allowed=WorkflowGuides.canEnter(item,role,store),form=WORKFLOW_QUICK_FORMS[item.id];
- const direct=allowed&&form&&store!=='all';
+ const direct=!!form&&WorkflowGuides.canOpenForm(item,role,store);
  return {allowed,form,direct,preferNew:!!direct&&!options.startQuery.trim()&&UX_CREATE_FIRST.has(item.id)};
 }
 function uxStartItems(catalogue,options,role,store){

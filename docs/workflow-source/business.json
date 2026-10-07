@@ -30,7 +30,10 @@
         "admin",
         "manager",
         "sales",
-        "reception"
+        "reception",
+        "finance",
+        "auditor",
+        "customer_service"
       ],
       "mode": "write"
     },
@@ -134,7 +137,10 @@
         "admin",
         "manager",
         "sales",
-        "reception"
+        "reception",
+        "finance",
+        "auditor",
+        "customer_service"
       ],
       "mode": "write"
     },
@@ -158,7 +164,7 @@
         "actor": "店长",
         "where": "原单待办",
         "action": "换销售时点“交接给其他员工”，选择接手人和说明。",
-        "expected": "原单与历史保留，新负责人接手。"
+        "expected": "原单与历史保留，新负责人接手；交接本身保留原待办日期，只有记录实际跟进并填写下次日期才更新跟进安排。"
       },
       {
         "actor": "销售",
@@ -240,7 +246,12 @@
       "roles": [
         "admin",
         "manager",
-        "sales"
+        "sales",
+        "finance",
+        "auditor",
+        "service",
+        "inventory",
+        "technician"
       ],
       "mode": "write"
     },
@@ -355,7 +366,8 @@
         "inventory",
         "service",
         "technician",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -461,7 +473,11 @@
         "admin",
         "manager",
         "sales",
-        "finance"
+        "finance",
+        "auditor",
+        "service",
+        "inventory",
+        "technician"
       ],
       "mode": "write"
     },
@@ -569,7 +585,9 @@
         "service",
         "manager",
         "inventory",
-        "finance"
+        "finance",
+        "auditor",
+        "technician"
       ],
       "mode": "write"
     },
@@ -683,7 +701,8 @@
         "manager",
         "inventory",
         "technician",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -920,7 +939,8 @@
         "sales",
         "service",
         "manager",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1022,7 +1042,8 @@
         "sales",
         "service",
         "manager",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1117,7 +1138,8 @@
       "roles": [
         "admin",
         "manager",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1286,7 +1308,7 @@
       },
       {
         "when": "目录里有车型但库存为零",
-        "action": "车型资料不是实车入库；请完成车辆采购或调拨验收。"
+        "action": "库存为零只表示当前筛选范围没有对应在库车辆，不能据此断言车辆从未入库；先核对原出入库、占用及筛选条件。确属尚未收车时，再按真实采购或调拨原单办理验收，不为查询结果为零新建采购。"
       }
     ],
     "completion": [
@@ -1329,7 +1351,8 @@
         "admin",
         "manager",
         "inventory",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1436,7 +1459,8 @@
         "admin",
         "manager",
         "inventory",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1538,7 +1562,8 @@
         "admin",
         "manager",
         "inventory",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1639,7 +1664,8 @@
         "admin",
         "manager",
         "inventory",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1737,7 +1763,11 @@
       "roles": [
         "admin",
         "manager",
-        "inventory"
+        "inventory",
+        "finance",
+        "auditor",
+        "service",
+        "technician"
       ],
       "mode": "write"
     },
@@ -1835,7 +1865,11 @@
       "roles": [
         "admin",
         "manager",
-        "inventory"
+        "inventory",
+        "finance",
+        "auditor",
+        "service",
+        "technician"
       ],
       "mode": "write"
     },
@@ -1941,13 +1975,15 @@
         "manager",
         "service",
         "reception",
-        "customer_service"
+        "customer_service",
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
     "prerequisites": [
       "客户车辆与核对过的VIN；可用维修或洗车工位。",
-      "快捷开单需已启用的快捷项目组合。"
+      "普通维修预约不要求快捷组合，也可选择已启用的维修组合并匹配维修工位；洗车组合须匹配洗车工位。快捷开单需对应已启用的快捷项目组合。"
     ],
     "manual": [
       {
@@ -2049,7 +2085,8 @@
         "service",
         "technician",
         "inventory",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -2164,7 +2201,9 @@
         "inventory",
         "service",
         "technician",
-        "manager"
+        "manager",
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -2240,7 +2279,7 @@
     "id": "wf-repair-claim",
     "title": "办理保险厂家或内部核价",
     "category": "维修",
-    "summary": "原报价、核赔结果、实际承担和资金各自有对应记录。",
+    "summary": "原报价、核赔结果、实际承担和资金各有记录；HK-039是保险账核价、HK-040是厂家索赔账核价、HK-041是内部账核价，分别按实际承担方办理。",
     "keywords": [
       "保险理赔",
       "厂家索赔",
@@ -2269,7 +2308,8 @@
         "admin",
         "manager",
         "service",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -2298,7 +2338,7 @@
       {
         "actor": "店长、服务顾问",
         "where": "核赔与维修原单",
-        "action": "店长在原维修“确认费用承担”中核对并冻结客户及各方金额；与已批准核赔结果的金额及承担单位匹配时，原动作会自动绑定核赔与原承担，已绑定无需再点“绑定原维修承担”。仅原承担此前已冻结、核赔仍处于“已取得核价结果”且尚无绑定，并且原支付路径为维修应收或内部承担时，服务顾问核对原单后按原权限和凭据在核赔单手工绑定；两岗位不能互换，不先绑定再冻结承担。本指引列示的办理入口岗位为管理员、店长、服务顾问、财务，具体旧单仍按本人本店读取及动作权限核对。",
+        "action": "店长在原维修“确认费用承担”中核对并冻结客户及各方金额；与已批准核赔结果的金额及承担单位匹配时，原动作会自动绑定核赔与原承担，已绑定无需再点“绑定原维修承担”。仅原承担此前已冻结、核赔仍处于“已取得核价结果”且尚无绑定，并且原支付路径为维修应收或内部承担时，服务顾问核对原单后按原权限和凭据在核赔单手工绑定；两岗位不能互换，不先绑定再冻结承担。入口读取岗位见本指引入口，具体旧单仍按本人本店读取及动作权限核对。",
         "expected": "核赔与原维修承担一致；核准不代表到账。"
       },
       {
@@ -2375,7 +2415,8 @@
         "admin",
         "service",
         "manager",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -2478,7 +2519,9 @@
         "manager",
         "sales",
         "service",
-        "finance"
+        "finance",
+        "auditor",
+        "reception"
       ],
       "mode": "write"
     },
@@ -2587,7 +2630,8 @@
         "admin",
         "manager",
         "service",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -2695,7 +2739,8 @@
         "admin",
         "manager",
         "inventory",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -2807,7 +2852,8 @@
         "admin",
         "manager",
         "inventory",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -2909,7 +2955,9 @@
       "roles": [
         "admin",
         "inventory",
-        "manager"
+        "manager",
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -3008,7 +3056,9 @@
       "roles": [
         "admin",
         "inventory",
-        "manager"
+        "manager",
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -3107,7 +3157,9 @@
       "roles": [
         "admin",
         "inventory",
-        "manager"
+        "manager",
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -3217,7 +3269,9 @@
       "roles": [
         "admin",
         "inventory",
-        "manager"
+        "manager",
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -3313,7 +3367,8 @@
         "admin",
         "manager",
         "inventory",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -3516,7 +3571,9 @@
       "roles": [
         "admin",
         "inventory",
-        "manager"
+        "manager",
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -3734,7 +3791,8 @@
         "manager",
         "inventory",
         "technician",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -3858,7 +3916,8 @@
         "manager",
         "inventory",
         "technician",
-        "finance"
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -3958,7 +4017,9 @@
         "admin",
         "manager",
         "sales",
-        "service"
+        "service",
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -4055,7 +4116,12 @@
       "roles": [
         "admin",
         "finance",
-        "manager"
+        "manager",
+        "auditor",
+        "sales",
+        "service",
+        "reception",
+        "customer_service"
       ],
       "mode": "write"
     },
@@ -4175,7 +4241,8 @@
         "sales",
         "service",
         "reception",
-        "customer_service"
+        "customer_service",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -4287,7 +4354,8 @@
         "sales",
         "service",
         "reception",
-        "customer_service"
+        "customer_service",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -4501,7 +4569,12 @@
       "roles": [
         "admin",
         "finance",
-        "manager"
+        "manager",
+        "auditor",
+        "sales",
+        "service",
+        "reception",
+        "customer_service"
       ],
       "mode": "write"
     },
@@ -4599,7 +4672,8 @@
       "roles": [
         "admin",
         "finance",
-        "manager"
+        "manager",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -4805,7 +4879,8 @@
       "roles": [
         "admin",
         "finance",
-        "manager"
+        "manager",
+        "auditor"
       ],
       "mode": "write"
     },

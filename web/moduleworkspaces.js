@@ -119,11 +119,11 @@ function muxHandoffButton(ref,label){
 function moduleCard(item,spec,related=[item]){
  const allowed=WorkflowGuides.canEnter(item,state.user.role,state.store);
  const title=uxEntryTitle(item,related.length>1);
- const newItem=related.find(w=>WorkflowGuides.canEnter(w,state.user.role,state.store)&&WORKFLOW_QUICK_FORMS[w.id]&&UX_CREATE_FIRST.has(w.id));const newForm=newItem&&WORKFLOW_QUICK_FORMS[newItem.id];
+ const newItem=related.find(w=>WorkflowGuides.canOpenForm(w,state.user.role,state.store)&&WORKFLOW_QUICK_FORMS[w.id]&&UX_CREATE_FIRST.has(w.id));const newForm=newItem&&WORKFLOW_QUICK_FORMS[newItem.id];
  // No default creation for follow-ups. New forms are explicitly labelled and
  // used only by the existing reviewed quick-form registry, after another click.
  const create=allowed&&state.store!=='all'&&newItem;
- return `<article class="mux-card"><h3>${E(title)}</h3><div class="row"><button type="button" class="primary" data-mux-open="${E(item.id)}" data-area="${spec.key}" ${allowed?'':'disabled'}>${E(uxEntryOpenLabel(item))}</button>${create?`<button type="button" data-mux-form="${E(newItem.id)}" data-area="${spec.key}">${E(newForm.label)}</button>`:''}</div><details class="mux-requirements"><summary>操作指引</summary><p>${E([...new Set(related.flatMap(w=>(w.requirements||[]).map(r=>r.title)))].join('、'))}</p>${related.map(w=>`<p><a class="mux-guide-link" href="#workflows/${E(w.id)}">${E(w.title)}</a></p>`).join('')}</details>${!allowed?`<p class="mux-role">${state.store==='all'&&item.entry.mode==='write'?'请先选择具体门店。':'此入口由 '+E((item.entry.roles||[]).map(r=>roleNames[r]||r).join('、'))+' 办理。'}</p>`:''}</article>`;
+ return `<article class="mux-card"><h3>${E(title)}</h3><div class="row"><button type="button" class="primary" data-mux-open="${E(item.id)}" data-area="${spec.key}" ${allowed?'':'disabled'}>${E(uxEntryOpenLabel(item))}</button>${create?`<button type="button" data-mux-form="${E(newItem.id)}" data-area="${spec.key}">${E(newForm.label)}</button>`:''}</div><details class="mux-requirements"><summary>操作指引</summary><p>${E([...new Set(related.flatMap(w=>(w.requirements||[]).map(r=>r.title)))].join('、'))}</p>${related.map(w=>`<p><a class="mux-guide-link" href="#workflows/${E(w.id)}">${E(w.title)}</a></p>`).join('')}</details>${!allowed?`<p class="mux-role">${state.store==='all'&&item.entry.mode==='write'?'请先选择具体门店。':'此页面可由 '+E((item.entry.roles||[]).map(r=>roleNames[r]||r).join('、'))+' 进入。'}</p>`:''}</article>`;
 }
 async function analyticsReportDirectoryHTML(){
  const context=uxContext(),spec=moduleSpec('analytics'),view=moduleView('analytics');

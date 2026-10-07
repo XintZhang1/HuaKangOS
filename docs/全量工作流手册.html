@@ -2007,7 +2007,10 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "sales",
-          "reception"
+          "reception",
+          "finance",
+          "auditor",
+          "customer_service"
         ],
         "mode": "write"
       },
@@ -2134,7 +2137,10 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "sales",
-          "reception"
+          "reception",
+          "finance",
+          "auditor",
+          "customer_service"
         ],
         "mode": "write"
       },
@@ -2158,7 +2164,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "actor": "店长",
           "where": "原单待办",
           "action": "换销售时点“交接给其他员工”，选择接手人和说明。",
-          "expected": "原单与历史保留，新负责人接手。"
+          "expected": "原单与历史保留，新负责人接手；交接本身保留原待办日期，只有记录实际跟进并填写下次日期才更新跟进安排。"
         },
         {
           "actor": "销售",
@@ -2269,7 +2275,12 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "manager",
-          "sales"
+          "sales",
+          "finance",
+          "auditor",
+          "service",
+          "inventory",
+          "technician"
         ],
         "mode": "write"
       },
@@ -2395,7 +2406,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "inventory",
           "service",
           "technician",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -2536,7 +2548,11 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "sales",
-          "finance"
+          "finance",
+          "auditor",
+          "service",
+          "inventory",
+          "technician"
         ],
         "mode": "write"
       },
@@ -2661,7 +2677,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "service",
           "manager",
           "inventory",
-          "finance"
+          "finance",
+          "auditor",
+          "technician"
         ],
         "mode": "write"
       },
@@ -2804,7 +2822,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "manager",
           "inventory",
           "technician",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -3081,7 +3100,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "sales",
           "service",
           "manager",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -3206,7 +3226,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "sales",
           "service",
           "manager",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -3318,7 +3339,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "manager",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -3504,7 +3526,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         },
         {
           "when": "目录里有车型但库存为零",
-          "action": "车型资料不是实车入库；请完成车辆采购或调拨验收。"
+          "action": "库存为零只表示当前筛选范围没有对应在库车辆，不能据此断言车辆从未入库；先核对原出入库、占用及筛选条件。确属尚未收车时，再按真实采购或调拨原单办理验收，不为查询结果为零新建采购。"
         }
       ],
       "completion": [
@@ -3564,7 +3586,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "inventory",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -3688,7 +3711,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "inventory",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -3813,7 +3837,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "inventory",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -3925,7 +3950,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "inventory",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -4040,7 +4066,11 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "manager",
-          "inventory"
+          "inventory",
+          "finance",
+          "auditor",
+          "service",
+          "technician"
         ],
         "mode": "write"
       },
@@ -4149,7 +4179,11 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "manager",
-          "inventory"
+          "inventory",
+          "finance",
+          "auditor",
+          "service",
+          "technician"
         ],
         "mode": "write"
       },
@@ -4266,13 +4300,15 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "manager",
           "service",
           "reception",
-          "customer_service"
+          "customer_service",
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
       "prerequisites": [
         "客户车辆与核对过的VIN；可用维修或洗车工位。",
-        "快捷开单需已启用的快捷项目组合。"
+        "普通维修预约不要求快捷组合，也可选择已启用的维修组合并匹配维修工位；洗车组合须匹配洗车工位。快捷开单需对应已启用的快捷项目组合。"
       ],
       "manual": [
         {
@@ -4409,7 +4445,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "service",
           "technician",
           "inventory",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -4547,7 +4584,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "inventory",
           "service",
           "technician",
-          "manager"
+          "manager",
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -4640,7 +4679,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
       "id": "wf-repair-claim",
       "title": "办理保险厂家或内部核价",
       "category": "维修",
-      "summary": "原报价、核赔结果、实际承担和资金各自有对应记录。",
+      "summary": "原报价、核赔结果、实际承担和资金各有记录；HK-039是保险账核价、HK-040是厂家索赔账核价、HK-041是内部账核价，分别按实际承担方办理。",
       "keywords": [
         "保险理赔",
         "厂家索赔",
@@ -4669,7 +4708,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "service",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -4698,7 +4738,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         {
           "actor": "店长、服务顾问",
           "where": "核赔与维修原单",
-          "action": "店长在原维修“确认费用承担”中核对并冻结客户及各方金额；与已批准核赔结果的金额及承担单位匹配时，原动作会自动绑定核赔与原承担，已绑定无需再点“绑定原维修承担”。仅原承担此前已冻结、核赔仍处于“已取得核价结果”且尚无绑定，并且原支付路径为维修应收或内部承担时，服务顾问核对原单后按原权限和凭据在核赔单手工绑定；两岗位不能互换，不先绑定再冻结承担。本指引列示的办理入口岗位为管理员、店长、服务顾问、财务，具体旧单仍按本人本店读取及动作权限核对。",
+          "action": "店长在原维修“确认费用承担”中核对并冻结客户及各方金额；与已批准核赔结果的金额及承担单位匹配时，原动作会自动绑定核赔与原承担，已绑定无需再点“绑定原维修承担”。仅原承担此前已冻结、核赔仍处于“已取得核价结果”且尚无绑定，并且原支付路径为维修应收或内部承担时，服务顾问核对原单后按原权限和凭据在核赔单手工绑定；两岗位不能互换，不先绑定再冻结承担。入口读取岗位见本指引入口，具体旧单仍按本人本店读取及动作权限核对。",
           "expected": "核赔与原维修承担一致；核准不代表到账。"
         },
         {
@@ -4810,7 +4850,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "service",
           "manager",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -4924,7 +4965,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "manager",
           "sales",
           "service",
-          "finance"
+          "finance",
+          "auditor",
+          "reception"
         ],
         "mode": "write"
       },
@@ -5044,7 +5087,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "service",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -5163,7 +5207,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "inventory",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -5304,7 +5349,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "inventory",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -5429,7 +5475,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "inventory",
-          "manager"
+          "manager",
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -5545,7 +5593,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "inventory",
-          "manager"
+          "manager",
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -5661,7 +5711,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "inventory",
-          "manager"
+          "manager",
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -5788,7 +5840,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "inventory",
-          "manager"
+          "manager",
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -5895,7 +5949,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "inventory",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -6132,7 +6187,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "inventory",
-          "manager"
+          "manager",
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -6384,7 +6441,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "manager",
           "inventory",
           "technician",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -6543,7 +6601,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "manager",
           "inventory",
           "technician",
-          "finance"
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -6654,7 +6713,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "admin",
           "manager",
           "sales",
-          "service"
+          "service",
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -6762,7 +6823,12 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "finance",
-          "manager"
+          "manager",
+          "auditor",
+          "sales",
+          "service",
+          "reception",
+          "customer_service"
         ],
         "mode": "write"
       },
@@ -6911,7 +6977,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "sales",
           "service",
           "reception",
-          "customer_service"
+          "customer_service",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -7040,7 +7107,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "sales",
           "service",
           "reception",
-          "customer_service"
+          "customer_service",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -7294,7 +7362,12 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "finance",
-          "manager"
+          "manager",
+          "auditor",
+          "sales",
+          "service",
+          "reception",
+          "customer_service"
         ],
         "mode": "write"
       },
@@ -7403,7 +7476,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "finance",
-          "manager"
+          "manager",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -7631,7 +7705,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "admin",
           "finance",
-          "manager"
+          "manager",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -7768,7 +7843,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "customer_service",
           "reception",
           "manager",
-          "admin"
+          "admin",
+          "finance",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -7887,7 +7964,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "sales",
           "reception",
           "manager",
-          "admin"
+          "admin",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -8110,7 +8188,12 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "label": "打开问卷题目版本",
         "roles": [
           "manager",
-          "admin"
+          "admin",
+          "auditor",
+          "service",
+          "sales",
+          "reception",
+          "customer_service"
         ],
         "mode": "write"
       },
@@ -8232,7 +8315,10 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "customer_service",
           "service",
           "manager",
-          "admin"
+          "admin",
+          "auditor",
+          "sales",
+          "reception"
         ],
         "mode": "write"
       },
@@ -8366,7 +8452,11 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "sales",
           "manager",
-          "admin"
+          "admin",
+          "finance",
+          "auditor",
+          "reception",
+          "customer_service"
         ],
         "mode": "write"
       },
@@ -8479,7 +8569,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "manager",
           "admin",
           "service",
-          "customer_service"
+          "customer_service",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -8606,7 +8697,10 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "customer_service",
           "service",
           "manager",
-          "admin"
+          "admin",
+          "auditor",
+          "sales",
+          "reception"
         ],
         "mode": "write"
       },
@@ -8739,7 +8833,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "service",
           "customer_service",
           "manager",
-          "admin"
+          "admin",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -8873,7 +8968,12 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "sales",
           "customer_service",
           "manager",
-          "admin"
+          "admin",
+          "inventory",
+          "finance",
+          "auditor",
+          "reception",
+          "technician"
         ],
         "mode": "read"
       },
@@ -9014,7 +9114,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "reception",
           "finance",
           "manager",
-          "admin"
+          "admin",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -9145,7 +9246,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "reception",
           "finance",
           "manager",
-          "admin"
+          "admin",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -9276,7 +9378,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "reception",
           "finance",
           "manager",
-          "admin"
+          "admin",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -9413,7 +9516,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "reception",
           "finance",
           "manager",
-          "admin"
+          "admin",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -9553,7 +9657,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "reception",
           "finance",
           "manager",
-          "admin"
+          "admin",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -9695,7 +9800,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "reception",
           "finance",
           "manager",
-          "admin"
+          "admin",
+          "auditor"
         ],
         "mode": "write"
       },
@@ -9837,7 +9943,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "sales",
           "manager",
           "finance",
-          "admin"
+          "admin",
+          "auditor",
+          "reception"
         ],
         "mode": "write"
       },
@@ -10312,7 +10420,11 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "manager",
           "finance",
           "auditor",
-          "admin"
+          "admin",
+          "sales",
+          "service",
+          "reception",
+          "customer_service"
         ],
         "mode": "read"
       },
@@ -10871,7 +10983,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         {
           "actor": "查询人",
           "where": "整车销售统计",
-          "action": "用“查看全部”或已打开的明细表核对原单；导出当前表时点“导出明细”。在通用统计图表页先点该图的“明细”进入同源明细表，再点“导出明细”。",
+          "action": "在当前统计图表页先点所查图的“明细”，进入同源明细表核对原单，再点该表的“导出明细”；图表页的“导出每日汇总”导出的是每日汇总，不能代替明细导出。",
           "expected": "图表、明细、导出使用同一期间和来源。"
         }
       ],
@@ -11709,7 +11821,8 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "manager",
           "finance",
           "auditor",
-          "admin"
+          "admin",
+          "inventory"
         ],
         "mode": "read"
       },
@@ -13232,7 +13345,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         {
           "actor": "财务／店长／审计",
           "where": "财务管理 → 业务对账与月结",
-          "action": "在列表中选择需要的期间和版本，点“查看来源与差异”；本页查询已有批次。",
+          "action": "本次查询在列表选择已有期间和版本，点“查看来源与差异”，不新建批次。财务或管理员另可在本页按原“新建期间对账”操作建立批次；该办理操作不属于本次查询。",
           "expected": "使用明确的冻结期间和版本。"
         },
         {
@@ -13540,7 +13653,11 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
           "manager",
           "finance",
           "auditor",
-          "admin"
+          "admin",
+          "sales",
+          "service",
+          "reception",
+          "customer_service"
         ],
         "mode": "read"
       },
@@ -13780,7 +13897,7 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         {
           "actor": "查询人",
           "where": "会员储值统计",
-          "action": "用“查看全部”或已打开的明细表核对原单；导出当前表时点“导出明细”。在通用统计图表页先点该图的“明细”进入同源明细表，再点“导出明细”。",
+          "action": "在当前统计图表页先点所查图的“明细”，进入同源明细表核对原单，再点该表的“导出明细”；图表页的“导出每日汇总”导出的是每日汇总，不能代替明细导出。",
           "expected": "图表、明细、导出使用同一期间和来源。"
         }
       ],
@@ -13978,7 +14095,15 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "label": "打开分类设置",
         "roles": [
           "manager",
-          "admin"
+          "admin",
+          "sales",
+          "inventory",
+          "service",
+          "finance",
+          "auditor",
+          "reception",
+          "technician",
+          "customer_service"
         ],
         "mode": "write"
       },
@@ -14120,12 +14245,19 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "label": "打开经营主数据",
         "roles": [
           "manager",
-          "admin"
+          "admin",
+          "finance",
+          "auditor",
+          "sales",
+          "service",
+          "technician",
+          "inventory"
         ],
         "mode": "write"
       },
       "prerequisites": [
-        "公司确认的单位名称、代码及已有联系方式；约定账期。"
+        "公司确认的单位名称、代码及已有联系方式；约定账期。",
+        "经营主数据是多个类型的公共入口；具体供应商可读岗位为管理员、店长、财务、审计、库管，保险公司为管理员、店长、财务、审计、服务顾问；两类维护均由管理员或店长办理。"
       ],
       "manual": [
         {
@@ -14234,12 +14366,18 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "service",
           "manager",
-          "admin"
+          "admin",
+          "finance",
+          "auditor",
+          "sales",
+          "technician",
+          "inventory"
         ],
         "mode": "write"
       },
       "prerequisites": [
-        "实际班组与员工；项目名称、计费单位、参考工时和收费。"
+        "实际班组与员工；项目名称、计费单位、参考工时和收费。",
+        "公共主数据入口不等于每类资料都可读：作业项目可读岗位为管理员、店长、财务、审计、服务顾问、技师；车间班组另含库管。两类维护均由管理员、店长或服务顾问办理。"
       ],
       "manual": [
         {
@@ -14353,7 +14491,11 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "inventory",
           "manager",
-          "admin"
+          "admin",
+          "finance",
+          "auditor",
+          "sales",
+          "service"
         ],
         "mode": "write"
       },
@@ -14461,13 +14603,19 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "inventory",
           "manager",
-          "admin"
+          "admin",
+          "finance",
+          "auditor",
+          "sales",
+          "service",
+          "technician"
         ],
         "mode": "write"
       },
       "prerequisites": [
         "仓库名称、编码、整车/物资/混合用途和已知地址；库位名称、编码及所属仓库。",
-        "本项维护仓库和库位基础资料，完成后供对应原业务选用。VIN、办理日期和实物凭据属于使用库位的原业务资料，不是配置仓库和库位的共同前置。"
+        "本项维护仓库和库位基础资料，完成后供对应原业务选用。VIN、办理日期和实物凭据属于使用库位的原业务资料，不是配置仓库和库位的共同前置。",
+        "公共主数据入口不等于每类资料都可读：仓库、库位可读岗位为管理员、店长、财务、审计、库管、服务顾问、技师；维护由管理员、店长或库管办理。"
       ],
       "manual": [
         {
@@ -14567,7 +14715,10 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "service",
           "manager",
-          "admin"
+          "admin",
+          "finance",
+          "auditor",
+          "sales"
         ],
         "mode": "write"
       },
@@ -14675,7 +14826,11 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
         "roles": [
           "inventory",
           "manager",
-          "admin"
+          "admin",
+          "finance",
+          "auditor",
+          "service",
+          "technician"
         ],
         "mode": "write"
       },
@@ -15312,8 +15467,9 @@ dialog::backdrop{background:#25354d61;backdrop-filter:blur(4px)}.modalhead{paddi
 }</script><script>'use strict';
 
 // Static allowlist for opening an existing form after navigating to the guide's
-// entry.route. The caller must enforce entry.roles and use an enabled, visible
-// button in the rendered page. These selectors never submit a form themselves.
+// entry.route. The caller must enforce canOpenForm (entry and workflow roles)
+// and use an enabled, visible button in the rendered page. These selectors
+// never submit a form themselves.
 // Keep this list independent of model output: do not accept selectors or actions
 // returned by the assistant. Every handler below was checked through its modal /
 // formDialog boundary; business writes remain in the employee's submit callback.
@@ -15410,15 +15566,16 @@ globalThis.WORKFLOW_QUICK_FORMS = Object.freeze({
   }).sort((a,b)=>b.score-a.score||a.item.title.localeCompare(b.item.title,'zh-CN')).map(x=>x.item);
  }
  function canEnter(item,role,store){return validRoute(item.entry?.route)&&(!['all',null,undefined].includes(store)||item.entry.mode==='read')&&(role==='admin'||item.entry.roles?.includes(role));}
+ function canOpenForm(item,role,store){return canEnter(item,role,store)&&!['all','',null,undefined].includes(store)&&(role==='admin'||Array.isArray(item.roles)&&item.roles.includes(role));}
  function assistantPrompt(item){return `本次目标：${item.title}。\n${item.assistant.prompt}\n按本次目标和当前门店岗位核对必要资料；纯查询直接报告已核实范围，不生成确认卡。确需写入时只准备原接口允许的当前一步，由我核对并点击确认。图片示例和操作说明不代表业务已发生，不沿用其他单据的客户、金额或凭据。${item.assistant.mode==='guide'?'需要员工在原页面办理的步骤，请说明实际入口和岗位，并帮我整理所需资料。':''}`;}
  function steps(rows,assistant=false){return `<ol class="wf-steps">${rows.map((step,i)=>`<li><span class="wf-step-number">${i+1}</span><div><div class="wf-step-actor">${escape(step.actor)}${step.where?' · '+escape(step.where):''}</div><p>${escape(step.action)}</p><p class="wf-expected">${escape(step.expected)}</p></div></li>`).join('')}</ol>`;}
  function article(item,{imagePrefix='/static/',images={},role='',store='1',standalone=false}={}){
   const linkable=canEnter(item,role,store),manual=item.manual||[],assistant=item.assistant,form=scope.WORKFLOW_QUICK_FORMS?.[item.id];
-  const formLink=!form?'':standalone?`<a class="wf-form-link" data-wf-system="workflow-form/${escape(item.id)}" href="/#workflow-form/${escape(item.id)}">${escape(form.label)}</a>`:`<button type="button" data-wf-action="form" data-id="${escape(item.id)}" ${linkable&&store!=='all'?'':'disabled'}>${escape(form.label)}</button>`;
+  const formLink=!form?'':standalone?`<a class="wf-form-link" data-wf-system="workflow-form/${escape(item.id)}" href="/#workflow-form/${escape(item.id)}">${escape(form.label)}</a>`:`<button type="button" data-wf-action="form" data-id="${escape(item.id)}" ${canOpenForm(item,role,store)?'':'disabled'}>${escape(form.label)}</button>`;
   const data=escape(item.id),refs=(item.requirements||[]).map(r=>`<li><span>${escape(r.id)}</span> ${escape(r.title)}</li>`).join('');
   const imageURL=images[item.screenshot?.src]||imagePrefix+item.screenshot?.src;
   const screenshot=item.screenshot?.src?`<figure class="wf-figure"><a href="${escape(imageURL)}" data-wf-zoom aria-label="放大截图"><img src="${escape(imageURL)}" alt="${escape(item.screenshot.caption)}" loading="lazy" width="1360" height="900"></a><figcaption>${escape(item.screenshot.caption)} · 演示资料；点击放大</figcaption></figure>`:'';
-  return `<article class="wf-article" data-workflow="${data}"><div class="wf-breadcrumb">${escape(item.category)}</div><h1>${escape(item.title)}</h1><p class="wf-goal">${escape(item.summary)}</p><div class="wf-actions">${standalone?`<a class="wf-primary" data-wf-system="${escape(item.entry.route)}" href="/#${escape(item.entry.route)}">${escape(item.entry.label)}</a><button type="button" data-wfh-copy="${data}">复制给业务助手</button>`:`<button type="button" class="primary" data-wf-action="manual" data-id="${data}" ${linkable?'':'disabled'}>${escape(item.entry.label)}</button>`}${formLink}</div>${!standalone&&!linkable?`<p class="wf-role-note">${store==='all'&&item.entry.mode==='write'?'选择一家门店后办理。':'此步骤由'+escape((item.entry.roles||[]).map(r=>roles[r]||r).join('、'))+'办理。'}</p>`:''}<section><h2>开始前准备</h2><ul>${item.prerequisites.map(p=>`<li>${escape(p)}</li>`).join('')}</ul></section>${screenshot}<div class="wf-path-tabs" role="tablist" aria-label="办理方式"><button type="button" role="tab" aria-selected="true" data-wf-path="manual">手动办理</button><button type="button" role="tab" aria-selected="false" data-wf-path="assistant">业务助手办理</button></div><section data-wf-panel="manual">${steps(manual)}</section><section data-wf-panel="assistant" hidden><p class="wf-assistant-note">${assistant.mode==='guide'?'助手会说明已核实的查询结果，以及需要本人在原页面办理的步骤。':'助手先核对本次目标；纯查询直接回答，确需写入时才准备表单供你核对确认。'}</p>${steps(assistant.steps,true)}<details><summary>可以这样问</summary><pre class="wf-prompt">${escape(assistantPrompt(item))}</pre></details></section><section><h2>遇到问题</h2><div class="wf-exceptions">${item.exceptions.map(x=>`<div><h3>${escape(x.when)}</h3><p>${escape(x.action)}</p></div>`).join('')}</div></section><section><h2>完成后核对</h2><ul>${item.completion.map(p=>`<li>${escape(p)}</li>`).join('')}</ul></section><details class="wf-references"><summary>对应需求（${item.requirement_ids.length}项）</summary><ul>${refs}</ul></details></article>`;
+  return `<article class="wf-article" data-workflow="${data}"><div class="wf-breadcrumb">${escape(item.category)}</div><h1>${escape(item.title)}</h1><p class="wf-goal">${escape(item.summary)}</p><div class="wf-actions">${standalone?`<a class="wf-primary" data-wf-system="${escape(item.entry.route)}" href="/#${escape(item.entry.route)}">${escape(item.entry.label)}</a><button type="button" data-wfh-copy="${data}">复制给业务助手</button>`:`<button type="button" class="primary" data-wf-action="manual" data-id="${data}" ${linkable?'':'disabled'}>${escape(item.entry.label)}</button>`}${formLink}</div>${!standalone&&!linkable?`<p class="wf-role-note">${store==='all'&&item.entry.mode==='write'?'选择一家门店后办理。':'此页面可由'+escape((item.entry.roles||[]).map(r=>roles[r]||r).join('、'))+'进入。'}</p>`:''}<section><h2>开始前准备</h2><ul>${item.prerequisites.map(p=>`<li>${escape(p)}</li>`).join('')}</ul></section>${screenshot}<div class="wf-path-tabs" role="tablist" aria-label="办理方式"><button type="button" role="tab" aria-selected="true" data-wf-path="manual">手动办理</button><button type="button" role="tab" aria-selected="false" data-wf-path="assistant">业务助手办理</button></div><section data-wf-panel="manual">${steps(manual)}</section><section data-wf-panel="assistant" hidden><p class="wf-assistant-note">${assistant.mode==='guide'?'助手会说明已核实的查询结果，以及需要本人在原页面办理的步骤。':'助手先核对本次目标；纯查询直接回答，确需写入时才准备表单供你核对确认。'}</p>${steps(assistant.steps,true)}<details><summary>可以这样问</summary><pre class="wf-prompt">${escape(assistantPrompt(item))}</pre></details></section><section><h2>遇到问题</h2><div class="wf-exceptions">${item.exceptions.map(x=>`<div><h3>${escape(x.when)}</h3><p>${escape(x.action)}</p></div>`).join('')}</div></section><section><h2>完成后核对</h2><ul>${item.completion.map(p=>`<li>${escape(p)}</li>`).join('')}</ul></section><details class="wf-references"><summary>对应需求（${item.requirement_ids.length}项）</summary><ul>${refs}</ul></details></article>`;
  }
  function card(item){return `<a class="wf-card" href="#workflows/${escape(item.id)}" data-wfh-guide="${escape(item.id)}"><span>${escape(item.category)}</span><h2>${escape(item.title)}</h2><p>${escape(item.summary)}</p></a>`;}
  // An in-page viewer also works for embedded offline images; no data-URL tab.
@@ -15430,7 +15587,7 @@ globalThis.WORKFLOW_QUICK_FORMS = Object.freeze({
   dialog.querySelector('button').addEventListener('click',()=>dialog.close());
   dialog.addEventListener('close',()=>dialog.remove());document.body.append(dialog);dialog.showModal();
  });
- scope.WorkflowGuides={escape,normalize,search,canEnter,assistantPrompt,article,card,roles,validRoute};
+ scope.WorkflowGuides={escape,normalize,search,canEnter,canOpenForm,assistantPrompt,article,card,roles,validRoute};
 })(globalThis);
 </script><script>'use strict';
 // This standalone handbook contains only instructions and synthetic screenshots.

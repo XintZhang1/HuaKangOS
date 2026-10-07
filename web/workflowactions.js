@@ -1,8 +1,9 @@
 'use strict';
 
 // Static allowlist for opening an existing form after navigating to the guide's
-// entry.route. The caller must enforce entry.roles and use an enabled, visible
-// button in the rendered page. These selectors never submit a form themselves.
+// entry.route. The caller must enforce canOpenForm (entry and workflow roles)
+// and use an enabled, visible button in the rendered page. These selectors
+// never submit a form themselves.
 // Keep this list independent of model output: do not accept selectors or actions
 // returned by the assistant. Every handler below was checked through its modal /
 // formDialog boundary; business writes remain in the employee's submit callback.

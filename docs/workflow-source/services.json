@@ -48,7 +48,9 @@
         "customer_service",
         "reception",
         "manager",
-        "admin"
+        "admin",
+        "finance",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -156,7 +158,8 @@
         "sales",
         "reception",
         "manager",
-        "admin"
+        "admin",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -357,7 +360,12 @@
       "label": "打开问卷题目版本",
       "roles": [
         "manager",
-        "admin"
+        "admin",
+        "auditor",
+        "service",
+        "sales",
+        "reception",
+        "customer_service"
       ],
       "mode": "write"
     },
@@ -468,7 +476,10 @@
         "customer_service",
         "service",
         "manager",
-        "admin"
+        "admin",
+        "auditor",
+        "sales",
+        "reception"
       ],
       "mode": "write"
     },
@@ -573,7 +584,11 @@
       "roles": [
         "sales",
         "manager",
-        "admin"
+        "admin",
+        "finance",
+        "auditor",
+        "reception",
+        "customer_service"
       ],
       "mode": "write"
     },
@@ -675,7 +690,8 @@
         "manager",
         "admin",
         "service",
-        "customer_service"
+        "customer_service",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -779,7 +795,10 @@
         "customer_service",
         "service",
         "manager",
-        "admin"
+        "admin",
+        "auditor",
+        "sales",
+        "reception"
       ],
       "mode": "write"
     },
@@ -889,7 +908,8 @@
         "service",
         "customer_service",
         "manager",
-        "admin"
+        "admin",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -994,7 +1014,12 @@
         "sales",
         "customer_service",
         "manager",
-        "admin"
+        "admin",
+        "inventory",
+        "finance",
+        "auditor",
+        "reception",
+        "technician"
       ],
       "mode": "read"
     },
@@ -1112,7 +1137,8 @@
         "reception",
         "finance",
         "manager",
-        "admin"
+        "admin",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1220,7 +1246,8 @@
         "reception",
         "finance",
         "manager",
-        "admin"
+        "admin",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1334,7 +1361,8 @@
         "reception",
         "finance",
         "manager",
-        "admin"
+        "admin",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1454,7 +1482,8 @@
         "reception",
         "finance",
         "manager",
-        "admin"
+        "admin",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1577,7 +1606,8 @@
         "reception",
         "finance",
         "manager",
-        "admin"
+        "admin",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1696,7 +1726,8 @@
         "reception",
         "finance",
         "manager",
-        "admin"
+        "admin",
+        "auditor"
       ],
       "mode": "write"
     },
@@ -1809,7 +1840,9 @@
         "sales",
         "manager",
         "finance",
-        "admin"
+        "admin",
+        "auditor",
+        "reception"
       ],
       "mode": "write"
     },
@@ -2222,7 +2255,11 @@
         "manager",
         "finance",
         "auditor",
-        "admin"
+        "admin",
+        "sales",
+        "service",
+        "reception",
+        "customer_service"
       ],
       "mode": "read"
     },
@@ -2726,7 +2763,7 @@
       {
         "actor": "查询人",
         "where": "整车销售统计",
-        "action": "用“查看全部”或已打开的明细表核对原单；导出当前表时点“导出明细”。在通用统计图表页先点该图的“明细”进入同源明细表，再点“导出明细”。",
+        "action": "在当前统计图表页先点所查图的“明细”，进入同源明细表核对原单，再点该表的“导出明细”；图表页的“导出每日汇总”导出的是每日汇总，不能代替明细导出。",
         "expected": "图表、明细、导出使用同一期间和来源。"
       }
     ],
@@ -3476,7 +3513,8 @@
         "manager",
         "finance",
         "auditor",
-        "admin"
+        "admin",
+        "inventory"
       ],
       "mode": "read"
     },
@@ -4845,7 +4883,7 @@
       {
         "actor": "财务／店长／审计",
         "where": "财务管理 → 业务对账与月结",
-        "action": "在列表中选择需要的期间和版本，点“查看来源与差异”；本页查询已有批次。",
+        "action": "本次查询在列表选择已有期间和版本，点“查看来源与差异”，不新建批次。财务或管理员另可在本页按原“新建期间对账”操作建立批次；该办理操作不属于本次查询。",
         "expected": "使用明确的冻结期间和版本。"
       },
       {
@@ -5120,7 +5158,11 @@
         "manager",
         "finance",
         "auditor",
-        "admin"
+        "admin",
+        "sales",
+        "service",
+        "reception",
+        "customer_service"
       ],
       "mode": "read"
     },
@@ -5338,7 +5380,7 @@
       {
         "actor": "查询人",
         "where": "会员储值统计",
-        "action": "用“查看全部”或已打开的明细表核对原单；导出当前表时点“导出明细”。在通用统计图表页先点该图的“明细”进入同源明细表，再点“导出明细”。",
+        "action": "在当前统计图表页先点所查图的“明细”，进入同源明细表核对原单，再点该表的“导出明细”；图表页的“导出每日汇总”导出的是每日汇总，不能代替明细导出。",
         "expected": "图表、明细、导出使用同一期间和来源。"
       }
     ],
@@ -5514,7 +5556,15 @@
       "label": "打开分类设置",
       "roles": [
         "manager",
-        "admin"
+        "admin",
+        "sales",
+        "inventory",
+        "service",
+        "finance",
+        "auditor",
+        "reception",
+        "technician",
+        "customer_service"
       ],
       "mode": "write"
     },
@@ -5609,12 +5659,19 @@
       "label": "打开经营主数据",
       "roles": [
         "manager",
-        "admin"
+        "admin",
+        "finance",
+        "auditor",
+        "sales",
+        "service",
+        "technician",
+        "inventory"
       ],
       "mode": "write"
     },
     "prerequisites": [
-      "公司确认的单位名称、代码及已有联系方式；约定账期。"
+      "公司确认的单位名称、代码及已有联系方式；约定账期。",
+      "经营主数据是多个类型的公共入口；具体供应商可读岗位为管理员、店长、财务、审计、库管，保险公司为管理员、店长、财务、审计、服务顾问；两类维护均由管理员或店长办理。"
     ],
     "manual": [
       {
@@ -5706,12 +5763,18 @@
       "roles": [
         "service",
         "manager",
-        "admin"
+        "admin",
+        "finance",
+        "auditor",
+        "sales",
+        "technician",
+        "inventory"
       ],
       "mode": "write"
     },
     "prerequisites": [
-      "实际班组与员工；项目名称、计费单位、参考工时和收费。"
+      "实际班组与员工；项目名称、计费单位、参考工时和收费。",
+      "公共主数据入口不等于每类资料都可读：作业项目可读岗位为管理员、店长、财务、审计、服务顾问、技师；车间班组另含库管。两类维护均由管理员、店长或服务顾问办理。"
     ],
     "manual": [
       {
@@ -5808,7 +5871,11 @@
       "roles": [
         "inventory",
         "manager",
-        "admin"
+        "admin",
+        "finance",
+        "auditor",
+        "sales",
+        "service"
       ],
       "mode": "write"
     },
@@ -5905,13 +5972,19 @@
       "roles": [
         "inventory",
         "manager",
-        "admin"
+        "admin",
+        "finance",
+        "auditor",
+        "sales",
+        "service",
+        "technician"
       ],
       "mode": "write"
     },
     "prerequisites": [
       "仓库名称、编码、整车/物资/混合用途和已知地址；库位名称、编码及所属仓库。",
-      "本项维护仓库和库位基础资料，完成后供对应原业务选用。VIN、办理日期和实物凭据属于使用库位的原业务资料，不是配置仓库和库位的共同前置。"
+      "本项维护仓库和库位基础资料，完成后供对应原业务选用。VIN、办理日期和实物凭据属于使用库位的原业务资料，不是配置仓库和库位的共同前置。",
+      "公共主数据入口不等于每类资料都可读：仓库、库位可读岗位为管理员、店长、财务、审计、库管、服务顾问、技师；维护由管理员、店长或库管办理。"
     ],
     "manual": [
       {
@@ -5994,7 +6067,10 @@
       "roles": [
         "service",
         "manager",
-        "admin"
+        "admin",
+        "finance",
+        "auditor",
+        "sales"
       ],
       "mode": "write"
     },
@@ -6091,7 +6167,11 @@
       "roles": [
         "inventory",
         "manager",
-        "admin"
+        "admin",
+        "finance",
+        "auditor",
+        "service",
+        "technician"
       ],
       "mode": "write"
     },
