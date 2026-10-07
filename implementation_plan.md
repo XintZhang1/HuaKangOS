@@ -1,6 +1,6 @@
 # HuaKangOS 实施计划：单项实施与检查点审阅版
 
-**2026-10-07 当前执行范围（业主最新指令）**：停止后续验收，转为全部源码推 main → 阿里云已有 HuaKangOS 更新 main → 备份后完全重置该系统数据、新管理员、公网 IP／端口 → 现有 Cutie + DeepSeek 队列真实轻量冒烟。仅限 HuaKangOS，不影响 dsh／QuantumAlpha。七字典原例 114940 结构与独立语义 7/7、零关键／零业务写入；当前最终候选完整 283 和 M8.6 未执行，后续按用户反馈修复。M8.5、M8.6、CP-37 为 `deferred_by_owner`，表示业主延期，非 done／released；M8.10 done 保持。部署授权按 [PATCH-DELIVERY-ALIYUN-20261007-01](docs/implementation-patches/PATCH-DELIVERY-ALIYUN-20261007-01.md) 与[交付任务](docs/architect/tasks/aliyun-main-delivery-20261007.md)执行，部署尚未完成。以下旧日期记录按其历史时点保留。
+**2026-10-07 当前执行范围（业主最新指令）**：停止后续验收，转为全部源码推 main → 阿里云已有 HuaKangOS 更新 main → 备份后完全重置该系统数据、新管理员、公网 IP／端口 → 现有 Cutie + DeepSeek 队列真实轻量冒烟。仅限 HuaKangOS，不影响 dsh／QuantumAlpha。七字典原例 114940 结构与独立语义 7/7、零关键／零业务写入；当前最终候选完整 283 和 M8.6 未执行，后续按用户反馈修复。M8.5、M8.6、CP-37 为 `deferred_by_owner`，表示业主延期，非 done／released；M8.10 done 保持。部署授权按 [PATCH-DELIVERY-ALIYUN-20261007-01](docs/implementation-patches/PATCH-DELIVERY-ALIYUN-20261007-01.md) 与[交付任务](docs/architect/tasks/aliyun-main-delivery-20261007.md)执行。本次试用部署及单条真实运维冒烟已完成，Cutie独立回执为reviewed；精确发布SHA、凭据及证据在仓库外交付目录，最终文档同步不重复重置数据。以下旧日期记录按其历史时点保留。
 
 **2026-10-05 执行范围（历史保留）**：取消M8.4剩余HTTPS/系统输入法及M8.7/M8.8独立环境验收，不把未执行项目标通过。先推送已完成源码，再进行M8.10代码/架构维护交接；真实模型M8.5/M8.6明确保留，使用本地外部合成实例和业主提供API，不等待被取消项目。M8.9员工试用及人工验收由业主安排，不阻塞本次源码交接。当前唯一状态源仍为本计划，详PATCH-SCOPE-MAINTENANCE-20261005-01；下方旧日期段不覆盖本次范围。
 

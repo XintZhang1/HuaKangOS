@@ -1,6 +1,6 @@
 # 当前交付任务
 
-2026-10-07 [阿里云 main 交付](tasks/aliyun-main-delivery-20261007.md)：GitHub／云端应用均为2bdc7d13，HuaKangOS旧业务／运维／邮件已备份后重置，新管理员与h53k空业务库已建立；[公网28180](http://8.133.192.159:28180) 首页／health200、原 login／me 成功、反馈201。业务四开关按授权启用，独立worker healthy，确认守卫保持，日报外发off，五个HuaKangOS服务及既有dsh active、MCP仅loopback。真实队列轻量冒烟5次DeepSeek／8工具，SMTP sent且Gmail实际INBOX，仍awaiting_cutie，无真实Cutie回执；尚不能声称闭环稳定。用户延期最终283／M8.6，M8.5／M8.6／CP-37保持deferred_by_owner，原要求及失败保留；M8.10 done不变。后续仅同步交付文档，不重新重置或扩测试。以下旧段保留各自历史时点。
+2026-10-07 [阿里云 main 交付](tasks/aliyun-main-delivery-20261007.md)：GitHub／云端应用均为2bdc7d13，HuaKangOS旧业务／运维／邮件已备份后重置，新管理员与h53k空业务库已建立；[公网28180](http://8.133.192.159:28180) 首页／health200、原 login／me 成功、反馈201。业务四开关按授权启用，独立worker healthy，确认守卫保持，日报外发off，五个HuaKangOS服务及既有dsh active、MCP仅loopback。真实队列轻量冒烟5次DeepSeek／8工具，SMTP sent且Gmail实际INBOX，业主手动唤起Cutie后已收到独立declined回执（无需改代码或PR），12:42:59Z进入reviewed；本次单条完整链路跑通，重启无重复。自动唤醒及长期稳定性未由本次冒烟证明。用户延期最终283／M8.6，M8.5／M8.6／CP-37保持deferred_by_owner，原要求及失败保留；M8.10 done不变。后续仅同步交付文档，不重新重置或扩测试。以下旧段保留各自历史时点。
 
 2026-10-07 当前M8.5：3237588/source8e4a8c 下18/18 strict及指南1、UX31、工作区24、后端4定向检查通过；真实86原例110626自然CLI0/1081.735秒，结构86/86、逐例81可接受/5普通/0关键，同批101重叠8/8。2卡pending/0确认、逐例467表等值。186新请求全结2.601423元，累计12012次保守占330.098675元，8旧未知不变。字典HELP180/185有实际源actor错误，PATCH17只修三actor及生成物；另005/035/087保留源正确后的模型普通误述。七个字典原例及最终完整283待验，M8.5 in_progress、CP-37 not_ready、M8.6 todo。详[本轮终审](../implementation-checkpoints/M8-5-rep110626-review-v1.md)。以下记录按各自历史时点保留。
 
