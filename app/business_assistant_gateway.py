@@ -700,6 +700,20 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
         if operation_id=='GET /api/masters/{kind}':
             money_context=_master_money_context(path_args,data)
             if money_context:result['master_money_context']=money_context
+        if operation_id=='GET /api/invoices/sources' and isinstance(rows,list) and all(
+                isinstance(row,dict) for row in rows):
+            counts={'scope':'returned_items','returned_count':len(rows),
+                'positive_available_count':0,'zero_available_count':0,
+                'negative_available_count':0,'unknown_available_count':0}
+            for row in rows:
+                available=row.get('available_cents')
+                if type(available) is not int:key='unknown_available_count'
+                elif available>0:key='positive_available_count'
+                elif available==0:key='zero_available_count'
+                else:key='negative_available_count'
+                counts[key]+=1
+            counts['notice']='只统计本次已授权返回的items，不是原total或其它页数量。可开金额为正不证明申请其它条件已满足，零额不表示来源不存在，未知值不猜为零。'
+            result['invoice_source_counts']=counts
         if operation_id=='GET /api/audit' and isinstance(rows,list) and all(
                 isinstance(row,dict) and isinstance(row.get('action'),str)
                 and isinstance(row.get('entity_type'),str) for row in rows):
