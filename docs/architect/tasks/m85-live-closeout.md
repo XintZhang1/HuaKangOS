@@ -1,6 +1,8 @@
 # M8.5 本地真实模型回归收口
 
-2026-10-07 当前：冻结662b085/source897bf4在strict073232 18/18及gateway原API节点073312 1/1后，37原失败代表074423结构/独审语义37/37；从零full080101自然CLI1，在C07的provider_call_failed技术中断，只有47原case文件、46结构通过。三独审43可接受/3普通/0关键/1技术失败；余236未运行，同批101仅47覆盖/54未运行。47例业务表前后等值、零确认，不能与代表或旧283拼接。预算累计10985次，已结245.450981元＋原七未知66.322432元＋本笔reserved保守5.242880元＝317.016293元，该笔reserved已受审转unknown、halt保持，回执`full080101-terminal/ledger-conversion-installed.json` SHA `4be8b5ca47f8164b8e2fa1250105ded5bd015ddc7bc8bedcfd184ee1aa94f8a2`、账本SHA `441b611af06905804504ac68e6b927a9a7289db0de6cbca3284b198aa5c3f3e6`；旧full052312 Y07已据runtime失败工具原件纠错为可接受，现行247/35/1、同101 99/1/1。PATCH14只限runner纠正轮、gateway开票列表notice、wf-material-stock-count前置及生成物；有限静审已完成且无静态阻塞；待冻结strict/单独ACK、原四例真实复验，再从零283/同批101逐例审阅。详 [部分终稿](../../implementation-checkpoints/M8-5-full080101-review-v1.md)。M8.5 in_progress、CP-37 not_ready、M8.6 todo。
+2026-10-07 当前：1d65082/sourcebd289438同五输入post-strict084358实际18/18后，四原例084731结构4/4、独审3可接受/1普通（M06）/0关键/0技术失败，已自然排空并安全halt。PATCH15一项原启用前置及三生成物已落盘，A有限独立静审无静态阻塞；下一步冻结/新strict、保持原四例输入复验，实际错误消失后才从零完整283/同批101。详 [rep084731终审](../../implementation-checkpoints/M8-5-rep084731-review-v1.md)；M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done。
+
+2026-10-07 上一轮当前（历史保留）：冻结662b085/source897bf4在strict073232 18/18及gateway原API节点073312 1/1后，37原失败代表074423结构/独审语义37/37；从零full080101自然CLI1，在C07的provider_call_failed技术中断，只有47原case文件、46结构通过。三独审43可接受/3普通/0关键/1技术失败；余236未运行，同批101仅47覆盖/54未运行。47例业务表前后等值、零确认，不能与代表或旧283拼接。预算累计10985次，已结245.450981元＋原七未知66.322432元＋本笔reserved保守5.242880元＝317.016293元，该笔reserved已受审转unknown、halt保持，回执`full080101-terminal/ledger-conversion-installed.json` SHA `4be8b5ca47f8164b8e2fa1250105ded5bd015ddc7bc8bedcfd184ee1aa94f8a2`、账本SHA `441b611af06905804504ac68e6b927a9a7289db0de6cbca3284b198aa5c3f3e6`；旧full052312 Y07已据runtime失败工具原件纠错为可接受，现行247/35/1、同101 99/1/1。PATCH14只限runner纠正轮、gateway开票列表notice、wf-material-stock-count前置及生成物；有限静审已完成且无静态阻塞；待冻结strict/单独ACK、原四例真实复验，再从零283/同批101逐例审阅。详 [部分终稿](../../implementation-checkpoints/M8-5-full080101-review-v1.md)。M8.5 in_progress、CP-37 not_ready、M8.6 todo。
 
 2026-10-07 最新增量：冻结3e59c08、新九例登记及受审门禁重绑后，post-strict031027实际18/18；真实Flash九例20261007T031736Z-1d506bf194自然CLI0/307.859秒/结构9/9，独审6可接受/3普通失败/0关键。V05实际12车错说13并补0013，M04未核父单版本/本人权限却套新版退料与接续允诺，Y07将系统维护maintenance误译为保养；其余六例可接受。逐例467业务表等值、一卡pending、零确认。60次新调用全结算0.578228元；累计9595次已结229.294681元加七旧未知66.322432元，保守占295.617113元，排空后账本halt SHA22d647916eff6198c7d99c0592a02032328885cd28daf995a38f8a2f74708bac。PATCH-M8-5-RETURNED-FACT-SCOPE-09仅补已授权候选确定性计数、原维修指引新旧流程与本人权限边界、原审计系统维护名称；生成物193/111、AST3/3及diff检查通过。C独立有限静审无阻塞；新strict/重绑/post-strict/单独ACK、原九例复验及从零283/同批101仍待完成，详M8-5-rep031736-review-v1。M8.5 in_progress、M8.6 todo、CP-37 not_ready、M8.10 done。
 
@@ -53,3 +55,9 @@
 80f332d同输入strict18/18、九代表051252结构/语义9/9后，从零完整原283运行052312自然CLI0/5068.265秒/已排空。结构283/283，独立终审246可接受/36普通失败/1关键，同批101为98/2/1；A06错误客户归属保留，37失败ID、初判修正及最终审计见 [M8-5-full052312-review-v1](../../implementation-checkpoints/M8-5-full052312-review-v1.md)。逐例467表等值、84卡pending、零确认；834次新调用全结算，累计10672次，保守占308.310876元（旧七未知66.322432元保留），排空后仅两字段halt。
 
 [PATCH-M8-5-GUIDE-BRANCH-13](../../implementation-patches/PATCH-M8-5-GUIDE-BRANCH-13.md)已由ROOT按有限候选应用四源及三生成物；A4末次有限静审无阻塞，原生成器build/check193/111、diff通过。外部原API新节点及有限原失败选择由独立登记接续；新源码动态节点、冻结/同输入strict、来源重绑/post-strict和单独ACK待完成，之后受影响原例实际通过再从零283及同批101逐例审阅。当前实现与静审不继承为动态验收，M8.5 in_progress、CP-37 not_ready、M8.6 todo、M8.10 done，历史失败和费用原件保持。
+
+## 2026-10-07 四代表084731与PATCH15接续
+
+本轮131.718秒自然CLI0，四例零卡片、零确认、各467表等值；S06初答完整可接受，未以本轮证明纠正分支触发。M06已知物资2库位账未启用，却在准备盘点的具体承诺中漏启用前置，普通失败保留。14次新增POST全结0.183081元；累计10999次（10991已结、8旧未知、0预留），245.634062+71.565312=317.199374元，排空后仅两字段halt，费用历史和400元/12000次预算保持。
+
+[PATCH15](../../implementation-patches/PATCH-M8-5-COUNT-ENROLLMENT-15.md)只补 `wf-material-stock-count.prerequisites`，同步三原生成物；原申请数量零、后续现场观察、全店实盘与原服务/权限合同保留。原生成器193/111与diff通过，A有限静审无阻塞；新strict、同四原例和从零283/同101待实际证据，原四例注册不改。
