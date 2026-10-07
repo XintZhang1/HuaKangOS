@@ -178,7 +178,7 @@ def find_workflows(query, role='', category=''):
         'exact_workflow_titles':exact_titles,
         'returned_workflow_ids':[item['workflow_id'] for item in items]}
     for item in items:
-        item['next'] = ('告诉员工入口、岗位和本次要准备的资料；其它业务能否准备按操作目录和原单权限判断，不按动作名称一概限制。'
+        item['next'] = ('先按本条适用的业务范围说明入口和岗位。已有原单以本人获权读取的原详情、适用版本和实际动作判断本次缺项及能否准备；需要在父单办理而未读到父单、来源或版本未核实时停在待核。补单号、车牌或其他岗位定位不改变本人权限，不能承诺随后由本人准备。逐个说明已读对象及结果，未读取的父单仍待核，不从同类列表为空或另一对象404推断全部父单已核实。'
                         if item['entry']['can_enter'] else item['entry']['role_note'])
     return {'items': items, 'query_match': query_match, 'notice': (
         '这是当前发布的工作流帮助，未读取或核对任何具体原单的kind、flow_version、当前版本及父单授权。'

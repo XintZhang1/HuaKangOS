@@ -279,6 +279,8 @@ def catalog(domain='',query='',role=None):
         hay=(op['id']+' '+op['label']+' '+op['description']+' '+DOMAINS.get(op['domain'],'')+' '+aliases).lower()
         if words and not all(w in hay for w in words):continue
         row={k:op[k] for k in ('id','label','domain','description','write','idempotent','manual_route')}
+        if op['id']=='GET /api/audit':
+            row['read_scope_note']='非系统管理员的原查询排除users（员工账号）、stores（门店）、feedback（反馈）、maintenance（系统维护）类别；maintenance不是维修保养业务。目录说明不表示已查询到任何日志或改变当前岗位权限。'
         if role:
             may=role_may_read(role,op)
             if may is not None:
@@ -706,6 +708,23 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
     # They do not query another page or change the native business response.
     if response.status_code==200 and isinstance(data,dict) and not data.get('truncated'):
         rows=data.get('items')
+        if operation_id=='GET /api/vehicle-operations/vehicles' and isinstance(rows,list) and all(
+                isinstance(row,dict) for row in rows):
+            counts={'scope':'returned_items','returned_count':len(rows),'by_position_status':{},
+                'unknown_position_status_count':0,'sales_committed_true_count':0,
+                'sales_committed_false_count':0,'sales_committed_unknown_count':0}
+            for row in rows:
+                position=row.get('position_status')
+                if isinstance(position,str):
+                    counts['by_position_status'][position]=counts['by_position_status'].get(position,0)+1
+                else:counts['unknown_position_status_count']+=1
+                committed=row.get('sales_committed')
+                if type(committed) is bool:
+                    key='sales_committed_true_count' if committed else 'sales_committed_false_count'
+                else:key='sales_committed_unknown_count'
+                counts[key]+=1
+            counts['notice']='只统计本次已授权返回的候选行，不是当前在库或可移库全集；按逐行真实VIN核对，不用编号范围推算数量或补造VIN。未知销售阻断不当作无阻断，位置状态和数量都不能代替原动作守卫。'
+            result['vehicle_candidate_counts']=counts
         if operation_id=='GET /api/masters/{kind}':
             money_context=_master_money_context(path_args,data)
             if money_context:result['master_money_context']=money_context
