@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-07 当前任务转为 [阿里云 main 交付](tasks/aliyun-main-delivery-20261007.md)：业主停止后续验收；七字典原例114940结构和独立语义7/7、零关键／零写入已完成，当前最终候选完整283及M8.6未执行。M8.5／M8.6／CP-37为 deferred_by_owner，原要求及历史失败保留，M8.10 done不变。全部源码推main、HuaKangOS原数据备份、阿里云已有系统更新与完全重置、新管理员、公网IP／端口及现有Cutie + DeepSeek队列轻量冒烟已获授权，均按实际交付记录推进，当前部署未完成；不影响dsh／QuantumAlpha。详 [交付补丁](../implementation-patches/PATCH-DELIVERY-ALIYUN-20261007-01.md)。
+
 2026-10-07 当前M8.5：3237588/source8e4a8c 下18/18 strict及指南1、UX31、工作区24、后端4定向检查通过；真实86原例110626自然CLI0/1081.735秒，结构86/86、逐例81可接受/5普通/0关键，同批101重叠8/8。2卡pending/0确认、逐例467表等值。186新请求全结2.601423元，累计12012次保守占330.098675元，8旧未知不变。字典HELP180/185有实际源actor错误，PATCH17只修三actor及生成物；另005/035/087保留源正确后的模型普通误述。七个字典原例及最终完整283待验，M8.5 in_progress、CP-37 not_ready、M8.6 todo。详[本轮终审](../implementation-checkpoints/M8-5-rep110626-review-v1.md)。以下记录按各自历史时点保留。
 
 2026-10-07 当前M8.5：完整091255原283结构通过，独审197可接受/86普通/0关键；同批101为93/8/0。主要修复旧指南入口读取岗位，快捷表单保留原办理限制；PATCH16实现中、动态及真实复验待做。详[本轮终审](../implementation-checkpoints/M8-5-full091255-review-v1.md)。M8.5 in_progress，CP-37 not_ready，M8.6 todo。以下记录按各自历史时点保留。
