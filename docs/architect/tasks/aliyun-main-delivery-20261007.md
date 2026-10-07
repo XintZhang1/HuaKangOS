@@ -12,4 +12,6 @@
 
 冒烟客户端 logout 缺少 JSON 导致的 cleanup 断言属于脚本问题；原反馈已成功，后续从原 job 恢复 receipt，没有重新提交。外部证据位于 `C:/Users/tiefu/.codex/HuaKangOS-agent-validation/aliyun-main-20261007`，凭据与备份不入 Git。
 
+后续仅文档发布 `d32466a` 暴露部署脚本漏建空 `data` 目录，导致 Web／业务 worker 在只读服务沙箱启动失败；这不是业务库丢失。已在确切 release 下补齐 `root:root 0755` 空目录，保留原外置数据库及 `ProtectSystem`，公网首页、health 返回该 SHA、管理员登录／就绪／退出均200。部署脚本已补每次预建目录及 health SHA 就绪检查，维护说明同步；未重复重置或调用模型。业主已手动唤起 Cutie，独立回执仍按原 job 核对，不代填。
+
 七字典原例114940结构及独立语义7/7、零关键／零写入已完成，原报告和旧失败保留。当前最终候选完整283／同批101与M8.6多轮、独立保留集未执行；M8.5、M8.6、CP-37保持 `deferred_by_owner`，非验收完成或 released，后续按用户反馈修复。此次为授权试用交付，不代替原生产验收；不影响 dsh／QuantumAlpha 等其它系统，不改写 total_plan.md。同步后续文档发布不重新重置数据或扩展测试。
