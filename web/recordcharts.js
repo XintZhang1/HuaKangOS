@@ -146,7 +146,8 @@ function render(container,options){
  const state={width:0,observer:null,listener:null};mounted.set(target,state);
  const paint=()=>{
   if(mounted.get(target)!==state)return;
-  const width=Math.max(280,Math.floor(target.getBoundingClientRect().width||720));if(state.width===width)return;state.width=width;
+  const style=global.getComputedStyle(target);
+  const width=Math.max(280,Math.floor(target.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)));if(state.width===width)return;state.width=width;
   const root=node('section','records-chart');root.dataset.chartType=spec.type;root.setAttribute('aria-label',spec.title||'业务记录图表');
   if(spec.unit)note(root,'单位：'+spec.unit,'rc-unit');
   if(!spec.items.length)note(root,'所选范围暂无记录。','rc-empty');else if(spec.type==='rank')rank(root,spec);else if(spec.type==='line')line(root,spec,width);else progress(root,spec,width);
