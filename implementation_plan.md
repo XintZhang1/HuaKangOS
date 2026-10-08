@@ -2,12 +2,13 @@
 
 ## V2.6 AI助手适配当前四项业务（2026-10-09）
 
-- 状态：`implemented`。四业务助手适配完成，外部同源5组实际HTTP与5项原生浏览器观察通过；待演示及授权发布收口。
+- 状态：`done`。四业务助手适配完成，外部同源5组实际HTTP与5项原生浏览器观察通过；演示恢复、GitHub和阿里云发布完成。
 - 范围：修复助手目录超长导致销售候选丢失、合同补充字段无法补填、中文目录检索/枚举/可选参数类型、客户详情跳转；提示词与指引采用合同/售后提交自动建档及关联查询。维持七个工具、本人权限和人工确认；核价、审批、到账、打印、导出仍由对应页面人工操作。
 - 允许修改：app/business_record_assistant.py、business_assistant_gateway.py、business_assistant_forms.py、business_assistant_service.py；必要app/business_records.py只读目录参数/摘要及合同字段元数据；web/businessassistant.js与index.html版本；当前设计、README、同一任务、检查点及本计划。外部定向验证和保留数据发布脚本。无迁移、无新模块、无真实模型评测，不改原审批和金额规则。
 - 验证：在新外部合成副本通过实际工具与人工确认接口验证目录可用、合同补充字段→员工确认→自动客户档案→关联查询；代表权限/禁用动作、客户卡片深链和售后字段。复用现有合成provider，代表原生浏览器操作；只做受影响必要检查。随后更新本机演示、推main并备份发布阿里云。
 - 实测：指纹`f81e7a9ab5b4af101bf2d383822ad1c316438bdb8e4d9ef758f2979a31eb60ca`。助手目录保留候选，30报告摘要及最大48列单表字段可读；合同补填→原确认→客户档案/关联查询通过，售后中文枚举/建档和原权限/人工动作边界保持。真实模型0，服务正常停止退出0。详[V2.6检查点](docs/implementation-checkpoints/V2.6-assistant-records-20261009.md)。
-- CP-V2.6：`implementation_released`，实际发布后收口。
+- 发布：代码`59b77930141e6e12f1def75bcb2f187fcc155c6e`已推main，Operations review checks成功（37811563250）。阿里云备份`/var/backups/huakangos/before-v2-assistant-records-20261008T165006Z`，副本恢复与数据/schema等值通过，h55无迁移、无重置，五服务active、原登录和HTTP资源SHA通过。49373演示保留18506客户及原单，账号不变，实际浏览器登录与客户合同关联可见。外部结果`assistant-records-delivery/deployment-59b77930141e.json`。本次文档回填随后按运行文件全等方式同步，最终精确SHA查health及外部结果。
+- CP-V2.6：`released`。当前用户增量完成，未执行真实模型评测或旧全量验收。
 
 ## V2.5 填单自动客户建档与业务关联（2026-10-08）
 
