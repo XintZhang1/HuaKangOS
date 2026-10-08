@@ -252,7 +252,7 @@ def _report_allowed(user, report):
 
 
 @router.get('/catalog')
-def catalog(db=Depends(get_db), user=Depends(get_user)):
+def catalog(report_key: str = Query('', max_length=80), db=Depends(get_db), user=Depends(get_user)):
     require_read(user)
     from .business_record_reports import REPORT_CATALOG
     active = getattr(user, '_active_store_id', None)
@@ -267,6 +267,10 @@ def catalog(db=Depends(get_db), user=Depends(get_user)):
     reports = [item for item in REPORT_CATALOG
                if (user.role != 'service' or item.get('key') == 'after_sales_revenue')
                and (user.role != 'finance' or item.get('key') in FINANCE_REPORTS)]
+    if report_key:
+        reports = [item for item in reports if item['key'] == report_key]
+        if not reports:
+            raise HTTPException(404, '报表不存在或不可访问')
     return {'capabilities': capabilities(user), 'sales_people': people,
             'service_types': SERVICE_TYPES, 'reports': reports,
             'statuses': STATUS_LABELS, 'today': today().isoformat(),

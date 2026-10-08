@@ -277,14 +277,19 @@ FIELD_LABELS={'values':'内容','name':'名称','customer_name':'客户姓名','
               'kind':'业务类型','action':'操作','vin':'车架号','price_cents':'价格（分）','store_id':'门店编号','title':'名称'}
 
 
-def display_fields(payload):
-    result=[]
-    def add(data,prefix=''):
+def display_fields(payload,operation_id=''):
+    result=[];labels=dict(FIELD_LABELS);service_types={};contract_labels=None
+    if '/api/business-records/' in operation_id:
+        from .business_record_assistant import CONTRACT_FORM_FIELDS, SERVICE_TYPE_LABELS, V2_FIELD_LABELS
+        labels.update(V2_FIELD_LABELS);service_types=SERVICE_TYPE_LABELS
+        if '/api/business-records/contracts' in operation_id:
+            contract_labels={field['key']:field['label'] for field in CONTRACT_FORM_FIELDS}
+    def add(data,prefix='',field_labels=None):
         if not isinstance(data,dict):return
         for key,value in data.items():
             if key in {'request_id','version'} or key.lower() in PRIVATE_KEYS:continue
-            label=FIELD_LABELS.get(key,key)
-            if isinstance(value,dict):add(value,prefix if key=='values' else prefix+label+' · ')
+            label=(field_labels if field_labels is not None else labels).get(key,key)
+            if isinstance(value,dict):add(value,prefix if key=='values' else prefix+label+' · ',contract_labels if key=='form_data' else None)
             elif isinstance(value,list):
                 if not value:result.append({'label':prefix+label,'value':'无'})
                 for index,item in enumerate(value,1):
@@ -298,6 +303,7 @@ def display_fields(payload):
                     label=label.replace('（千分之一）','');sign='-' if value<0 else '';amount=abs(value)
                     shown=f'{sign}{amount//1000}.{amount%1000:03d}'.rstrip('0').rstrip('.')
                 elif isinstance(value,bool):shown='是' if value else '否'
+                elif key=='service_type' and field_labels is None and str(value) in service_types:shown=service_types[str(value)]
                 else:shown=str(value) if value is not None else '未填写'
                 result.append({'label':prefix+label,'value':shown})
     for part in ('path_args','query','body'):add(payload.get(part,{}))
@@ -310,10 +316,10 @@ def proposal_view(row):
     if status=='pending' and row.expires_at<=utcnow():status='expired'
     if status=='executing' and row.started_at and row.started_at<utcnow()-timedelta(minutes=3):status='uncertain'
     try:
-        fields=gateway.display_fields(row.payload,row.operation_id) if hasattr(gateway,'display_fields') else display_fields(row.payload)
+        fields=gateway.display_fields(row.payload,row.operation_id) if hasattr(gateway,'display_fields') else display_fields(row.payload,row.operation_id)
         manual_route=gateway.inspect_operation(row.operation_id).get('manual_route','')
     except HTTPException:
-        fields=display_fields(row.payload);manual_route=''
+        fields=display_fields(row.payload,row.operation_id);manual_route=''
     from .business_assistant_presentation import fields_for
     business_fields=fields_for(row)
     if business_fields is not None:fields=business_fields
@@ -878,11 +884,11 @@ TOOLS=[
           'summary':{'type':'string','description':'简短说明补录或修改联系电话'}},['case_id','phone']),
     tool('prepare_operation','准备一项操作供员工逐项核对后点击确认。不会执行业务；不得声称已完成。本轮准备所有事实已齐备的独立步骤；依赖尚未产生编号或新版本的后续步骤等确认后再准备。',
          {**OP_ARGS,'summary':{'type':'string','description':'简明说明将新增或修改什么'},
-          'step':{'type':'string','description':'这一步在员工目标里属于哪个流程步骤，写成“序号 步骤名”，例如“1 客户建档”“2 填写销售合同”；同一步骤的卡共用步骤名，不同步骤依序命名'},
+          'step':{'type':'string','description':'这一步在员工目标里属于哪个流程步骤，写成“序号 步骤名”，例如“1 填写销售合同”或“1 登记售后业务”。合同和售后确认保存时自动建档，无需先准备客户卡；同一步骤的卡共用步骤名，不同步骤依序命名'},
           'step_order':{'type':'integer','minimum':1,'description':'步骤顺序，从 1 开始；同一目标的卡片按它排序展示'},
           'questions':{'type':'array','description':'这张卡需要员工先填的必填项：只能由员工决定的事实（归属销售、车辆信息、提车日期、金额、约定等）都放这里，员工在卡片上填完才能确认。不要把能查到的事实做成必填项。',
            'items':{'type':'object','additionalProperties':False,
-            'properties':{'key':{'type':'string','description':'要填的字段名：body 顶层字段直接写名字；通用业务(body.values)写 values.字段名；已有明细行写 lines.0.字段名'},
+            'properties':{'key':{'type':'string','description':'要填的字段名：body 顶层字段直接写名字；合同补充字段用 form_data.真实字段名（如 form_data.deposit，金额文本按元）；通用业务(body.values)写 values.字段名；已有明细行写 lines.0.字段名'},
                           'label':{'type':'string','description':'给员工看的中文标签'},
                           'options':{'type':'array','items':{'anyOf':[{'type':'string'},{'type':'object','additionalProperties':False,'properties':{'label':{'type':'string'},'value':{'anyOf':[{'type':'string'},{'type':'integer'},{'type':'boolean'}]}},'required':['label','value']}]},'description':'查询到的真实候选；优先用{label:中文名称,value:真实编号或枚举值}。没有候选用文本框，不得编造编号'},
                           'required':{'type':'boolean','description':'默认必填'}},
@@ -891,7 +897,7 @@ TOOLS=[
          {'category':{'type':'string','enum':sorted(ISSUE_CATEGORIES)},'summary':{'type':'string'},'operation_id':{'type':'string'}},['category','summary']),
     tool('find_workflows','查已发布的操作指引：员工问“这件事在哪里办、谁有权限、要准备什么、有没有批量或更快的做法”时先查它。只返回帮助内容，不含业务数据，也不代表员工已有权限。',
          {'query':{'type':'string','description':'员工的说法或业务关键词，例如“填写合同”“财务到账”“经营看板”'},
-          'category':{'type':'string','description':'可选：销售业务、售后业务、财务流水、客户建档、经营看板'}},['query']),
+          'category':{'type':'string','description':'可选：销售业务、售后业务、财务流水、客户信息、经营看板'}},['query']),
 ]
 
 

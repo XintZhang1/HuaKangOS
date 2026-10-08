@@ -156,7 +156,7 @@ function businessAssistantManualRoute(proposal){
  const positive=value=>Number.isSafeInteger(value)&&value>0?value:null;
  const id=positive(args.key)||positive(data.id);
  if(path==='/api/business-records/contracts'||path==='/api/business-records/contracts/{key}')route='records-sales'+(id?'/'+id:'');
- else if(path==='/api/business-records/customers')route='records-customers';
+ else if(path==='/api/business-records/customers'||path==='/api/business-records/customers/{key}')route='records-customers'+(id?'/'+id:'');
  else if(path==='/api/business-records/after-sales')route='records-after-sales';
  return businessAssistantRoute(route);
 }

@@ -12,7 +12,7 @@ from urllib.parse import quote
 import httpx
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from starlette.routing import Match
 
 LEGACY_DOMAINS = {
@@ -39,7 +39,7 @@ LEGACY_DOMAINS = {
  'records':'原有单据', 'lookup':'原有单据查询', 'vehicle-imports':'整车请款与批量导入',
  'escalations':'评审申请',
 }
-DOMAINS = {'business-records': '业务记录：销售合同、客户、售后和经营报表'}
+DOMAINS = {'business-records': '业务记录：销售业务、售后业务、财务流水、客户信息和经营报表'}
 # Never exposed to the assistant, not even for reading: credentials, sessions, deployment
 # settings, brand images, raw files, exports and initial-balance imports stay manual.
 CLOSED_DOMAINS = {'auth', 'local-preview', 'branding', 'settings', 'business-assistant',
@@ -213,7 +213,11 @@ def _operations():
             if domain=='records' and module:manual='legacy/'+module
             elif domain=='lookup':manual='work'
             label=DOMAINS[domain]+' · '+('查询' if method=='GET' else '办理' if '/actions/' in route.path else '修改' if method=='PUT' else '新增')
-            result[op_id]={'id':op_id,'label':label,'domain':domain,'description':route.summary or route.name,
+            description=route.summary or route.name
+            if domain=='business-records':
+                from .business_record_assistant import OPERATION_INFO
+                label,description,manual=OPERATION_INFO.get(op_id,(label,description,manual))
+            result[op_id]={'id':op_id,'label':label,'domain':domain,'description':description,
                 'method':method,'path':route.path,'write':method!='GET','module':module,
                 'idempotent':method=='GET' or 'request_id' in props,
                 'body_schema':body_schema,'route':route,
@@ -260,6 +264,7 @@ def _declared_dispatch(op,path):
 # "系统没有这个入口"（试用 R01 的 XC-ISSUE-003 与 2026-09-25 口语化探针 P15/P18/P19/P24/P25
 # 都栽在这里）。这只是检索别名，不代表任何权限。
 DOMAIN_ALIASES = {
+    'business-records': ('业务记录',),
     'procurement': ('采购', '买', '下单给供应商', '应付', '进货'),
     'transfers': ('调拨', '借', '调货', '调过去', '店间物资'),
     'vehicle-transfers': ('整车调拨', '车调过去', '调车'),
@@ -296,7 +301,10 @@ def catalog(domain='',query='',role=None):
     for op in _operations().values():
         if domain and domain not in {op['domain'],DOMAINS[op['domain']]}:continue
         aliases=' '.join(DOMAIN_ALIASES.get(op['domain'],()))
-        hay=(op['id']+' '+op['label']+' '+op['description']+' '+DOMAINS.get(op['domain'],'')+' '+aliases).lower()
+        # For the record product, operation-specific descriptions distinguish
+        # sales/finance/after-sales; the broad domain title would match every row.
+        domain_words='' if op['domain']=='business-records' else DOMAINS.get(op['domain'],'')
+        hay=(op['id']+' '+op['label']+' '+op['description']+' '+domain_words+' '+aliases).lower()
         if words and not all(w in hay for w in words):continue
         row={k:op[k] for k in ('id','label','domain','description','write','idempotent','manual_route')}
         if op['id']=='GET /api/audit':
@@ -348,11 +356,31 @@ def inspect_operation(operation_id):
     result={k:copy.deepcopy(v) for k,v in op.items() if k!='route'}
     params=[]
     for field in route.dependant.path_params+route.dependant.query_params:
+        schema=TypeAdapter(field.type_).json_schema()
+        variants=[item for item in schema.get('anyOf',[]) if item.get('type')!='null']
+        leaf=variants[0] if len(variants)==1 else schema
         item={'name':field.alias,'in':'path' if field in route.dependant.path_params else 'query','required':field.required,
-              'type':'integer' if field.type_ is int else 'boolean' if field.type_ is bool else 'string'}
-        if not field.required:item['default']=str(field.default) if field.default is not None else None
+              'type':leaf.get('type','string')}
+        if 'format' in leaf:item['format']=leaf['format']
+        if any(value.get('type')=='null' for value in schema.get('anyOf',[])):item['nullable']=True
+        if not field.required:item['default']=field.default
         params.append(item)
     result['parameters']=params
+    if op['domain']=='business-records':
+        from .business_record_assistant import CONTRACT_FORM_FIELDS, SERVICE_TYPE_LABELS, V2_FIELD_LABELS
+        result['field_labels']=copy.deepcopy(V2_FIELD_LABELS)
+        if op['path']=='/api/business-records/catalog':
+            result['hint']='不传report_key时助手收到精简报表目录及原销售候选、服务类别；传目录中真实report_key取得该报表完整columns/metrics。报表目录不是业务数据。'
+        elif op['path']=='/api/business-records/reports':
+            result['hint']='report使用目录key；选人工指标时使用key:metric_key，metric_key从catalog?report_key取得。核对date_from/date_to和period_basis；应到账按合同日期，实到账、销量、利润按实际到账日期。人工比例、均价、目标和完成率逐行保留，不跨行求和。'
+        elif op['path'] in {'/api/business-records/customers','/api/business-records/customers/{key}'}:
+            result['hint']='合同、售后确认保存时自动建档，单独建档仅用于员工明确的独立需求。客户id与员工owner_id不同；先核对客户候选，再用customer_id筛选contracts或after-sales，继续按页读取。'
+        elif op['path']=='/api/business-records/after-sales':
+            result['service_type_labels']=copy.deepcopy(SERVICE_TYPE_LABELS)
+            result['hint']='售后六类直接填报；员工确认保存时自动保存客户信息。查询关联业务用customer_id；员工及门店范围仍由原接口核对。'
+        if op['write'] and op['path'] in {'/api/business-records/contracts','/api/business-records/contracts/{key}'}:
+            result['form_data_fields']=copy.deepcopy(CONTRACT_FORM_FIELDS)
+            result['hint']='合同客户姓名和电话直接填写，保存时自动关联或建档，不先准备另建客户卡。每份合同一台车；form_data均为字符串，金额文本单位元；补充字段questions用form_data.真实key。修改先查同合同最新version。'
     if op['path']=='/api/flow/catalog':
         result['parameters'].append({'name':'assistant_kind','in':'query','type':'string','required':False})
         result['hint']='业务用assistant_kind=lead/order；客户主档用assistant_kind=customers（复数），不是customer。动作先读原单actions；客户联系电话另在客户主档编辑，未知事实先问员工。'
@@ -557,6 +585,9 @@ def _field_labels(payload,operation_id=''):
             for action in spec['actions']:
                 if action.key==path.get('action'):fields.extend(action.fields)
     labels.update({f['key']:f['label'] for f in fields})
+    if operation_id.split(' ',1)[-1].startswith('/api/business-records/'):
+        from .business_record_assistant import V2_FIELD_LABELS
+        labels.update(V2_FIELD_LABELS)
     return labels
 
 
@@ -572,6 +603,10 @@ def display_fields(payload,operation_id='',*,field_labels=None):
     from .flow_api import MASTERS
     from .flow_specs import SPECS
     labels=dict(field_labels) if field_labels is not None else _field_labels(payload,operation_id);rows=[]
+    record_operation=operation_id.split(' ',1)[-1].startswith('/api/business-records/')
+    if record_operation:
+        from .business_record_assistant import CONTRACT_FORM_FIELDS, SERVICE_TYPE_LABELS
+        record_form_labels={field['key']:field['label'] for field in CONTRACT_FORM_FIELDS}
     enums={'petrol':'汽油','diesel':'柴油','electric':'纯电','hybrid':'混动','plugin_hybrid':'插混',
            'vehicles':'整车','materials':'物资','mixed':'混合','bank':'银行','cash':'现金','job':'次','hour':'小时'}
     term_enums={
@@ -581,12 +616,13 @@ def display_fields(payload,operation_id='',*,field_labels=None):
                          'whole_unused_anytime':'未使用的完整份额可退（含到期后）'},
         'discount_bearer':{'group':'集团承担优惠','service_store':'履约门店承担优惠'},
     }
-    def walk(value,prefix=''):
+    def walk(value,prefix='',record_form=False):
         if not isinstance(value,dict):return
         for key,item in value.items():
             if key in {'request_id','version'} or key.lower() in SECRET_KEYS:continue
-            label=labels.get(key,key)
-            if isinstance(item,dict):walk(item,prefix if key=='values' else prefix+label+' · ')
+            label=record_form_labels.get(key,key) if record_form else labels.get(key,key)
+            if isinstance(item,dict):walk(item,prefix if key=='values' else prefix+label+' · ',
+                                          record_operation and key=='form_data')
             elif isinstance(item,list):
                 if not item:rows.append({'label':prefix+label,'value':'无'})
                 for i,entry in enumerate(item,1):
@@ -600,6 +636,7 @@ def display_fields(payload,operation_id='',*,field_labels=None):
                     label=label.replace('（千分之一）','');amount=abs(item)
                     shown=('-' if item<0 else '')+f'{amount//1000}.{amount%1000:03d}'.rstrip('0').rstrip('.')
                 elif isinstance(item,bool):shown='是' if item else '否'
+                elif record_operation and key=='service_type':shown=SERVICE_TYPE_LABELS.get(str(item),str(item))
                 elif key in term_enums:shown=term_enums[key].get(str(item),str(item))
                 elif key in {'fuel_type','warehouse_type','account_type','billing_unit','unit'}:shown=enums.get(str(item),str(item))
                 elif key=='kind' and '/repair-packages/' in operation_id and item in {'work','part'}:shown={'work':'实际作业','part':'实际配件'}[item]
@@ -618,7 +655,9 @@ def manual_route(operation_id,path_args=None,data=None):
         if '/contracts' in op['path']:
             ident=path_args.get('key') or (data.get('id') if isinstance(data,dict) else None)
             return 'records-sales/'+str(ident) if type(ident) is int else 'records-sales'
-        if '/customers' in op['path']:return 'records-customers'
+        if '/customers' in op['path']:
+            ident=path_args.get('key') or (data.get('id') if isinstance(data,dict) else None)
+            return 'records-customers/'+str(ident) if type(ident) is int and ident>0 else 'records-customers'
         if '/after-sales' in op['path']:return 'records-after-sales'
         if '/manual-reports' in op['path']:return 'records-manual'
         return 'records-dashboard'
@@ -628,6 +667,21 @@ def manual_route(operation_id,path_args=None,data=None):
         ident=path_args.get('case_id') or (data.get('id') if isinstance(data,dict) else None)
         if type(ident) is int:return 'case/'+str(ident)
     return op['manual_route']
+
+
+def _record_catalog_summary(data):
+    """Project only the authorized response; never resolve extra report keys."""
+    if not isinstance(data,dict) or not isinstance(data.get('reports'),list):return data
+    result=dict(data)
+    fields=('key','title','source','unit','period_basis','aggregation','default_metric')
+    result['reports']=[{**{key:item[key] for key in fields if key in item},
+                        'column_count':len(item.get('columns',[])),
+                        'metric_count':len(item.get('metrics',[]))}
+                       for item in data['reports'] if isinstance(item,dict)]
+    result['report_schema_lookup']={
+        'operation_id':'GET /api/business-records/catalog', 'query_parameter':'report_key',
+        'notice':'reports为完整目录的精简摘要；以所选key传report_key读取单份报表完整columns/metrics。销售候选与服务类别沿原响应。'}
+    return result
 
 def sanitize(value,depth=0):
     if depth>16:return '[内容过深，请查看原单]'
@@ -726,7 +780,15 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
             return {'status':403,'data':{'detail':'当前岗位不能查看此类资料，请在对应门店页面核对'},
                     'error_category':'refused','route':manual_route(operation_id,path_args)}
         data={name:selections.get(name,{}) for name in ('kinds','master_types')}
+    record_catalog=operation_id=='GET /api/business-records/catalog' and response.status_code==200
+    if record_catalog and not query.get('report_key'):
+        data=_record_catalog_summary(data)
+    record_people=data.get('sales_people') if record_catalog and isinstance(data,dict) else None
     data=sanitize(data)
+    if isinstance(record_people,list):
+        # Candidate identities must remain complete; a large authorized list is
+        # still subject to the same whole-response size boundary below.
+        data['sales_people']=[sanitize(item) for item in record_people]
     encoded=json.dumps(data,ensure_ascii=False)
     if len(encoded)>55000:
         # Never pretend a clipped JSON fragment is a complete business result.

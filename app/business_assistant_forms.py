@@ -136,6 +136,30 @@ def body_schema(gateway, operation_id, path_args, body, question_fields=None):
     if values:
         root.setdefault('$defs', {}).update(values.get('$defs', {}))
         root.setdefault('properties', {})['values'] = values
+    canonical = operation.get('id', operation_id)
+    if '/api/business-records/' in canonical:
+        from .business_record_assistant import CONTRACT_FORM_FIELDS, SERVICE_TYPE_LABELS, V2_FIELD_LABELS
+        properties = root.setdefault('properties', {})
+        for key, spec in properties.items():
+            if key in V2_FIELD_LABELS:
+                spec['title'] = spec['x-native-label'] = V2_FIELD_LABELS[key]
+        if 'service_type' in properties:
+            properties['service_type']['x-enum-labels'] = SERVICE_TYPE_LABELS
+        if canonical in {'POST /api/business-records/contracts', 'PUT /api/business-records/contracts/{key}'}:
+            form = _resolve(properties.get('form_data'), root)
+            fields = form.setdefault('properties', {})
+            for field in CONTRACT_FORM_FIELDS:
+                spec = {'type': 'string', 'title': field['label'],
+                        'x-native-label': field['label'], 'maxLength': 4000}
+                if field.get('input_type') == 'money':
+                    spec.update({'x-input-type': 'decimal', 'x-unit': '元', 'x-record-money-text': True})
+                elif field.get('input_type') == 'date':
+                    spec['format'] = 'date'
+                if field.get('enum'):
+                    spec['enum'] = list(field['enum'])
+                fields[field['key']] = spec
+            # Keep the native typed map contract; the metadata is not another API.
+            properties['form_data'] = form
     return root
 
 
@@ -149,8 +173,12 @@ def _schema_at(root, key):
             props = node.get('properties', {})
             if part not in props:
                 # Dynamic action envelopes are parsed again by their native API.
-                if node.get('additionalProperties') is True:
+                additional = node.get('additionalProperties')
+                if additional is True:
                     return {}
+                if isinstance(additional, dict):
+                    node = additional
+                    continue
                 raise HTTPException(422, '缺项字段不在本次表单中：' + key)
             node = props[part]
     return _resolve(node, root)
@@ -201,6 +229,7 @@ def describe_questions(gateway, operation_id, path_args, body, questions, questi
         typ = spec.get('type', 'string')
         scale = 100 if typ == 'integer' and key.endswith('_cents') else 1000 if typ == 'integer' and key.endswith('_milli') else 1
         q['key'] = key
+        q['label'] = spec.get('x-native-label') or q['label']
         q['input_type'] = ('decimal' if scale != 1 else 'date' if spec.get('format') == 'date'
                            else spec.get('x-input-type') or {'integer': 'integer', 'boolean': 'boolean'}.get(typ, 'text'))
         q['storage_type'] = typ
@@ -212,8 +241,12 @@ def describe_questions(gateway, operation_id, path_args, body, questions, questi
             raise HTTPException(422, '请把多行或复合资料展开为具体字段，不能只用一个文本框：' + q['label'])
         if typ == 'boolean' and not q['options']:
             q['options'] = [{'label': '是', 'value': 'true'}, {'label': '否', 'value': 'false'}]
+        enum_labels = spec.get('x-enum-labels', {})
         if spec.get('enum') and not q['options']:
-            q['options'] = [{'label': str(x), 'value': option_value(x)} for x in spec['enum']]
+            q['options'] = [{'label': enum_labels.get(str(x), str(x)), 'value': option_value(x)} for x in spec['enum']]
+        elif enum_labels:
+            q['options'] = [{'label': enum_labels[option_value(x)], 'value': option_value(x)}
+                            if option_value(x) in enum_labels else x for x in q['options']]
         result.append(q)
     return result
 
@@ -242,6 +275,13 @@ def _typed(value, spec, label, *, scale=1):
             if not number.is_finite() or abs(number) > Decimal('1e15'):
                 raise ValueError()
             return float(number)
+        if spec.get('x-record-money-text'):
+            # Match the main contract form's non-negative yuan text and limit.
+            # Preserve the original string: never multiply by 100 or round it.
+            if (not re.fullmatch(r'\d+(?:\.\d{1,2})?', value)
+                    or not Decimal(value).is_finite()
+                    or Decimal(value) > Decimal('1000000000')):
+                raise ValueError()
         if spec.get('format') == 'date':
             date.fromisoformat(value)
         return value
