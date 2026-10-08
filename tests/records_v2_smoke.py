@@ -157,7 +157,7 @@ class Smoke:
             await page.locator('input[name=username]').wait_for(state='visible')
             info = await sign_in()
         await expect(page.locator('#main h1')).to_have_text('经营看板')
-        await page.locator('#br-chart svg').wait_for()
+        await page.locator('#br-chart .records-chart').wait_for()
         cookies = {cookie['name']: cookie for cookie in await context.cookies(self.origin)}
         require(cookies.get('dealer_session', {}).get('httpOnly') is True, 'Session cookie is not HttpOnly')
         require(cookies.get('dealer_session', {}).get('sameSite') == 'Strict', 'Session cookie is not SameSite=Strict')
@@ -289,7 +289,7 @@ class Smoke:
             report = await response.json()
             matching = [row for row in report['rows'] if row.get('id') == key]
             require(len(matching) == 1 and matching[0]['value'] == expected, 'Report lost the original amount: ' + report_key)
-            await expect(manager.locator('#br-chart svg')).to_have_count(1)
+            await expect(manager.locator('#br-chart .records-chart')).to_have_count(1)
             await manager.locator('.br-disclosure summary').click()
             await expect(manager.locator('.br-disclosure table')).to_be_visible()
             await expect(manager.locator('.br-disclosure table')).to_contain_text(expected)

@@ -4,8 +4,8 @@
 // rechecks identity, store, version and idempotency in its own transaction.
 const BR_API='/api/business-records';
 const BR_STATUS={submitted:'待内勤核价',priced:'待管理审批',approved:'审批通过',rejected:'退回修改'};
-let brState={drafts:{},report:null,detail:null,settings:null,filters:null};
-function clearBusinessRecords(){brState={drafts:{},report:null,detail:null,settings:null,filters:null};state.recordCatalog=null;}
+let brState={drafts:{},report:null,detail:null,settings:null,filters:null,view:'auto'};
+function clearBusinessRecords(){brState={drafts:{},report:null,detail:null,settings:null,filters:null,view:'auto'};state.recordCatalog=null;}
 function brCaps(){return state.recordCatalog?.capabilities||{};}
 function brButton(action,label,extra='',cls=''){return `<button type="button" data-br="${E(action)}" ${extra} class="${E(cls)}">${E(label)}</button>`;}
 function brLink(route,label){return `<a class="button" href="#${E(route)}">${E(label)}</a>`;}
@@ -120,12 +120,66 @@ async function brEditSettings(){const r=brState.settings;return brForm('设置�
 function brReportDefinitions(){return state.recordCatalog?.reports||[];}
 function brReportFilters(){const today=day();return brState.filters||(brState.filters={report:'profit',metric:'',date_from:today.slice(0,8)+'01',date_to:today,group_by:'salesperson',brand:'',salesperson_id:''});}
 function brReportQuery(){const {metric,...filters}=brReportFilters();if(metric)filters.report+=':'+metric;return new URLSearchParams(Object.entries(filters).filter(([,v])=>v!==''));}
+// Each pair refers to columns in one fixed server report definition. No target
+// is inferred from a percentage or joined across records, dates or people.
+const BR_PROGRESS_PAIRS={
+ after_sales_monthly:[['c02','c03','c04']],
+ after_sales_targets:[['c01','c05','c06'],['c02','c09','c10'],['c14','c12','c15'],['c03','c16','c17']],
+ sales_overview:[['c02','c04','c05']],
+ insurance_renewal:[['c06','c07','c08']],
+ individual_profit:[['c03','c04','c05']]
+};
+function brProgressPair(report){
+ const pair=(BR_PROGRESS_PAIRS[report.report]||[]).find(keys=>keys.includes(report.metric));
+ if(!pair)return null;
+ const columns=report.columns||[],target=columns.find(c=>c.key===pair[0]),actual=columns.find(c=>c.key===pair[1]);
+ if(!target||!actual||target.type!==actual.type||target.unit!==actual.unit)return null;
+ return {target,actual,rate:columns.find(c=>c.key===pair[2])};
+}
+function brPresentation(report){
+ const definition=brReportDefinitions().find(r=>r.key===report.report),manual=definition?.source==='manual';
+ const monthly=brReportFilters().group_by==='month',pair=manual?brProgressPair(report):null;
+ const views=[{value:'auto',label:'自动展示'},{value:'rank',label:manual?'记录对比':monthly?'数值对比':'业绩排行'}];
+ if(!manual&&monthly)views.push({value:'line',label:'月度趋势'});
+ if(pair)views.push({value:'progress',label:'目标进度'});
+ views.push({value:'table',label:'明细表'});
+ const selected=views.some(v=>v.value===brState.view)?brState.view:'auto';
+ return {definition,manual,pair,views,selected,type:selected==='auto'?(pair?'progress':!manual&&monthly?'line':'rank'):selected};
+}
+function brExactTotal(rows,precision){
+ const scale=10n**BigInt(precision);let total=0n,unknown=0;
+ for(const row of rows){
+  if(row.value==null){unknown++;continue;}
+  const match=/^(-?)(\d+)(?:\.(\d+))?$/.exec(String(row.value));
+  if(!match||(match[3]||'').length>precision)return null;
+  const amount=BigInt(match[2])*scale+BigInt((match[3]||'').padEnd(precision,'0')||'0');
+  total+=match[1]?-amount:amount;
+ }
+ const negative=total<0n,absolute=negative?-total:total;
+ return {value:(negative?'-':'')+String(absolute/scale).replace(/\B(?=(\d{3})+(?!\d))/g,',')+(precision?'.'+String(absolute%scale).padStart(precision,'0'):''),unknown};
+}
+function brReportSummary(report){
+ const {manual}=brPresentation(report),rows=report.rows||[],precision=report.precision??2;
+ const total=manual?null:brExactTotal(rows,precision),known=rows.filter(r=>r[report.metric]!=null).length;
+ const label=manual?'已填指标记录':total?.unknown?'已核定部分合计':'当前范围合计';
+ const value=manual?`${known} / ${rows.length}`:rows.length===0||total?.unknown===rows.length?'—':total?.value??'—';
+ const note=manual?'逐条展示，不跨记录累加':total?.unknown?`${total.unknown} 条未核定，未计入合计`:report.metric_label||report.title;
+ const filters=brReportFilters();
+ return `<div class="br-summary" aria-label="当前报表摘要"><div class="br-summary-card"><span>${E(label)}</span><strong data-summary="total">${E(value)}${manual?'':`<small>${E(report.unit||'')}</small>`}</strong><p>${E(note)}</p></div><div class="br-summary-card"><span>来源记录</span><strong data-summary="records">${rows.length}<small>条</small></strong><p>与明细、导出范围一致</p></div><div class="br-summary-card br-summary-period"><span>统计范围</span><strong data-summary="coverage">${E(filters.date_from)} — ${E(filters.date_to)}</strong><p>${E(report.period_basis||'')}</p></div></div>`;
+}
+function brReportResult(report){
+ const p=brPresentation(report),progress=p.type==='progress';
+ const title=progress?`${report.title} · ${p.pair.actual.label}完成情况`:`${report.title}${report.metric_label&&report.metric_label!==report.title?' · '+report.metric_label:''}`;
+ const unit=progress?p.pair.actual.unit:report.unit;
+ const explanation=progress?'同一条填报记录内比较目标与实际；填报完成率保持原值。':p.type==='line'?'按统计月份展示；缺月或未核定值留空，不连接为连续业绩。':p.manual?'按每条人工记录对比，不代表人员累计业绩。':'按当前指标排序，相同数值并列；未核定项不参与排名。';
+ return `<section class="panel br-chart-panel"><div class="panelhead br-report-head"><div><h2>${E(title)}</h2><p class="br-caption">${E(report.period_basis||'')} · 单位：${E(unit||'数值')}</p></div><span class="br-updated">${report.updated_at?'数据更新于 '+E(time(report.updated_at)):'尚无记录'}</span></div><div class="br-view-tools" role="group" aria-label="展示方式">${p.views.map(v=>`<button type="button" data-br="report-view" data-view="${v.value}" aria-pressed="${p.selected===v.value}">${E(v.label)}</button>`).join('')}</div>${p.type==='table'?`<div id="br-report-table" class="br-report-table">${brReportTable(report)}</div>`:`<div id="br-chart" class="br-chart" aria-label="${E(title)}"></div>`}<p class="br-caption br-chart-notice">${E(p.type==='table'?'与当前筛选一致的原始记录，可按合同号查看原单。':explanation)}</p></section>${p.type==='table'?'':`<details class="panel br-disclosure"><summary>查看来源明细 · ${number((report.rows||[]).length)} 条</summary>${brReportTable(report)}</details>`}`;
+}
 async function brDashboard(){
  const filters=brReportFilters(),definitions=brReportDefinitions();if(definitions.length&&!definitions.some(r=>(r.key||r.value)===filters.report))filters.report=definitions[0].key||definitions[0].value;
  const definition=definitions.find(r=>r.key===filters.report);if(definition&&!definition.metrics.some(m=>m.key===filters.metric))filters.metric=definition.default_metric||definition.metrics[0]?.key||'';
  const epoch=renderId,report=await api(BR_API+'/reports?'+brReportQuery());if(epoch!==renderId)return '';brState.report=report;
  const controls=`<form id="br-report-filter" class="br-filter br-report-filter"><label>报表<select name="report">${brOptions(definitions.map(r=>({value:r.key||r.value,label:r.title||r.label})),filters.report)}</select></label><label>指标<select name="metric">${brOptions((definition?.metrics||[]).map(m=>({value:m.key,label:m.label})),filters.metric)}</select></label><label>开始日期<input name="date_from" type="date" required value="${E(filters.date_from)}"></label><label>结束日期<input name="date_to" type="date" required value="${E(filters.date_to)}"></label><label>查看维度<select name="group_by">${brOptions([{value:'salesperson',label:'人员排名'},{value:'store',label:'门店排名'},{value:'brand',label:'品牌排名'},{value:'month',label:'月度趋势'}],filters.group_by)}</select></label><label>品牌<input name="brand" value="${E(filters.brand)}" placeholder="全部品牌"></label><label>销售<select name="salesperson_id"><option value="">权限内全部</option>${brOptions((state.recordCatalog.sales_people||[]).map(p=>({value:p.id,label:p.label})),filters.salesperson_id)}</select></label><button class="primary" type="submit">查看图表</button></form>`;
- return heading('经营看板','选择一张报表，查看经营表现与来源明细。',(brCaps().record_statistics?brLink('records-manual','填写统计数据'):'')+brButton('export-report','导出当前明细'))+controls+`<section class="panel br-chart-panel"><div class="panelhead spread"><div><h2>${E(report.title)}${report.metric_label&&report.metric_label!==report.title?' · '+E(report.metric_label):''}</h2><p class="br-caption">${E(report.period_basis||'')} · 单位：${E(report.unit||'数值')}</p></div><span class="br-updated">${report.updated_at?'数据更新于 '+E(time(report.updated_at)):'尚无记录'}</span></div><div id="br-chart" class="br-chart" aria-label="${E(report.title)}"></div><p class="br-caption br-chart-notice">${E(report.notice||'')}${(report.series||[]).some(item=>item.value==null)?' 包含未核定数据的分组不绘制为零，请查看来源明细。':''}</p></section><details class="panel br-disclosure"><summary>查看来源明细 · ${number((report.rows||[]).length)} 条</summary>${brReportTable(report)}</details>`;
+ return heading('经营看板','看排名、看趋势、看目标完成情况。',(brCaps().record_statistics?brLink('records-manual','填写统计数据'):'')+brButton('export-report','导出当前明细'))+controls+brReportSummary(report)+`<div id="br-report-result">${brReportResult(report)}</div>`;
 }
 function brReportTable(report){
  const columns=report.columns||[],source=brReportDefinitions().find(r=>r.key===report.report)?.source;
@@ -148,19 +202,34 @@ async function brNewManual(reportKey){
  const meta=[F('period','统计日期','date'),F('brand','所属品牌','text',false),F('salesperson_id','所属销售','select',false,(state.recordCatalog.sales_people||[]).map(p=>({value:p.id,label:p.label})))];
  return brForm(spec.title,[{title:'统计归属',fields:meta},{title:'人工填报数据',fields}],{},(v,request_id)=>api(BR_API+'/manual-reports',{method:'POST',body:{request_id,report_key:reportKey,period:v.period,brand:v.brand,salesperson_id:v.salesperson_id?Number(v.salesperson_id):null,values:Object.fromEntries(spec.columns.map(c=>[c.key,v['value_'+c.key]===''?null:v['value_'+c.key]]))}}),{draftKey:'manual-'+reportKey,notice:'金额按元填写，比例填写百分数（如 10 表示 10%）。系统保留人工填写的数据，不代算成本或利润。'});
 }
-function leaveBusinessRecordsChart(){const node=$('#br-chart');if(node&&typeof Charts!=='undefined')Charts.dispose(node);}
+function leaveBusinessRecordsChart(){const node=$('#br-chart');if(node){if(typeof Charts!=='undefined')Charts.dispose(node);if(typeof RecordsCharts!=='undefined')RecordsCharts.dispose(node);}}
+function mountBusinessRecordsChart(){
+ const chart=$('#br-chart'),report=brState.report;if(!chart||!report)return;
+ const p=brPresentation(report),spec=p.definition?.metrics.find(m=>m.key===report.metric);
+ let unit=spec?.unit||report.unit||'',precision=spec?.precision??report.precision??2,items=report.series||[];
+ if(p.type==='progress'){
+  unit=p.pair.actual.unit;precision=p.pair.actual.precision;
+  const categories=(report.columns||[]).filter(c=>/^c\d+$/.test(c.key)&&c.type==='text').slice(0,2);
+  items=(report.rows||[]).map(row=>({label:[row.store,row.salesperson,row.brand,...categories.map(c=>row[c.key]),row.period].filter(Boolean).join(' · ')+' · #'+row.id,period:row.period,
+   actual:row[p.pair.actual.key]==null?null:Number(row[p.pair.actual.key]),actual_exact:row[p.pair.actual.key],
+   target:row[p.pair.target.key]==null?null:Number(row[p.pair.target.key]),target_exact:row[p.pair.target.key],reported_rate:p.pair.rate?row[p.pair.rate.key]:null}));
+ }
+ RecordsCharts.render(chart,{type:p.type,title:report.title,unit,precision,items});
+}
 function mountBusinessRecords(){
  const f=$('#br-list-filter');if(f)f.onsubmit=event=>{event.preventDefault();const data=Object.fromEntries(new FormData(f));state.q=data.q||'';state.status=data.status||'';state.page=1;render();};
  const filter=$('#br-report-filter');if(filter)filter.elements.report.onchange=()=>{const spec=brReportDefinitions().find(r=>r.key===filter.elements.report.value);filter.elements.metric.innerHTML=brOptions((spec?.metrics||[]).map(m=>({value:m.key,label:m.label})),spec?.default_metric);};if(filter)filter.onsubmit=event=>{event.preventDefault();const next=Object.fromEntries(new FormData(filter));if(next.date_from>next.date_to){toast('开始日期不能晚于结束日期。',true);return;}brState.filters=next;render();};
- const chart=$('#br-chart'),report=brState.report;if(chart&&report){
-  const spec=brReportDefinitions().find(r=>r.key===report.report)?.metrics.find(m=>m.key===report.metric);
-  const unit=spec?.type==='money'?'yuan':spec?.type==='percent'?'percent':spec?.type==='decimal'?'decimal':'count';
-  const items=(report.series||[]).filter(item=>item.value!=null);if(brReportFilters().group_by==='month')items.sort((a,b)=>a.label.localeCompare(b.label));
-  Charts.bar(chart,{title:report.title,subtitle:report.period_basis,items,unit,horizontal:true,height:Math.max(320,items.length*42+60)});
- }
+ mountBusinessRecordsChart();
 }
+document.addEventListener('click',event=>{
+ const button=event.target.closest('[data-br=report-view]');if(!button||button.disabled||state.storeSwitch||!brState.report)return;
+ const result=$('#br-report-result');if(!result)return;
+ leaveBusinessRecordsChart();brState.view=button.dataset.view;
+ result.innerHTML=brReportResult(brState.report);mountBusinessRecordsChart();
+ result.querySelector(`[data-view="${brState.view}"]`)?.focus();
+});
 document.addEventListener('click',async event=>{
- const el=event.target.closest('[data-br]');if(!el||el.disabled||state.storeSwitch)return;
+ const el=event.target.closest('[data-br]');if(!el||el.dataset.br==='report-view'||el.disabled||state.storeSwitch)return;
  el.disabled=true;try{const action=el.dataset.br;if(action==='defer-form'){if($('#modal form')?.dataset.submitting==='true')throw new Error('正在提交，请等待本次返回结果。');closeModal();}else if(action==='new-contract')await brNewContract();else if(action==='contract-action')await brContractAction(el.dataset.action);else if(action==='new-customer')await brNewCustomer();else if(action==='new-after-sales')await brNewAfterSales();else if(action==='edit-settings')await brEditSettings();else if(action==='new-manual')await brNewManual();else if(action==='manual-report-select')await brNewManual(el.dataset.report);else if(action==='export-report')await download(BR_API+'/reports/export?'+brReportQuery(),'经营报表.csv');}catch(error){toast(error.message,true);}finally{if(el.isConnected)el.disabled=false;}
 });
 window.addEventListener('beforeunload',event=>{if(Object.keys(brState.drafts).length){event.preventDefault();event.returnValue='';}});
