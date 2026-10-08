@@ -201,7 +201,7 @@ class Smoke:
         self.check('original API creates synthetic clerk and general-manager identities')
 
         sales, sales_context, sales_info = await self.login(browser, 'sales')
-        await self.nav(sales, 'records-customers', '客户建档')
+        await self.nav(sales, 'records-customers', '客户信息')
         await sales.locator('[data-br=new-customer]').click()
         await self.fill(sales, {'name': '合成客户-' + suffix, 'phone': '19900000101', 'note': 'V2隔离浏览器合成记录'})
         await self.submit(sales, '/api/business-records/customers')

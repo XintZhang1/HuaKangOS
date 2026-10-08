@@ -45,7 +45,7 @@
       const login = await fetch('/api/auth/login', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-App-Request': '1'}, body: JSON.stringify(body)});
       form.reset();
       // A hash-only replace does not restart the suspended authentication boot.
-      history.replaceState(null, '', login.ok ? '/#work' : '/');
+      history.replaceState(null, '', login.ok ? '/#records-dashboard' : '/');
       location.reload();
     } catch (failure) {
       if (configured) { form.reset(); unavailable('管理员已设置完成，自动登录暂未成功，请返回登录并使用刚设置的账号。'); }

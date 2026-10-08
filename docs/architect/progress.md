@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-08 追加：[customer-records-v2](tasks/customer-records-v2.md)按业主纠正收口为四项业务菜单，清除旧模块导航/路由/脚本入口；本轮状态见实施计划V2.2。原单图首页及人工确认规则保持。
+
 2026-10-08 当前：[customer-records-v2](tasks/customer-records-v2.md)，客户第二版业务记录、合同审批打印、人工到账、25类人工表及单图看板已发布。代码 ac8c3bdbd45c 已推 main并部署阿里云；定向验证通过，旧表行摘要等值，原账号/新报表可读，五服务active，未重置数据。本次文档收口随后按生产文件等值同步；状态唯一维护于实施计划 V2.1。以下均为原版本历史记录。
 
 2026-10-07 [阿里云 main 交付](tasks/aliyun-main-delivery-20261007.md)：GitHub／云端应用均为2bdc7d13，HuaKangOS旧业务／运维／邮件已备份后重置，新管理员与h53k空业务库已建立；[公网28180](http://8.133.192.159:28180) 首页／health200、原 login／me 成功、反馈201。业务四开关按授权启用，独立worker healthy，确认守卫保持，日报外发off，五个HuaKangOS服务及既有dsh active、MCP仅loopback。真实队列轻量冒烟5次DeepSeek／8工具，SMTP sent且Gmail实际INBOX，业主手动唤起Cutie后已收到独立declined回执（无需改代码或PR），12:42:59Z进入reviewed；本次单条完整链路跑通，重启无重复。自动唤醒及长期稳定性未由本次冒烟证明。用户延期最终283／M8.6，M8.5／M8.6／CP-37保持deferred_by_owner，原要求及失败保留；M8.10 done不变。后续仅同步交付文档，不重新重置或扩测试。以下旧段保留各自历史时点。

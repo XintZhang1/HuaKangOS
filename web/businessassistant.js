@@ -144,33 +144,20 @@ function businessAssistantReconcileRequest(){
  current.stream=null;
 }
 function businessAssistantRoute(route){
- if(typeof route!=='string'||!route||route.length>180||!/^[a-z][a-z0-9-]*(?:\/[a-zA-Z0-9_-]+)*$/.test(route))return '';
- const allowed=new Set(['work','case','cases','master','masters','vehicle-catalog','sales-quotes','procurement','repair-orders','service-intake','customer-service','customer-vehicles','warehouse','warehouse-item','vehicle-procurement','vehicle-operations','membership','membership-order','group','benefits','retail','service-orders','insurance-orders','addon-orders','invoices','business-finance','business-finance-order','aftercare','dictionaries','parameters','users','stores','transfers','transfer-exceptions','transfer-goods-recoveries','vehicle-transfers','vehicle-transport-exceptions','rework-extensions','retail-group','retail-bundles','recharge-bundles','recharge-bundle-order','member-pricing','repair-packages','vehicle-income','vehicle-operation','reconciliation','clearing','gate-visits','dossier-grants','observation-corrections','group-reconciliation','membership-rules','customer-reminders','customer-history-grants','customer-questionnaires','business-entities','vehicle-period','stock-period','warehouse-period','repair-materials','visit-activity','material-value','retail-group-rules','retail-group-rule','customer-questionnaire-report','procurement-cohort','vehicle-transport-report']);
- return allowed.has(route.split('/')[0])?route:'';
+ if(typeof route!=='string'||!route||route.length>180)return '';
+ // Share the application's current route contract, but hide retired links
+ // instead of relabelling them as links to the dashboard.
+ return typeof normalizeAppRoute==='function'&&normalizeAppRoute(route)===route?route:'';
 }
 function businessAssistantLinks(links){const seen=new Set();return (Array.isArray(links)?links:[]).flatMap(link=>{const route=businessAssistantRoute(link?.route);if(!route||seen.has(route))return [];seen.add(route);return [`<a class="ba-record-link" href="#${E(route)}">${E(link.label||'查看单据')}</a>`];}).join('');}
 function businessAssistantManualRoute(proposal){
  const path=String(proposal.operation_id||'').split(' ')[1]||'',args=proposal.details?.path_args||{},data=proposal.result?.data||{};
  let route=proposal.result?.route||proposal.manual_route||'';
  const positive=value=>Number.isSafeInteger(value)&&value>0?value:null;
- const id=positive(args.case_id)||positive(args.key)||positive(args.exception_id)||positive(args.order_id)||positive(args.id)||positive(data.id);
- if(path.startsWith('/api/flow/master/')&&typeof args.kind==='string')route='master/'+args.kind;
- else if(path.startsWith('/api/masters/')&&typeof args.kind==='string')route='masters/'+args.kind;
- else if(path.startsWith('/api/flow/cases')&&id)route='case/'+id;
- else if(route==='inventory-reports')route=({'vehicles':'vehicle-period','procurement':'procurement-cohort','warehouses':'warehouse-period','vehicle-transport':'vehicle-transport-report'})[args.kind]||'vehicle-period';
- else if(route==='stock-reports')route='stock-period';
- else if(route==='repair-material-reports')route='repair-materials';
- else if(route==='visit-activity-reports')route='visit-activity';
- else if(route==='retail-group')route=path.includes('/rules')?(id?'retail-group-rule/'+id:'retail-group-rules'):(id?'retail-group/'+id:'retail');
- else if(route==='vehicle-transport-exceptions')route=id?'vehicle-transport-exceptions/'+id:'vehicle-transfers';
- else if(route==='reconciliation'&&path.includes('/clearing'))route='clearing'+(id?'/'+id:'');
- else if(route==='membership'&&path.includes('/orders'))route=id?'membership-order/'+id:'membership';
- else if(route==='recharge-bundles'&&path.includes('/orders'))route=id?'recharge-bundle-order/'+id:'recharge-bundles';
- else if(route==='business-finance'&&path.includes('/orders'))route=id?'business-finance-order/'+id:'business-finance';
- else if(route==='customer-service'&&path.includes('/vehicles'))route='customer-vehicles'+(positive(args.vehicle_id)?'/'+args.vehicle_id:'');
- else if(route==='customer-service'&&path.includes('/reminders'))route='customer-reminders';
- else if(route==='customer-service'&&path.includes('/history/grants'))route='customer-history-grants';
- else if(route==='customer-service'&&path.includes('/questionnaires'))route=path.includes('/report')?'customer-questionnaire-report':'customer-questionnaires';
+ const id=positive(args.key)||positive(data.id);
+ if(path==='/api/business-records/contracts'||path==='/api/business-records/contracts/{key}')route='records-sales'+(id?'/'+id:'');
+ else if(path==='/api/business-records/customers')route='records-customers';
+ else if(path==='/api/business-records/after-sales')route='records-after-sales';
  return businessAssistantRoute(route);
 }
 const businessAssistantFieldNames={name:'名称',title:'事项',display_name:'姓名',customer_name:'客户姓名',customer_phone:'联系电话',phone:'联系电话',customer_id:'客户编号',case_id:'业务单编号',id:'记录编号',owner_id:'负责人编号',assignee_id:'办理人编号',amount:'金额（元）',amount_cents:'金额',quantity:'数量',quantity_milli:'数量',unit:'单位',price:'单价（元）',price_cents:'单价',unit_price_cents:'单价',business_date:'业务日期',due_date:'计划日期',delivery_due:'交车日期',result:'沟通结果',note:'说明',reason:'原因',model:'车型',brand:'品牌',series:'车系',code:'编码',model_id:'车型编号',item_id:'物资编号',supplier_id:'供应商编号',account_id:'账户编号',kind:'业务类型',version:'单据版本',action:'办理事项',payment_method:'收付方式',source:'来源',values:'填写内容',lines:'明细',store_id:'门店编号',business:'业务',vin:'车架号',plate:'车牌号',date:'日期',planned_at:'计划时间',appointment_at:'预约时间',scheduled_at:'安排时间',contact_allowed:'接受联系',active:'启用',confirm_new_customer:'另建客户',owner_name:'负责人',assignee_name:'办理人'};

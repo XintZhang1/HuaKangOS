@@ -144,7 +144,7 @@
     const waiting = waitingText(item);
     if (waiting) meta.push('等待：' + waiting);
     if (item.due_at) meta.push('到期：' + (typeof time === 'function' ? time(item.due_at) : item.due_at));
-    const route = item.manual_route
+    const route = routeValid(item.manual_route)
       ? '<a class="ba-record-link" href="#' + escapeText(item.manual_route) + '">打开原业务</a>' : '';
     return '<article class="ba-side-item' + (selected ? ' selected' : '') + '" data-item="' + escapeText(item.key) + '">'
       + '<button type="button" data-baws-action="open" data-key="' + escapeText(item.key) + '" aria-current="' + (selected ? 'true' : 'false') + '">'
@@ -205,7 +205,7 @@
       if (currentWait) parts.push('<p class="ba-current-wait">等待：' + escapeText(currentWait) + '</p>');
       if (item.kind === 'native_task') {
         parts.push('<p class="ba-current-note">这是原业务待办，可打开原页面办理；需要助手帮助时，在对话中输入事项和原单信息。</p>');
-        if (item.manual_route) parts.push('<p><a class="ba-record-link" href="#' + escapeText(item.manual_route) + '">打开原业务办理</a></p>');
+        if (routeValid(item.manual_route)) parts.push('<p><a class="ba-record-link" href="#' + escapeText(item.manual_route) + '">打开原业务办理</a></p>');
       }
     }
     return parts.join('');
@@ -255,10 +255,7 @@
   // ---- M6.5 交接：唯一入口。只校验引用与上下文，只预填草稿；不发送、不猜 ID、不落浏览器存储。----
 
   function routeValid(route) {
-    const guide = globalThis.WorkflowGuides;
-    if (guide && typeof guide.validRoute === 'function') return Boolean(guide.validRoute(route));
-    return typeof route === 'string' && route.length < 180
-      && /^[a-z][a-z0-9-]*(?:\/[A-Za-z0-9_-]+)*$/.test(route);
+    return typeof businessAssistantRoute === 'function' && Boolean(businessAssistantRoute(route));
   }
 
   // 只接受服务器 DTO 的三种来源；拒绝任何自报员工/门店/角色或自由文本引用。
@@ -726,7 +723,7 @@
             if (typeof paintBusinessAssistant === 'function') paintBusinessAssistant();
           }
         }
-      } else if (item.manual_route && typeof go === 'function') {
+      } else if (routeValid(item.manual_route) && typeof go === 'function') {
         go(item.manual_route); opened = true;
       }
       if (!valid() || !opened) return false;
@@ -806,7 +803,7 @@
     if (!state.noticeOpen) return '<div class="ba-notice-bar">' + entry + '</div>';
     const rows = state.notices.length ? state.notices.map((item) => {
       const when = item.created_at && typeof time === 'function' ? time(item.created_at) : '';
-      const readable = Boolean(item.task_id || item.session_id || item.manual_route);
+      const readable = Boolean(item.task_id || item.session_id || routeValid(item.manual_route));
       return '<li class="ba-notice' + (item.status === 'unread' ? ' unread' : '') + '" data-notice="' + escapeText(item.id) + '">'
         + '<button type="button" data-baws-action="notice-open" data-notice-id="' + escapeText(item.id) + '"'
         + (readable ? '' : ' disabled') + '>' + escapeText(item.safe_summary || '业务助手通知') + '</button>'
