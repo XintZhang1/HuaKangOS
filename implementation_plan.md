@@ -2,14 +2,14 @@
 
 ## V2.1 客户第二版：业务记录与单图经营看板（2026-10-08）
 
-- 状态：`implemented`。代码及本轮定向验证完成，GitHub/云端交付进行中；历史延期项保持历史状态。
+- 状态：`done`。本轮已确认第二版实现、定向验证、GitHub及阿里云交付完成；后续客户纸质单据作为新增增量，历史延期项保持历史状态。
 - 依据：业主本次会话逐项确认及持续目标；[设计与接口](docs/客户第二版业务记录设计.md)。
 - 范围：新增独立业务记录模型和追加迁移、明确岗位权限；合同录入/内勤人工核价/管理审批/批准后打印；财务实际到账确认；六类售后记录、客户建档、原截图人工统计；单图首页、排名筛选明细导出；AI辅助接入；GitHub和阿里云保留数据发布。
 - 允许修改：`app/` 中新 business_records 模块及必要注册/身份/助手接线，追加 `migrations/versions/`，`web/` 新业务记录界面及必要首页/菜单/身份接线，合同空白模板、requirements，必要隔离核心路径脚本，README/本轮设计/任务/补丁/检查点及本计划。不修改 total_plan.md，不删除旧业务数据，不发布客户实际报表行或密钥。
 - 当前基线：最新 `origin/main` / `08c140a`，分支 `codex/records-v2`，直接在 E:/HuaKangOS 实施。用户随后明确要求最新 GitHub 覆盖本地且不要工作树；旧 tracked diff 已在外部归档后按授权 reset 至主线，新建工作树已撤销。客户材料与非冲突未跟踪文件保留，禁止整体 git add。
 - 编码审阅及证据：[V2.1 编码与定向验证审阅](docs/implementation-checkpoints/V2.1-records-review-20261008.md)。core-01 浏览器8组与AI13项通过；最终审批权限/版本/跨店API7项、两处显示复验通过，静态检查通过。最终隔离源码指纹 `8d43a4c085fdc3604541b9eeb9a6fdb268db65438103048b1b3145a4f9755aa2`；全部合成数据、真实模型0，验证进程已结束。不继承历史成绩，不等同客户人工验收。
-- 发布：先完成可审阅源码和定向验证，再推 main 与阿里云；已获明确授权，无需重复询问。目标 `8.133.192.159` 现有 HuaKangOS，部署前读实时状态并备份、验证副本迁移、保留旧release。不得重置库或触碰其它服务。
-- 检查点 CP-V2.1：`implementation_released`；实现及定向验证已审阅，允许按本轮明确部署授权发布。GitHub提交、云端发布SHA及备份/健康结果待回填，不能以源码完成代替发布完成。
+- 发布：代码提交 `ac8c3bdbd45cc7af4e69ef8994348e0ab53f2855` 已推 main；GitHub Operations review checks 成功（run 37759334263）。阿里云实际发布同SHA，迁移至 `h54l_business_records`，副本及正式迁移全部旧表行摘要等值；备份 `/var/backups/huakangos/before-v2-20261008T095342Z`。公网 health、原账号 login/me、目录和应到账/实到账报告通过，五服务 active；不重置库，不提交反馈或真实模型请求。外部结果 `customer-records-v2/delivery/deployment-ac8c3bdbd45c.json`。本提交只回填实际交付文档，最终文档SHA随后按严格生产文件等值方式同步云端，精确当前SHA可查health及外部交付记录。
+- 检查点 CP-V2.1：`released`；本轮范围实现、定向验证及授权发布均完成，源码/模板/迁移与部署证据可追溯。员工人工验收、后续纸质单据及旧延期验收不计为本次通过。
 
 
 **2026-10-07 当前执行范围（业主最新指令）**：停止后续验收，转为全部源码推 main → 阿里云已有 HuaKangOS 更新 main → 备份后完全重置该系统数据、新管理员、公网 IP／端口 → 现有 Cutie + DeepSeek 队列真实轻量冒烟。仅限 HuaKangOS，不影响 dsh／QuantumAlpha。七字典原例 114940 结构与独立语义 7/7、零关键／零业务写入；当前最终候选完整 283 和 M8.6 未执行，后续按用户反馈修复。M8.5、M8.6、CP-37 为 `deferred_by_owner`，表示业主延期，非 done／released；M8.10 done 保持。部署授权按 [PATCH-DELIVERY-ALIYUN-20261007-01](docs/implementation-patches/PATCH-DELIVERY-ALIYUN-20261007-01.md) 与[交付任务](docs/architect/tasks/aliyun-main-delivery-20261007.md)执行。本次试用部署及单条真实运维冒烟已完成，Cutie独立回执为reviewed；精确发布SHA、凭据及证据在仓库外交付目录，最终文档同步不重复重置数据。以下旧日期记录按其历史时点保留。

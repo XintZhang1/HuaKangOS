@@ -8,6 +8,6 @@
 
 本轮结果：业务记录七表及迁移、合同审批打印、财务到账、六类售后、25类人工表和单图首页已实现；AI记录域接线及人工确认守卫已完成。root审阅后修正店长审批权和两处显示问题，代表浏览器路径8组、AI13项、最终权限API7项及显示复验均通过。详 `docs/implementation-checkpoints/V2.1-records-review-20261008.md`。
 
-最近行动：所有隔离服务已停止，生产源码冻结；准备精确Git提交白名单源码包和阿里云保留数据发布。部署脚本及备份/日志保留仓库外，不含实际客户材料和凭据。
+最近行动：代码 ac8c3bdbd45c 已推GitHub main，Operations review checks成功；阿里云同SHA发布完成，h54迁移前后旧表行摘要等值，原账号及新报表只读检查通过，五服务active。备份 before-v2-20261008T095342Z，未重置数据。本次仅回填交付文档，随后严格生产文件等值刷新文档release；状态见实施计划，精确最终SHA由health/外部交付记录维护。
 
 交付证据及失败日志置于仓库外 `C:/Users/tiefu/.codex/HuaKangOS-agent-validation/customer-records-v2/`。实际提交、源码指纹、验证/部署结果在完成节点追加。
