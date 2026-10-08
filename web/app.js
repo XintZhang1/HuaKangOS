@@ -210,7 +210,7 @@ async function loadAssistantFeatures(options={}){
 async function bootDefaultRoute(){await loadAssistantFeatures();return assistantDefaultRoute();}
 // Old bookmarks cannot reopen retired modules or load their catalogues.
 function normalizeAppRoute(route){
- return /^(?:records-(?:dashboard|sales(?:\/\d+)?|after-sales|customers|finance|manual|settings)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:'records-dashboard';
+ return /^(?:records-(?:dashboard|sales(?:\/\d+)?|after-sales|customers(?:\/\d+)?|finance|manual|settings)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:'records-dashboard';
 }
 function currentAppRoute(){
  const route=normalizeAppRoute(location.hash.slice(1));

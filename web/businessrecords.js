@@ -4,8 +4,8 @@
 // rechecks identity, store, version and idempotency in its own transaction.
 const BR_API='/api/business-records';
 const BR_STATUS={submitted:'待内勤核价',priced:'待管理审批',approved:'审批通过',rejected:'退回修改'};
-let brState={drafts:{},report:null,detail:null,settings:null,filters:null,view:'auto'};
-function clearBusinessRecords(){brState={drafts:{},report:null,detail:null,settings:null,filters:null,view:'auto'};state.recordCatalog=null;}
+let brState={drafts:{},report:null,detail:null,settings:null,filters:null,view:'auto',customerView:null};
+function clearBusinessRecords(){brState={drafts:{},report:null,detail:null,settings:null,filters:null,view:'auto',customerView:null};state.recordCatalog=null;}
 function brCaps(){return state.recordCatalog?.capabilities||{};}
 function brButton(action,label,extra='',cls=''){return `<button type="button" data-br="${E(action)}" ${extra} class="${E(cls)}">${E(label)}</button>`;}
 function brLink(route,label){return `<a class="button" href="#${E(route)}">${E(label)}</a>`;}
@@ -37,7 +37,7 @@ async function businessRecordsPage(type,id){
  if(type==='records-sales')return id?brContract(Number(id)):brContracts(false);
  if(type==='records-finance')return brContracts(true);
  if(type==='records-after-sales')return brAfterSales();
- if(type==='records-customers')return brCustomers();
+ if(type==='records-customers')return id?brCustomer(Number(id)):brCustomers();
  if(type==='records-manual')return brManualReports();
  if(type==='records-settings')return brSettings();
  throw new Error('记录页面不存在。');
@@ -54,8 +54,8 @@ async function brContract(id){
  const actions=(r.actions||[]).map(action=>brButton('contract-action',actionLabels[action]||action,`data-action="${E(action)}"`,['price_review','approve','receipt','print'].includes(action)?'primary':'')).join('');
  const steps=[['submitted','销售填单'],['priced','内勤核价'],['approved','管理审批']];const index=steps.findIndex(([status])=>status===r.status);
  const progress=`<div class="br-steps">${steps.map(([status,label],i)=>`<span class="${i<=index?'complete':''}">${i+1}. ${label}</span>`).join('')}<span class="${r.actual_amount_cents!=null?'complete':''}">4. 财务确认到账</span></div>`;
- const form=r.form_data||{};
- return heading('销售合同 '+r.number,[r.customer_name,r.brand,r.model].filter(Boolean).join(' · '),brLink('records-sales','返回销售业务'))+progress+`<section class="panel"><div class="panelhead spread"><h2>${E(BR_STATUS[r.status]||r.status)}</h2><div class="row">${actions}</div></div><div class="panelbody">${r.status==='rejected'?'<p class="notice warn">合同已退回，请根据核对记录修改后重新提交。</p>':''}${brFacts([['合同号',r.number],['合同日期',r.contract_date],['所属门店',r.store_name],['所属销售',r.salesperson_name],['客户姓名',r.customer_name],['联系电话',r.customer_phone],['品牌',r.brand],['车型',r.model],['车辆识别号 VIN',r.vin],['销售金额',brAmount(r.sale_price_cents)],['应到账金额',brAmount(r.expected_amount_cents)],['核定成本',brAmount(r.cost_cents)],['核定利润',brAmount(r.profit_cents)],['赠品核定成本',brAmount(r.gift_cost_cents)],['实到账金额',r.actual_amount_cents==null?'未确认':brAmount(r.actual_amount_cents)],['实际到账日期',r.received_on],['内勤核价说明',r.price_note],['审批 / 退回说明',r.approval_note],['到账核对说明',r.receipt?.note]])}<div class="br-note"><strong>赠品约定</strong><p>${E(r.gift_description||'未填写')}</p></div></div></section><details class="panel br-disclosure"><summary>合同填单内容</summary>${brFacts(brContractExtraFields().map(f=>[f.label,form[f.key]]))}</details>${Array.isArray(r.events)&&r.events.length?`<details class="panel br-disclosure"><summary>核对与操作记录</summary>${table(['时间','操作人','操作','说明'],r.events.map(e=>[time(e.created_at),E(e.actor_name),E(e.action),E(e.note||'—')]))}</details>`:''}<p class="br-caption">审批通过后打印，两份合同线下签字流转；系统保留合同号和核定记录供人工核对。</p>`;
+ const form=r.form_data||{},customerLink=r.customer_id?brLink('records-customers/'+r.customer_id,'查看客户档案'):'';
+ return heading('销售合同 '+r.number,[r.customer_name,r.brand,r.model].filter(Boolean).join(' · '),customerLink+brLink('records-sales','返回销售业务'))+progress+`<section class="panel"><div class="panelhead spread"><h2>${E(BR_STATUS[r.status]||r.status)}</h2><div class="row">${actions}</div></div><div class="panelbody">${r.status==='rejected'?'<p class="notice warn">合同已退回，请根据核对记录修改后重新提交。</p>':''}${brFacts([['合同号',r.number],['合同日期',r.contract_date],['所属门店',r.store_name],['所属销售',r.salesperson_name],['客户姓名',r.customer_name],['联系电话',r.customer_phone],['品牌',r.brand],['车型',r.model],['车辆识别号 VIN',r.vin],['销售金额',brAmount(r.sale_price_cents)],['应到账金额',brAmount(r.expected_amount_cents)],['核定成本',brAmount(r.cost_cents)],['核定利润',brAmount(r.profit_cents)],['赠品核定成本',brAmount(r.gift_cost_cents)],['实到账金额',r.actual_amount_cents==null?'未确认':brAmount(r.actual_amount_cents)],['实际到账日期',r.received_on],['内勤核价说明',r.price_note],['审批 / 退回说明',r.approval_note],['到账核对说明',r.receipt?.note]])}<div class="br-note"><strong>赠品约定</strong><p>${E(r.gift_description||'未填写')}</p></div></div></section><details class="panel br-disclosure"><summary>合同填单内容</summary>${brFacts(brContractExtraFields().map(f=>[f.label,form[f.key]]))}</details>${Array.isArray(r.events)&&r.events.length?`<details class="panel br-disclosure"><summary>核对与操作记录</summary>${table(['时间','操作人','操作','说明'],r.events.map(e=>[time(e.created_at),E(e.actor_name),E(e.action),E(e.note||'—')]))}</details>`:''}<p class="br-caption">审批通过后打印，两份合同线下签字流转；系统保留合同号和核定记录供人工核对。</p>`;
 }
 function brContractExtraFields(){return [
  F('seller_name','卖方名称'),F('seller_phone','卖方联系电话','text',false),F('seller_address','卖方地址','text',false),F('seller_agent','卖方委托代理人','text',false),
@@ -89,7 +89,7 @@ async function brNewContract(edit=false){
   if(form_data.quantity!==1)throw new Error('每份合同记录一辆车及其 VIN，请分别填单。');
   form_data.quantity=String(form_data.quantity);
   return api(BR_API+'/contracts'+(r?'/'+r.id:''),{method:r?'PUT':'POST',body:{request_id,...(r?{version:r.version}:{}),customer_name:v.customer_name,customer_phone:v.customer_phone,salesperson_id:Number(v.salesperson_id),contract_date:v.contract_date,brand:v.brand,model:v.model,vin:v.vin,sale_price_cents:moneyFen(v.sale_price,{label:'销售金额'}),gift_description:v.gift_description,form_data}});
- },{draftKey:r?'contract-'+r.id:'contract',submit:'提交内勤核价',notice:'品牌、车型和车辆信息直接填写。提交后先由内勤人工核价，再由管理人员审批。',nextRoute:result=>'records-sales/'+result.id});
+ },{draftKey:r?'contract-'+r.id:'contract',submit:'提交内勤核价',notice:'直接填写客户与车辆信息，保存时自动建立或关联客户档案。提交后先由内勤人工核价，再由管理人员审批。',nextRoute:result=>'records-sales/'+result.id});
  const quantity=dialog.querySelector('[name=quantity]');quantity.readOnly=true;
 }
 async function brContractAction(action){
@@ -109,10 +109,42 @@ async function brContractAction(action){
   return api(BR_API+'/contracts/'+r.id+'/'+path,{method:'POST',body});
  },{draftKey:`${action}-${r.id}-${r.version}`,submit:title,notice});
 }
-async function brCustomers(){const d=await api(brPageURL('/customers'));return heading('客户信息','保存客户基本信息，便于人工查询。',brCaps().manage_customers?brButton('new-customer',brState.drafts.customer?'继续填写客户信息':'新增客户','','primary'):'')+storeNotice()+brListFilters()+`<section class="panel">${table(['客户姓名','联系电话','备注'],d.items.map(r=>[E(r.name),E(r.phone||'—'),`<span class="wrap">${E(r.note||'—')}</span>`]))}${pager(d.total)}</section>`;}
+function brCustomerTabs(){return [...(state.user.role==='service'?[]:[{key:'contracts',label:'销售合同',count:'contract_count'}]),{key:'after-sales',label:'售后记录',count:'after_sales_count'}];}
+function brCustomerCount(value){return value==null?'—':number(value);}
+async function brCustomers(){
+ const d=await api(brPageURL('/customers')),tabs=brCustomerTabs();
+ const rows=d.items.map(r=>[E(r.name),E(r.phone||'—'),E(r.owner_name||'—'),...tabs.map(t=>brCustomerCount(r[t.count])),`<span class="wrap">${E(r.note||'—')}</span>`,brLink('records-customers/'+r.id,'查看业务')]);
+ return heading('客户信息','销售合同和售后记录保存时自动建档，按客户查看已关联业务。',brCaps().manage_customers?brButton('new-customer',brState.drafts.customer?'继续填写客户信息':'新增客户','','primary'):'')+storeNotice()+brListFilters()+`<section class="panel">${table(['客户姓名','联系电话','所属人员',...tabs.map(t=>t.label+'数'),'备注','操作'],rows)}${pager(d.total)}</section>`;
+}
+function brCustomerView(id){
+ const context=brContext(),tabs=brCustomerTabs();let view=brState.customerView;
+ if(!view||view.id!==id||view.context!==context)view=brState.customerView={id,context,tab:tabs[0].key,pages:{contracts:1,'after-sales':1}};
+ if(!tabs.some(t=>t.key===view.tab))view.tab=tabs[0].key;
+ return view;
+}
+function brCustomerPager(data,tab){return `<div class="pagination"><span>共 ${number(data.total)} 条 · 第 ${number(data.page)} 页</span><div class="row">${brButton('customer-page','上一页',`data-tab="${tab}" data-page="${data.page-1}" ${data.page<=1?'disabled':''}`)}${brButton('customer-page','下一页',`data-tab="${tab}" data-page="${data.page+1}" ${data.page*data.page_size>=data.total?'disabled':''}`)}</div></div>`;}
+async function brCustomer(id){
+ const epoch=renderId,context=brContext(),view=brCustomerView(id),tab=view.tab,page=view.pages[tab];
+ // Fetch just the selected business page; each endpoint applies its own scope.
+ const [customer,data]=await Promise.all([api(BR_API+'/customers/'+id),api(BR_API+'/'+tab+'?'+new URLSearchParams({customer_id:id,page,page_size:20}))]);
+ if(epoch!==renderId||context!==brContext()||brState.customerView!==view)return '';
+ view.pages[tab]=data.page;
+ const tabs=brCustomerTabs(),types=Object.fromEntries((state.recordCatalog.service_types||[]).map(s=>[s.value,s.label]));
+ const headers=tab==='contracts'?['合同号','合同日期','车辆','所属销售','状态','销售金额','应到账','实到账']:['业务日期','业务类型','车辆','服务项目','材料费','工时费','核定成本','经办人'];
+ const rows=tab==='contracts'?data.items.map(r=>[`<a class="br-record-link" href="#records-sales/${E(r.id)}">${E(r.number)}</a>`,E(r.contract_date),E([r.brand,r.model].filter(Boolean).join(' ')),E(r.salesperson_name),pill(r.status,BR_STATUS[r.status]),brAmount(r.sale_price_cents),brAmount(r.expected_amount_cents),r.actual_amount_cents==null?'未确认':brAmount(r.actual_amount_cents)]):data.items.map(r=>[E(r.business_date),E(types[r.service_type]||r.service_type),E(r.vehicle),`<span class="wrap">${E(r.service_items)}</span>`,brAmount(r.materials_cents),brAmount(r.labor_cents),brAmount(r.cost_cents),E(r.handler_name)]);
+ const controls=tabs.map(t=>brButton('customer-tab',t.label+' · '+brCustomerCount(customer[t.count]),`data-tab="${t.key}" aria-pressed="${tab===t.key}"`)).join('');
+ return heading('客户信息 · '+customer.name,'查看该客户在当前授权范围内的关联业务。',brLink('records-customers','返回客户列表'))+`<section class="panel"><div class="panelhead"><h2>客户资料</h2></div><div class="panelbody">${brFacts([['客户姓名',customer.name],['联系电话',customer.phone],['所属人员',customer.owner_name],['所属门店',customer.store_name],['备注',customer.note]])}</div></section><section class="panel" id="br-customer-business"><div class="panelhead"><h2>关联业务</h2><div class="br-customer-tabs" role="group" aria-label="客户关联业务">${controls}</div></div>${table(headers,rows)}${brCustomerPager(data,tab)}</section>`;
+}
+async function brChangeCustomerView(action,button){
+ const view=brState.customerView;if(!view||view.context!==brContext()||state.route!=='records-customers/'+view.id)throw new Error('请重新打开客户信息。');
+ const tab=button.dataset.tab;if(!brCustomerTabs().some(t=>t.key===tab))throw new Error('当前岗位不可查看该业务。');
+ if(action==='customer-tab'){if(view.tab===tab)return;view.tab=tab;}else{const page=Number(button.dataset.page);if(tab!==view.tab||!Number.isInteger(page)||page<1)return;view.pages[tab]=page;}
+ await render();
+ if(view===brState.customerView&&view.context===brContext())$('#br-customer-business [data-br="customer-tab"][data-tab="'+tab+'"]')?.focus();
+}
 async function brNewCustomer(){return brForm('填写客户信息',[{title:'客户资料',fields:[F('name','客户姓名'),F('phone','联系电话','text',false),F('note','备注','textarea',false)]}],{},(v,request_id)=>api(BR_API+'/customers',{method:'POST',body:{...v,request_id}}),{draftKey:'customer'});}
 async function brAfterSales(){const d=await api(brPageURL('/after-sales'));const types=Object.fromEntries((state.recordCatalog.service_types||[]).map(s=>[s.value,s.label]));return heading('售后业务','维修、保养、事故维修、续保、延保及精品销售记录。',brCaps().create_after_sales?brButton('new-after-sales',brState.drafts.afterSales?'继续填写售后':'登记售后业务','','primary'):'')+storeNotice()+brListFilters()+`<section class="panel">${table(['业务日期','业务类型','客户 / 车辆','服务项目','材料费','工时费','核定成本','经办人'],d.items.map(r=>[E(r.business_date),E(types[r.service_type]||r.service_type),E(r.customer_name+' / '+r.vehicle),`<span class="wrap">${E(r.service_items)}</span>`,brAmount(r.materials_cents),brAmount(r.labor_cents),brAmount(r.cost_cents),E(r.handler_name)]))}${pager(d.total)}</section>`;}
-async function brNewAfterSales(){const fields=[F('service_type','业务类型','select',true,state.recordCatalog.service_types),F('business_date','业务日期','date'),F('customer_name','客户姓名'),F('customer_phone','联系电话','text',false),F('vehicle','车辆信息'),F('brand','品牌','text',false),F('service_items','服务项目','textarea'),F('materials','材料费（元）','money_zero'),F('labor','工时费（元）','money_zero'),F('cost','核定成本（元）','money_zero',false),F('handler_name','经办人')];return brForm('登记售后业务',[{title:'业务记录',fields}],{handler_name:state.user.display_name},(v,request_id)=>{const {materials,labor,cost,...rest}=v;return api(BR_API+'/after-sales',{method:'POST',body:{...rest,request_id,materials_cents:moneyFen(materials,{allowZero:true}),labor_cents:moneyFen(labor,{allowZero:true}),cost_cents:cost===''?null:moneyFen(cost,{allowZero:true})}});},{draftKey:'afterSales'});}
+async function brNewAfterSales(){const fields=[F('service_type','业务类型','select',true,state.recordCatalog.service_types),F('business_date','业务日期','date'),F('customer_name','客户姓名'),F('customer_phone','联系电话','text',false),F('vehicle','车辆信息'),F('brand','品牌','text',false),F('service_items','服务项目','textarea'),F('materials','材料费（元）','money_zero'),F('labor','工时费（元）','money_zero'),F('cost','核定成本（元）','money_zero',false),F('handler_name','经办人')];return brForm('登记售后业务',[{title:'业务记录',fields}],{handler_name:state.user.display_name},(v,request_id)=>{const {materials,labor,cost,...rest}=v;return api(BR_API+'/after-sales',{method:'POST',body:{...rest,request_id,materials_cents:moneyFen(materials,{allowZero:true}),labor_cents:moneyFen(labor,{allowZero:true}),cost_cents:cost===''?null:moneyFen(cost,{allowZero:true})}});},{draftKey:'afterSales',notice:'直接填写客户与车辆信息，保存时自动建立或关联客户档案。'});}
 async function brSettings(){const epoch=renderId,r=await api(BR_API+'/settings');if(epoch!==renderId)return '';brState.settings=r;const modes={all:'全部合同审批',fixed:'单笔固定金额',ratio:'车价比例'};return heading('赠品审批设置','阈值用于核对提示，当前全部合同仍须管理审批。',brLink('records-sales','返回销售业务')+(brCaps().manage_settings?brButton('edit-settings','设置赠品阈值','','primary'):''))+panel('赠品审批规则',brFacts([['阈值方式',modes[r.approval_mode]],['固定金额',r.threshold_amount_cents==null?'未设置':brAmount(r.threshold_amount_cents)],['车价比例',r.threshold_basis_points==null?'未设置':(r.threshold_basis_points/100).toFixed(2)+'%'],['合同放行','内勤人工核价后，管理审批通过方可打印']]))+panel('标准价格',`<p>后续由内勤上传和维护标准价格。当前采用人工核价。</p><button type="button" disabled>标准价格上传 · 暂未开放</button>`);}
 async function brEditSettings(){const r=brState.settings;return brForm('设置赠品阈值',[{title:'审批规则',fields:[F('approval_mode','阈值方式','select',true,[{value:'all',label:'全部合同审批'},{value:'fixed',label:'单笔固定金额'},{value:'ratio',label:'车价比例'}]),F('threshold_amount','固定金额（元）','money_zero',false),F('threshold_ratio','车价比例（%）','text',false)]}],{approval_mode:r.approval_mode,threshold_amount:brInputAmount(r.threshold_amount_cents),threshold_ratio:r.threshold_basis_points==null?'':(r.threshold_basis_points/100).toFixed(2)},(v,request_id)=>api(BR_API+'/settings',{method:'PUT',body:{request_id,version:r.version,approval_mode:v.approval_mode,threshold_amount_cents:v.approval_mode==='fixed'?moneyFen(v.threshold_amount,{allowZero:true}):null,threshold_basis_points:v.approval_mode==='ratio'?brPercentage(v.threshold_ratio):null}}),{draftKey:'settings-'+r.version,notice:'本次设置不免除任何合同的管理审批。'});}
 // Reports and manual columns are supplied by the same server catalog that
@@ -230,7 +262,7 @@ document.addEventListener('click',event=>{
 });
 document.addEventListener('click',async event=>{
  const el=event.target.closest('[data-br]');if(!el||el.dataset.br==='report-view'||el.disabled||state.storeSwitch)return;
- el.disabled=true;try{const action=el.dataset.br;if(action==='defer-form'){if($('#modal form')?.dataset.submitting==='true')throw new Error('正在提交，请等待本次返回结果。');closeModal();}else if(action==='new-contract')await brNewContract();else if(action==='contract-action')await brContractAction(el.dataset.action);else if(action==='new-customer')await brNewCustomer();else if(action==='new-after-sales')await brNewAfterSales();else if(action==='edit-settings')await brEditSettings();else if(action==='new-manual')await brNewManual();else if(action==='manual-report-select')await brNewManual(el.dataset.report);else if(action==='export-report')await download(BR_API+'/reports/export?'+brReportQuery(),'经营报表.csv');}catch(error){toast(error.message,true);}finally{if(el.isConnected)el.disabled=false;}
+ el.disabled=true;try{const action=el.dataset.br;if(action==='defer-form'){if($('#modal form')?.dataset.submitting==='true')throw new Error('正在提交，请等待本次返回结果。');closeModal();}else if(action==='new-contract')await brNewContract();else if(action==='contract-action')await brContractAction(el.dataset.action);else if(action==='new-customer')await brNewCustomer();else if(action==='customer-tab'||action==='customer-page')await brChangeCustomerView(action,el);else if(action==='new-after-sales')await brNewAfterSales();else if(action==='edit-settings')await brEditSettings();else if(action==='new-manual')await brNewManual();else if(action==='manual-report-select')await brNewManual(el.dataset.report);else if(action==='export-report')await download(BR_API+'/reports/export?'+brReportQuery(),'经营报表.csv');}catch(error){toast(error.message,true);}finally{if(el.isConnected)el.disabled=false;}
 });
 window.addEventListener('beforeunload',event=>{if(Object.keys(brState.drafts).length){event.preventDefault();event.returnValue='';}});
 

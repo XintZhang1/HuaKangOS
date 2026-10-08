@@ -6,7 +6,8 @@ import json
 import uuid
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, update
+from sqlalchemy.exc import OperationalError
 from .db import get_db, get_write_db, utcnow, today
 from .models import User, Store
 from .security import get_user
@@ -97,6 +98,65 @@ def get_contract(db, user, key):
     return row
 
 
+def get_customer(db, user, key):
+    row = db.scalar(visible_query(user, RecordCustomer).where(RecordCustomer.id == key))
+    if row is None:
+        raise HTTPException(404, '客户档案不存在或不可访问')
+    return row
+
+
+def _lock_customer_scope(db):
+    # SQLite already reserves its writer in get_write_db. At PostgreSQL's
+    # REPEATABLE READ, a lock alone could leave an older matching snapshot.
+    # A no-value-change row update instead makes a concurrent old snapshot fail
+    # with 40001. Store has no onupdate/version columns or schema triggers.
+    if db.get_bind().dialect.name == 'postgresql':
+        db.execute(update(Store).where(Store.id == single_store(db)).values(id=Store.id)
+                   .execution_options(synchronize_session=False))
+
+
+def _record_customer(db, owner_id, name, phone):
+    """Link only a unique exact identity; never edit or guess an existing file."""
+    _lock_customer_scope(db)
+    store = single_store(db)
+    if phone.strip():
+        candidates = db.scalars(select(RecordCustomer).where(
+            RecordCustomer.store_id == store, RecordCustomer.owner_id == owner_id,
+            RecordCustomer.name == name, RecordCustomer.phone == phone).limit(2)).all()
+        if len(candidates) == 1:
+            return candidates[0].id
+    row = RecordCustomer(store_id=store, owner_id=owner_id, name=name, phone=phone, note='')
+    db.add(row)
+    db.flush()
+    return row.id
+
+
+def _customer_rows(db, user, rows):
+    """Counts use the same scope as each related list, and only the current page."""
+    if not rows:
+        return []
+    ids = [row.id for row in rows]
+    counts = {}
+    for model, key in ((SalesContract, 'contract_count'), (AfterSalesRecord, 'after_sales_count')):
+        if model is SalesContract and user.role == 'service' and not getattr(user, '_aggregate_scope', False):
+            counts[key] = {}
+            continue
+        query = visible_query(user, model).where(model.customer_id.in_(ids))
+        query = query.with_only_columns(model.customer_id, func.count()).group_by(model.customer_id)
+        counts[key] = dict(db.execute(query).all())
+    owners = {row.id: row.display_name for row in db.scalars(select(User).where(
+        User.id.in_({row.owner_id for row in rows})))}
+    stores = {row.id: row.name for row in db.scalars(select(Store).where(
+        Store.id.in_({row.store_id for row in rows})))}
+    result = []
+    for row in rows:
+        data = plain(row)
+        data.update(owner_name=owners.get(row.owner_id, ''), store_name=stores.get(row.store_id, ''),
+                    **{key: values.get(row.id, 0) for key, values in counts.items()})
+        result.append(data)
+    return result
+
+
 def _salesperson(db, user, ident):
     store = single_store(db)
     if user.role == 'sales' and ident != user.id:
@@ -123,10 +183,17 @@ def _run(db, user, request_id, action, payload, perform):
         if prior.digest != digest:
             raise HTTPException(409, '本次请求号已用于不同内容，请核对原操作结果')
         return prior.result
-    result = perform()
-    db.add(RecordCommand(store_id=store, actor_id=user.id, request_id=request_id,
-                         digest=digest, result=result))
-    db.commit()
+    try:
+        result = perform()
+        db.add(RecordCommand(store_id=store, actor_id=user.id, request_id=request_id,
+                             digest=digest, result=result))
+        db.commit()
+    except OperationalError as exc:
+        sqlstate = getattr(exc.orig, 'sqlstate', getattr(exc.orig, 'pgcode', None))
+        if sqlstate != '40001':
+            raise
+        db.rollback()
+        raise HTTPException(409, '其他操作已更新相关记录，本次未保存；请刷新核对后再操作') from exc
     return result
 
 
@@ -210,9 +277,13 @@ def catalog(db=Depends(get_db), user=Depends(get_user)):
 
 @router.get('/contracts')
 def contracts(q: str = Query('', max_length=120), status: str = '',
+              customer_id: int | None = Query(None, gt=0),
               page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=200),
               db=Depends(get_db), user=Depends(get_user)):
     query = visible_query(user, SalesContract)
+    if customer_id is not None:
+        customer = get_customer(db, user, customer_id)
+        query = query.where(SalesContract.customer_id == customer.id, SalesContract.store_id == customer.store_id)
     if status:
         if status not in STATUS_LABELS:
             raise HTTPException(422, '合同状态无效')
@@ -233,7 +304,9 @@ def create_contract(body: ContractInput, request: Request,
     _salesperson(db, user, body.salesperson_id)
     def perform():
         values = body.model_dump(exclude={'request_id'})
+        customer_id = _record_customer(db, body.salesperson_id, body.customer_name, body.customer_phone)
         row = SalesContract(**values, store_id=single_store(db), created_by=user.id,
+                            customer_id=customer_id,
                             number='XS-' + uuid.uuid4().hex[:20].upper(), status='submitted')
         db.add(row)
         db.flush()
@@ -262,6 +335,8 @@ def edit_contract(key: int, body: ContractUpdate, request: Request,
         if row.status not in {'submitted', 'rejected'}:
             raise HTTPException(409, '核价完成后的合同须由管理人员退回后再修改')
         before = _contract_data(db, user, row)
+        if row.customer_id is None or (row.customer_name, row.customer_phone) != (body.customer_name, body.customer_phone):
+            row.customer_id = _record_customer(db, row.salesperson_id, body.customer_name, body.customer_phone)
         for name, value in body.model_dump(exclude={'request_id', 'version'}).items():
             setattr(row, name, value)
         row.status = 'submitted'
@@ -402,7 +477,15 @@ def customers(q: str = Query('', max_length=120), page: int = Query(1, ge=1),
     if q:
         query = query.where(or_(RecordCustomer.name.contains(q, autoescape=True),
                                RecordCustomer.phone.contains(q, autoescape=True)))
-    return _list(db, query.order_by(RecordCustomer.id.desc()), plain, page, page_size)
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    rows = db.scalars(query.order_by(RecordCustomer.id.desc())
+        .offset((page - 1) * page_size).limit(page_size)).all()
+    return {'items': _customer_rows(db, user, rows), 'total': total, 'page': page, 'page_size': page_size}
+
+
+@router.get('/customers/{key}')
+def customer_detail(key: int, db=Depends(get_db), user=Depends(get_user)):
+    return _customer_rows(db, user, [get_customer(db, user, key)])[0]
 
 
 @router.post('/customers', status_code=201)
@@ -411,11 +494,12 @@ def create_customer(body: CustomerInput, request: Request,
     _manual(request)
     require_capability(user, 'manage_customers')
     def perform():
+        _lock_customer_scope(db)
         row = RecordCustomer(**body.model_dump(exclude={'request_id'}),
                              store_id=single_store(db), owner_id=user.id)
         db.add(row)
         db.flush()
-        data = plain(row)
+        data = _customer_rows(db, user, [row])[0]
         audit(db, user.id, 'record_create', 'record_customer', row.id, after=data)
         return data
     return _run(db, user, body.request_id, 'customer:create', _body(body), perform)
@@ -423,9 +507,13 @@ def create_customer(body: CustomerInput, request: Request,
 
 @router.get('/after-sales')
 def after_sales(q: str = Query('', max_length=120), service_type: str = '',
+                customer_id: int | None = Query(None, gt=0),
                 page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=200),
                 db=Depends(get_db), user=Depends(get_user)):
     query = visible_query(user, AfterSalesRecord)
+    if customer_id is not None:
+        customer = get_customer(db, user, customer_id)
+        query = query.where(AfterSalesRecord.customer_id == customer.id, AfterSalesRecord.store_id == customer.store_id)
     if q:
         query = query.where(or_(AfterSalesRecord.customer_name.contains(q, autoescape=True),
                                AfterSalesRecord.vehicle.contains(q, autoescape=True),
@@ -441,7 +529,9 @@ def create_after_sales(body: AfterSalesInput, request: Request,
     _manual(request)
     require_capability(user, 'create_after_sales')
     def perform():
+        customer_id = _record_customer(db, user.id, body.customer_name, body.customer_phone)
         row = AfterSalesRecord(**body.model_dump(exclude={'request_id'}),
+            customer_id=customer_id,
             store_id=single_store(db), owner_id=user.id, number='SH-' + uuid.uuid4().hex[:20].upper())
         db.add(row)
         db.flush()

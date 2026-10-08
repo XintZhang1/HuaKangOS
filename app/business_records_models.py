@@ -31,6 +31,7 @@ class SalesContract(Versioned, Base):
     number: Mapped[str] = mapped_column(String(60), unique=True)
     salesperson_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
     created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_customers.id'), nullable=True, index=True)
     customer_name: Mapped[str] = mapped_column(String(100))
     customer_phone: Mapped[str] = mapped_column(String(40), default='')
     brand: Mapped[str] = mapped_column(String(100), index=True)
@@ -79,6 +80,7 @@ class ContractReceipt(StoreScoped, Base):
 class AfterSalesRecord(Versioned, Base):
     __tablename__ = 'business_record_after_sales'
     owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_customers.id'), nullable=True, index=True)
     number: Mapped[str] = mapped_column(String(60), unique=True)
     service_type: Mapped[str] = mapped_column(String(30), index=True)
     customer_name: Mapped[str] = mapped_column(String(100))
