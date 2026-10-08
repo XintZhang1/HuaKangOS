@@ -233,7 +233,10 @@ _TOOL_KINDS = {
 def _registry_for_profile(profile):
     from .business_assistant_service import TOOLS, HARD_TOOLS, MODEL_ARGUMENT_CHARS
     from .business_assistant_business_tools import SPECS, tool_definitions, validate
-    definitions = (tool_definitions() if profile == 'business_v1' else []) + TOOLS
+    # V2 keeps the proven preparation/confirmation pipeline, while the product
+    # no longer exposes the old inventory/dispatch/membership workflow tools.
+    from .business_record_assistant import TOOL_NAMES
+    definitions = [item for item in TOOLS if item['function']['name'] in TOOL_NAMES]
     registry = ToolRegistry(max_calls=HARD_TOOLS, max_argument_chars=MODEL_ARGUMENT_CHARS)
     for definition in definitions:
         fn = definition['function']

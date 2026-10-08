@@ -22,6 +22,7 @@ from .db import engine, get_db, get_write_db, today, utcnow, get_audited_read_db
 from .models import Store, UserStore, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
 from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, BatchUserInput, StoreRoleInput, StoreRole
 from .security import get_user, authenticate, set_session, clear_cookies, revoke_login_session, user_info, require_full, require_module, verify_password, hash_password, ROLES
+from .business_records import router as business_records_router
 from .services import serialize, plain, audit, readable_query, get_record, create_record, update_record, act_record, check_version
 from .analytics import dashboard, source_revision, build_snapshot, external_payload, rules_config
 from .reports import generate_report
@@ -90,6 +91,7 @@ async def lifespan(app):
 app = FastAPI(title=PRODUCT_TITLE+' 门店运营系统',version='0.4.0-dev',lifespan=lifespan,
               docs_url='/docs' if settings.environment!='production' else None,redoc_url=None)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=list(settings.allowed_hosts))
+app.include_router(business_records_router)
 
 
 @app.middleware('http')

@@ -15,6 +15,7 @@ hasher = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=2)
 DUMMY_HASH = hasher.hash(secrets.token_urlsafe(24))
 ROLES = {'admin':'系统管理员', 'manager':'店长 / 老板', 'sales':'销售', 'inventory':'库存管理员', 'service':'售后 / 保险', 'finance':'财务', 'auditor':'复核 / 审计'}
 ROLES.update({'reception':'前台接待','technician':'维修技师','customer_service':'客户服务'})
+ROLES.update({'clerk': '内勤', 'general_manager': '总经理', 'chairman': '董事长'})
 ALL = {'vehicles','sales','repairs','policies','cash'}
 READ = {'admin':ALL, 'manager':ALL, 'finance':ALL, 'auditor':ALL,
         'sales':{'vehicles','sales'}, 'inventory':{'vehicles'}, 'service':{'repairs','policies'}}
@@ -22,6 +23,9 @@ WRITE = {'admin':ALL, 'manager':ALL, 'finance':{'cash'}, 'auditor':set(),
          'sales':{'sales'}, 'inventory':{'vehicles'}, 'service':{'repairs','policies'}}
 READ.update({'reception':set(),'technician':set(),'customer_service':set()})
 WRITE.update({'reception':set(),'technician':set(),'customer_service':set()})
+# V2 roles use their own scoped record APIs; do not grant legacy module access.
+READ.update({'clerk': set(), 'general_manager': set(), 'chairman': set()})
+WRITE.update({'clerk': set(), 'general_manager': set(), 'chairman': set()})
 FULL_VIEW = {'admin','manager','finance','auditor'}
 
 

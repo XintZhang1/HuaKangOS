@@ -15,7 +15,7 @@ from fastapi.routing import APIRoute
 from pydantic import BaseModel, ValidationError
 from starlette.routing import Match
 
-DOMAINS = {
+LEGACY_DOMAINS = {
  'flow':'业务流程与本店资料', 'masters':'车型与基础资料', 'customer-choice':'查找客户',
  'vehicle-catalog':'车型展示与归属', 'sales-quotes':'车辆报价',
  'vehicle-procurement':'整车采购', 'procurement':'物资采购', 'warehouse':'仓储作业',
@@ -39,6 +39,7 @@ DOMAINS = {
  'records':'原有单据', 'lookup':'原有单据查询', 'vehicle-imports':'整车请款与批量导入',
  'escalations':'评审申请',
 }
+DOMAINS = {'business-records': '业务记录：销售合同、客户、售后和经营报表'}
 # Never exposed to the assistant, not even for reading: credentials, sessions, deployment
 # settings, brand images, raw files, exports and initial-balance imports stay manual.
 CLOSED_DOMAINS = {'auth', 'local-preview', 'branding', 'settings', 'business-assistant',
@@ -63,7 +64,7 @@ MANAGEMENT_READERS = {
 # covers the downloadable sample/template endpoints (text/csv attachments) that carry no
 # export token in their path; tests/test_business_assistant_scope.py re-scans every GET
 # handler and fails when a new file/CSV route is added without being excluded here.
-DENIED = re.compile(r'/(?:files|download|export|opening|example)(?:/|$)|(?:\.csv|\.docx|\.pdf)$')
+DENIED = re.compile(r'/(?:files|download|export|opening|example|print|settings)(?:/|$)|(?:\.csv|\.docx|\.pdf)$')
 # Owner ruling 2026-09-25（覆盖 2026-09-24 的风险分级写法）：助手就以**员工本人身份**调用已评审的
 # 业务接口，能办的就办、该连起来做的就连起来做；**权限由接口判定**，不再由助手的白名单/禁用词
 # 预先代替接口做决定。被接口拒绝时提示"这一步需要更高权限，要不要提交评审申请"。仍然不放开的只有
@@ -75,6 +76,11 @@ COMMITMENT_HINT = ('服务器已记录{reason}（被挡记录 {refusal_id}）。
 # accounts/credentials, store and legal-entity configuration, parameter rules, finding review,
 # daily-report generation and the arbitrary legacy record CRUD.
 CLASSIFIED_BLOCKED_WRITES = frozenset({
+    'POST /api/business-records/contracts/{key}/price-review',
+    'POST /api/business-records/contracts/{key}/approve',
+    'POST /api/business-records/contracts/{key}/reject',
+    'POST /api/business-records/contracts/{key}/receipt',
+    'POST /api/business-records/manual-reports', 'PUT /api/business-records/settings',
     'POST /api/users', 'POST /api/users/batch', 'PUT /api/users/{user_id}',
     'POST /api/users/{user_id}/password', 'POST /api/stores', 'PUT /api/stores/{store_id}',
     'POST /api/business-entities/applications',
@@ -114,6 +120,18 @@ SECRET_KEYS = {'password','password_hash','new_password','current_password','api
                'deepseek_key','token','access_token','refresh_token','authorization',
                'cookie','csrf','csrf_hash','session_id','content','blob','object_key','storage_path'}
 FIELD_LABELS = {
+ 'contract_no':'合同单号','contract_date':'合同日期','sale_price_cents':'购车价（分）',
+ 'expected_amount_cents':'应到账金额（分）','actual_amount_cents':'实际到账金额（分）',
+ 'salesperson_id':'归属销售编号','vin':'VIN码','form_data':'合同补充内容',
+ 'cost_cents':'内勤核定成本（分）','profit_cents':'内勤核定利润（分）',
+ 'gift_cost_cents':'赠品核定成本（分）','gift_description':'赠品约定',
+ 'material_fee_cents':'材料费（分）','labor_fee_cents':'工时费（分）',
+ 'materials_cents':'材料费（分）','labor_cents':'工时费（分）','handler_name':'经办人',
+ 'seller':'卖方','document_name':'证件名称','document_number':'证件号码',
+ 'address':'地址','email':'电子邮件','exterior_color':'外观颜色','interior_color':'内饰颜色',
+ 'deposit':'定金（元）','balance':'余款（元）','delivery_place':'提车地点','delivery_date':'提车日期',
+ 'service_type':'售后类别','service_items':'服务项目','vehicle':'车辆',
+ 'received_on':'实际到账日期','business_date':'记录日期',
  'values':'填写内容','quote':'报价','lines':'明细','kind':'业务类型','name':'名称','code':'代码',
  'customer_name':'客户姓名','customer_phone':'联系电话','phone':'联系电话','customer_id':'客户编号',
  'model':'车型','model_id':'车型编号','brand':'品牌','brand_id':'品牌编号','series_id':'车系编号',
@@ -141,6 +159,7 @@ MASTER_READ_CENTS_FIELDS = {
  'member_tiers': {'annual_fee_cents':'参考年费'},
 }
 ROUTES = {
+ 'business-records':'records-sales',
  'flow':'work','masters':'masters','vehicle-catalog':'vehicle-catalog','sales-quotes':'sales-quotes',
  'customer-service':'customer-service','customer-choice':'master/customers','group':'group',
  'membership':'membership','parameters':'parameters','stores':'stores',
@@ -595,6 +614,14 @@ def display_fields(payload,operation_id='',*,field_labels=None):
 
 def manual_route(operation_id,path_args=None,data=None):
     op=_operation(operation_id);path_args=path_args or {}
+    if op['domain']=='business-records':
+        if '/contracts' in op['path']:
+            ident=path_args.get('key') or (data.get('id') if isinstance(data,dict) else None)
+            return 'records-sales/'+str(ident) if type(ident) is int else 'records-sales'
+        if '/customers' in op['path']:return 'records-customers'
+        if '/after-sales' in op['path']:return 'records-after-sales'
+        if '/manual-reports' in op['path']:return 'records-manual'
+        return 'records-dashboard'
     if '/flow/master/' in op['path']:return 'master/'+str(path_args.get('kind','customers'))
     if op['domain']=='masters' and path_args.get('kind'):return 'masters/'+str(path_args['kind'])
     if '/flow/cases' in op['path']:

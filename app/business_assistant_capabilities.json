@@ -3,6 +3,10 @@
   "reviewed_on": "2026-09-24",
   "policy": "Write preparation is restricted to these exact registered method and path pairs. GET discovery follows gateway domain boundaries and native route registration; listed GET entries are historical review records, not an additional query allowlist. Native role/store permissions and human confirmation remain mandatory.",
   "operations": [
+    "POST /api/business-records/contracts",
+    "PUT /api/business-records/contracts/{key}",
+    "POST /api/business-records/customers",
+    "POST /api/business-records/after-sales",
     "GET /api/addon-orders",
     "GET /api/addon-orders/catalog",
     "GET /api/addon-orders/{key}",

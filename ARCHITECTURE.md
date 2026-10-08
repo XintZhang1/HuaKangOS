@@ -1,5 +1,11 @@
 # HuaKangOS 专用业务 Runtime：实施架构合同
 
+## 2026-10-08 客户第二版记录域
+
+当前交付新增独立 `business_records` 域，复用登录、门店岗位、审计、幂等和原 AI 确认卡机制。七张记录表经追加迁移 `h54l_business_records` 建立，不将旧库存或财务状态机放宽为自由改状态。API 前缀 `/api/business-records`；前端 `businessrecords.js` 是默认单图首页及销售、售后、客户、流水和人工统计入口。
+
+核价、审批、到账均由服务器状态和当前岗位守卫；批准时冻结合同快照和模板版本，打印只读取快照。报表与 CSV 复用授权查询及相同范围；人工统计保留空值与原字段。助手工具仅开放记录域查询及合同、客户、售后准备，审批和到账不由模型执行。完整合同、日期口径与岗位见[本轮设计](docs/客户第二版业务记录设计.md)。下文旧助手首页与十模块说明为历史架构，冲突处以本增量为准。
+
 版本：runtime-v1 / 维护说明更新于 2026-10-05。本文保留架构合同，并给出当前源码的职责与入口；模块存在不等于相应验收通过。产品规则见 [PROJECT_SPEC.md](PROJECT_SPEC.md)，唯一里程碑状态、实施门禁和补丁范围见 [implementation_plan.md](implementation_plan.md)。
 
 当前用户范围为代码/架构维护交接及本地真实模型复验；尚未执行的 HTTPS/OS 输入法和独立 Windows/Linux 验收任务已撤回，撤回不计通过。已有回归及 SQLite/PostgreSQL 证据保留，员工试用与生产验收不代签。范围调整见 [PATCH-SCOPE-MAINTENANCE-20261005-01](docs/implementation-patches/PATCH-SCOPE-MAINTENANCE-20261005-01.md)。

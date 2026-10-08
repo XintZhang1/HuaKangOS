@@ -36,9 +36,10 @@ function compactCount(value){
   if(abs>=1e4)return sign+trimmed((abs/1e4).toFixed(1))+'万';
   return sign+grouped(String(Math.round(abs)));
 }
-function valueText(value,unit){return unit==='count'?count(value):money(value);}
-function tickText(value,unit){return unit==='count'?compactCount(value):compactYuan(value);}
-function compactValue(value,unit){return unit==='count'?compactCount(value):compactYuan(num(value)/100);}
+function decimal(value){return new Intl.NumberFormat('zh-CN',{maximumFractionDigits:3}).format(num(value));}
+function valueText(value,unit){return unit==='count'?count(value):unit==='yuan'?'¥'+new Intl.NumberFormat('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(num(value)):unit==='percent'?decimal(value)+'%':unit==='decimal'?decimal(value):money(value);}
+function tickText(value,unit){return unit==='percent'?decimal(value)+'%':unit==='decimal'?decimal(value):unit==='count'?(Number.isInteger(value)?compactCount(value):decimal(value)):compactYuan(value);}
+function compactValue(value,unit){return unit==='yuan'?compactYuan(value):['percent','decimal'].includes(unit)?valueText(value,unit):unit==='count'?compactCount(value):compactYuan(num(value)/100);}
 function toDisplay(value,unit){return unit==='money'?num(value)/100:num(value);}
 function textWidth(text,size){
   let width=0;
@@ -220,7 +221,7 @@ function line(container,spec){
   const node=resolve(container);
   const series=(Array.isArray(spec.series)?spec.series:[]).filter(item=>item&&Array.isArray(item.values));
   const dates=Array.isArray(spec.dates)?spec.dates:[];
-  const unit=spec.unit==='count'?'count':'money';
+  const unit=['count','percent','decimal','yuan'].includes(spec.unit)?spec.unit:'money';
   remember(node,spec);
   return mount(container,spec,width=>{
     const points=Math.max(dates.length,...series.map(item=>item.values.length),0);
@@ -296,7 +297,7 @@ function bar(container,spec){
   spec=spec||{};
   const node=resolve(container);
   const items=(Array.isArray(spec.items)?spec.items:[]).filter(item=>item);
-  const unit=spec.unit==='count'?'count':'money';
+  const unit=['count','percent','decimal','yuan'].includes(spec.unit)?spec.unit:'money';
   const horizontal=spec.horizontal===undefined?items.length>7:!!spec.horizontal;
   remember(node,spec);
   return mount(container,spec,width=>{
@@ -413,7 +414,7 @@ function pie(container,spec){
   spec=spec||{};
   const node=resolve(container);
   const source=(Array.isArray(spec.items)?spec.items:[]).filter(item=>item&&num(item.value)>0);
-  const unit=spec.unit==='count'?'count':'money';
+  const unit=['count','percent','decimal','yuan'].includes(spec.unit)?spec.unit:'money';
   remember(node,spec);
   return mount(container,spec,width=>{
     const height=num(spec.height)||(width<470?250:280);
@@ -589,7 +590,8 @@ function exportPng(target,filename){
     return url;
   });
 }
-global.Charts={line:line,bar:bar,pie:pie,exportSvg:exportSvg,exportPng:exportPng,money:money,count:count,
+function dispose(container){const node=resolve(container),current=node&&mounted.get(node);if(current?.observer)current.observer.disconnect();if(node)mounted.delete(node);}
+global.Charts={dispose:dispose,line:line,bar:bar,pie:pie,exportSvg:exportSvg,exportPng:exportPng,money:money,count:count,
   formatValue:valueText,compact:compactValue,colors:COLORS.slice(0),
   svgText:target=>{const meta=exportMeta(target);return meta?serialize(meta.svg,meta.title).text:'';}};
 })(typeof window!=='undefined'?window:globalThis);

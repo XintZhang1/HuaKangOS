@@ -878,9 +878,9 @@ TOOLS=[
           'summary':{'type':'string','description':'简短说明补录或修改联系电话'}},['case_id','phone']),
     tool('prepare_operation','准备一项操作供员工逐项核对后点击确认。不会执行业务；不得声称已完成。本轮准备所有事实已齐备的独立步骤；依赖尚未产生编号或新版本的后续步骤等确认后再准备。',
          {**OP_ARGS,'summary':{'type':'string','description':'简明说明将新增或修改什么'},
-          'step':{'type':'string','description':'这一步在员工目标里属于哪个流程步骤，写成“序号 步骤名”，例如“1 售前接待”“2 分派接待回访”“3 新建订单”“4 生成订单合同”；同一步骤的卡共用步骤名，不同步骤依序命名'},
+          'step':{'type':'string','description':'这一步在员工目标里属于哪个流程步骤，写成“序号 步骤名”，例如“1 客户建档”“2 填写销售合同”；同一步骤的卡共用步骤名，不同步骤依序命名'},
           'step_order':{'type':'integer','minimum':1,'description':'步骤顺序，从 1 开始；同一目标的卡片按它排序展示'},
-          'questions':{'type':'array','description':'这张卡需要员工先填的必填项：只能由员工决定的事实（分派给谁、选哪台车、交车日期、金额、原因等）都放这里，员工在卡片上填完才能确认。不要把能查到的事实做成必填项。',
+          'questions':{'type':'array','description':'这张卡需要员工先填的必填项：只能由员工决定的事实（归属销售、车辆信息、提车日期、金额、约定等）都放这里，员工在卡片上填完才能确认。不要把能查到的事实做成必填项。',
            'items':{'type':'object','additionalProperties':False,
             'properties':{'key':{'type':'string','description':'要填的字段名：body 顶层字段直接写名字；通用业务(body.values)写 values.字段名；已有明细行写 lines.0.字段名'},
                           'label':{'type':'string','description':'给员工看的中文标签'},
@@ -890,8 +890,8 @@ TOOLS=[
     tool('record_issue','记录操作受阻的问题，区分缺资料、业务规则、系统错误、模型填错和未支持。不得写入客户信息或密钥。',
          {'category':{'type':'string','enum':sorted(ISSUE_CATEGORIES)},'summary':{'type':'string'},'operation_id':{'type':'string'}},['category','summary']),
     tool('find_workflows','查已发布的操作指引：员工问“这件事在哪里办、谁有权限、要准备什么、有没有批量或更快的做法”时先查它。只返回帮助内容，不含业务数据，也不代表员工已有权限。',
-         {'query':{'type':'string','description':'员工的说法或业务关键词，例如“员工账号”“门店设置”“加装出票”'},
-          'category':{'type':'string','description':'可选：系统管理、整车销售、维修、物资、财务、会员、客户等'}},['query']),
+         {'query':{'type':'string','description':'员工的说法或业务关键词，例如“填写合同”“财务到账”“经营看板”'},
+          'category':{'type':'string','description':'可选：销售业务、售后业务、财务流水、客户建档、经营看板'}},['query']),
 ]
 
 
@@ -926,17 +926,8 @@ def tools_for_config(config):
 
 
 def prompt_for_config(config):
-    if config.tool_profile == 'business_v1':
-        from .business_assistant_business_prompt import BUSINESS_INSTRUCTIONS
-        result=SYSTEM_PROMPT if SYSTEM_PROMPT.endswith(BUSINESS_INSTRUCTIONS) else SYSTEM_PROMPT + '\n' + BUSINESS_INSTRUCTIONS
-        if settings.assistant_runtime_enabled:
-            from .business_assistant_prompt import (
-                RUNTIME_PLAN_INSTRUCTIONS, RUNTIME_CONTEXT_INSTRUCTIONS,
-                RUNTIME_EXECUTION_INSTRUCTIONS,
-            )
-            result+='\n'+RUNTIME_PLAN_INSTRUCTIONS+'\n'+RUNTIME_CONTEXT_INSTRUCTIONS+'\n'+RUNTIME_EXECUTION_INSTRUCTIONS
-        return result
-    return SYSTEM_PROMPT
+    from .business_record_assistant import SYSTEM_PROMPT as record_prompt
+    return record_prompt
 
 
 async def build_runtime_context(db,principal,config,*,thinking=False,tool_messages=(),
@@ -999,11 +990,11 @@ async def _run_registered_tool(db,request,user,thread_id,name,args,config,*,reso
     if name=='list_operations':
         if not args.get('domain') and not args.get('query') and hasattr(gateway,'DOMAINS'):
             return {'domains':[{'id':key,'label':label} for key,label in gateway.DOMAINS.items()],
-                    'next':'domain 使用上列精确 id 或完整 label；员工口语请传 query 搜索（采购、开票、调拨、账号、报表）'}
+                    'next':'domain 使用上列精确 id 或完整 label；员工口语请传 query 搜索（合同、客户、售后、到账、报表）'}
         result=gateway.catalog(domain=args.get('domain',''),query=args.get('query',''),role=getattr(user,'role',''))
         if not result:
             # 搜不到不等于系统没有这个功能：把可选领域还给模型，让它换词再搜，而不是回答"没有入口"。
-            return {'items':[],'notice':'没有匹配到操作。若按domain检索，核对它是否为下列精确 id 或完整 label；员工口语应放query并换短词再搜（如“开票”“调拨”“账号”“报表”“盘点”）。'
+            return {'items':[],'notice':'没有匹配到操作。若按domain检索，核对它是否为下列精确 id 或完整 label；员工口语应放query并换短词再搜（如“合同”“客户”“售后”“报表”“到账”）。'
                                         '在真正换词或领域搜过之前，不要对员工说“系统没有这个入口”，也不要据此改用名称相似的旧表单。',
                     'domains':[{'id':key,'label':label} for key,label in gateway.DOMAINS.items()]}
         offset=args.get('offset',0);limit=args.get('limit',60)
@@ -1033,8 +1024,8 @@ async def _run_registered_tool(db,request,user,thread_id,name,args,config,*,reso
         return result
     if name=='record_issue':return record_issue(db,user,thread_id,args.get('category'),args.get('summary'),args.get('operation_id',''),synthetic=config.synthetic)
     if name=='find_workflows':
-        from .business_assistant_guides import find_workflows
-        return find_workflows(args.get('query',''),getattr(user,'role',''),args.get('category',''))
+        from .business_record_assistant import find_guides
+        return find_guides(args.get('query',''),args.get('category',''))
     if name=='read_data':
         operation_id=args.get('operation_id','')
         operation=gateway.inspect_operation(operation_id)

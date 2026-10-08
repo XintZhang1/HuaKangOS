@@ -31,7 +31,7 @@ class UserStore(Base):
     store_id: Mapped[int] = mapped_column(ForeignKey('stores.id'), primary_key=True)
     # NULL is an explicit compatibility mode for existing global-role accounts.
     role: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    __table_args__ = (CheckConstraint("role IS NULL OR role IN ('manager','sales','inventory','service','finance','auditor','reception','technician','customer_service')", name='ck_user_store_role'),)
+    __table_args__ = (CheckConstraint("role IS NULL OR role IN ('manager','sales','inventory','service','finance','auditor','reception','technician','customer_service','clerk','general_manager','chairman')", name='ck_user_store_role'),)
 
 
 class User(Base):
@@ -46,7 +46,7 @@ class User(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    __table_args__ = (CheckConstraint("role IN ('admin','manager','sales','inventory','service','finance','auditor','reception','technician','customer_service')", name='ck_user_role'), CheckConstraint('access_version >= 1', name='ck_user_access_version'))
+    __table_args__ = (CheckConstraint("role IN ('admin','manager','sales','inventory','service','finance','auditor','reception','technician','customer_service','clerk','general_manager','chairman')", name='ck_user_role'), CheckConstraint('access_version >= 1', name='ck_user_access_version'))
 
 
 class LoginSession(Base):
@@ -371,3 +371,4 @@ from . import repair_package_models  # explicit prepaid work/material components
 
 from . import business_assistant_models  # owner/store-scoped confirmed business assistant
 from . import assistant_runtime_models  # plan graph and durable assistant work; no business writes
+from . import business_records_models  # V2 independent contracts and manual operating records

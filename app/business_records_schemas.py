@@ -1,0 +1,105 @@
+"""V2 record inputs. Amounts crossing the API are strict integer CNY fen."""
+from datetime import date
+from typing import Annotated, Literal
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+Money = Annotated[int, Field(ge=0, le=999999999999, strict=True)]
+Key = Annotated[int, Field(gt=0, strict=True)]
+
+
+class Strict(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+
+
+class Command(Strict):
+    request_id: str = Field(min_length=16, max_length=80, pattern=r'^[A-Za-z0-9_-]+$')
+
+
+class ContractInput(Command):
+    customer_name: str = Field(min_length=1, max_length=100)
+    customer_phone: str = Field(default='', max_length=40)
+    brand: str = Field(min_length=1, max_length=100)
+    model: str = Field(min_length=1, max_length=160)
+    vin: str = Field(min_length=1, max_length=40)
+    salesperson_id: Key
+    contract_date: date
+    sale_price_cents: int = Field(gt=0, le=999999999999, strict=True)
+    gift_description: str = Field(default='', max_length=4000)
+    form_data: dict[str, str] = Field(default_factory=dict, max_length=50)
+
+    @field_validator('form_data')
+    @classmethod
+    def bounded_fields(cls, values):
+        if any(len(key) > 80 or len(value) > 4000 for key, value in values.items()):
+            raise ValueError('合同补充字段名称或内容过长')
+        if values.get('quantity', '1') != '1':
+            raise ValueError('当前每份合同记录一个车架号及一台车辆，数量请填写1')
+        return values
+
+
+class ContractUpdate(ContractInput):
+    version: Key
+
+
+class Action(Command):
+    version: Key
+    note: str = Field(default='', max_length=2000)
+
+
+class PriceReview(Action):
+    expected_amount_cents: Money
+    cost_cents: Money
+    profit_cents: int = Field(ge=-999999999999, le=999999999999, strict=True)
+    gift_cost_cents: Money
+
+
+class Reject(Action):
+    note: str = Field(min_length=1, max_length=2000)
+
+
+class ReceiptInput(Action):
+    actual_amount_cents: int = Field(gt=0, le=999999999999, strict=True)
+    received_on: date
+
+
+class CustomerInput(Command):
+    name: str = Field(min_length=1, max_length=100)
+    phone: str = Field(default='', max_length=40)
+    note: str = Field(default='', max_length=4000)
+
+
+class AfterSalesInput(Command):
+    service_type: Literal['repair', 'maintenance', 'accident', 'renewal', 'extended_warranty', 'accessories']
+    customer_name: str = Field(min_length=1, max_length=100)
+    customer_phone: str = Field(default='', max_length=40)
+    vehicle: str = Field(min_length=1, max_length=160)
+    brand: str = Field(default='', max_length=100)
+    service_items: str = Field(min_length=1, max_length=4000)
+    materials_cents: Money = 0
+    labor_cents: Money = 0
+    cost_cents: Money | None = None
+    handler_name: str = Field(min_length=1, max_length=100)
+    business_date: date
+
+
+class ManualReportInput(Command):
+    report_key: str = Field(min_length=1, max_length=80)
+    period: date
+    brand: str = Field(default='', max_length=100)
+    salesperson_id: Key | None = None
+    values: dict = Field(max_length=150)
+
+
+class SettingsInput(Command):
+    version: int = Field(ge=0, strict=True)
+    approval_mode: Literal['all', 'fixed', 'ratio'] = 'all'
+    threshold_amount_cents: Money | None = None
+    threshold_basis_points: int | None = Field(default=None, ge=0, le=10000, strict=True)
+
+    @model_validator(mode='after')
+    def threshold_required(self):
+        if self.approval_mode == 'fixed' and self.threshold_amount_cents is None:
+            raise ValueError('固定金额模式须填写赠品成本阈值')
+        if self.approval_mode == 'ratio' and self.threshold_basis_points is None:
+            raise ValueError('车价比例模式须填写比例基点，100基点为1%')
+        return self

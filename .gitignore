@@ -30,3 +30,7 @@ assistant-test-settings.json
 # Browser click runs must be outside the checkout; ignore accidental local output.
 tests/browser_click/evidence/
 tests/browser_click/runtime/
+
+# Private customer source material and local model credentials.
+docs/客户需求第二版/
+ds_api.txt

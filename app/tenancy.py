@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from .models import Store, StoreScoped, UserStore, AuditLog
 
 
-SUMMARY_ROLES = {'admin', 'manager', 'finance', 'auditor'}
+SUMMARY_ROLES = {'admin', 'manager', 'finance', 'auditor', 'general_manager', 'chairman'}
 
 
 class RequestPrincipal:

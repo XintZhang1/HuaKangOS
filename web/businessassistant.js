@@ -285,46 +285,27 @@ function businessAssistantNextStep(){
  const receipt=current.receipt?`<p class="ba-receipt" role="status">${E(current.receipt)}</p>`:'';
  return `<div class="ba-nextstep"><div>${receipt}<strong>${E(title)}</strong><span>${E(text)}</span></div><button type="button" ${action==='continue'&&busy?'disabled':''} class="primary" ${refreshPlan?'data-baw-action="refresh"':`data-ba-action="${action}"`}>${E(label)}</button></div>`;
 }
-// M6.4：欢迎示例最多四个，来自发布流程目录与岗位常用流程的交集，按真实可进入权限过滤；
-// readonly 岗位与集团汇总只给查询示例；点击只预填草稿，不创建会话、不发模型。
+// V2 suggestions use the current record catalog, never the archived workflow
+// directory. A click only prefills the existing guarded composer.
 function businessAssistantReadonlyRole(role){return ['auditor','readonly','statistics','finance_view','group_view'].includes(String(role||''));}
 function businessAssistantWelcomeFallback(){
- return [['查我的待办','查一下现在需要我处理的原单待办和任务，只读取并说明。'],
-         ['查客户资料','按客户姓名查一下他的车辆、接待、订单记录，只读取并说明。'],
-         ['这项业务怎么办','说明这项业务当前还需要哪些资料和步骤，只读取不提交。'],
-         ['查合同和收款','查一下这个客户的合同、收款与发票状态，只读取并说明。']];
+ const caps=state.recordCatalog?.capabilities||{},reports=state.recordCatalog?.reports||[];
+ const examples=[['查合同','查询我有权限查看的销售合同，说明目前的核价、审批和到账状态。']];
+ if(caps.create_sales)examples.push(['准备销售合同','帮我准备一份销售合同，先核对必填信息，供我检查后手动提交内勤核价。']);
+ if(reports.some(report=>report.key==='profit'))examples.push(['看本月利润','查询本月按实际到账日期统计的内勤核定利润，解释数据来源和未核定项目。']);
+ if(reports.some(report=>report.key==='actual_receipts'))examples.push(['核对应实到账','分别查询当前期间合同应到账和财务确认实到账数据，说明期间口径，不代替财务确认。']);
+ if(examples.length<4)examples.push(['查客户资料','查询我有权限查看的客户档案，仅核对基本资料。']);
+ return examples.slice(0,4);
 }
 function businessAssistantWelcomeExamples(){
  const examples=businessAssistantState.welcomeExamples;
- return Array.isArray(examples)?examples:businessAssistantWelcomeFallback().slice(0,4);
+ return Array.isArray(examples)?examples:businessAssistantWelcomeFallback();
 }
 async function businessAssistantLoadWelcomeExamples(){
  const current=businessAssistantState,context=businessAssistantContext();
- if(Array.isArray(current.welcomeExamples))return current.welcomeExamples;
- if(current.welcomeLoading)return current.welcomeLoading;
- const role=String(state.user?.role||''),store=String(state.store||'');
- current.welcomeLoading=(async()=>{
-  const order=(typeof UX_COMMON_WORKFLOWS==='object'&&UX_COMMON_WORKFLOWS)
-   ?(UX_COMMON_WORKFLOWS[role]||UX_COMMON_WORKFLOWS.default||[]):[];
-  const rank=id=>{const index=order.indexOf(id);return index<0?order.length:index;};
-  let picked=[];
-  try{
-   const data=typeof loadWorkflowGuides==='function'?await loadWorkflowGuides():null;
-   const items=Array.isArray(data?.workflows)?data.workflows:[];
-   const guide=globalThis.WorkflowGuides,readonly=businessAssistantReadonlyRole(role)||store==='all';
-   picked=items.filter(item=>{
-    if(!item||typeof item.id!=='string'||!item.assistant||!item.assistant.prompt)return false;
-    if(readonly&&item.assistant.intent!=='query_status')return false;
-    if(!guide||typeof guide.canEnter!=='function')return false;
-    try{return guide.canEnter(item,role,store);}catch{return false;}
-   }).sort((a,b)=>rank(a.id)-rank(b.id)).slice(0,4)
-     .map(item=>[String(item.title||item.id),String(item.title||item.id)+'。']);
-  }catch{picked=[];}
-  const examples=picked.length?picked:businessAssistantWelcomeFallback().slice(0,4);
-  if(current===businessAssistantState&&context===businessAssistantContext())current.welcomeExamples=examples;
-  return examples;
- })();
- try{return await current.welcomeLoading;}finally{current.welcomeLoading=null;}
+ const examples=businessAssistantWelcomeFallback();
+ if(current===businessAssistantState&&context===businessAssistantContext())current.welcomeExamples=examples;
+ return examples;
 }
 function businessAssistantMessages(){
  const session=businessAssistantState.session,stream=businessAssistantState.stream;
@@ -381,7 +362,7 @@ function businessAssistantCompose(){
  const current=businessAssistantState,ready=current.status?.ready&&!current.session?.busy&&!current.needsRefresh,disabled=current.busy||!ready;
  return `<form class="ba-compose" id="business-assistant-form">
   <label class="ba-input-label" for="business-assistant-input">说说要办的事</label>
-  <textarea id="business-assistant-input" name="message" rows="3" aria-describedby="ba-compose-help" maxlength="${Number(current.status?.limits?.max_message_chars)||6000}" placeholder="例如：给张先生安排明天下午的回访" ${current.busy||current.retry?'readonly':''}>${E(current.draft)}</textarea>
+  <textarea id="business-assistant-input" name="message" rows="3" aria-describedby="ba-compose-help" maxlength="${Number(current.status?.limits?.max_message_chars)||6000}" placeholder="例如：帮我填写销售合同，或查询本月本人业绩" ${current.busy||current.retry?'readonly':''}>${E(current.draft)}</textarea>
   <div class="ba-compose-bottom">
    <div class="row ba-compose-tools" role="group" aria-label="对话输入工具">
     <button type="button" class="ba-control ba-control-secondary" data-baf-action="open" ${current.busy||current.retry?'disabled':''}>${businessAssistantControlIcon('attach')}<span>从文件填表</span></button>
