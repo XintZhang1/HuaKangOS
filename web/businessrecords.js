@@ -268,7 +268,7 @@ function brExactTotal(rows,precision){
 }
 function brReportSummary(report){
  const rows=report.rows||[],value=report.grand_total?.[report.metric];
- const label='当前范围合计',note=value==null?'未提供或不适合合计的指标显示为空':report.metric_label||report.title;
+ const label=brState.dashboardMode==='daily'&&brState.trendActive?'所选日期日报值':'当前范围合计',note=value==null?'未提供或不适合合计的指标显示为空':report.metric_label||report.title;
  const filters=brReportFilters();
  return `<div class="br-summary" aria-label="当前报表摘要"><div class="br-summary-card"><span>${E(label)}</span><strong data-summary="total">${E(value==null?'—':value)}<small>${E(report.unit||'')}</small></strong><p>${E(note)}</p></div><div class="br-summary-card"><span>${brState.dashboardMode==='daily'&&brState.trendActive?'趋势数据点':'来源记录'}</span><strong data-summary="records">${number(rows.length)}<small>条</small></strong><p>${number((report.summary_rows||[]).length)} 个统计分组${report.legacy_count?' · 历史记录另列':''}</p></div><div class="br-summary-card br-summary-period"><span>统计范围</span><strong data-summary="coverage">${E(filters.date_from)} — ${E(filters.date_to)}</strong><p>${E(report.period_basis||'')}</p></div></div>`;
 }
