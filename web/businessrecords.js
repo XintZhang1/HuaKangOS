@@ -19,7 +19,7 @@ function brContext(){return `${state.user?.id||''}:${state.store||''}:${storeCon
 function businessRecordsShell(){
  const u=state.user,caps=brCaps();
  const financeAllowed=caps.confirm_receipt||caps.price||caps.approve||['admin','manager','general_manager','chairman','auditor'].includes(u.role);
- const links=[['records-sales','销售业务','▤'],['records-after-sales','售后业务','◇'],...(financeAllowed?[['records-finance','财务流水','¥']]:[]),['records-customers','客户信息','▧']];
+ const links=[['records-dashboard','可视化看板','▥'],['records-sales','销售业务','▤'],['records-after-sales','售后业务','◇'],...(financeAllowed?[['records-finance','财务流水','¥']]:[]),['records-customers','客户信息','▧']];
  const navHTML=links.map(([route,label,icon])=>`<a class="navlink ${state.route===route||state.route.startsWith(route+'/')?'active':''}" href="#${route}"${state.route===route?' aria-current="page"':''}><span class="navicon">${icon}</span>${label}</a>`).join('');
  const assistantNav=`<div class="navsection"><a class="navlink ${state.route==='business-assistant'?'active':''}" href="#business-assistant"${state.route==='business-assistant'?' aria-current="page"':''}><span class="navicon">✧</span>AI 助手</a></div>`;
  const management=u.can_users?'<a href="#users">员工账号</a><a href="#stores">门店设置</a>':'';
