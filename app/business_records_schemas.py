@@ -62,6 +62,37 @@ class ReceiptInput(Action):
     received_on: date
 
 
+class OfficeReview(Action):
+    report_key: Literal['vehicle_details', 'hail_vehicle_details', 'secondary_vehicle_details', 'vehicle_details_sheet2'] = 'vehicle_details'
+    period: date | None = None
+    values: dict = Field(default_factory=dict, max_length=150)
+    expected_amount_cents: Money | None = None
+    cost_cents: Money | None = None
+    profit_cents: int | None = Field(default=None, ge=-999999999999, le=999999999999, strict=True)
+    gift_cost_cents: Money | None = None
+
+
+class StandardPriceInput(Strict):
+    name: str = Field(min_length=1, max_length=160)
+    version: Key | None = None
+    sale_price_cents: Money | None = None
+    cost_cents: Money | None = None
+    note: str = Field(default='', max_length=2000)
+
+
+class StandardPriceImport(Command):
+    rows: list[StandardPriceInput] = Field(min_length=1, max_length=500)
+
+
+class StandardPriceItem(Strict):
+    price_id: Key
+    quantity: int = Field(gt=0, le=10000, strict=True)
+
+
+class StandardPriceEstimate(Strict):
+    items: list[StandardPriceItem] = Field(min_length=1, max_length=100)
+
+
 class CustomerInput(Command):
     name: str = Field(min_length=1, max_length=100)
     phone: str = Field(default='', max_length=40)
@@ -90,7 +121,7 @@ class ManualReportInput(Command):
     values: dict = Field(max_length=150)
     contract_id: Key | None = None
     contract_version: Key | None = None
-    entry_mode: Literal['snapshot', 'detail'] = 'snapshot'
+    entry_mode: Literal['snapshot', 'detail', 'final'] = 'snapshot'
     supersedes_id: Key | None = None
     supersedes_version: Key | None = None
     note: str = Field(default='', max_length=4000)

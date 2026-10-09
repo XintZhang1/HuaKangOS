@@ -13,6 +13,46 @@ CONTRACT_REPORTS = frozenset(VEHICLE_REPORTS | {'sales_targets', 'sales_overview
     'insurance_settlement', 'extended_warranty'})
 AFTER_SALES_REPORTS = frozenset({'after_sales_monthly', 'after_sales_targets', 'sales_targets'})
 
+SENSITIVE_REPORT_ROLES = frozenset({'admin', 'clerk', 'chairman'})
+SENSITIVE_REPORT_TERMS = ('成本', '毛利', '利润', '返佣', '返利', '收益', '净利', '提车价', '折让', '贴息', '支出')
+SALES_PUBLIC_REPORTS = frozenset({'expected_receipts', 'actual_receipts', 'sales_volume'})
+
+
+def can_view_sensitive_reports(user):
+    if not getattr(user, '_aggregate_scope', False):
+        return user.role in SENSITIVE_REPORT_ROLES
+    # Match the business-record aggregate scope (not every role that can use
+    # some unrelated system-wide summary).
+    roles = [item.get('role') for item in getattr(user, '_stores', ())
+             if item.get('role') in {'admin', 'general_manager', 'chairman'}]
+    return bool(roles) and all(role in SENSITIVE_REPORT_ROLES for role in roles)
+
+
+def sensitive_report(definition):
+    labels = [definition['title']] + [field['label'] for field in definition['columns'] + definition['metrics']]
+    return any(term in label for label in labels for term in SENSITIVE_REPORT_TERMS)
+
+
+def assert_report_access(user, report):
+    """Apply the same whole-report guard to catalog, live API, CSV and AI reads.
+
+    Mixed original sheets remain intact for the clerk/chairman. Other roles
+    cannot receive hidden costs through a different metric or a source export.
+    """
+    from fastapi import HTTPException
+    from .business_record_reports import CATALOG_BY_KEY
+    key = report.split(':', 1)[0]
+    definition = CATALOG_BY_KEY.get(key)
+    if definition is None:
+        raise HTTPException(422, '报表不存在')
+    if not getattr(user, '_aggregate_scope', False):
+        if user.role in {'finance', 'service'}:
+            raise HTTPException(403, '当前岗位不开放经营报表')
+        if user.role == 'sales' and key not in SALES_PUBLIC_REPORTS:
+            raise HTTPException(403, '销售仅可查看本人销量及应到账、实到账统计')
+    if sensitive_report(definition) and not can_view_sensitive_reports(user):
+        raise HTTPException(403, '包含成本、毛利、利润或返佣的报表仅向内勤和董事长开放')
+
 # Numerator and denominator are field keys, never inferred from label fragments.
 # A third item of 100 denotes a percentage; 1 denotes a unit price.
 RATIOS = {
@@ -137,9 +177,11 @@ def configure_catalog(catalog):
         if key in SHARED_FIELDS:
             names = [column['label'] for column in report['columns'] if column['key'] in SHARED_FIELDS[key]]
             report['input_notice'] = ('、'.join(names) + '是门店、品牌、月份的共享数据；同范围在多个机构行重复填写时须一致，仅计一次；冲突留空并提示核对。')
-        report['period_basis'] = ('实际到账日期（销售实绩）；人工统计日期（目标和补充）'
+        report['period_basis'] = ('总经理已批准的内勤统计日期；不代表开票、交车或到账'
+            if key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'} else
+            '实际到账日期（销售实绩）；人工统计日期（目标和补充）'
             if key in CONTRACT_REPORTS - VEHICLE_REPORTS else
-            '合同日期（已核价车辆事实，不计作到账业绩）' if key in VEHICLE_REPORTS else
+            '内勤核定统计日期（历史无统计日期时保留合同日期）；不计作到账业绩' if key in VEHICLE_REPORTS else
             '售后业务日期及人工统计日期' if key in AFTER_SALES_REPORTS else '人工填报的统计日期')
 
 

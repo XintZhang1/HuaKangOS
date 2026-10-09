@@ -78,14 +78,17 @@ function rank(root,spec){
 }
 function monthNumber(label){const match=String(label).match(/^(\d{4})-(0[1-9]|1[0-2])$/);return match?Number(match[1])*12+Number(match[2])-1:null;}
 function monthLabel(month){return String(Math.floor(month/12)).padStart(4,'0')+'-'+String(month%12+1).padStart(2,'0');}
-function axisText(value){return new Intl.NumberFormat('zh-CN',{maximumFractionDigits:10}).format(Object.is(value,-0)?0:value);}
+function axisText(value){return new Intl.NumberFormat('zh-CN',{maximumFractionDigits:6}).format(Object.is(value,-0)?0:value);}
+function dayNumber(label){const text=String(label);if(!/^\d{4}-\d{2}-\d{2}$/.test(text))return null;const stamp=Date.parse(text+'T00:00:00Z');return Number.isFinite(stamp)&&new Date(stamp).toISOString().slice(0,10)===text?Math.floor(stamp/86400000):null;}
+function dayLabel(value){return new Date(value*86400000).toISOString().slice(0,10);}
 function line(root,spec,width){
+ const daily=spec.interval==='day',toNumber=daily?dayNumber:monthNumber,toLabel=daily?dayLabel:monthLabel,periodName=daily?'日期':'月份';
  const byMonth=new Map(),invalid=[];
- for(const item of spec.items){const month=monthNumber(item.label);if(month===null){invalid.push(item);continue;}const existing=byMonth.get(month);if(existing)existing.duplicates.push(item);else byMonth.set(month,{...item,month,duplicates:[]});}
- if(!byMonth.size){note(root,'没有有效的月份数据。月份须为 YYYY-MM。','rc-empty');return;}
+ for(const item of spec.items){const month=toNumber(item.label);if(month===null){invalid.push(item);continue;}const existing=byMonth.get(month);if(existing)existing.duplicates.push(item);else byMonth.set(month,{...item,month,duplicates:[]});}
+ if(!byMonth.size){note(root,'没有有效的'+periodName+'数据。','rc-empty');return;}
  const ordered=Array.from(byMonth.keys()).sort((a,b)=>a-b),first=ordered[0],last=ordered[ordered.length-1],points=[];
  for(let month=first;month<=last;month++){
-  const item=byMonth.get(month);points.push(item?{...item,n:item.duplicates.length?null:numeric(item.value),missing:false}:{label:monthLabel(month),month,n:null,missing:true,duplicates:[]});
+  const item=byMonth.get(month);points.push(item?{...item,n:item.duplicates.length?null:numeric(item.value),missing:false}:{label:toLabel(month),month,n:null,missing:true,duplicates:[]});
  }
  const values=points.filter(p=>p.n!==null).map(p=>p.n),scale=Math.max(1,...values.map(Math.abs));
  let low=Math.min(0,...values.map(v=>v/scale)),high=Math.max(0,...values.map(v=>v/scale));if(low===high)high=low+1;
@@ -101,7 +104,7 @@ function line(root,spec,width){
  const descriptions=node('div','rc-month-values');
  points.forEach((item,index)=>{
   chart.appendChild(svgNode('text',{x:x(index),y:height-14,'text-anchor':'middle',class:'rc-axis-label'},item.label));
-  const status=item.missing?'无记录':item.duplicates.length?'多条记录，未合并':item.n===null?'数值未知':amount(item.value,item.exact_value,spec);
+  const status=item.status==='unconfirmed'?'日报未确认':item.status==='partial'?'部分门店未确认':item.missing?'无记录':item.duplicates.length?'多条记录，未合并':item.n===null?'数值未知':amount(item.value,item.exact_value,spec);
   if(item.n!==null){const point=svgNode('circle',{cx:x(index),cy:y(item.n),r:4.5,class:'rc-line-point','data-month':item.label,tabindex:0,'aria-label':item.label+'：'+status});point.appendChild(svgNode('title',{},item.label+'：'+status));chart.appendChild(point);}
   else chart.appendChild(svgNode('text',{x:x(index),y:height-bottom+20,'text-anchor':'middle',class:'rc-gap-label'},item.missing?'无记录':'未知'));
   const cell=node('div','rc-month-value'+(item.n===null?' rc-month-unknown':''));cell.dataset.month=item.label;
@@ -109,9 +112,24 @@ function line(root,spec,width){
   if(item.duplicates.length)cell.appendChild(node('span','rc-row-meta',[item,...item.duplicates].map(row=>amount(row.value,row.exact_value,spec)).join(' / ')));
   const meta=valueMeta(item);if(meta)cell.appendChild(node('span','rc-row-meta',meta));descriptions.appendChild(cell);
  });
- const scroll=node('div','rc-line-scroll');scroll.setAttribute('tabindex','0');scroll.setAttribute('aria-label','按月份横向滚动查看趋势');scroll.appendChild(chart);root.append(scroll,descriptions);
- note(root,'月份按时间顺序排列；无记录和未知值保留断点，不补零。'+(byMonth.size!==spec.items.length-invalid.length?'同月份的多条记录未擅自合并。':''));
- if(invalid.length)note(root,'以下月份格式无法绘制：'+invalid.map(item=>String(item.label)+'（'+amount(item.value,item.exact_value,spec)+'）').join('；'),'rc-warning');
+ const scroll=node('div','rc-line-scroll');scroll.setAttribute('tabindex','0');scroll.setAttribute('aria-label','按'+periodName+'横向滚动查看趋势');scroll.appendChild(chart);root.append(scroll,descriptions);
+ note(root,periodName+'按时间顺序排列；未确认、无记录和未知值保留断点，不补零。'+(byMonth.size!==spec.items.length-invalid.length?'同期多条记录未擅自合并。':''));
+ if(invalid.length)note(root,'以下'+periodName+'格式无法绘制：'+invalid.map(item=>String(item.label)+'（'+amount(item.value,item.exact_value,spec)+'）').join('；'),'rc-warning');
+}
+function bar(root,spec,width){
+ const points=spec.items.map(item=>({...item,n:numeric(item.value)})),values=points.filter(p=>p.n!==null).map(p=>p.n),scale=Math.max(1,...values.map(Math.abs));
+ let low=Math.min(0,...values.map(v=>v/scale)),high=Math.max(0,...values.map(v=>v/scale));if(low===high)high=low+1;
+ const ticks=Array.from({length:5},(_,i)=>low+(high-low)*i/4),left=Math.max(64,...ticks.map(t=>axisText(t*scale).length*7+14)),right=26,top=24,bottom=62,height=320;
+ const chartWidth=Math.max(width,left+right+points.length*76),plot=chartWidth-left-right,step=plot/Math.max(1,points.length),x=i=>left+step*(i+.5),y=value=>top+(high-value/scale)/(high-low)*(height-top-bottom),zero=y(0);
+ const chart=picture(chartWidth,height,spec.title||'指标柱状图','rc-bar-svg');chart.setAttribute('width',String(chartWidth));chart.setAttribute('height',String(height));
+ ticks.forEach(t=>{const yy=y(t*scale);chart.appendChild(svgNode('line',{x1:left,x2:chartWidth-right,y1:yy,y2:yy,class:t===0?'rc-zero-line':'rc-grid-line'}));chart.appendChild(svgNode('text',{x:left-12,y:yy+4,'text-anchor':'end',class:'rc-axis-label'},axisText(t*scale)));});
+ const descriptions=node('div','rc-month-values');
+ points.forEach((item,i)=>{const status=item.status==='unconfirmed'?'日报未确认':item.status==='partial'?'部分门店未确认':item.n===null?'数值未知':amount(item.value,item.exact_value,spec),label=String(item.label||'未命名');
+  const tick=svgNode('text',{x:x(i),y:height-25,'text-anchor':'middle',class:'rc-axis-label'},label.length>12?label.slice(0,11)+'…':label);tick.appendChild(svgNode('title',{},label));chart.appendChild(tick);
+  if(item.n!==null){const shape=item.n===0?svgNode('circle',{cx:x(i),cy:zero,r:3,class:'rc-zero-point'}):svgNode('rect',{x:x(i)-Math.min(38,step*.55)/2,y:Math.min(zero,y(item.n)),width:Math.min(38,step*.55),height:Math.abs(zero-y(item.n)),rx:3,class:item.n<0?'rc-negative-fill':'rc-positive-fill'});shape.setAttribute('tabindex','0');shape.setAttribute('aria-label',label+'：'+status);shape.appendChild(svgNode('title',{},label+'：'+status));chart.appendChild(shape);}else chart.appendChild(svgNode('text',{x:x(i),y:zero-8,'text-anchor':'middle',class:'rc-gap-label'},'缺值'));
+  const cell=node('div','rc-month-value'+(item.n===null?' rc-month-unknown':''));cell.append(node('span','rc-month-label',label),node('strong','rc-exact',status));descriptions.appendChild(cell);
+ });
+ const scroll=node('div','rc-line-scroll');scroll.setAttribute('tabindex','0');scroll.setAttribute('aria-label','横向滚动查看全部柱状图');scroll.appendChild(chart);root.append(scroll,descriptions);note(root,'每列对应一个统计分组；未知或未确认的值留空，不补零。');
 }
 function progress(root,spec,width){
  const list=node('div','rc-progress-list');
@@ -142,7 +160,7 @@ function dispose(container){const target=resolve(container);if(!target)return;co
 function render(container,options){
  const target=resolve(container);if(!target||typeof target.replaceChildren!=='function')throw new Error('图表容器不可用。');
  const spec={...options,items:Array.isArray(options?.items)?options.items.filter(item=>item&&typeof item==='object'):[]};
- if(!['rank','line','progress'].includes(spec.type))throw new Error('不支持的记录图表类型。');dispose(target);
+ if(!['rank','bar','line','progress'].includes(spec.type))throw new Error('不支持的记录图表类型。');dispose(target);
  const state={width:0,observer:null,listener:null};mounted.set(target,state);
  const paint=()=>{
   if(mounted.get(target)!==state)return;
@@ -150,7 +168,7 @@ function render(container,options){
   const width=Math.max(280,Math.floor(target.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)));if(state.width===width)return;state.width=width;
   const root=node('section','records-chart');root.dataset.chartType=spec.type;root.setAttribute('aria-label',spec.title||'业务记录图表');
   if(spec.unit)note(root,'单位：'+spec.unit,'rc-unit');
-  if(!spec.items.length)note(root,'所选范围暂无记录。','rc-empty');else if(spec.type==='rank')rank(root,spec);else if(spec.type==='line')line(root,spec,width);else progress(root,spec,width);
+  if(!spec.items.length)note(root,'所选范围暂无记录。','rc-empty');else if(spec.type==='rank')rank(root,spec);else if(spec.type==='line')line(root,spec,width);else if(spec.type==='bar')bar(root,spec,width);else progress(root,spec,width);
   target.replaceChildren(root);
  };paint();
  if(typeof global.ResizeObserver==='function'){state.observer=new global.ResizeObserver(paint);state.observer.observe(target);}else{state.listener=paint;global.addEventListener('resize',paint);}

@@ -154,6 +154,8 @@ def audit_orphans(connection,root):
     base=private_root(root)
     names={r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     referenced={r[0] for r in connection.execute('SELECT object_key FROM private_file_objects')} if 'private_file_objects' in names else set()
+    if 'business_record_invoice_files' in names:
+        referenced.update(r[0] for r in connection.execute("SELECT object_key FROM business_record_invoice_files WHERE object_key != ''"))
     result=[]
     for directory,dirs,files in os.walk(base,followlinks=False):
         current=Path(directory);_plain(current)

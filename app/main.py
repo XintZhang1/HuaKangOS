@@ -23,6 +23,8 @@ from .models import Store, UserStore, User, LoginSession, MODULES, AuditLog, Fin
 from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, BatchUserInput, StoreRoleInput, StoreRole
 from .security import get_user, authenticate, set_session, clear_cookies, revoke_login_session, user_info, require_full, require_module, verify_password, hash_password, ROLES
 from .business_records import router as business_records_router
+from .business_record_invoices import router as business_record_invoices_router
+from .business_record_periods import router as business_record_periods_router
 from .services import serialize, plain, audit, readable_query, get_record, create_record, update_record, act_record, check_version
 from .analytics import dashboard, source_revision, build_snapshot, external_payload, rules_config
 from .reports import generate_report
@@ -92,6 +94,8 @@ app = FastAPI(title=PRODUCT_TITLE+' 门店运营系统',version='0.4.0-dev',life
               docs_url='/docs' if settings.environment!='production' else None,redoc_url=None)
 app.add_middleware(TrustedHostMiddleware,allowed_hosts=list(settings.allowed_hosts))
 app.include_router(business_records_router)
+app.include_router(business_record_invoices_router)
+app.include_router(business_record_periods_router)
 
 
 @app.middleware('http')
@@ -104,7 +108,8 @@ async def safety_headers(request: Request, call_next):
             return JSONResponse({'detail':'请求来源不匹配，请使用同一个地址访问'},status_code=403)
         is_vehicle_import = bool(re.fullmatch(r'/api/vehicle-imports/orders/[1-9][0-9]*/batches',request.url.path))
         is_assistant_preview = request.url.path == '/api/business-assistant/file-preview' and request.method == 'POST'
-        is_upload = (request.url.path.startswith('/api/flow/cases/') and request.url.path.endswith('/files')) or is_vehicle_import or is_assistant_preview or request.url.path == '/api/branding/photo' and request.method == 'POST'
+        is_record_invoice = request.method == 'POST' and bool(re.fullmatch(r'/api/business-records/contracts/[1-9][0-9]*/invoice', request.url.path))
+        is_upload = (request.url.path.startswith('/api/flow/cases/') and request.url.path.endswith('/files')) or is_vehicle_import or is_assistant_preview or is_record_invoice or request.url.path == '/api/branding/photo' and request.method == 'POST'
         is_opening = request.url.path == '/api/opening-import/preflight'
         limit = 21 * 1024 * 1024 if is_assistant_preview else 256 * 1024 if is_vehicle_import else 12 * 1024 * 1024 if is_upload else 1_000_000 if is_opening else 100_000
         accepted = 'multipart/form-data' if is_upload else 'application/json'
@@ -256,6 +261,12 @@ def admin(user):
     if getattr(user, 'account_role', user.role) != 'admin': raise HTTPException(403,'仅系统管理员可以管理账号')
 
 
+def record_account_roles(body):
+    from .security import RECORD_ACCOUNT_ROLES
+    if body.role not in RECORD_ACCOUNT_ROLES or any(x.role not in RECORD_ACCOUNT_ROLES for x in body.store_roles or []):
+        raise HTTPException(422, '新账号及门店岗位请使用当前业务岗位：销售、门店销售经理、内勤、收银、总经理或董事长')
+
+
 @app.get('/api/users')
 def users(db=Depends(get_db),user=Depends(get_user)):
     admin(user)
@@ -266,6 +277,7 @@ def users(db=Depends(get_db),user=Depends(get_user)):
 @app.post('/api/users',status_code=201)
 def add_user(body: UserInput,db=Depends(get_write_db),user=Depends(get_user)):
     admin(user)
+    record_account_roles(body)
     new = User(username=body.username.lower(),display_name=body.display_name,role=body.role,
                password_hash=hash_password(body.password),must_change_password=True,can_group_summary=body.can_group_summary)
     db.add(new); db.flush()
@@ -292,7 +304,8 @@ def add_users_batch(body: BatchUserInput,db=Depends(get_write_db),user=Depends(g
     store = db.get(Store,body.store_id)
     if not store or not store.active:
         raise HTTPException(422,'指定门店不存在或已停用，请刷新门店列表后重试')
-    allowed = set(get_args(StoreRole))
+    from .security import RECORD_ACCOUNT_ROLES
+    allowed = RECORD_ACCOUNT_ROLES - {'admin'}
     prepared,seen = [],set()
     for number,row in enumerate(body.rows,start=1):
         username = row.username.strip().lower()
@@ -540,6 +553,9 @@ def audit_list(page:int=Query(1,ge=1),entity_type:str='',entity_id:int|None=None
     if user.role not in {'admin','manager','auditor'}: raise HTTPException(403,'没有查看全店审计日志的权限')
     stmt = select(AuditLog)
     if user.role != 'admin': stmt = stmt.where(AuditLog.entity_type.notin_(['users','stores','feedback','maintenance']))
+    # Record-domain audit payloads retain costs and invoice originals' metadata.
+    # Operational state reminders use their separate, field-filtered endpoint.
+    if user.role != 'admin': stmt = stmt.where(~AuditLog.entity_type.like('record_%'))
     if entity_type: stmt = stmt.where(AuditLog.entity_type==entity_type)
     if entity_id is not None: stmt = stmt.where(AuditLog.entity_id==entity_id)
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))

@@ -372,3 +372,5 @@ from . import repair_package_models  # explicit prepaid work/material components
 from . import business_assistant_models  # owner/store-scoped confirmed business assistant
 from . import assistant_runtime_models  # plan graph and durable assistant work; no business writes
 from . import business_records_models  # V2 independent contracts and manual operating records
+from . import business_record_invoice_models  # cashier-confirmed originals; no receipt side effects
+from . import business_record_period_models  # clerk-confirmed daily report revisions

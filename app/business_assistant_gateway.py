@@ -15,30 +15,6 @@ from fastapi.routing import APIRoute
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from starlette.routing import Match
 
-LEGACY_DOMAINS = {
- 'flow':'业务流程与本店资料', 'masters':'车型与基础资料', 'customer-choice':'查找客户',
- 'vehicle-catalog':'车型展示与归属', 'sales-quotes':'车辆报价',
- 'vehicle-procurement':'整车采购', 'procurement':'物资采购', 'warehouse':'仓储作业',
- 'retail':'精品销售', 'retail-bundles':'精品套餐', 'repair-orders':'维修工单',
- 'service-intake':'维修预约与到店', 'customer-service':'客户服务与车辆',
- 'group':'集团会员本金', 'membership':'会员卡与续会', 'recharge-bundles':'充值套餐',
- 'member-pricing':'会员价格', 'repair-packages':'维修套餐', 'retail-group':'会员精品付款',
- 'aftercare':'退订退车', 'claims':'理赔与索赔', 'service-orders':'代办服务',
- 'insurance-orders':'保险办理', 'addon-orders':'销售加装', 'vehicle-income':'厂家收入',
- 'vehicle-operations':'整车出退库', 'transfers':'物资调拨', 'vehicle-transfers':'车辆调拨',
- 'transfer-exceptions':'物资运输异常', 'transfer-goods-recoveries':'物资找回',
- 'vehicle-transport-exceptions':'车辆运输异常', 'rework-extensions':'售后返修',
- 'business-finance':'业务财务', 'invoices':'发票办理', 'reconciliation':'业务对账月结',
- 'gate-visits':'车辆进出厂', 'dossier-grants':'跨店协同',
- 'dictionaries':'分类设置', 'observation-corrections':'车辆信息更正',
- 'inventory-reports':'整车库存报表', 'stock-reports':'物资库存报表',
- 'repair-material-reports':'维修领退料报表', 'visit-activity-reports':'来访回访报表',
- 'material-value':'物资成本报表', 'parameters':'设置入口', 'stores':'门店资料',
- 'users':'员工账号', 'audit':'操作记录', 'business-entities':'经营主体与账户归属',
- 'findings':'数据复核', 'reports':'每日汇总', 'dashboard':'经营看板',
- 'records':'原有单据', 'lookup':'原有单据查询', 'vehicle-imports':'整车请款与批量导入',
- 'escalations':'评审申请',
-}
 DOMAINS = {'business-records': '业务记录：销售业务、售后业务、财务流水、客户信息和经营报表'}
 # Never exposed to the assistant, not even for reading: credentials, sessions, deployment
 # settings, brand images, raw files, exports and initial-balance imports stay manual.
@@ -190,6 +166,7 @@ def _operations():
     execution still requires the employee's original confirmation interface.
     """
     from .main import app
+    from .business_record_assistant import OPERATION_INFO
     reviewed=_reviewed_operations()
     result={}
     for route in app.routes:
@@ -198,6 +175,10 @@ def _operations():
         if domain not in DOMAINS or domain in CLOSED_DOMAINS or DENIED.search(route.path):continue
         for method in sorted(route.methods & {'GET','POST','PUT'}):
             op_id=method+' '+route.path
+            # The current product has a deliberately reviewed query surface as
+            # well as a write surface. New routes never enter tools by discovery.
+            if op_id not in reviewed or op_id not in OPERATION_INFO or op_id in CLASSIFIED_BLOCKED_WRITES:
+                continue
             if method=='GET':
                 if route.body_field:continue
             elif op_id not in reviewed:continue
@@ -263,36 +244,7 @@ def _declared_dispatch(op,path):
 # 员工的说法 → 领域。目的只有一个：让助手先用员工的原话找到入口，而不是因为搜不到就回答
 # "系统没有这个入口"（试用 R01 的 XC-ISSUE-003 与 2026-09-25 口语化探针 P15/P18/P19/P24/P25
 # 都栽在这里）。这只是检索别名，不代表任何权限。
-DOMAIN_ALIASES = {
-    'business-records': ('业务记录',),
-    'procurement': ('采购', '买', '下单给供应商', '应付', '进货'),
-    'transfers': ('调拨', '借', '调货', '调过去', '店间物资'),
-    'vehicle-transfers': ('整车调拨', '车调过去', '调车'),
-    'invoices': ('开票', '发票', '红冲', '抬头'),
-    'users': ('账号', '员工账号', '停用账号', '离职', '权限'),
-    'stores': ('门店', '门店设置'),
-    'dashboard': ('销量', '卖得最好', '排行', '看板', '经营'),
-    'reports': ('报表', '汇总', '日报', '统计'),
-    'analytics': ('数据可视化', '图表', '统计'),
-    'warehouse': ('仓库', '库位', '入库', '出库'),
-    'stock-reports': ('库存报表', '进销存'),
-    'inventory-reports': ('整车库存', '在库'),
-    'repair-orders': ('维修', '工单', '开单', '修车'),
-    'service-intake': ('预约', '到店', '洗车', '返修'),
-    'sales-quotes': ('报价', '折扣', '定金', '合同', '订单'),
-    'insurance-orders': ('保险', '续保', '保单'),
-    'addon-orders': ('加装', '精品安装'),
-    'retail': ('精品', '配件销售'),
-    'membership': ('会员卡', '充值', '退卡', '会员'),
-    'aftercare': ('退订', '退车', '退款'),
-    'claims': ('理赔', '索赔', '报销'),
-    'business-finance': ('收款', '付款', '记账', '财务'),
-    'reconciliation': ('对账', '月结', '封账'),
-    'dictionaries': ('字典', '分类设置'),
-    'masters': ('主数据', '供应商', '保险公司', '班组', '作业项目'),
-    'escalations': ('评审', '申请', '上级'),
-    'flow': ('盘点', '领料', '退料', '报损', '借出', '归还', '工单动作'),
-}
+DOMAIN_ALIASES = {'business-records': ('业务记录',)}
 
 
 def catalog(domain='',query='',role=None):

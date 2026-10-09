@@ -163,8 +163,8 @@ def validate_manual_values(report_key, values):
             if field['type'] == 'count' and number < 0:
                 raise ValueError(field['label'] + '不能为负数。')
             result[key] = format(number, 'f')
-    if not any(v is not None for v in result.values()):
-        raise ValueError('请至少填写一项数据，未知项可以留空。')
+    # A dated clerk-maintained row may legitimately be entirely unverified.
+    # Preserve unknowns instead of requiring a fabricated zero or placeholder.
     return result
 
 

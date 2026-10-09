@@ -66,6 +66,8 @@ def backup(output):
     with sqlite3.connect(source.as_uri()+'?mode=ro',uri=True) as check:
         names={r[0] for r in check.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         private=bool(check.execute('SELECT 1 FROM private_file_objects LIMIT 1').fetchone()) if 'private_file_objects' in names else False
+        if 'business_record_invoice_files' in names:
+            private = private or bool(check.execute("SELECT 1 FROM business_record_invoice_files WHERE object_key != '' LIMIT 1").fetchone())
     if private or settings.file_storage_mode=='private_local':
         if not output:raise SystemExit('私有附件须与数据库一同备份；请用 --output 指定仓库外的全新绝对目录')
         from .private_file_backup import create_bundle

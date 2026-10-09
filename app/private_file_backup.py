@@ -79,7 +79,31 @@ def file_manifest(connection):
         if expected or item['source_file_id']:
             if not expected or not source or not source['generated'] or source['category']!=expected or item['generated'] or (source['store_id'],source['case_id'])!=(item['store_id'],item['case_id']):
                 raise ValueError('签回附件须绑定同店同单对应类别的原生成文档')
-    return sorted(result,key=lambda r:r['file_id'])
+    result = sorted(result,key=lambda r:r['file_id'])
+    for file in _invoice_file_rows(connection):
+        if file['object_key'] and file['content_length'] != 0:
+            raise ValueError('合同发票私有对象与BLOB不一致')
+        result.append({'file_id': 'record-invoice-' + str(file['id']), 'store_id': file['store_id'],
+            'sha256': file['sha256'], 'size': file['size'],
+            'storage': 'private_local' if file['object_key'] else 'blob',
+            'object_key': file['object_key'] or None, 'source_file_id': None,
+            'case_id': None, 'category': 'record_invoice', 'generated': False})
+    return result
+
+
+def _invoice_file_rows(connection, content=False):
+    if 'business_record_invoice_files' not in _names(connection):
+        return
+    sql = ('SELECT id,store_id,sha256,size,object_key,' +
+           ('content' if content else 'length(content) AS content_length') +
+           ' FROM business_record_invoice_files ORDER BY id')
+    cursor = _query(connection, sql)
+    keys = list(cursor.keys()) if hasattr(cursor, 'keys') else [c[0] for c in cursor.description]
+    try:
+        for row in cursor:
+            yield dict(zip(keys, row))
+    finally:
+        cursor.close()
 
 
 def validate_connection_files(connection,object_root=None):
@@ -96,6 +120,12 @@ def validate_connection_files(connection,object_root=None):
         entry=byfile[file.get('id',i+1)]
         if entry['storage']=='private_local':read_object(object_root,entry['object_key'],entry['store_id'],entry['size'],entry['sha256'])
         else:checked_bytes(file['content'],entry['size'],entry['sha256'])
+    for file in _invoice_file_rows(connection, content=True):
+        entry = byfile['record-invoice-' + str(file['id'])]
+        if entry['storage'] == 'private_local':
+            read_object(object_root, entry['object_key'], entry['store_id'], entry['size'], entry['sha256'])
+        else:
+            checked_bytes(file['content'], entry['size'], entry['sha256'])
     return {'verified_files':len(manifest),'verified_private_objects':len(private),'verified_blob_files':len(manifest)-len(private)}
 
 

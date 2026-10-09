@@ -1,6 +1,7 @@
 """Pure source mapping and statistical projection for original customer tables."""
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from types import SimpleNamespace
 from .business_record_report_specs import (
     VEHICLE_REPORTS, GROUPING_FIELDS, GENERATED_FIELDS, STOCK_FIELDS, RATIOS,
     CONTRACT_REPORTS, AFTER_SALES_REPORTS, SHARED_FIELDS)
@@ -11,6 +12,20 @@ SERVICE_LABELS = {'repair': '维修', 'maintenance': '保养', 'accident': '事�
 
 def money(value):
     return None if value is None else format(Decimal(value) / 100, '.2f')
+
+
+def approved_amount(contract, key):
+    """A new approved office revision supersedes valuations, including unknowns.
+
+    Legacy contract columns are retained as their historical facts; their new
+    office revision lives in its own frozen payload instead of rewriting them.
+    """
+    office = getattr(contract, 'office_approved_data', None)
+    if key == 'expected_amount_cents' and office is not None and office.get(key) is None:
+        # Optional office input does not erase the amount already agreed in
+        # the approved customer contract.
+        return getattr(contract, key)
+    return office.get(key) if office is not None else getattr(contract, key)
 
 
 def field_values(definition, labels):
@@ -24,7 +39,7 @@ def prefill_contract_values(report_key, contract, salesperson_name=''):
     if report_key not in VEHICLE_REPORTS:
         raise ValueError('只有车辆明细报表支持关联合同；汇总表由来源明细生成。')
     if contract.status not in {'priced', 'approved'}:
-        raise ValueError('合同须先由内勤核价，才能带入统计明细。')
+        raise ValueError('合同须先完成审批，才能带入内勤统计明细。')
     form = contract.form_data or {}
     labels = {'台数': '1', '车型': contract.model, '车辆型号': contract.model,
         '车架号': contract.vin, '销售顾问': salesperson_name,
@@ -32,9 +47,9 @@ def prefill_contract_values(report_key, contract, salesperson_name=''):
         '地址': form.get('buyer_address'), '颜色': form.get('exterior_color'),
         '颜色（原表列名2暮云灰）': form.get('exterior_color'), '外饰颜色': form.get('exterior_color'),
         '颜色或内饰': form.get('interior_color'), '车辆售价': money(contract.sale_price_cents),
-        '精品成本（赠送）': money(contract.gift_cost_cents), '精品明细': contract.gift_description,
-        '单车利润': money(contract.profit_cents), '核定单车利润': money(contract.profit_cents),
-        '单车利润2': money(contract.profit_cents), '单车利润22': money(contract.profit_cents)}
+        '精品成本（赠送）': money(approved_amount(contract, 'gift_cost_cents')), '精品明细': contract.gift_description,
+        '单车利润': money(approved_amount(contract, 'profit_cents')), '核定单车利润': money(approved_amount(contract, 'profit_cents')),
+        '单车利润2': money(approved_amount(contract, 'profit_cents')), '单车利润22': money(approved_amount(contract, 'profit_cents'))}
     # Old free-text supplemental amounts are not trusted as finite decimals.
     loan = form.get('loan_amount')
     if loan:
@@ -46,7 +61,13 @@ def prefill_contract_values(report_key, contract, salesperson_name=''):
             pass
     values = field_values(CATALOG_BY_KEY[report_key], labels)
     values = {key: value for key, value in values.items() if value is not None}
-    return {'values': values, 'locked_fields': list(values),
+    locked = list(values)
+    if getattr(contract, 'workflow_version', None) == 'trial-v29':
+        financial_labels = {'精品成本（赠送）', '单车利润', '核定单车利润', '单车利润2', '单车利润22'}
+        financial_keys = {column['key'] for column in CATALOG_BY_KEY[report_key]['columns']
+                          if column['label'] in financial_labels}
+        locked = [key for key in locked if key not in financial_keys]
+    return {'values': values, 'locked_fields': locked,
         'source_fields': {key: '合同及内勤核价' for key in values},
         'contract_id': contract.id, 'contract_version': contract.version,
         'period': str(contract.contract_date), 'brand': contract.brand,
@@ -69,10 +90,10 @@ def latest_snapshots(rows, definition):
     """A monthly cumulative input is one observation, not a new transaction."""
     snapshots, details = {}, []
     for row in rows:
-        if row.get('entry_mode') != 'snapshot':
+        if row.get('entry_mode') not in {'snapshot', 'final'}:
             details.append(row)
             continue
-        key = (str(row.get('period', ''))[:7], dimension(row, definition))
+        key = (str(row.get('period', ''))[:7], dimension(row, definition), row.get('entry_mode') == 'final')
         order = (str(row.get('_snapshot_source_period', row.get('period', ''))), row.get('id') or 0)
         prior = snapshots.get(key)
         if prior is None or order > (str(prior.get('period', '')), prior.get('id') or 0):
@@ -293,7 +314,7 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
         '比例和单价仅在分子分母明确时重算，无法汇总或分母为零保留为空。'
         '旧记录单独列示，不并入当前排名。')
     if definition.get('automatic_source') and source_mode == 'combined':
-        notice += '有自动来源的同月同维度以业务事实为准，人工仅补充其他字段；纯人工视图可查看全部人工数值。'
+        notice += '同月同维度的内勤最终月值替代相应自动统计，不重复累加；普通补录仅补充其他字段。'
     if definition['source'] != 'manual':
         notice = '按当前授权范围及筛选条件汇总；未核定数据保留为空，不按零计算。'
     if definition.get('input_notice'):
@@ -312,11 +333,12 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
 
 def contract_statistics(key, contract, receipt, category, supplement, definition):
     """Confirmed collection is the only sales-performance event."""
-    if receipt is None:
+    extension_report = key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'}
+    if receipt is None and not extension_report:
         return None
-    profit, cost = money(contract.profit_cents), money(contract.cost_cents)
-    income = money(receipt.actual_amount_cents)
-    if key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'}:
+    profit, cost = money(approved_amount(contract, 'profit_cents')), money(approved_amount(contract, 'cost_cents'))
+    income = money(receipt.actual_amount_cents) if receipt is not None else None
+    if extension_report:
         from .business_record_reports import CATALOG_BY_KEY
         vehicle_key = supplement.report_key if supplement is not None else 'vehicle_details'
         raw = dict(supplement.values) if supplement is not None else {}
@@ -405,9 +427,37 @@ def _overlap(manual, automatic, definition, include_categories=True):
     return True
 
 
+def fill_month_window(result, date_from, date_to):
+    """Keep absent calendar months explicit in both chart and summary export."""
+    if date_from is None or date_to is None:
+        return result
+    start, end = str(date_from)[:7], str(date_to)[:7]
+    year, month = map(int, start.split('-'))
+    end_year, end_month = map(int, end.split('-'))
+    summaries = {row['label']: row for row in result['summary_rows']}
+    series = {row['label']: row for row in result['series']}
+    labels = []
+    while (year, month) <= (end_year, end_month):
+        label = f'{year:04d}-{month:02d}'
+        labels.append(label)
+        if label not in summaries:
+            blank = {column['key']: None if column['type'] not in {'text', 'date'} else ''
+                     for column in result['summary_columns']}
+            blank.update(label=label, record_count=0, unknown_count=1,
+                         aggregation_warnings=[], source_labels=[])
+            summaries[label] = blank
+            series[label] = {'label': label, 'value': None, 'exact_value': None,
+                             'record_count': 0, 'unknown_count': 1}
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    result['summary_rows'] = [summaries[label] for label in labels]
+    result['series'] = [series[label] for label in labels]
+    result['notice'] += '所选月份窗口逐月列示，未录入月份留空，不按零处理或跨过缺失月份比较。'
+    return result
+
+
 def build(db, user, report, *, date_from=None, date_to=None, brand='', salesperson_id=None,
           group_by='salesperson', handler_name='', service_type='', category_field='',
-          category_value='', source_mode='combined'):
+          category_value='', source_mode='combined', snapshot_sources=False):
     """All data access passes through the original identity/store scope adapter."""
     from sqlalchemy import select
     from sqlalchemy.orm import aliased
@@ -415,6 +465,8 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     from .business_records_models import SalesContract, ContractReceipt, AfterSalesRecord, ManualReportRecord
     from .models import User, Store
     from .business_record_reports import CATALOG_BY_KEY
+    from .business_record_report_specs import assert_report_access, can_view_sensitive_reports
+    assert_report_access(user, report)
     key, separator, metric = report.partition(':')
     definition = CATALOG_BY_KEY.get(key)
     if definition is None:
@@ -437,9 +489,12 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             successor.supersedes_id == ManualReportRecord.id,
         ).correlate(ManualReportRecord).exists())
     manual_objects = []
-    if is_manual:
+    if is_manual or key == 'profit':
         # Corrections are resolved before period selection, including date corrections.
-        query = current_manual(visible_query(user, ManualReportRecord)).where(ManualReportRecord.report_key == key)
+        query = current_manual(visible_query(user, ManualReportRecord)).where(
+            ManualReportRecord.report_key == ('individual_profit' if key == 'profit' else key))
+        if key == 'profit':
+            query = query.where(ManualReportRecord.entry_mode == 'final')
         manual_objects = list(db.scalars(query))
     contracts = []
     if definition['source'] == 'contracts' or key in CONTRACT_REPORTS:
@@ -485,6 +540,9 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             contract_id=item.contract_id, supersedes_id=item.supersedes_id,
             source_label='历史人工记录' if item.entry_mode == 'legacy' else '人工核填', note=item.note or '')
     manual_rows = effective_records([manual_row(item) for item in manual_objects])
+    if key == 'profit':
+        for row in manual_rows:
+            row['value'] = row.get('c07')
     manual_rows = [row for row in manual_rows if (not brand or row['brand'] == brand)
                    and (salesperson_id is None or row['salesperson_id'] == salesperson_id)]
     legacy = [row for row in manual_rows if row['entry_mode'] == 'legacy' and _in_period(row['period'], date_from, date_to)]
@@ -499,7 +557,17 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             supplements_by_contract[value.contract_id] = value
     generated = []
     for contract in contracts:
+        new_flow = getattr(contract, 'workflow_version', None) == 'trial-v29'
+        approved_office = getattr(contract, 'office_approved_data', None)
         source = supplements_by_contract.get(contract.id)
+        if approved_office:
+            # Only the exact approved payload is a source. An independently
+            # appended manual draft must not replace it before approval.
+            source = SimpleNamespace(report_key=approved_office['report_key'],
+                period=approved_office['period'], values=approved_office.get('values', {}),
+                note=approved_office.get('note', ''))
+        elif new_flow:
+            source = None
         vehicle_key = source.report_key if source is not None else 'vehicle_details'
         category = {'vehicle_details': '正常车辆', 'hail_vehicle_details': '冰雹车',
             'secondary_vehicle_details': '二级车辆', 'vehicle_details_sheet2': '补充车辆'}[vehicle_key]
@@ -509,29 +577,39 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         if key in VEHICLE_REPORTS:
             if vehicle_key != key or contract.status not in {'priced', 'approved'}:
                 continue
-            period = contract.contract_date
+            if new_flow and not approved_office:
+                continue
+            period = approved_office.get('period') if approved_office else source.period if source else contract.contract_date
             values = dict(source.values) if source is not None else {}
             values.update(prefill_contract_values(key, contract, row['salesperson'])['values'])
-            row['source_label'] += '＋内勤补充' if source is not None else ''
+            row['source_label'] = '总经理批准的内勤资料' if approved_office else row['source_label'] + ('＋内勤补充' if source is not None else '')
             row['note'] = source.note if source is not None else ''
         elif definition['source'] == 'contracts':
             if key == 'expected_receipts':
                 if contract.status != 'approved':
                     continue
-                period, values = contract.contract_date, {'value': money(contract.expected_amount_cents)}
+                expected = approved_amount(contract, 'expected_amount_cents')
+                period, values = contract.contract_date, {'value': money(expected)}
+                if new_flow and not approved_office:
+                    values = {'value': money(contract.sale_price_cents)}
             else:
                 if receipt is None:
                     continue
                 period = receipt.received_on
                 values = {'value': money(receipt.actual_amount_cents) if key == 'actual_receipts'
-                    else money(contract.profit_cents) if key == 'profit' else '1'}
+                    else money(approved_amount(contract, 'profit_cents')) if key == 'profit' and (not new_flow or approved_office)
+                    else None if key == 'profit' else '1'}
                 row['source_label'] = '财务确认到账＋内勤核价'
         else:
+            if new_flow and not approved_office and key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'}:
+                continue
             values = contract_statistics(key, contract, receipt, category, source, definition)
             if values is None:
                 continue
-            period = receipt.received_on
-            row['source_label'] = '财务确认到账＋内勤核价'
+            extension_report = key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'}
+            period = ((approved_office.get('period') if approved_office else source.period if source else receipt.received_on if receipt else None)
+                      if extension_report else receipt.received_on)
+            row['source_label'] = '总经理批准的内勤附带信息' if extension_report and approved_office else '已核实业务记录＋内勤核价'
         if not _in_period(period, date_from, date_to):
             continue
         row.update(values)
@@ -550,6 +628,28 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             source_label='售后业务记录', note='', _applicable_fields=set(values))
         generated.append(row)
     prepared = []
+    # An explicitly final monthly value is authoritative for its scope. It is
+    # never another transaction to add to the automatically generated numbers.
+    final_rows = [row for row in manual_rows if row['entry_mode'] == 'final'
+                  and _in_period(row['period'], date_from, date_to)]
+    value_columns = definition['columns'] if is_manual else definition['metrics']
+    numeric_keys = {field['key'] for field in value_columns if field['type'] not in {'text', 'date'}}
+    def final_fields(row):
+        return {key for key in numeric_keys if row.get(key) not in (None, '')}
+    for index, first in enumerate(final_rows):
+        for second in final_rows[index + 1:]:
+            if final_fields(first) & final_fields(second) and (
+                    _overlap(first, second, definition) or _overlap(second, first, definition)):
+                raise ValueError('内勤最终月值存在重叠范围，请更正为互不重复的销售、品牌和分类后再统计。')
+    if source_mode == 'combined':
+        for row in generated:
+            overrides = set().union(*(final_fields(final) for final in final_rows if _overlap(final, row, definition)))
+            if overrides:
+                row['_applicable_fields'] = set(row.get('_applicable_fields', row)) - overrides
+                for field in overrides:
+                    if field in row:
+                        row[field] = None
+        generated = [row for row in generated if set(row.get('_applicable_fields', row)) & numeric_keys]
     generated_by_period_store = defaultdict(list)
     for row in generated:
         generated_by_period_store[(row['period'][:7], row['store_id'])].append(row)
@@ -561,13 +661,18 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
                 continue
             linked = contract_lookup.get(row['contract_id'])
             if linked is not None and linked.status in {'priced', 'approved'}:
+                approved_office = getattr(linked, 'office_approved_data', None)
+                if approved_office and row['id'] != approved_office.get('manual_report_id'):
+                    continue
+                if getattr(linked, 'workflow_version', None) == 'trial-v29' and not approved_office:
+                    continue
                 row.update(prefill_contract_values(key, linked, names.get(linked.salesperson_id, ''))['values'])
                 row['source_label'] = '内勤补充（合同共有事实锁定）'
             else:
                 # The original manual record remains accessible in its history,
                 # but an obsolete valuation is not a current business fact.
                 continue
-        applicable = {column['key'] for column in definition['columns']}
+        applicable = {column['key'] for column in value_columns}
         if not _in_period(row['period'], date_from, date_to):
             # Before-period rows only carry closing stock, not prior period revenue.
             applicable &= STOCK_FIELDS.get(key, set())
@@ -576,7 +681,11 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             row['note'] = ((row.get('note') or '') + '；库存来源快照日期：' + row['period']).lstrip('；')
             row['_snapshot_source_period'] = row['period']
             row['period'] = str(date_from)
-        if source_mode == 'combined' and key in GENERATED_FIELDS:
+        if source_mode in {'combined', 'manual'} and row['entry_mode'] != 'final' and any(
+                _overlap(final, row, definition) for final in final_rows):
+            applicable -= set().union(*(final_fields(final) for final in final_rows if _overlap(final, row, definition)))
+            row['source_label'] = '人工补录（数值已由内勤最终月值替代）'
+        if source_mode == 'combined' and key in GENERATED_FIELDS and row['entry_mode'] != 'final':
             candidates = generated_by_period_store[(row['period'][:7], row['store_id'])]
             overlaps = [item for item in candidates if _overlap(row, item, definition)]
             if overlaps:
@@ -593,17 +702,27 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
                 applicable -= displaced
                 if displaced:
                     row['source_label'] = '人工补充（门店月度共享实绩采用业务来源）'
+        if row['entry_mode'] == 'final':
+            row['source_label'] = '内勤最终月值'
+            applicable -= numeric_keys - final_fields(row)
         row['_applicable_fields'] = applicable
         # Removed values are visible in original manual details, but must not masquerade
         # as currently selected report facts or be included in CSV detail totals.
-        for field in definition['columns']:
+        for field in value_columns:
             if field['key'] not in applicable and field['type'] not in {'text', 'date'}:
                 row[field['key']] = None
         prepared.append(row)
     rows = (prepared if source_mode == 'manual' else generated if source_mode == 'generated'
             else generated + prepared)
-    if not is_manual and source_mode == 'manual':
+    if not is_manual and key != 'profit' and source_mode == 'manual':
         rows = []
-    return project(definition, rows, group_by=group_by, metric=metric if separator else definition['default_metric'],
+    if not can_view_sensitive_reports(user):
+        for row in rows + legacy:
+            row['note'] = ''
+    if snapshot_sources:
+        return {'rows': [{**row, '_applicable_fields': sorted(row.get('_applicable_fields', row))}
+                         for row in rows], 'legacy_rows': legacy, 'updated_at': max(updated, default=None)}
+    result = project(definition, rows, group_by=group_by, metric=metric if separator else definition['default_metric'],
         updated_at=max(updated, default=None), category_field=category_field, category_value=category_value,
         source_mode=source_mode, legacy_rows=legacy)
+    return fill_month_window(result, date_from, date_to) if group_by == 'month' else result

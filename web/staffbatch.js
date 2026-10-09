@@ -9,16 +9,17 @@ const STAFF_BATCH_ROLE_ALIASES={
  技师:'technician',维修技师:'technician',维修:'technician',
  客服:'customer_service',客户服务:'customer_service',客户服务专员:'customer_service',
  审计:'auditor',复核:'auditor',复核审计:'auditor',
+ 店长:'manager',销售经理:'manager',财务:'finance',收银:'finance',
  系统管理员:'admin',管理员:'admin',
 };
 const staffBatchUsername=/^[a-zA-Z0-9_.-]{3,40}$/;
 function staffBatchRole(value){
  const raw=String(value||'').trim();
  if(!raw)return '';
- if(Object.prototype.hasOwnProperty.call(roleNames,raw))return raw;
- if(STAFF_BATCH_ROLE_ALIASES[raw])return STAFF_BATCH_ROLE_ALIASES[raw];
+ if(recordAccountRoles.includes(raw))return raw;
+ if(STAFF_BATCH_ROLE_ALIASES[raw]&&recordAccountRoles.includes(STAFF_BATCH_ROLE_ALIASES[raw]))return STAFF_BATCH_ROLE_ALIASES[raw];
  const lower=raw.toLowerCase();
- for(const [code,label] of Object.entries(roleNames)){if(label===raw||code===lower)return code;}
+ for(const [code,label] of Object.entries(roleNames)){if(recordAccountRoles.includes(code)&&(label===raw||code===lower))return code;}
  return '';
 }
 function staffBatchFields(line){
@@ -38,7 +39,7 @@ function staffBatchParse(text,existing=[]){
   row.role=role||fields[2];
   if(!row.display_name)row.error='员工姓名不能为空';
   else if(!staffBatchUsername.test(row.username))row.error='登录账号只能填 3–40 位字母、数字、下划线、点或短横线';
-  else if(!role)row.error='岗位“'+fields[2]+'”不认识；可写销售、店长、库管、服务顾问、前台接待、维修技师、财务、审计、客服';
+  else if(!role)row.error='岗位“'+fields[2]+'”不认识；可写销售、门店销售经理、内勤、收银、总经理、董事长';
   else if(role==='admin')row.error='系统管理员账号请用“新增员工”单独建立';
   else if(seen.has(row.username.toLowerCase()))row.error='登录账号在本批里重复了';
   else if(taken.has(row.username.toLowerCase()))row.error='登录账号已经存在';
@@ -62,7 +63,7 @@ function staffBatchDialog(){
  const stores=(state.accountData?.stores||state.stores||[]).filter(store=>store.active!==false);
  const options=stores.map(store=>`<option value="${store.id}" ${String(store.id)===String(state.store)?'selected':''}>${E(store.name)}</option>`).join('');
  const existing=(state.accountData?.items||[]).map(row=>row.username);
- const dialog=modal('批量新增员工',`<form><div class="notice">每行一条：<strong>员工姓名｜登录账号｜岗位</strong>。岗位可写中文（销售、店长、库管、服务顾问、前台接待、维修技师、财务、审计、客服）。本次账号共用一个初始密码，每人首次登录必须自己改；本人改密前不要把初始密码转告他人，建好后尽快让本人登录改密。系统管理员账号请用“新增员工”单独建立。</div><div class="formgrid"><label class="wide">粘贴名单<textarea name="rows" rows="7" placeholder="陆销售｜xc-sales｜销售"></textarea></label></div><div id="staff-batch-preview" class="mt15"></div><div class="formgrid mt18"><label>本次分配门店<select name="store_id">${options}</select></label><label>初始密码（12 位以上，输入时不显示）<input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password"></label></div><div class="mt15 formerror" role="alert"></div><div class="modalfoot">${b('close','取消')}<button type="submit" class="primary" disabled>确认新增</button></div></form>`,async form=>{
+ const dialog=modal('批量新增员工',`<form><div class="notice">每行一条：<strong>员工姓名｜登录账号｜岗位</strong>。岗位可写中文（销售、门店销售经理、内勤、收银、总经理、董事长）。本次账号共用一个初始密码，每人首次登录必须自己改；本人改密前不要把初始密码转告他人，建好后尽快让本人登录改密。系统管理员账号请用“新增员工”单独建立。</div><div class="formgrid"><label class="wide">粘贴名单<textarea name="rows" rows="7" placeholder="陆销售｜xc-sales｜销售"></textarea></label></div><div id="staff-batch-preview" class="mt15"></div><div class="formgrid mt18"><label>本次分配门店<select name="store_id">${options}</select></label><label>初始密码（12 位以上，输入时不显示）<input name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password"></label></div><div class="mt15 formerror" role="alert"></div><div class="modalfoot">${b('close','取消')}<button type="submit" class="primary" disabled>确认新增</button></div></form>`,async form=>{
   try{
    const parsed=staffBatchParse(form.elements.rows.value,existing);
    const bad=parsed.rows.filter(row=>row.error);
