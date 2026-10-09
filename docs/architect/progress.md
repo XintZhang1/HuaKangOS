@@ -1,6 +1,6 @@
 # 当前交付任务
 
-2026-10-09 V2.9：[customer-records-v2](tasks/customer-records-v2.md)完成两段审批、收银发票、内勤确认日报及日/月趋势、当前17项助手API与岗位敏感数据隔离。h56→h59副本旧事实保持，9组核心、5项发票及18项实际Chrome检查通过，人工final覆盖定向检查通过。CP-V2.9 implementation_released，GitHub/阿里云/演示交付进行中；员工验收不代签。详[V2.9检查点](../implementation-checkpoints/V2.9-trial-flow-20261009.md)。
+2026-10-09 V2.9：[customer-records-v2](tasks/customer-records-v2.md)完成两段审批、收银发票、内勤确认日报及日/月趋势、当前17项助手API与岗位敏感数据隔离。9组核心、5项发票及18项实际Chrome检查通过，人工final覆盖定向检查通过。e6ee90645088已推main并发布阿里云h59，CI37954545096成功，原数据保持、五服务active、登录/静态SHA通过；真实合成发票一次识别8项正确，业务数据库连接0。49373演示保留数据升级并补6合同/12确认日报。CP-V2.9 released，员工验收不代签。详[V2.9检查点](../implementation-checkpoints/V2.9-trial-flow-20261009.md)，文档回填按运行文件全等同步。
 
 2026-10-09 当前：[customer-records-v2](tasks/customer-records-v2.md)按业主要求补齐原截图/Excel报表生成与可视化，保持四业务框架。V2.7已完成原表字段/来源聚合、合同关联补充与追加更正、售后经办统计及汇总表界面；9组HTTP和5项浏览器验证通过，演示保留数据升级，46592e5b8c22已推main并部署阿里云h56，CP-V2.7 released。最终文档同步SHA以health/外部结果为准。
 
