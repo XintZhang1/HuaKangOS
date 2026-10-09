@@ -2,9 +2,9 @@
 
 ## V2.8 可视化看板侧栏入口（2026-10-09）
 
-- 状态：`implemented`。按业主要求在侧栏首位增加独立“可视化看板”入口，复用现有首页和当前页高亮；四项业务、AI入口及数据口径不变。
+- 状态：`done`。按业主要求在侧栏首位增加独立“可视化看板”入口，复用现有首页和当前页高亮；四项业务、AI入口及数据口径不变。
 - 范围：仅web/businessrecords.js、index.html资源版本及当前计划/任务/README说明；无后端或迁移变更，不新建工作树。root实施与浏览器点击验证，dashboard_nav_delivery准备既有保留数据发布工具。
-- 验证及交付：仓库外合成演示确认跨页点击和高亮，原生JS语法及差异检查；随后推main并备份更新阿里云，h56和现有数据保持。不扩大测试范围。原生浏览器已确认首项显示、销售页切换及返回看板高亮，控制台错误0；JS语法和diff检查通过。证据在外部dashboard-nav-delivery/browser-check.json与sidebar.png；演示已仅更新两静态文件，业务数据未写入，待GitHub/正式发布。
+- 验证及交付：仓库外合成演示确认跨页点击和高亮，原生JS语法及差异检查；随后推main并备份更新阿里云，h56和现有数据保持。不扩大测试范围。原生浏览器已确认首项显示、销售页切换及返回看板高亮，控制台错误0；JS语法和diff检查通过。证据在外部dashboard-nav-delivery/browser-check.json与sidebar.png；演示已仅更新两静态文件，业务数据未写入。代码189e14ea49c9已推main并发布阿里云，Operations review checks成功（37880363010）；备份before-v2-dashboard-nav-20261009T034214Z，原数据/schema等值、五服务active、原登录和HTTP静态SHA通过，h56无迁移/重置。CP-V2.8 released。文档回填随后按运行文件全等同步，精确最终SHA见health及外部dashboard-nav-delivery结果。
 
 ## V2.7 原截图报表生成与统计口径补齐（2026-10-09）
 
