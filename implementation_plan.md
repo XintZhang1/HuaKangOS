@@ -2,15 +2,15 @@
 
 ## V2.7 原截图报表生成与统计口径补齐（2026-10-09）
 
-- 状态：`in_progress`。业主要求保持四业务框架，补齐截图/Excel差异并提供生成与可视化能力。
+- 状态：`done`。四业务框架保持，截图/Excel差异及原表生成、汇总、可视化补齐，隔离验证、演示及GitHub/阿里云保留数据发布完成。
 - 依据：[逐表覆盖审计](docs/客户第二版截图覆盖核对-20261009.md)。原11截图及13非空工作表全部保留；修正漏字段、分类、单产精度及指标名称。合同已知事实自动带入统计，内勤补充人工核定项目；不新增库存、ERP、会员或财务业务流程。
 - 范围：25表可生成汇总表、来源明细、同范围图表/CSV；可加总金额/数量、期间累计快照、库存时点、比率/单价分别处理。合同关联补充和追加修订防重复；旧人工记录保留历史口径，不自动改写为新成绩。售后按经办人而非录入账号统计，支持服务类别筛选。
 - 允许修改：app/business_records.py、business_records_models.py、business_records_schemas.py、business_record_reports.py，新增business_record_report_specs.py及business_record_report_generation.py；必要助手只读目录/查询接线；追加h56n_record_report_sources迁移；web/businessrecords.js/css、recordcharts.js及index资源版本；当前设计、README、任务、审计补充、检查点和本计划。外部定向验证/演示升级/保留数据发布工具。禁止工作树，不改total_plan或无关文件。
 - 分工：root负责API、追加迁移、集成、验证及GitHub/阿里云交付；v27_reports负责字段/来源/聚合引擎；v27_frontend负责统计表、图表、补充与修订UI；v27_validation负责外部验证和迁移发布工具。共同属于本项，不并行开启另一里程碑。
 - 验证：外部当前源码合成副本先迁移并逐原列核对不变；代表合同核价/到账/关联补充→汇总/图表/CSV、修订不双计、累计快照与库存跨月/比率、售后经办及权限，原图字段差异逐项确认；实际浏览器单表/单图和大数据分页。仅本轮必要验证，不启动旧全量或真实模型。
-- 交付：验证后保留49373演示及正式数据升级，GitHub main和阿里云同SHA；先一致备份、迁移副本及回退验证，不重置、不导入合成数据到正式库。CP-V2.7待正式发布后放行。
+- 交付：验证后保留49373演示及正式数据升级，GitHub main和阿里云同SHA；先一致备份、迁移副本及回退验证，不重置、不导入合成数据到正式库。CP-V2.7 `released`，详下述实际证据。
 
-- 实测：冻结源码9dce1dd235cb57c01c2905e64b9800332a590e58064830a47da3845a88e9ed1e，h56原表原列等值、9组HTTP及5项原生浏览器观察通过，真实模型0，验证服务退出0。49373演示保留原数据升级并追加50条合成统计，详[V2.7检查点](docs/implementation-checkpoints/V2.7-report-generation-20261009.md)。当前准备提交及正式发布。
+- 实测：冻结源码9dce1dd235cb57c01c2905e64b9800332a590e58064830a47da3845a88e9ed1e，h56原表原列等值、9组HTTP及5项原生浏览器观察通过，真实模型0，验证服务退出0。49373演示保留原数据升级并追加50条合成统计，详[V2.7检查点](docs/implementation-checkpoints/V2.7-report-generation-20261009.md)。代码46592e5b8c22f41ba1fba7968b843b6c95dca133已推main，Operations review checks成功（37878465496）。阿里云副本迁移/旧源码只读兼容通过后正式升级h56，原事实保持、五服务active、原登录与HTTP资源SHA通过；备份before-v2-reports-v27-20261009T031719Z，未重置或导入合成数据。文档回填随后按运行文件全等同步，精确最终SHA见health和外部deployment结果。
 
 ## V2.6 AI助手适配当前四项业务（2026-10-09）
 

@@ -50,7 +50,7 @@ python -m app.run
 
 已有库升级前先一致性备份、在副本迁移并验证恢复，再使用 `python -m app.cli migrate`。当前迁移链包含历史 `h52j_assistant_work_plans` 和 Runtime `h53k_assistant_runtime`；文件存在不表示实例已经升级。不要用演示初始化代替升级，也不要只替换前端。
 
-V2.7 新增 `h56n_record_report_sources`，仅为统计记录追加 7 个来源、更正及备注字段，不改写原始统计内容。当前已完成 9 组隔离 HTTP 验证；原生浏览器验证和发布仍在进行，最终状态以实施计划为准。
+V2.7 新增 `h56n_record_report_sources`，仅为统计记录追加 7 个来源、更正及备注字段，不改写原始统计内容。已完成 9 组隔离 HTTP 与 5 项原生浏览器验证，49373 演示保留数据更新并追加 25 表合成示例，GitHub main 与阿里云完成 h56 保留数据发布。详[本轮检查点](docs/implementation-checkpoints/V2.7-report-generation-20261009.md)。
 
 ## 维护与验证
 
