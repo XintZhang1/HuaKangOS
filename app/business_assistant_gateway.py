@@ -372,7 +372,7 @@ def inspect_operation(operation_id):
         if op['path']=='/api/business-records/catalog':
             result['hint']='不传report_key时助手收到精简报表目录及原销售候选、服务类别；传目录中真实report_key取得该报表完整columns/metrics。报表目录不是业务数据。'
         elif op['path']=='/api/business-records/reports':
-            result['hint']='report使用目录key；选人工指标时使用key:metric_key，metric_key从catalog?report_key取得。核对date_from/date_to和period_basis；应到账按合同日期，实到账、销量、利润按实际到账日期。人工比例、均价、目标和完成率逐行保留，不跨行求和。'
+            result['hint']='report使用目录key；指标使用key:metric_key，从catalog?report_key取得。按period_basis和source_mode解释summary_rows/grand_total，分类用目录grouping_fields；售后按handler_name/service_type。应到账按合同日期，销售实绩按到账日期。比例/库存按服务端规则，旧legacy不计当前业绩。助手返回所选指标分组和全表总计，不附来源明细；原值可查manual-reports、contracts或after-sales。'
         elif op['path'] in {'/api/business-records/customers','/api/business-records/customers/{key}'}:
             result['hint']='合同、售后确认保存时自动建档，单独建档仅用于员工明确的独立需求。客户id与员工owner_id不同；先核对客户候选，再用customer_id筛选contracts或after-sales，继续按页读取。'
         elif op['path']=='/api/business-records/after-sales':
@@ -673,7 +673,7 @@ def _record_catalog_summary(data):
     """Project only the authorized response; never resolve extra report keys."""
     if not isinstance(data,dict) or not isinstance(data.get('reports'),list):return data
     result=dict(data)
-    fields=('key','title','source','unit','period_basis','aggregation','default_metric')
+    fields=('key','title','source','unit','period_basis','aggregation','default_metric','automatic_source','supports_contract')
     result['reports']=[{**{key:item[key] for key in fields if key in item},
                         'column_count':len(item.get('columns',[])),
                         'metric_count':len(item.get('metrics',[]))}
@@ -682,6 +682,21 @@ def _record_catalog_summary(data):
         'operation_id':'GET /api/business-records/catalog', 'query_parameter':'report_key',
         'notice':'reports为完整目录的精简摘要；以所选key传report_key读取单份报表完整columns/metrics。销售候选与服务类别沿原响应。'}
     return result
+
+def _record_report_summary(data):
+    """Project authorized aggregates without duplicating thousands of source rows."""
+    if not isinstance(data,dict) or not isinstance(data.get('summary_rows'),list):return data
+    metric=data.get('metric')
+    result={key:value for key,value in data.items() if key not in {'rows','columns','summary_rows','summary_columns','legacy_rows'}}
+    result['summary_rows']=[{key:value for key,value in row.items()
+                             if key in {'label',metric,'record_count','unknown_count','source_labels'}}
+                            for row in data['summary_rows']]
+    result['summary_columns']=[column for column in data.get('summary_columns',[])
+                               if column.get('key') in {'label',metric}]
+    result['source_details_included']=False
+    result['projection_notice']='所选指标的分组合计及全表grand_total；来源明细未返回，需按原单/统计记录查询或打开经营看板。'
+    return result
+
 
 def sanitize(value,depth=0):
     if depth>16:return '[内容过深，请查看原单]'
@@ -783,6 +798,8 @@ async def invoke(request,user,operation_id,path_args=None,query=None,body=None):
     record_catalog=operation_id=='GET /api/business-records/catalog' and response.status_code==200
     if record_catalog and not query.get('report_key'):
         data=_record_catalog_summary(data)
+    if operation_id=='GET /api/business-records/reports' and response.status_code==200:
+        data=_record_report_summary(data)
     record_people=data.get('sales_people') if record_catalog and isinstance(data,dict) else None
     data=sanitize(data)
     if isinstance(record_people,list):

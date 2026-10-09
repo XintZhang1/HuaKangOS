@@ -107,6 +107,15 @@ class ManualReportRecord(Versioned, Base):
     salesperson_id: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True, index=True)
     values: Mapped[dict] = mapped_column(JSON)
     created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    # A correction appends a new row. Original values and approved business
+    # facts never change; a unique predecessor prevents branching revisions.
+    contract_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_contracts.id'), nullable=True, index=True)
+    contract_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    entry_mode: Mapped[str] = mapped_column(String(20), default='snapshot', server_default='legacy')
+    supersedes_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_manual_reports.id'), nullable=True, unique=True)
+    supersedes_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    source_key: Mapped[str | None] = mapped_column(String(160), nullable=True, unique=True)
+    note: Mapped[str] = mapped_column(Text, default='', server_default='')
 
 
 class RecordSettings(Versioned, Base):

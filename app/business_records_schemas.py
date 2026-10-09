@@ -88,6 +88,22 @@ class ManualReportInput(Command):
     brand: str = Field(default='', max_length=100)
     salesperson_id: Key | None = None
     values: dict = Field(max_length=150)
+    contract_id: Key | None = None
+    contract_version: Key | None = None
+    entry_mode: Literal['snapshot', 'detail'] = 'snapshot'
+    supersedes_id: Key | None = None
+    supersedes_version: Key | None = None
+    note: str = Field(default='', max_length=4000)
+
+    @model_validator(mode='after')
+    def paired_source_versions(self):
+        if (self.contract_id is None) != (self.contract_version is None):
+            raise ValueError('关联的合同与合同版本须一同提供，请重新选择合同')
+        if (self.supersedes_id is None) != (self.supersedes_version is None):
+            raise ValueError('更正记录与原记录版本须一同提供')
+        if self.contract_id is not None and self.entry_mode != 'detail':
+            raise ValueError('合同关联统计按单笔明细记录')
+        return self
 
 
 class SettingsInput(Command):

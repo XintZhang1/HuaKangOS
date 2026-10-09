@@ -134,9 +134,9 @@ function progress(root,spec,width){
    chart.appendChild(svgNode('line',{x1:x(target),x2:x(target),y1:1,y2:28,class:'rc-target-marker'}));
    chart.appendChild(svgNode('text',{x:x(target),y:41,'text-anchor':x(target)>chartWidth-70?'end':x(target)<70?'start':'middle',class:'rc-target-label'},'目标 100%'));row.appendChild(chart);
   }else note(row,target===null?'未填写目标，不计算达成率。':target===0?'目标为 0，不计算达成率。':target<0?'目标为负，不计算达成率。':'未填写实际值，不计算达成率。','rc-progress-unavailable');
-  if(item.reported_rate!==null&&item.reported_rate!==undefined&&String(item.reported_rate).trim()!=='')row.appendChild(node('div','rc-reported-rate','填报完成率：'+originalRate(item.reported_rate)+'（原表人工填写）'));
+  if(item.reported_rate!==null&&item.reported_rate!==undefined&&String(item.reported_rate).trim()!=='')row.appendChild(node('div','rc-reported-rate',(spec.scope==='summary'?'统计完成率：':'填报完成率：')+originalRate(item.reported_rate)+(spec.scope==='summary'?'':'（原表人工填写）')));
   list.appendChild(row);
- }root.appendChild(list);note(root,'每项仅对比同一条记录的实际与目标；图形按实际 / 目标绘制，超额完整显示。');
+ }root.appendChild(list);note(root,(spec.scope==='summary'?'每项对比同一统计分组的实际与目标；':'每项仅对比同一条记录的实际与目标；')+'图形按实际 / 目标绘制，超额完整显示。');
 }
 function dispose(container){const target=resolve(container);if(!target)return;const state=mounted.get(target);if(state){if(state.observer)state.observer.disconnect();if(state.listener)global.removeEventListener('resize',state.listener);mounted.delete(target);}target.replaceChildren();}
 function render(container,options){

@@ -7,7 +7,8 @@ import uuid
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select, func, or_, update
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, IntegrityError
+from sqlalchemy.orm import aliased
 from .db import get_db, get_write_db, utcnow, today
 from .models import User, Store
 from .security import get_user
@@ -545,16 +546,110 @@ def create_after_sales(body: AfterSalesInput, request: Request,
     return _run(db, user, body.request_id, 'after_sales:create', _body(body), perform)
 
 
-@router.get('/manual-reports')
-def manual_reports(report_key: str = '', page: int = Query(1, ge=1),
-                   page_size: int = Query(30, ge=1, le=200), db=Depends(get_db), user=Depends(get_user)):
+def _manual_report_query(user, include_history=False):
     query = visible_query(user, ManualReportRecord)
     if user.role == 'finance':
         query = query.where(ManualReportRecord.report_key.in_(FINANCE_REPORTS))
+    if not include_history:
+        successor = aliased(ManualReportRecord)
+        query = query.where(~select(successor.id).where(
+            successor.supersedes_id == ManualReportRecord.id,
+            successor.store_id == ManualReportRecord.store_id).exists())
+    return query
+
+
+def _get_manual_report(db, user, key):
+    row = db.scalar(_manual_report_query(user, True).where(ManualReportRecord.id == key))
+    if row is None:
+        raise HTTPException(404, '统计记录不存在或不可访问')
+    _report_allowed(user, row.report_key)
+    return row
+
+
+def _manual_report_rows(db, user, rows):
+    if not rows:
+        return []
+    identifiers = {row.id for row in rows}
+    # Determine replacement status before employee visibility. A correction may
+    # fix the responsible salesperson; the previous owner's row is still old.
+    successors = dict(db.execute(select(ManualReportRecord.supersedes_id, ManualReportRecord.id).where(
+        ManualReportRecord.supersedes_id.in_(identifiers),
+        ManualReportRecord.store_id.in_({row.store_id for row in rows}))).all())
+    contract_ids = {row.contract_id for row in rows if row.contract_id is not None}
+    contracts = {row.id: row.number for row in db.scalars(
+        visible_query(user, SalesContract).where(SalesContract.id.in_(contract_ids)))} if contract_ids else {}
+    writable = capabilities(user)['record_statistics']
+    result = []
+    for row in rows:
+        item = plain(row)
+        current = row.id not in successors
+        item.update(is_current=current, is_effective=current,
+                    superseded_by_id=successors.get(row.id),
+                    can_correct=writable and current and row.entry_mode != 'legacy',
+                    contract_number=contracts.get(row.contract_id, ''))
+        result.append(item)
+    return result
+
+
+@router.get('/manual-reports')
+def manual_reports(report_key: str = '', include_history: bool = False,
+                   page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=200),
+                   db=Depends(get_db), user=Depends(get_user)):
+    query = _manual_report_query(user, include_history)
     if report_key:
         _report_allowed(user, report_key)
         query = query.where(ManualReportRecord.report_key == report_key)
-    return _list(db, query.order_by(ManualReportRecord.id.desc()), plain, page, page_size)
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    rows = db.scalars(query.order_by(ManualReportRecord.id.desc())
+                     .offset((page - 1) * page_size).limit(page_size)).all()
+    return {'items': _manual_report_rows(db, user, rows), 'total': total,
+            'page': page, 'page_size': page_size}
+
+
+@router.get('/manual-reports/{key}')
+def manual_report_detail(key: int, db=Depends(get_db), user=Depends(get_user)):
+    row = _get_manual_report(db, user, key)
+    history, current = [row], row
+    while current.supersedes_id is not None:
+        current = db.scalar(_manual_report_query(user, True).where(
+            ManualReportRecord.id == current.supersedes_id))
+        if current is None:
+            break  # A reassigned record must not reveal the former owner's data.
+        history.insert(0, current)
+    current = row
+    while True:
+        successor = db.scalar(_manual_report_query(user, True).where(
+            ManualReportRecord.supersedes_id == current.id))
+        if successor is None:
+            break
+        history.append(successor)
+        current = successor
+    result = _manual_report_rows(db, user, [row])[0]
+    result['history'] = _manual_report_rows(db, user, history)
+    return result
+
+
+def _report_prefill(db, user, report_key, contract):
+    _report_allowed(user, report_key)
+    from .business_record_reports import prefill_contract_values
+    salesperson = db.get(User, contract.salesperson_id)
+    try:
+        data = prefill_contract_values(report_key, contract,
+                                      salesperson.display_name if salesperson else '')
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    data.update(contract_id=contract.id, contract_version=contract.version,
+                contract_number=contract.number, period=contract.contract_date.isoformat(),
+                brand=contract.brand, salesperson_id=contract.salesperson_id,
+                locked_metadata=['period', 'brand', 'salesperson_id'], entry_mode='detail')
+    return data
+
+
+@router.get('/report-prefill')
+def report_prefill(report_key: str = Query(..., max_length=80),
+                   contract_id: int = Query(..., gt=0), db=Depends(get_db), user=Depends(get_user)):
+    require_capability(user, 'record_statistics')
+    return _report_prefill(db, user, report_key, get_contract(db, user, contract_id))
 
 
 @router.post('/manual-reports', status_code=201)
@@ -563,23 +658,71 @@ def create_manual_report(body: ManualReportInput, request: Request,
     _manual(request)
     require_capability(user, 'record_statistics')
     _report_allowed(user, body.report_key)
-    from .business_record_reports import validate_manual_values
-    try:
-        values = validate_manual_values(body.report_key, body.values)
-    except ValueError as exc:
-        raise HTTPException(422, str(exc)) from None
-    if body.salesperson_id is not None:
-        _salesperson(db, user, body.salesperson_id)
     def perform():
+        from .business_record_reports import validate_manual_values, CATALOG_BY_KEY
+        from decimal import Decimal
+        previous = None
+        if body.supersedes_id is not None:
+            previous = _get_manual_report(db, user, body.supersedes_id)
+            _check_version(previous, body.supersedes_version)
+            if previous.entry_mode == 'legacy':
+                raise HTTPException(422, '历史独立统计仅供追溯，不能通过更正转成当前业绩')
+            successor = db.scalar(_manual_report_query(user, True).where(
+                ManualReportRecord.supersedes_id == previous.id))
+            if successor:
+                raise HTTPException(409, '这份统计已有更新的更正记录，请打开最新记录')
+            if previous.report_key != body.report_key or previous.contract_id != body.contract_id:
+                raise HTTPException(422, '更正须保留原统计表和关联合同，请在原记录中修改数据')
+        source_key = None
+        source_values = dict(body.values)
+        if body.contract_id is not None:
+            contract = get_contract(db, user, body.contract_id)
+            _check_version(contract, body.contract_version)
+            prefill = _report_prefill(db, user, body.report_key, contract)
+            if (body.brand != prefill['brand'] or body.salesperson_id != prefill['salesperson_id']
+                    or body.period.isoformat() != prefill['period']):
+                raise HTTPException(422, '关联合同的日期、品牌和销售归属由原合同提供，请重新核对')
+            columns = {column['key']: column for column in CATALOG_BY_KEY[body.report_key]['columns']}
+            for field in prefill['locked_fields']:
+                original = prefill['values'].get(field)
+                offered = source_values.get(field)
+                if offered not in (None, '') and str(offered) != str(original):
+                    equal = False
+                    if columns[field]['type'] not in {'text', 'date'} and original is not None:
+                        try:
+                            equal = Decimal(str(offered)) == Decimal(str(original))
+                        except (ArithmeticError, ValueError):
+                            pass
+                    if not equal:
+                        raise HTTPException(422, columns[field]['label'] + '来自原合同，不能在统计补充中改写')
+                source_values[field] = original
+            if previous is None:
+                source_key = f'contract:{contract.id}:{body.report_key}'
+                existing = db.scalar(_manual_report_query(user, True).where(
+                    ManualReportRecord.source_key == source_key))
+                if existing:
+                    raise HTTPException(409, '这份合同已有该统计补充，请使用原记录的更正入口')
+        elif body.salesperson_id is not None:
+            _salesperson(db, user, body.salesperson_id)
+        try:
+            values = validate_manual_values(body.report_key, source_values)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
         data = body.model_dump(exclude={'request_id'})
         data['values'] = values
-        row = ManualReportRecord(**data, store_id=single_store(db), created_by=user.id)
+        row = ManualReportRecord(**data, source_key=source_key,
+                                 store_id=single_store(db), created_by=user.id)
         db.add(row)
         db.flush()
-        result = plain(row)
-        audit(db, user.id, 'record_create', 'record_manual', row.id, after=result)
+        result = _manual_report_rows(db, user, [row])[0]
+        audit(db, user.id, 'record_correct' if previous else 'record_create',
+              'record_manual', row.id, after=result, reason=body.note)
         return result
-    return _run(db, user, body.request_id, 'manual_report:create', _body(body), perform)
+    try:
+        return _run(db, user, body.request_id, 'manual_report:create', _body(body), perform)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, '该来源或统计更正已由其他操作保存，请刷新并核对最新记录') from exc
 
 
 def _settings_data(row):
@@ -622,7 +765,8 @@ def update_settings(body: SettingsInput, request: Request,
     return _run(db, user, body.request_id, 'settings:update', _body(body), perform)
 
 
-def _build_report(db, user, report, date_from, date_to, brand, salesperson_id, group_by):
+def _build_report(db, user, report, date_from, date_to, brand, salesperson_id, group_by,
+                  category_field='', category_value='', service_type='', handler_name='', source_mode='combined'):
     _report_allowed(user, report)
     if date_from and date_to and date_from > date_to:
         raise HTTPException(422, '开始日期不能晚于结束日期')
@@ -631,7 +775,9 @@ def _build_report(db, user, report, date_from, date_to, brand, salesperson_id, g
     from .business_record_reports import build_report
     try:
         return build_report(db, user, report, date_from=date_from, date_to=date_to,
-                            brand=brand, salesperson_id=salesperson_id, group_by=group_by)
+                            brand=brand, salesperson_id=salesperson_id, group_by=group_by,
+                            category_field=category_field, category_value=category_value,
+                            service_type=service_type, handler_name=handler_name, source_mode=source_mode)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
 
@@ -639,20 +785,31 @@ def _build_report(db, user, report, date_from, date_to, brand, salesperson_id, g
 @router.get('/reports')
 def reports(report: str = 'profit', date_from: date | None = None, date_to: date | None = None,
             brand: str = Query('', max_length=100), salesperson_id: int | None = Query(None, gt=0),
-            group_by: str = 'salesperson', db=Depends(get_db), user=Depends(get_user)):
-    return _build_report(db, user, report, date_from, date_to, brand, salesperson_id, group_by)
+            group_by: str = 'salesperson', category_field: str = Query('', max_length=80),
+            category_value: str = Query('', max_length=1000), service_type: str = Query('', max_length=30),
+            handler_name: str = Query('', max_length=100), source_mode: str = 'combined',
+            db=Depends(get_db), user=Depends(get_user)):
+    return _build_report(db, user, report, date_from, date_to, brand, salesperson_id, group_by,
+                         category_field, category_value, service_type, handler_name, source_mode)
 
 
 @router.get('/reports/export')
 def export_report(report: str = 'profit', date_from: date | None = None, date_to: date | None = None,
                   brand: str = Query('', max_length=100), salesperson_id: int | None = Query(None, gt=0),
-                  group_by: str = 'salesperson', db=Depends(get_db), user=Depends(get_user)):
-    result = _build_report(db, user, report, date_from, date_to, brand, salesperson_id, group_by)
+                  group_by: str = 'salesperson', category_field: str = Query('', max_length=80),
+                  category_value: str = Query('', max_length=1000), service_type: str = Query('', max_length=30),
+                  handler_name: str = Query('', max_length=100), source_mode: str = 'combined', view: str = 'details',
+                  db=Depends(get_db), user=Depends(get_user)):
+    if view not in {'summary', 'details', 'detail'}:
+        raise HTTPException(422, '请选择导出统计表或来源明细')
+    result = _build_report(db, user, report, date_from, date_to, brand, salesperson_id, group_by,
+                           category_field, category_value, service_type, handler_name, source_mode)
     output = io.StringIO(newline='')
     writer = csv.writer(output)
-    columns = result['columns']
+    columns = result['summary_columns'] if view == 'summary' else result['columns']
     writer.writerow([column['label'] for column in columns])
-    for row in result['rows']:
+    rows = result['summary_rows'] + [result['grand_total']] if view == 'summary' else result['rows']
+    for row in rows:
         values = [row.get(column['key'], '') for column in columns]
         writer.writerow(["'" + value if isinstance(value, str) and value.lstrip().startswith(('=', '+', '-', '@'))
                          else value for value in values])

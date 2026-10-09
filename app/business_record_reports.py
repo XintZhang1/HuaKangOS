@@ -11,7 +11,7 @@ import re
 
 def _column(key, label, kind='money', unit=None):
     units = {'money': '元', 'count': '个', 'percent': '%', 'decimal': '', 'text': '', 'date': ''}
-    precision = {'money': 2, 'count': 0, 'percent': 2, 'decimal': 4, 'text': None, 'date': None}
+    precision = {'money': 2, 'count': 0, 'percent': 6, 'decimal': 6, 'text': None, 'date': None}
     return {'key': key, 'label': label, 'type': kind, 'unit': units[kind] if unit is None else unit,
             'precision': precision[kind]}
 
@@ -52,7 +52,7 @@ REPORT_CATALOG = [
 # intentionally absent: current records supply their own authorized dimensions.
 REPORT_CATALOG += [
     _manual('sales_targets', '实销与产值任务目标',
-            '系列|text;店内实销任务|count|台;机电产值任务;事故产值任务;售后产值任务合计', '截图78'),
+            '系列|text;店内实销任务|count|台;机电产值任务;事故产值任务;售后产值任务合计;实际销量|count|台;机电实际产值;事故实际产值;售后实际产值;实销完成率|percent;售后完成率|percent', '截图78'),
     _manual('trade_in', '置换收车与收益',
             '经办人|text;主责区域看车|count|台;主责收车|count|台;辅助收车|count|台;本店收车率|percent;综合收车率|percent;系统置换数|count|台;本店收车台次|count|台;超级置换|count|台;亲属置换|count|台;流失数|count|台;置换率|percent;店内收益', '截图79'),
     _manual('extended_warranty', '延保业务',
@@ -70,9 +70,9 @@ REPORT_CATALOG += [
     _manual('sales_overview', '销售板块与库存统计',
             '系列|text;实销任务|count|台;单日交付量|count|台;实销完成|count|台;销售任务完成率|percent;在库|count|台;在途|count|台;库存合计|count|台;现金车|count|台;可售试驾|count|台', '截图85'),
     _manual('insurance_resources', '保险资源数据',
-            '保险公司|text;新车保费;出单数量|count|单;实销|count|台;批发|count|台;保险渗透率|percent;全损数量|count|单;全损渗透率|percent;续保台次|count|台次;续保保费;定损到账;资源送修比|percent;总保费;保费占比|percent;当日定损金额', '截图86：按保险公司逐行填报'),
+            '保险公司|text;新车保费;出单数量|count|单;实销|count|台;批发|count|台;保险渗透率|percent;全损数量|count|单;全损渗透率|percent;续保台次|count|台次;续保保费;定损到账;资源送修比|percent;总保费;保费占比|percent;当日定损金额;保费溢出', '截图86：按保险公司逐行填报'),
     _manual('marketing', '集团月度营销汇总',
-            '新媒体投入;垂媒投入;各类投入;总投入;新媒体线索|count|条;垂媒线索|count|条;自然进店线索|count|条;系统下发线索|count|条;线索合计|count|条;新媒体转化率|percent;垂媒转化率|percent;自然进店转化率|percent;系统下发线索转化率|percent;综合转化率|percent;新媒体订单|count|单;垂媒订单|count|单;自然进店订单|count|单;系统下发线索订单|count|单;总订单数|count|单;线上实销数|count|台;新媒体成交成本;垂媒成交成本;综合成交成本;三方垂媒|count|单;懂车帝|count|单;汽车之家|count|单;易车网|count|单;线上平台|count|单;抖音|count|单;小红书|count|单;视频号|count|单;各类投放|count|单;线上广告|count|单;线下广告|count|单', '截图87'),
+            '新媒体投入;垂媒投入;各类投入;总投入;新媒体线索|count|条;垂媒线索|count|条;自然进店线索|count|条;系统下发线索|count|条;线索合计|count|条;新媒体转化率|percent;垂媒转化率|percent;自然进店转化率|percent;系统下发线索转化率|percent;综合转化率|percent;新媒体订单|count|单;垂媒订单|count|单;自然进店订单|count|单;系统下发线索订单|count|单;总订单数|count|单;线上实销数|count|台;新媒体成交成本;垂媒成交成本;综合成交成本;三方垂媒|count|单;懂车帝|count|单;汽车之家|count|单;易车网|count|单;线上平台|count|单;抖音|count|单;小红书|count|单;视频号|count|单;各类投放|count|单;线上广告|count|单;线下广告|count|单;快手|count|单', '截图87'),
     _manual('insurance_renewal', '续保业务',
             '保险公司|text;店内续保数量|count|单;店内续保保费;店外续保数量|count|单;店外续保保费;计划|count|单;现售|count|单;完成率|percent;总保费', '截图88'),
 ]
@@ -83,7 +83,7 @@ _VEHICLE = ('序号|count;台数|count|台;车系|text;车型|text;车架号|tex
             '分期服务费返佣;银行返佣;客户返佣;承保公司|text;商业险;新保返佣折扣|percent;保险返佣;'
             '全损收入;全损小产品;延保金额;延保返佣;二手车返佣;贴膜收入;精品成本（赠送）;调库拖车费;'
             '调车地点|text;选装金额;厂家折让;区补;核定单车利润;精品明细|text;补充列1|text;补充列2|text')
-_PROFIT = ('销量台数|count|台;总利润;收入;支出;单车毛利;营收项|text;营收项收入;营收项占比|percent;成本项|text;成本项支出')
+_PROFIT = ('销量台数|count|台;总利润;收入;支出;单车毛利;营收项|text;营收项收入;营收项占比|percent;成本项|text;成本项支出;业务类别|text')
 _MODEL_PROFIT = '车型|text;开票数量|count|台;车型综合毛利;平均车毛利;毛利贡献率|percent'
 _HAIL = ('序号|count;台数|count|台;车系|text;车型|text;车架号|text;单车利润2;开票日期|date;销售顾问|text;'
          '指导价;颜色（原表列名2暮云灰）|text;提车价;开票价;客户名称|text;地址|text;订单类型|text;库存天数|count|天;'
@@ -95,21 +95,23 @@ _SECONDARY = ('序号|count;台数|count|台;车系|text;车辆型号|text;车�
               '现金或三方|text;客户电话|text;上牌费;服务费;车辆售价;贷款金额;店端贴息;分期服务费返佣;银行返佣;'
               '承保公司|text;商业险;新保返佣折扣|percent;保险返佣;车小安;车小安返佣;延保金额;延保返佣;'
               '贴膜收入;精品成本（赠送）;调库拖车费;调车地点|text;选装;厂家折让;单车利润;精品明细|text')
+_CONFIRMED_FACTS = (';金融机构|text;金融类别|text;核实放款金额;保险统计保费;保险出单数量|count|单;'
+                    '延保合作公司|text;延保出单数量|count|单')
 REPORT_CATALOG += [
-    _manual('vehicle_details', '车辆明细统计', _VEHICLE, 'Excel：车辆明细', 'c45'),
-    _manual('hail_vehicle_details', '特殊车辆明细统计', _HAIL, 'Excel：冰雹车；指导价统一按元填写'),
+    _manual('vehicle_details', '车辆明细统计', _VEHICLE + _CONFIRMED_FACTS, 'Excel：车辆明细', 'c45'),
+    _manual('hail_vehicle_details', '特殊车辆明细统计', _HAIL + _CONFIRMED_FACTS, 'Excel：冰雹车；指导价统一按元填写'),
     _manual('accessory_details', '精品价格明细', '车系|text;车型|text;精品明细|text;价格;备注|text', 'Excel：明细'),
     _manual('sales_profit_statement', '销售利润统计表', _PROFIT, 'Excel：销售利润表', 'c02'),
-    _manual('secondary_vehicle_details', '二级交车明细统计', _SECONDARY, 'Excel：二级交车明细；指导价统一按元填写'),
+    _manual('secondary_vehicle_details', '二级交车明细统计', _SECONDARY + _CONFIRMED_FACTS, 'Excel：二级交车明细；指导价统一按元填写'),
     _manual('secondary_profit_statement', '二级销售利润统计表', _PROFIT, 'Excel：二级销售利润表', 'c02'),
     _manual('vehicle_policy', '车型利润体系人工记录',
             '车系|text;车型|text;建议零售价;提车价;厂家折让;广告支持折让;WES;精诚服务;9.21政策后;10.16后追加政策在库车型;11.1后追加政策在库车型;3.1至3.31追加政策;2026年2月26日至3月31日;2026年3月1日至3月31日;超级置换;折让合计未包含超级置换',
             'Excel：比亚迪车型利润体系一览表（2），仅人工统计，不形成车型基础资料依赖'),
     _manual('individual_profit', '个人毛利分析',
-            '销售部|text;数据分布|text;开票目标|count|台;累计开票|count|台;开票完成率|percent;月度单台毛利;月度总毛利;单车毛利;特殊单车毛利', 'Excel：个人毛利分析表', 'c07'),
+            '销售部|text;数据分布|text;开票目标|count|台;累计开票|count|台;开票完成率|percent;月度单台毛利;月度总毛利;正常车辆毛利合计;冰雹车毛利合计', 'Excel：个人毛利分析表', 'c07'),
     _manual('model_profit', '车型毛利结构', '业务类别|text;' + _MODEL_PROFIT, 'Excel：车型布局图；正常与冰雹车分别填写'),
     _manual('model_profit_sheet5', '车型毛利补充统计', _MODEL_PROFIT, 'Excel：Sheet5'),
-    _manual('vehicle_details_sheet2', '车辆补充明细统计', _SECONDARY.replace('上牌费;服务费;', '上牌费;上牌费返佣;服务费;'), 'Excel：Sheet2；指导价统一按元填写'),
+    _manual('vehicle_details_sheet2', '车辆补充明细统计', _SECONDARY.replace('上牌费;服务费;', '上牌费;上牌费返佣;服务费;') + _CONFIRMED_FACTS, 'Excel：Sheet2；指导价统一按元填写'),
     _manual('bank_commission', '银行返佣标准人工记录',
             '银行|text;分期期数|count|期;分期费率（对客户）|percent;返佣比例|percent;备注|text', 'Excel：银行返佣'),
     _manual('vehicle_policy_reference', '车型利润体系补充记录',
@@ -118,6 +120,8 @@ REPORT_CATALOG += [
 # These source sheets contain no nonempty cells, so there are no hidden metrics to
 # reproduce. Keeping this explicit avoids inventing forms for empty worksheets.
 EMPTY_SOURCE_SHEETS = ('Sheet1', 'Sheet4', '折让')
+from .business_record_report_specs import configure_catalog
+configure_catalog(REPORT_CATALOG)
 CATALOG_BY_KEY = {item['key']: item for item in REPORT_CATALOG}
 
 
@@ -177,129 +181,29 @@ def _period(value, start, end):
     return bool(value) and (not start or value >= str(start)) and (not end or value <= str(end))
 
 
-def project_report(report, records, *, group_by='salesperson', metric=None, updated_at=None):
-    """Pure projection; caller supplies only authorized, date-filtered facts."""
-    if group_by not in {'salesperson', 'store', 'brand', 'month'}:
-        raise ValueError('不支持的报表分组。')
+def project_report(report, records, *, group_by='salesperson', metric=None, updated_at=None,
+                   category_field='', category_value='', source_mode='combined', legacy_rows=None):
+    """Pure projection of authorized source rows; shared by JSON and export."""
+    from .business_record_report_generation import project
     definition = CATALOG_BY_KEY.get(report)
     if definition is None:
         raise ValueError('报表不存在。')
-    metric = metric or definition['default_metric']
-    fields = {x['key']: x for x in definition['metrics']}
-    if metric not in fields:
-        raise ValueError('请选择当前报表中的指标。')
-    selected = fields[metric]
-    rows = [dict(row) for row in records]
-    groups = defaultdict(list)
-    group_labels = {}
-    for row in rows:
-        label = {'salesperson': row.get('salesperson', '未指定销售'),
-                 'store': row.get('store', '未指定门店'), 'brand': row.get('brand') or '未填品牌',
-                 'month': str(row.get('period') or '')[:7] or '未填日期'}[group_by]
-        group_key = (group_by, row.get(group_by + '_id')) if group_by in {'salesperson', 'store'} else (group_by, label)
-        if group_by in {'salesperson', 'store'} and row.get(group_by + '_id') is not None:
-            label += ' (#' + str(row[group_by + '_id']) + ')'
-        if definition['source'] == 'manual':
-            categories = [str(row[column['key']]) for column in definition['columns']
-                          if column['type'] == 'text' and row.get(column['key']) is not None][:2]
-            label += ' · ' + ' / '.join(categories) if categories else ''
-            label += ' · ' + str(row.get('period', '')) + ' · #' + str(row.get('id', ''))
-            group_key = (*group_key, row.get('id'))
-        group_labels[group_key] = label
-        groups[group_key].append(row.get(metric if definition['source'] == 'manual' else 'value'))
-    series = []
-    for group_key, values in groups.items():
-        label = group_labels[group_key]
-        known = [Decimal(str(v)) for v in values if v is not None]
-        total = sum(known, Decimal(0)) if len(known) == len(values) else None
-        series.append({'label': label, 'value': float(total) if total is not None else None,
-                       'exact_value': format(total, 'f') if total is not None else None,
-                       'record_count': len(values), 'unknown_count': len(values) - len(known)})
-    if group_by == 'month':
-        series.sort(key=lambda item: item['label'])
-    else:
-        series.sort(key=lambda item: (item['value'] is None, -(item['value'] or 0), item['label']))
-    common = [_column('period', '统计日期', 'date'), _column('store', '门店', 'text'),
-              _column('brand', '品牌', 'text'), _column('salesperson', '销售/经办人', 'text')]
-    columns = common + (definition['columns'] if definition['source'] == 'manual' else [
-        _column('number', '合同号/记录号', 'text'), _column('customer_name', '客户', 'text'),
-        _column('value', selected['label'], selected['type'], selected['unit'])])
-    return {'report': report, 'metric': metric, 'title': definition['title'], 'metric_label': selected['label'],
-            'unit': selected['unit'], 'precision': selected['precision'], 'period_basis': definition['period_basis'],
-            'series': series, 'rows': rows, 'columns': columns, 'updated_at': updated_at,
-            'record_count': len(rows), 'notice': ('人工统计按每条记录展示，不跨日期累加库存、目标、比例或单价。'
-                                                 if definition['source'] == 'manual' else
-                                                 '未核定数据保留为空，不按零计算。')}
+    return project(definition, records, group_by=group_by,
+                   metric=metric or definition['default_metric'], updated_at=updated_at,
+                   category_field=category_field, category_value=category_value,
+                   source_mode=source_mode, legacy_rows=legacy_rows)
 
 
-def build_report(db, user, report, date_from=None, date_to=None, brand='', salesperson_id=None, group_by='salesperson'):
-    """Shared DB adapter for JSON and CSV; scopes remain owned by business_records."""
-    from sqlalchemy import select
-    from .business_records import visible_query
-    from .business_records_models import SalesContract, ContractReceipt, AfterSalesRecord, ManualReportRecord
-    from .models import User, Store
-    key, separator, metric = report.partition(':')
-    definition = CATALOG_BY_KEY.get(key)
-    if not definition:
-        raise ValueError('报表不存在。')
-    rows, updated = [], []
-    model = (ManualReportRecord if definition['source'] == 'manual' else
-             AfterSalesRecord if definition['source'] == 'after_sales' else SalesContract)
-    query = visible_query(user, model)
-    if model is ManualReportRecord:
-        query = query.where(model.report_key == key)
-    if brand:
-        query = query.where(model.brand == brand)
-    owner_field = model.owner_id if model is AfterSalesRecord else model.salesperson_id
-    if salesperson_id is not None:
-        query = query.where(owner_field == salesperson_id)
-    objects = list(db.scalars(query))
-    owner_ids = {getattr(item, 'salesperson_id', getattr(item, 'owner_id', None)) for item in objects}
-    store_ids = {item.store_id for item in objects}
-    names = {row.id: row.display_name for row in db.scalars(select(User).where(User.id.in_(owner_ids - {None})))}
-    stores = {row.id: row.name for row in db.scalars(select(Store).where(Store.id.in_(store_ids)))}
-    receipt_map = {}
-    if model is SalesContract and key != 'expected_receipts':
-        ids = [item.id for item in objects]
-        if ids:
-            receipt_map = {row.contract_id: row for row in db.scalars(
-                select(ContractReceipt).where(ContractReceipt.contract_id.in_(ids)))}
-    for item in objects:
-        owner = getattr(item, 'salesperson_id', getattr(item, 'owner_id', None))
-        row = {'id': item.id, 'store_id': item.store_id, 'salesperson_id': owner,
-               'store': stores.get(item.store_id, str(item.store_id)),
-               'brand': item.brand, 'salesperson': names.get(owner, '未指定销售'),
-               'number': getattr(item, 'number', str(item.id)), 'customer_name': getattr(item, 'customer_name', '')}
-        if model is ManualReportRecord:
-            period = item.period
-            row.update(item.values)
-        elif model is AfterSalesRecord:
-            period = item.business_date
-            row['value'] = (_money(item.materials_cents + item.labor_cents)
-                            if item.materials_cents is not None and item.labor_cents is not None else None)
-        elif key == 'expected_receipts':
-            if item.status != 'approved':
-                continue
-            period = item.contract_date
-            row['value'] = _money(item.expected_amount_cents)
-        else:
-            receipt = receipt_map.get(item.id)
-            if receipt is None:
-                continue
-            period = receipt.received_on
-            if key == 'actual_receipts':
-                row['value'] = _money(receipt.actual_amount_cents)
-            elif key == 'profit':
-                row['value'] = _money(item.profit_cents)
-            else:
-                # V2 binds one contract to one vehicle; no receipt can multiply it.
-                row['value'] = '1'
-        if not _period(period, date_from, date_to):
-            continue
-        row['period'] = str(_iso(period))[:10]
-        rows.append(row)
-        updated.append(_iso(item.updated_at))
-        if model is SalesContract and key != 'expected_receipts':
-            updated.append(_iso(receipt.created_at))
-    return project_report(key, rows, group_by=group_by, metric=metric if separator else None,
-                          updated_at=max((x for x in updated if x), default=None))
+def prefill_contract_values(report_key, contract, salesperson_name=''):
+    from .business_record_report_generation import prefill_contract_values as prefill
+    return prefill(report_key, contract, salesperson_name)
+
+
+def build_report(db, user, report, date_from=None, date_to=None, brand='', salesperson_id=None,
+                 group_by='salesperson', handler_name='', service_type='', category_field='',
+                 category_value='', source_mode='combined'):
+    from .business_record_report_generation import build
+    return build(db, user, report, date_from=date_from, date_to=date_to, brand=brand,
+                 salesperson_id=salesperson_id, group_by=group_by, handler_name=handler_name,
+                 service_type=service_type, category_field=category_field,
+                 category_value=category_value, source_mode=source_mode)

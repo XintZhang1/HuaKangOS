@@ -19,6 +19,8 @@ V2_FIELD_LABELS = {
     'materials_cents': '材料费（分）', 'labor_cents': '工时费（分）',
     'cost_cents': '内勤核定成本（分）', 'handler_name': '经办人', 'business_date': '记录日期',
     'customer_id': '客户档案编号', 'owner_id': '归属员工编号', 'key': '记录编号',
+    'source_mode': '数据来源', 'category_field': '分类字段', 'category_value': '分类值',
+    'include_history': '包括历史更正记录',
 }
 
 # Presentation metadata for the existing PDF/form keys, not a second write
@@ -70,9 +72,13 @@ OPERATION_INFO = {
     'POST /api/business-records/after-sales': ('填写售后业务记录',
         '准备维修、保养、事故维修、续保、延保、精品销售填单；人工确认保存时自动保存客户信息。', 'records-after-sales'),
     'GET /api/business-records/manual-reports': ('查询人工统计记录',
-        '按报表种类分页查看内勤人工填报的目标、完成率、收益、保险、金融与经营统计原记录。', 'records-manual'),
+        '按报表种类分页查看有效人工统计与合同补充；include_history查看更正前记录。', 'records-manual'),
+    'GET /api/business-records/manual-reports/{key}': ('查看统计补充及更正历史',
+        '查看当前员工可见的统计原值、关联合同及更正链；历史记录不作为当前业绩。', 'records-manual'),
+    'GET /api/business-records/report-prefill': ('查询合同统计预填资料',
+        '供获权内勤查询合同及核价可带出的明细字段；保存和更正仍需员工在统计页面办理。', 'records-manual'),
     'GET /api/business-records/reports': ('查询经营图表与排名',
-        '按日期、品牌、销售和分组查询应到账、实到账、销量、利润、售后产值或人工统计指标排名。', 'records-dashboard'),
+        '按日期、品牌、人员、原表分类和来源查询统计表及图表；售后按经办人及服务类别筛选。', 'records-dashboard'),
 }
 
 SYSTEM_PROMPT = '''你是华慷业务记录助手，帮助当前员工填写合同、查询业务记录和解释经营图表。
@@ -103,7 +109,14 @@ form_data内金额是元的字符串，购车数量字符串固定为1；不把�
 财务通过合同号人工核实并确认金额和实际到账日期；合同批准、已打印都不代表客户签字或到账。
 成本、赠品成本和利润由内勤人工核算；不能猜算利润，不把未知成本当零。
 应到账按审批通过合同的合同日期统计，实到账、销量和利润按财务记录的实际到账日期统计；两种期间不能混用。
-售后按记录日期统计。人工报表的比例、均价、目标与完成率按原记录解释，不跨行机械相加或擅自重新计算。
+售后按业务日期及实际经办人统计，owner_id是录入归属而非经办人业绩；筛选用handler_name及service_type。
+报表返回服务端生成的分组合计、总计及来源说明，按这些事实解读，不自行重新计算成本利润或平均比例。
+source_mode为combined合并来源、generated业务来源、manual人工统计；选定来源及期间必须说明，不能混称。
+分类用目录grouping_fields里的真实key传category_field；group_by=category按分类汇总，group表示当前获权范围合计。
+累计快照每月取最新，库存按时点；明确比率按分子分母生成，其余比例和单价不可机械相加。
+旧legacy数据只供历史追溯，不计当前成绩。新增更正替代旧统计，不能把原值和更正值加在一起。
+合同已有事实可带入内勤补充，未知银行放款、保险出单等仍须人工核实；不能用贷款约定当实际放款。
+统计补充、修订仍在页面由员工确认，不准备写入卡。助手报表只返回所选指标分组及全表总计，不附来源明细。
 只解释查询返回的数据，
 注明报表范围、日期口径及缺失数据；退订退款仅为记录，不自行构造业绩冲回。
 首页一次显示一个图表，可按权限筛选和查看明细；推荐员工打开已有固定页面，不能拼接任意URL。
@@ -119,7 +132,7 @@ GUIDES = (
     {'id': 'records-after-sales', 'title': '售后业务记录', 'route': 'records-after-sales',
      'description': '维修、保养、事故维修、续保、延保、精品销售直接填报，保存时自动保存客户信息，无派工领料流程。'},
     {'id': 'records-dashboard', 'title': '经营看板', 'route': 'records-dashboard',
-     'description': '选择一张报表和指标，按日期、门店、品牌、人员筛选，展开明细或导出。'},
+     'description': '选择一张原报表及指标，按日期、门店、品牌、人员、分类与来源筛选；生成统计表，切换排名、趋势、目标进度或来源明细并导出。'},
     {'id': 'records-customers', 'title': '客户信息', 'route': 'records-customers',
      'description': '查看客户基本资料及关联的合同、售后记录；填单自动建档，也可单独建档。不建立接待、分派和跟踪业务。'},
 )
