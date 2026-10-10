@@ -65,6 +65,8 @@ class FeedbackChecks:
         self.manifest, self.credentials = manifest, credentials
         self.origin = manifest['origin'].rstrip('/')
         self.clients, self.identities = {}, {}
+        self.extra_secrets = []
+        self.browser_api_requests = []
         self.active_page = None
         self.store = int(manifest['stores'][0]['id'])
         self.second_store = int(manifest['stores'][1]['id'])
@@ -85,6 +87,8 @@ class FeedbackChecks:
         result = str(value)
         for user in self.credentials['users'].values():
             result = result.replace(user['password'], '[REDACTED]')
+        for value in self.extra_secrets:
+            result = result.replace(value, '[REDACTED]')
         return result
 
     def save(self):
@@ -99,6 +103,9 @@ class FeedbackChecks:
         require(path.startswith('/api/') and '://' not in path and not path.startswith('//'),
                 'Requests must use a same-origin API path')
         client = self.clients[role]
+        if isinstance(payload, dict):
+            self.extra_secrets.extend(str(payload[key]) for key in ('password', 'current_password', 'new_password')
+                                      if payload.get(key))
         headers = {'X-App-Request': '1', 'X-Store-ID': str(store or self.store)}
         csrf = client.cookies.get('dealer_csrf')
         if csrf:
@@ -137,6 +144,9 @@ class FeedbackChecks:
                                  ('general_manager', 'general_manager', self.store),
                                  ('group_deputy_manager', 'group_deputy_manager', self.store),
                                  ('chairman', 'chairman', self.store),
+                                 ('store_admin', 'store_admin', self.store),
+                                 ('store_admin_peer', 'store_admin', self.store),
+                                 ('other_sales', 'sales', self.second_store),
                                  ('other_manager', 'manager', self.second_store)]:
             user = {'username': 'feedback_' + key[:14] + '_' + self.suffix,
                     'password': secrets.token_urlsafe(28)}
@@ -149,6 +159,7 @@ class FeedbackChecks:
         require(users['roles']['manager'] == '销售经理', 'Manager role label was not updated')
         require(users['roles']['clerk'] == '销售内勤', 'Clerk role label was not updated')
         require(users['roles']['group_deputy_manager'] == '集团副总经理', 'Independent deputy role missing')
+        require(users['roles']['store_admin'] == '门店管理员', 'Store administrator role label missing')
         self.check('original account API and Chinese role labels', transport='HTTP')
 
     def cache_integration(self):
@@ -172,13 +183,15 @@ class FeedbackChecks:
                     and asset.headers.get('content-security-policy'), 'Static revalidation/CSP guard is absent')
         self.check('real app dynamic HTML, release API, automatic asset hashes, ETag, CSP and cache headers', transport='HTTP')
 
-    def contract(self, *, sale_price=10000, creator='sales'):
+    def contract(self, *, sale_price=10000, creator='sales', store=None, marker=None):
         body = {'request_id': request_id(), 'customer_name': '合成反馈客户-' + self.suffix,
                 'customer_phone': '', 'brand': '合成品牌', 'model': '合成车型',
                 'vin': 'SYNTHETIC-' + uuid.uuid4().hex[:16], 'salesperson_id': self.identities['sales']['id'],
                 'contract_date': self.today, 'sale_price_cents': sale_price,
                 'gift_description': '合成赠送约定', 'form_data': {}}
-        row = self.api(creator, 'POST', '/api/business-records/contracts', body, expected=201)
+        if marker:
+            body.update(customer_name=marker, brand=marker, model=marker)
+        row = self.api(creator, 'POST', '/api/business-records/contracts', body, expected=201, store=store)
         require(row['workflow_version'] == 'trial-v30', 'New contracts must use the feedback workflow')
         return row, body
 
@@ -321,6 +334,7 @@ class FeedbackChecks:
         self.office_spec = catalog['reports'][0]
         fields = {item['label']: item['key'] for item in self.office_spec['columns']}
         self.profit_key, self.gift_key = fields['核定单车利润'], fields['精品成本（赠送）']
+        self.commission_key = fields['银行返佣']
         path = f'/api/business-records/contracts/{row["id"]}/office-review'
         body = {'request_id': request_id(), 'version': row['version'], 'report_key': 'vehicle_details',
                 'period': self.today, 'values': {}, 'expected_amount_cents': None,
@@ -333,7 +347,8 @@ class FeedbackChecks:
                        'profit_cents': 12345, 'values': {self.profit_key: '123.46'}}
         self.api('clerk', 'PUT', path, conflicting, expected=422)
         body.update(request_id=request_id(), version=row['version'], cost_cents=999,
-                    profit_cents=12345, gift_cost_cents=500, note='合成核定结果，不从成本自动反推')
+                    profit_cents=12345, gift_cost_cents=500,
+                    values={self.commission_key: '67.89'}, note='合成核定结果，不从成本自动反推')
         row = self.api('clerk', 'PUT', path, body)
         office = row['office_data']
         require(Decimal(office['values'][self.profit_key]) == Decimal('123.45')
@@ -344,19 +359,28 @@ class FeedbackChecks:
         row = self.action('clerk', row, 'office-submit')
         manager_view = self.api('general_manager', 'GET', f'/api/business-records/contracts/{row["id"]}')
         visible = manager_view['office_data']
-        require(visible['sensitive_fields_hidden'] is True and visible['values'],
-                'GM cannot inspect non-sensitive original-sheet details')
-        require(self.profit_key not in visible['values'] and self.gift_key not in visible['values'],
-                'Sensitive mirrored values leaked to GM')
-        require(not any(key in manager_view for key in ('cost_cents', 'profit_cents', 'gift_cost_cents')),
-                'Top financial fields leaked to GM')
+        require(visible['sensitive_fields_hidden'] is False,
+                'Authorized GM still receives a restricted office review')
+        require(visible['cost_cents'] == 999 and visible['profit_cents'] == 12345
+                and visible['gift_cost_cents'] == 500
+                and Decimal(visible['values'][self.commission_key]) == Decimal('67.89')
+                and Decimal(visible['values'][self.profit_key]) == Decimal('123.45')
+                and Decimal(visible['values'][self.gift_key]) == Decimal('5.00'),
+                'GM cannot see all exact nonzero cost, profit, gift and commission review values')
+        require(visible['note'] == body['note'], 'GM cannot see the submitted pricing explanation')
         row = self.action('general_manager', row, 'office-approve')
-        for role in ('clerk', 'chairman', 'admin'):
+        for role in ('clerk', 'chairman', 'admin', 'general_manager'):
             full = self.api(role, 'GET', f'/api/business-records/contracts/{row["id"]}')
             require(full['cost_cents'] == 999 and full['profit_cents'] == 12345
                     and full['gift_cost_cents'] == 500, role + ' lost full financial review values')
+        for role in ('sales', 'manager', 'finance', 'group_deputy_manager'):
+            restricted = self.api(role, 'GET', f'/api/business-records/contracts/{row["id"]}')
+            require(not any(key in restricted for key in ('cost_cents', 'profit_cents', 'gift_cost_cents')),
+                    role + ' incorrectly inherited the newly authorized GM financial access')
+            require(self.commission_key not in restricted.get('office_data', {}).get('values', {}),
+                    role + ' can see GM-only pricing commission details')
         self.approved = self.api('clerk', 'GET', f'/api/business-records/contracts/{row["id"]}')
-        self.check('unknown/manual amounts, mirrored fields, mismatch rejection and GM-sensitive-field separation',
+        self.check('unknown/manual amounts, mirrors, mismatch rejection, full GM pricing and unchanged lower-role restrictions',
                    transport='HTTP')
 
     async def native_login(self, browser, role):
@@ -370,6 +394,8 @@ class FeedbackChecks:
             else:
                 await request_route.continue_()
         await context.route('**/*', route)
+        context.on('request', lambda request: self.browser_api_requests.append(
+            (role, request.method, urlsplit(request.url).path)) if '/api/' in request.url else None)
         page = await context.new_page()
         self.active_page = page
         page.set_default_timeout(15000)
@@ -382,6 +408,339 @@ class FeedbackChecks:
         require((await pending.value).status == 200, role + ' native login failed')
         await page.locator('#main h1').wait_for()
         return context, page
+
+    def synthetic_invoice(self, role, row, store=None, expected=200):
+        from io import BytesIO
+        from reportlab.pdfgen.canvas import Canvas
+        document = BytesIO()
+        canvas = Canvas(document)
+        canvas.drawString(60, 760, 'SYNTHETIC INVOICE - ISOLATED PERMISSION CHECK')
+        canvas.drawString(60, 730, 'Contract ' + str(row['id']))
+        canvas.save()
+        content = document.getvalue()
+        client = self.clients[role]
+        response = client.post(f'/api/business-records/contracts/{row["id"]}/invoice',
+            headers={'X-App-Request': '1', 'X-Store-ID': str(store or self.store),
+                     'X-CSRF-Token': client.cookies.get('dealer_csrf')},
+            data={'request_id': request_id(), 'version': '0'},
+            files={'file': ('synthetic-invoice.pdf', content, 'application/pdf')})
+        require(response.status_code == expected, 'Synthetic invoice returned ' + str(response.status_code)
+                + ', expected ' + str(expected) + ': ' + self.redact(response.text))
+        return response.json(), content
+
+    def store_admin_checks(self):
+        role, prefix = 'store_admin', '/api/business-records'
+        foreign_marker = 'FOREIGN_ONLY_' + self.suffix
+        foreign, foreign_body = self.contract(store=self.second_store, marker=foreign_marker)
+        foreign = self.action('other_manager', foreign, 'manager-approve', extra=self.limits(), store=self.second_store)
+        foreign = self.action('admin', foreign, 'approve', store=self.second_store)
+        foreign_invoice, _ = self.synthetic_invoice('admin', foreign, self.second_store)
+        foreign_file = foreign_invoice['files'][0]['id']
+        manual = self.api('admin', 'POST', prefix + '/manual-reports', {
+            'request_id': request_id(), 'report_key': 'vehicle_details', 'period': self.today,
+            'brand': foreign_marker, 'entry_mode': 'snapshot', 'values': {'c03': foreign_marker, 'c45': '4321.98'},
+            'note': foreign_marker}, expected=201, store=self.second_store)
+        target_body = {'request_id': request_id(), 'month': self.today[:7], 'brand': foreign_marker,
+                      'series': foreign_marker, 'sales_units': 77, 'mechanical_cents': 87654321}
+        self.api('admin', 'POST', prefix + '/monthly-targets', target_body, expected=201, store=self.second_store)
+        service_body = {'request_id': request_id(), 'service_type': 'repair', 'customer_name': foreign_marker,
+                        'customer_phone': '', 'vehicle': foreign_marker, 'brand': foreign_marker,
+                        'service_items': foreign_marker, 'materials_cents': 123400, 'labor_cents': 5600,
+                        'cost_cents': 50000, 'handler_name': '合成二店经办人', 'business_date': self.today}
+        self.api('admin', 'POST', prefix + '/after-sales', service_body, expected=201, store=self.second_store)
+        own_invoice, own_pdf = self.synthetic_invoice('finance', self.approved)
+        own_file = own_invoice['files'][0]['id']
+        own_base = prefix + f'/contracts/{self.approved["id"]}'
+        own = self.api(role, 'GET', own_base)
+        require(own['cost_cents'] == 999 and own['profit_cents'] == 12345 and own['gift_cost_cents'] == 500,
+                'Store administrator lacks the authorized current-store pricing read')
+        require(Decimal(own['office_data']['values'][self.commission_key]) == Decimal('67.89'),
+                'Store administrator cannot read current-store commission details')
+        require(own['actions'] == ['print'], 'Read-only store administrator received a business-write action')
+        caps = self.api(role, 'GET', prefix + '/catalog')['capabilities']
+        require(caps['read_internal'] and caps['read_invoice'] and caps['read_finance'],
+                'Store administrator read capabilities are incomplete')
+        require(not any(value for name, value in caps.items() if not name.startswith('read_')),
+                'Store administrator received a business-write capability')
+        self.api(role, 'GET', own_base + '/invoice')
+        downloaded = self.response(role, 'GET', own_base + f'/invoice/files/{own_file}/download')
+        require(downloaded.content == own_pdf, 'Authorized invoice original bytes were changed')
+        self.api(role, 'GET', prefix + '/standard-prices')
+        self.api(role, 'GET', prefix + '/settings')
+        catalog = self.api(role, 'GET', prefix + '/catalog')
+        require(self.identities['other_sales']['id'] not in {person['id'] for person in catalog['sales_people']},
+                'Catalog exposed a salesperson assigned only to another store')
+        self.check('store administrator reads complete local records, pricing, reference prices and invoice originals', transport='HTTP')
+
+        for path in (prefix + f'/contracts/{foreign["id"]}', prefix + f'/customers/{foreign["customer_id"]}',
+                     prefix + f'/manual-reports/{manual["id"]}', prefix + f'/contracts/{foreign["id"]}/invoice',
+                     prefix + f'/contracts/{foreign["id"]}/invoice/files/{foreign_file}/download',
+                     own_base + f'/invoice/files/{foreign_file}/download'):
+            self.api(role, 'GET', path, expected=404)
+        for resource in ('contracts', 'after-sales'):
+            self.api(role, 'GET', prefix + '/' + resource + '?customer_id=' + str(foreign['customer_id']), expected=404)
+        for selected in (self.second_store, 'all'):
+            self.api(role, 'GET', prefix + '/contracts', expected=403, store=selected)
+        for path in (prefix + '/contracts?q=' + foreign_marker,
+                     prefix + '/customers?q=' + foreign_marker,
+                     prefix + '/after-sales?q=' + foreign_marker,
+                     prefix + '/manual-reports?report_key=vehicle_details',
+                     prefix + '/monthly-targets?month=' + self.today[:7],
+                     prefix + '/daily-vehicle-reports?day=' + self.today,
+                     prefix + '/daily-vehicle-reports/export?day=' + self.today,
+                     prefix + '/daily-reports?day=' + self.today,
+                     prefix + '/daily-reports/export?day=' + self.today,
+                     prefix + '/daily-reports/trend?day=' + self.today,
+                     prefix + '/daily-reports/trend/export?day=' + self.today):
+            path += ('&' if '?' in path else '?') + 'store_id=' + str(self.second_store)
+            response = self.response(role, 'GET', path)
+            require(foreign_marker not in response.text, 'Query parameter widened a store administrator read: ' + path)
+        report_query = f'report=vehicle_details&date_from={self.today[:7]}-01&date_to={self.today}&source_mode=manual&group_by=store&store_id={self.second_store}'
+        for path in (prefix + '/reports?' + report_query, prefix + '/reports/export?' + report_query):
+            response = self.response(role, 'GET', path)
+            require(foreign_marker not in response.text and '4321.98' not in response.text,
+                    'Cross-store source leaked through statistics or CSV')
+        self.api('general_manager', 'GET', prefix + f'/contracts/{foreign["id"]}', expected=404)
+        self.api('general_manager', 'GET', prefix + '/catalog', expected=403, store=self.second_store)
+        self.check('ID/header/query/store-summary, list/search/report/export and invoice-file tenancy boundaries', transport='HTTP')
+
+        for action, extra in [('manager-approve', self.limits()), ('approve', {}), ('deputy-approve', {}),
+                              ('reject', {}), ('office-submit', {}), ('office-approve', {}),
+                              ('receipt', {'actual_amount_cents': 1, 'received_on': self.today})]:
+            self.action(role, own, action, extra=extra, expected=403)
+        self.api(role, 'POST', prefix + '/contracts', {**foreign_body, 'request_id': request_id()}, expected=403)
+        self.api(role, 'POST', prefix + '/monthly-targets', {**target_body, 'request_id': request_id()}, expected=403)
+        self.api(role, 'POST', prefix + '/after-sales', {**service_body, 'request_id': request_id()}, expected=403)
+        self.api(role, 'POST', prefix + '/standard-prices/import', {
+            'request_id': request_id(), 'rows': [{'name': '合成禁止写价格', 'sale_price_cents': 1}]}, expected=403)
+        self.api(role, 'POST', prefix + '/standard-prices/estimate',
+                 {'items': [{'price_id': 1, 'quantity': 1}]}, expected=403)
+        self.api(role, 'GET', prefix + '/report-prefill?report_key=vehicle_details&contract_id='
+                 + str(own['id']), expected=403)
+        self.api(role, 'GET', prefix + '/daily-reports/preview', expected=403)
+        self.api(role, 'PUT', own_base + '/office-review', {'request_id': request_id(), 'version': own['version'],
+            'report_key': 'vehicle_details', 'values': {}, 'cost_cents': 1}, expected=403)
+        self.api(role, 'POST', own_base + '/invoice/recognize', {'request_id': request_id(),
+            'version': own_invoice['invoice']['version']}, expected=403)
+        self.api(role, 'POST', own_base + '/invoice/confirm', {'request_id': request_id(),
+            'version': own_invoice['invoice']['version'], 'fields': {}}, expected=403)
+        self.synthetic_invoice(role, own, expected=403)
+        for path in ('/api/settings', '/api/flow/catalog', '/api/flow/master/customers', '/api/flow/lookup/employee',
+                     '/api/business-assistant/status', '/api/business-assistant/tools', '/api/feedback',
+                     '/api/flow/files/1/security', '/api/records/vehicles'):
+            self.api(role, 'GET', path, expected=403)
+        self.api(role, 'POST', '/api/flow/files/1/scan', {'version': 0, 'request_id': request_id()}, expected=403)
+        self.api(role, 'POST', '/api/stores', {'code': 'FORBIDDEN', 'name': '合成禁止建店', 'active': True}, expected=403)
+        self.api(role, 'PUT', '/api/stores/' + str(self.store),
+                 {'code': 'FORBIDDEN', 'name': '合成禁止改店', 'active': True}, expected=403)
+        self.api(role, 'DELETE', '/api/branding/photo', {}, expected=403)
+        self.check('store administrator cannot submit business facts, approval, receipts, targets, AI or global configuration', transport='HTTP')
+        self.store_account_checks()
+
+    def store_account_checks(self):
+        role = 'store_admin'
+        listing = self.api(role, 'GET', '/api/users')
+        capability = listing['capabilities']
+        require(capability['scope'] == 'store' and capability['store_id'] == self.store
+                and set(capability['assignable_roles']) == {'sales', 'manager', 'clerk', 'finance'},
+                'Local account manager received incorrect role/store capabilities')
+        require({item['id'] for item in listing['stores']} == {self.store}, 'User form exposes unrelated stores')
+        hidden = {self.identities[name]['id'] for name in ('admin', 'sales', 'general_manager',
+            'group_deputy_manager', 'chairman', 'store_admin', 'store_admin_peer', 'other_manager')}
+        require(not hidden.intersection(item['id'] for item in listing['items']),
+                'Local account list exposes high-role, cross-store or own administrator accounts')
+        require(all(item['can_edit'] and item['can_reset_password'] and item['store_ids'] == [self.store]
+                    for item in listing['items']), 'Local employee projection is not confined to manageable accounts')
+
+        def new_user(**changes):
+            payload = {'username': 'local_' + uuid.uuid4().hex[:16], 'display_name': '合成本店员工',
+                       'password': secrets.token_urlsafe(28), 'role': 'sales', 'store_ids': [self.store],
+                       'store_roles': [{'store_id': self.store, 'role': 'sales'}], 'can_group_summary': False}
+            payload.update(changes)
+            return payload
+
+        account = self.api(role, 'POST', '/api/users', new_user(), expected=201)
+        require(account['store_ids'] == [self.store] and account['role'] == 'sales', 'Local employee creation changed scope')
+        for higher in ('admin', 'store_admin', 'general_manager', 'chairman', 'group_deputy_manager'):
+            self.api(role, 'POST', '/api/users', new_user(role=higher,
+                store_roles=[{'store_id': self.store, 'role': higher}] if higher != 'admin' else []), expected=403)
+        self.api(role, 'POST', '/api/users', new_user(store_ids=[self.second_store],
+            store_roles=[{'store_id': self.second_store, 'role': 'sales'}]), expected=403)
+        self.api(role, 'POST', '/api/users', new_user(can_group_summary=True), expected=403)
+        inactive_store = self.api('admin', 'POST', '/api/stores', {
+            'code': 'INACTIVE_' + self.suffix, 'name': '合成停用店', 'active': False}, expected=201)
+        peer = next(item for item in self.api('admin', 'GET', '/api/users')['items']
+                    if item['id'] == self.identities['store_admin_peer']['id'])
+        invalid_admin_changes = ({'can_group_summary': True},
+                        {'store_ids': [self.store, self.second_store], 'store_roles': [
+                            {'store_id': self.store, 'role': 'store_admin'},
+                            {'store_id': self.second_store, 'role': 'store_admin'}]},
+                        {'store_ids': [self.store, inactive_store['id']], 'store_roles': [
+                            {'store_id': self.store, 'role': 'store_admin'},
+                            {'store_id': inactive_store['id'], 'role': 'store_admin'}]},
+                        {'store_roles': [{'store_id': self.store, 'role': 'sales'}]},
+                        {'role': 'sales', 'store_roles': [{'store_id': self.store, 'role': 'store_admin'}]})
+        for changes in invalid_admin_changes:
+            candidate = new_user(role='store_admin', store_roles=[{'store_id': self.store, 'role': 'store_admin'}])
+            candidate.update(changes)
+            self.api('admin', 'POST', '/api/users', candidate, expected=422)
+            self.api('admin', 'PUT', '/api/users/' + str(peer['id']), {
+                'request_id': request_id(), 'access_version': peer['access_version'],
+                'role': 'store_admin', 'display_name': '合成无效门店管理员', 'active': True,
+                'store_ids': [self.store], 'store_roles': [{'store_id': self.store, 'role': 'store_admin'}],
+                'can_group_summary': False, **changes}, expected=422)
+        update = {'request_id': request_id(), 'access_version': account['access_version'],
+                  'role': 'clerk', 'display_name': '合成本店账号维护', 'active': True,
+                  'store_ids': [self.store], 'store_roles': [{'store_id': self.store, 'role': 'clerk'}],
+                  'can_group_summary': False}
+        account = self.api(role, 'PUT', '/api/users/' + str(account['id']), update)
+        replay = self.api(role, 'PUT', '/api/users/' + str(account['id']), update)
+        require(replay == account, 'Local account replay did not preserve exact committed result')
+        self.api(role, 'PUT', '/api/users/' + str(account['id']),
+                 {**update, 'display_name': '合成重放不同内容'}, expected=409)
+        self.api(role, 'PUT', '/api/users/' + str(account['id']), {**update, 'request_id': request_id()}, expected=409)
+        current = {**update, 'request_id': request_id(), 'access_version': account['access_version']}
+        for changes in ({'role': 'admin', 'store_roles': []}, {'can_group_summary': True},
+                        {'store_ids': [self.store, self.second_store], 'store_roles': [
+                            {'store_id': self.store, 'role': 'clerk'}, {'store_id': self.second_store, 'role': 'clerk'}]}):
+            self.api(role, 'PUT', '/api/users/' + str(account['id']), {**current, **changes}, expected=403)
+        for ident in hidden:
+            self.api(role, 'PUT', '/api/users/' + str(ident), {**current, 'request_id': request_id()}, expected=404)
+            self.api(role, 'POST', f'/api/users/{ident}/password',
+                     {'password': secrets.token_urlsafe(28), 'reason': '合成越权拒绝'}, expected=404)
+        self.api(role, 'POST', f'/api/users/{account["id"]}/password',
+                 {'password': secrets.token_urlsafe(28), 'reason': '合成本店员工密码重置'})
+        for active in (False, True):
+            account = self.api(role, 'PUT', '/api/users/' + str(account['id']), {
+                **update, 'request_id': request_id(), 'access_version': account['access_version'], 'active': active})
+            require(account['active'] is active, 'Local account activation did not persist')
+        batch_password = secrets.token_urlsafe(28)
+        allowed_name, forbidden_name = 'batch_' + uuid.uuid4().hex[:16], 'batch_' + uuid.uuid4().hex[:16]
+        batch = {'store_id': self.store, 'password': batch_password, 'rows': [
+            {'username': allowed_name, 'display_name': '合成普通员工', 'role': 'sales'},
+            {'username': forbidden_name, 'display_name': '合成禁止提权', 'role': 'admin'}]}
+        self.api(role, 'POST', '/api/users/batch', batch, expected=403)
+        names = {item['username'] for item in self.api('admin', 'GET', '/api/users')['items']}
+        require(allowed_name not in names and forbidden_name not in names, 'Rejected batch partially created users')
+        batch['rows'] = batch['rows'][:1]
+        self.api(role, 'POST', '/api/users/batch', {**batch, 'store_id': self.second_store}, expected=403)
+        accepted = self.api(role, 'POST', '/api/users/batch', batch, expected=201)
+        require(accepted['count'] == 1 and accepted['created'][0]['store_ids'] == [self.store],
+                'Authorized local batch escaped its current store')
+        audit = self.api(role, 'GET', '/api/audit')
+        require(audit['items'] and all(item['store_id'] == self.store for item in audit['items']),
+                'Local audit contains unrelated store/global events')
+        require(all(item['entity_type'].startswith('record_') or item['entity_type'] == 'store_account'
+                    for item in audit['items']), 'Local audit exposed unrestricted account/global event payloads')
+        self.check('local employee create/edit/reset/batch works; high-role/cross-store grants and global audit are denied', transport='HTTP')
+        self.invalid_store_admin_checks()
+
+    def invalid_store_admin_checks(self):
+        ident = self.identities['store_admin_peer']['id']
+        mutations = [('extra_store', 'INSERT INTO user_stores (user_id, store_id, role) VALUES (?, ?, ?)',
+                      (ident, self.second_store, 'store_admin')),
+                     ('mixed_role', 'UPDATE user_stores SET role=? WHERE user_id=?', ('sales', ident)),
+                     ('summary', 'UPDATE users SET can_group_summary=1 WHERE id=?', (ident,))]
+        for name, sql, values in mutations:
+            try:
+                with sqlite3.connect(self.manifest['database_path']) as db:
+                    # Simulate a pre-existing malformed row only in this marked
+                    # synthetic fixture; current schema independently forbids it.
+                    if name == 'summary':
+                        db.execute('PRAGMA ignore_check_constraints=ON')
+                    db.execute(sql, values)
+                self.api('store_admin_peer', 'GET', '/api/auth/me', expected=403)
+                self.api('store_admin_peer', 'GET', '/api/users', expected=403)
+            finally:
+                with sqlite3.connect(self.manifest['database_path']) as db:
+                    db.execute('DELETE FROM user_stores WHERE user_id=? AND store_id=?', (ident, self.second_store))
+                    db.execute('UPDATE user_stores SET role=? WHERE user_id=?', ('store_admin', ident))
+                    db.execute('UPDATE users SET can_group_summary=0 WHERE id=?', (ident,))
+            self.report['fixture_mutations'].append({'kind': 'synthetic_invalid_store_admin_' + name,
+                'restored': True, 'user_id': ident})
+        self.api('store_admin_peer', 'GET', '/api/auth/me')
+        self.check('invalid historical multi-store/mixed-role/group-summary store administrators fail closed', transport='HTTP')
+
+    async def native_store_admin(self, browser):
+        context, page = await self.native_login(browser, 'store_admin')
+        await expect(page.locator('#store')).to_have_count(0)
+        await page.goto(self.origin + '/#records-sales/' + str(self.approved['id']))
+        office = page.locator('.br-office-panel')
+        for text in ('9.99', '123.45', '5.00', '银行返佣', '67.89'):
+            await expect(office).to_contain_text(text)
+        for action in ('office_edit', 'office_submit', 'office_approve', 'approve', 'manager_approve', 'deputy_approve'):
+            await expect(page.locator('[data-action=' + action + ']')).to_have_count(0)
+        await expect(page.locator('[data-record-invoice=download]')).to_have_count(1)
+        for action in ('upload', 'recognize', 'edit'):
+            await expect(page.locator('[data-record-invoice=' + action + ']')).to_have_count(0)
+        await self.screenshot(page, 'store-admin-read-only-pricing-invoice')
+        await page.goto(self.origin + '/#users')
+        await expect(page.locator('#main h1')).to_have_text('本店员工账号')
+        await expect(page.locator('#main')).not_to_contain_text(self.credentials['users']['store_admin_peer']['username'])
+        await page.locator('[data-act=newuser]').click()
+        options = await page.locator('#modal [name=role] option').evaluate_all(
+            '(rows)=>rows.map(row=>row.value).filter(Boolean)')
+        require(set(options) == {'sales', 'manager', 'clerk', 'finance'}, 'Native local user dialog exposed higher roles')
+        require(await page.locator('#modal [name=role]').get_attribute('required') is not None,
+                'Native local user dialog allowed the empty role placeholder')
+        await expect(page.locator('#modal [name=role]')).to_have_value('sales')
+        await expect(page.locator('#modal [name=can_group_summary]')).to_have_count(0)
+        await expect(page.locator('#modal [name=store_ids]')).to_have_count(0)
+        username, password = 'native_' + uuid.uuid4().hex[:16], secrets.token_urlsafe(28)
+        self.extra_secrets.append(password)
+        for name, value in {'username': username, 'password': password, 'display_name': '合成本店页面员工'}.items():
+            await page.locator('#modal [name=' + name + ']').fill(value)
+        await self.screenshot(page, 'store-admin-local-account-form')
+        created = await self.submit_form(page, '/api/users')
+        require(created['store_ids'] == [self.store] and created['role'] == 'sales', 'Native user form escaped local scope')
+        await page.locator('[data-act=edituser][data-id="' + str(created['id']) + '"]').click()
+        await page.locator('#modal [name=role]').select_option('finance')
+        edited = await self.submit_form(page, '/api/users/' + str(created['id']))
+        require(edited['role'] == 'finance' and edited['store_ids'] == [self.store], 'Native employee role edit failed')
+        await self.screenshot(page, 'store-admin-local-account-list')
+        await page.locator('[data-act=batchusers]').click()
+        await expect(page.locator('#modal [name=store_id]')).to_be_disabled()
+        await expect(page.locator('#modal [name=store_id] option')).to_have_count(1)
+        await page.locator('#modal [name=rows]').fill('合成越权｜native_forbidden_' + self.suffix + '｜总经理')
+        await expect(page.locator('#staff-batch-preview')).to_contain_text('不在可分配范围')
+        await expect(page.locator('#modal button[type=submit]')).to_be_disabled()
+        await self.screenshot(page, 'store-admin-batch-high-role-rejected')
+        await page.locator('#modal').get_by_role('button', name='取消', exact=True).click()
+        await page.goto(self.origin + '/#stores')
+        await expect(page.locator('#main')).to_contain_text('没有门店设置权限')
+        require(not any(role == 'store_admin' and path.startswith('/api/business-assistant/')
+                        for role, method, path in self.browser_api_requests),
+                'Store administrator page started an unauthorized AI request')
+        await context.close()
+        context, page = await self.native_login(browser, 'admin')
+        await page.goto(self.origin + '/#users')
+        await expect(page.locator('#main h1')).to_have_text('员工账号')
+        for key in ('general_manager', 'other_manager', 'store_admin'):
+            await expect(page.locator('#main')).to_contain_text(self.credentials['users'][key]['username'])
+        await page.locator('[data-act=newuser]').click()
+        await page.locator('#modal [name=role]').select_option('store_admin')
+        await expect(page.locator('#modal [name=can_group_summary]')).to_be_disabled()
+        await expect(page.locator('#modal [name=can_group_summary]')).not_to_be_checked()
+        for ident in (self.store, self.second_store):
+            await page.locator('#modal [name=store_ids][value="' + str(ident) + '"]').check()
+            await expect(page.locator('#modal [name=store_role_' + str(ident) + ']')).to_be_disabled()
+            await expect(page.locator('#modal [name=store_role_' + str(ident) + ']')).to_have_value('store_admin')
+        await expect(page.locator('#modal [name=store_ids]:checked')).to_have_count(1)
+        await expect(page.locator('#modal [name=store_ids][value="' + str(self.second_store) + '"]')).to_be_checked()
+        password = secrets.token_urlsafe(28)
+        self.extra_secrets.append(password)
+        for name, value in {'username': 'native_admin_' + uuid.uuid4().hex[:12], 'password': password,
+                            'display_name': '合成新门店管理员'}.items():
+            await page.locator('#modal [name=' + name + ']').fill(value)
+        await self.screenshot(page, 'global-admin-create-independent-store-admin')
+        created = await self.submit_form(page, '/api/users')
+        require(created['role'] == 'store_admin' and created['store_ids'] == [self.second_store]
+                and created['can_group_summary'] is False
+                and created['store_roles'][0]['role'] == 'store_admin',
+                'Global administrator form did not create the independent single-store role')
+        await context.close()
+        self.check('native store administrator reads pricing/invoice and manages fixed-store employees with no business/AI privileges',
+                   transport='native Chromium')
 
     async def screenshot(self, page, name, full_page=True):
         path = self.directory / (name + '.png')
@@ -478,6 +837,20 @@ class FeedbackChecks:
             try:
                 await self.native_approval(browser)
                 await self.native_monthly(browser)
+                await self.native_store_admin(browser)
+                context, page = await self.native_login(browser, 'general_manager')
+                await page.goto(self.origin + '/#records-sales/' + str(self.approved['id']))
+                office = page.locator('.br-office-panel')
+                for text in (self.office_spec['title'], '此车销售总成本', '9.99', '此车销售利润',
+                             '123.45', '赠品成本', '5.00', '银行返佣', '67.89'):
+                    await expect(office).to_contain_text(text)
+                await expect(office).not_to_contain_text('成本、利润、返佣及核价备注不在本页展示')
+                await self.screenshot(page, 'gm-full-nonzero-pricing')
+                await office.get_by_text('此车销售总成本', exact=True).first.scroll_into_view_if_needed()
+                await self.screenshot(page, 'gm-cost-profit-gift-nonzero', full_page=False)
+                await office.get_by_role('cell', name='银行返佣（元）', exact=True).first.scroll_into_view_if_needed()
+                await self.screenshot(page, 'gm-bank-commission-nonzero', full_page=False)
+                await context.close()
                 context, page = await self.native_login(browser, 'clerk')
                 await page.goto(self.origin + '/#records-sales/' + str(self.approved['id']))
                 await page.locator('[data-action=office_edit]').click()
@@ -511,8 +884,9 @@ class FeedbackChecks:
                 await page.goto(self.origin + '/#records-sales/' + str(self.approved['id']))
                 await page.locator('#main h1').wait_for()
                 await expect(page.locator('#main')).to_contain_text(self.office_spec['title'])
-                await expect(page.locator('#main')).to_contain_text('权限')
-                await self.screenshot(page, 'gm-nonsensitive-original-sheet')
+                await expect(page.locator('.br-office-panel')).to_contain_text('银行返佣')
+                await expect(page.locator('.br-office-panel')).to_contain_text('67.89')
+                await self.screenshot(page, 'gm-full-original-sheet')
                 await page.locator('[data-action=office_approve]').click()
                 await self.submit_form(page,
                     f'/api/business-records/contracts/{self.approved["id"]}/office-approve')
@@ -520,7 +894,7 @@ class FeedbackChecks:
                 require(all(latest[name] is None for name in ('cost_cents', 'profit_cents', 'gift_cost_cents')),
                         'Approval restored prior amounts after an explicit null correction')
                 await context.close()
-                self.check('native clerk mirror/explanation, explicit-null revision/reopen/approval, GM readable sheet title',
+                self.check('native full GM pricing, clerk mirrors and explicit-null revision/reopen/approval',
                            transport='native Chromium')
                 require(not self.report['page_errors'], 'Browser JavaScript errors occurred')
                 require(not self.report['external_requests'], 'Browser attempted non-loopback requests')
@@ -539,6 +913,7 @@ class FeedbackChecks:
             self.legacy_checks()
             self.office_checks()
             self.monthly_checks()
+            self.store_admin_checks()
             asyncio.run(self.native_checks())
             self.report.update(complete=True, passed=True)
         except Exception as error:

@@ -25,9 +25,11 @@ from .business_records_schemas import (ContractInput, ContractUpdate, Action, Pr
 router = APIRouter(prefix='/api/business-records', tags=['业务记录'])
 MANAGERS = {'admin', 'manager', 'general_manager'}
 GROUP_MANAGERS = {'admin', 'general_manager'}
-READERS = MANAGERS | {'sales', 'clerk', 'finance', 'chairman', 'group_deputy_manager'}
+READERS = MANAGERS | {'sales', 'clerk', 'finance', 'chairman', 'group_deputy_manager', 'store_admin'}
 TRIAL_WORKFLOWS = {'trial-v29', 'trial-v30'}
-SENSITIVE_ROLES = {'admin', 'clerk', 'chairman'}
+# Financial reads follow the effective role of the already selected store.
+# This does not grant pricing writes, additional stores or self-approval.
+SENSITIVE_ROLES = {'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'}
 INTERNAL_READERS = SENSITIVE_ROLES
 CAPABILITY_ROLES = {
     'create_sales': {'admin', 'sales'},
@@ -71,7 +73,13 @@ def require_read(user):
 
 def capabilities(user):
     writable = not getattr(user, '_aggregate_scope', False)
-    return {key: writable and user.role in roles for key, roles in CAPABILITY_ROLES.items()}
+    result = {key: writable and user.role in roles for key, roles in CAPABILITY_ROLES.items()}
+    # Reading finance/invoices must not imply receipt confirmation or uploads.
+    # Keep invoice reads local, matching the invoice API's existing scope.
+    result['read_invoice'] = writable and user.role in {'admin', 'finance', 'clerk', 'chairman', 'store_admin'}
+    result['read_finance'] = (bool(_group_ids(user)) if not writable else
+                            user.role in {'admin', 'finance', 'clerk', 'manager', 'general_manager', 'chairman', 'store_admin'})
+    return result
 
 
 def require_capability(user, key):
@@ -272,7 +280,7 @@ def _contract_data(db, user, row):
     from .business_record_office_view import office_review_view
     for field in ('office_data', 'office_approved_data'):
         source = getattr(row, field)
-        if source and (user.role in SENSITIVE_ROLES or user.role == 'general_manager'):
+        if source and user.role in SENSITIVE_ROLES:
             data[field] = office_review_view(source, user.role in SENSITIVE_ROLES)
     data['actions'] = actions
     return data

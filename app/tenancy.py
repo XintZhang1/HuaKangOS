@@ -67,7 +67,13 @@ def attach_scope(request, db, user):
     ids = [s.id for s in stores]
     roles = {s.id: role_for_store(db, user, s.id) for s in stores}
     group_ids = [sid for sid in ids if roles[sid] in SUMMARY_ROLES]
-    can_summary = account_role(user) == 'admin' or bool(user.can_group_summary)
+    memberships = list(db.scalars(select(UserStore).where(UserStore.user_id == user.id)))
+    store_admin = account_role(user) == 'store_admin' or any(m.role == 'store_admin' for m in memberships)
+    can_summary = not store_admin and (account_role(user) == 'admin' or bool(user.can_group_summary))
+    if store_admin:
+        if (account_role(user) != 'store_admin' or user.can_group_summary or len(memberships) != 1
+                or len(ids) != 1 or memberships[0].role != 'store_admin'):
+            raise HTTPException(403, '门店管理员须有唯一在用门店和一致岗位，请联系系统管理员核对')
     if requested == 'all':
         if not can_summary or not group_ids:
             raise HTTPException(403, '账号未获集团汇总权限，或没有可汇总的管理岗位门店')

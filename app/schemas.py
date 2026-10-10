@@ -19,8 +19,8 @@ def money(value):
 
 Money = Annotated[Decimal, BeforeValidator(money), Field(ge=0)]
 PositiveMoney = Annotated[Decimal, BeforeValidator(money), Field(gt=0)]
-Role = Literal['admin', 'manager', 'sales', 'inventory', 'service', 'finance', 'auditor', 'reception', 'technician', 'customer_service', 'clerk', 'general_manager', 'chairman', 'group_deputy_manager']
-StoreRole = Literal['manager', 'sales', 'inventory', 'service', 'finance', 'auditor', 'reception', 'technician', 'customer_service', 'clerk', 'general_manager', 'chairman', 'group_deputy_manager']
+Role = Literal['admin', 'manager', 'sales', 'inventory', 'service', 'finance', 'auditor', 'reception', 'technician', 'customer_service', 'clerk', 'general_manager', 'chairman', 'group_deputy_manager', 'store_admin']
+StoreRole = Literal['manager', 'sales', 'inventory', 'service', 'finance', 'auditor', 'reception', 'technician', 'customer_service', 'clerk', 'general_manager', 'chairman', 'group_deputy_manager', 'store_admin']
 
 
 class Strict(BaseModel):

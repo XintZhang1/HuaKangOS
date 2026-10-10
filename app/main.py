@@ -32,6 +32,7 @@ from .reports import generate_report
 from .scheduler import ReportScheduler
 from .tenancy import accessible_stores, single_store, attach_scope
 from .user_access_service import change_access
+from . import store_administration as store_admin_service
 import os
 from typing import get_args
 
@@ -263,28 +264,54 @@ def admin(user):
     if getattr(user, 'account_role', user.role) != 'admin': raise HTTPException(403,'仅系统管理员可以管理账号')
 
 
+def account_administrator(user):
+    if not store_admin_service.is_store_admin(user):
+        admin(user)
+
+
 def record_account_roles(body):
     from .security import RECORD_ACCOUNT_ROLES
+    store_admin_service.validate_role_assignment(body)
     if body.role not in RECORD_ACCOUNT_ROLES or any(x.role not in RECORD_ACCOUNT_ROLES for x in body.store_roles or []):
         raise HTTPException(422, '新账号及门店岗位请使用当前业务岗位：销售、销售经理、销售内勤、收银、总经理、集团副总经理或董事长')
 
 
 @app.get('/api/users')
 def users(db=Depends(get_db),user=Depends(get_user)):
-    admin(user)
-    return {'items':[account_info(db,u) for u in db.scalars(select(User).order_by(User.id))],'roles':ROLES,
-            'stores':[plain(s) for s in db.scalars(select(Store).order_by(Store.id))]}
+    account_administrator(user)
+    scoped = store_admin_service.is_store_admin(user)
+    if scoped:
+        store_id = single_store(db)
+        query = store_admin_service.manageable_query(user).order_by(User.id)
+        store_rows = list(db.scalars(select(Store).where(Store.id == store_id)))
+        role_labels = {key: ROLES[key] for key in sorted(store_admin_service.STAFF_ROLES)}
+    else:
+        query = select(User).order_by(User.id)
+        store_rows = list(db.scalars(select(Store).order_by(Store.id)))
+        role_labels = ROLES
+    from .security import RECORD_ACCOUNT_ROLES
+    items = [dict(account_info(db, target), can_edit=True, can_reset_password=target.id != user.id)
+             for target in db.scalars(query)]
+    return {'items': items, 'roles': role_labels, 'stores': [plain(row) for row in store_rows],
+            'capabilities': store_admin_service.capabilities(user, RECORD_ACCOUNT_ROLES)}
 
 
 @app.post('/api/users',status_code=201)
 def add_user(body: UserInput,db=Depends(get_write_db),user=Depends(get_user)):
-    admin(user)
+    account_administrator(user)
+    scoped = store_admin_service.is_store_admin(user)
+    if scoped:
+        store_id = store_admin_service.revalidate_actor(db, user)
+        store_admin_service.validate_staff_payload(body, store_id, create=True)
     record_account_roles(body)
     new = User(username=body.username.lower(),display_name=body.display_name,role=body.role,
                password_hash=hash_password(body.password),must_change_password=True,can_group_summary=body.can_group_summary)
     db.add(new); db.flush()
     assign_stores(db, new, body.store_ids or None, body.store_roles)
-    audit(db,user.id,'create_user','users',new.id,after=account_info(db,new))
+    if scoped:
+        store_admin_service.account_event(db, user, 'create_user', new)
+    else:
+        audit(db,user.id,'create_user','users',new.id,after=account_info(db,new))
     db.commit()
     return account_info(db,new)
 
@@ -302,12 +329,15 @@ def add_users_batch(body: BatchUserInput,db=Depends(get_write_db),user=Depends(g
     "first login must change password". System administrator accounts are excluded on
     purpose and still go through the single form.
     """
-    admin(user)
+    account_administrator(user)
+    scoped = store_admin_service.is_store_admin(user)
+    if scoped and body.store_id != store_admin_service.revalidate_actor(db, user):
+        raise HTTPException(403, '只能为当前门店批量建立普通员工账号')
     store = db.get(Store,body.store_id)
     if not store or not store.active:
         raise HTTPException(422,'指定门店不存在或已停用，请刷新门店列表后重试')
     from .security import RECORD_ACCOUNT_ROLES
-    allowed = RECORD_ACCOUNT_ROLES - {'admin'}
+    allowed = store_admin_service.STAFF_ROLES if scoped else RECORD_ACCOUNT_ROLES - {'admin'}
     prepared,seen = [],set()
     for number,row in enumerate(body.rows,start=1):
         username = row.username.strip().lower()
@@ -321,6 +351,8 @@ def add_users_batch(body: BatchUserInput,db=Depends(get_write_db),user=Depends(g
             batch_row_error(number,'员工姓名不能为空')
         role = row.role.strip()
         if role not in allowed:
+            if scoped:
+                raise HTTPException(403, '门店管理员批量创建仅允许本店普通员工岗位；本次未创建任何账号')
             batch_row_error(number,'岗位“%s”不能批量建立；系统管理员账号请用“新增员工”单独建立' % row.role)
         prepared.append((username,display_name,role))
     taken = set(db.scalars(select(User.username).where(User.username.in_(list(seen)))))
@@ -334,7 +366,10 @@ def add_users_batch(body: BatchUserInput,db=Depends(get_write_db),user=Depends(g
                        can_group_summary=False)
         db.add(account); db.flush()
         assign_stores(db,account,[store.id],[StoreRoleInput(store_id=store.id,role=role)])
-        audit(db,user.id,'create_user','users',account.id,after=account_info(db,account))
+        if scoped:
+            store_admin_service.account_event(db, user, 'create_user', account)
+        else:
+            audit(db,user.id,'create_user','users',account.id,after=account_info(db,account))
         created.append(account_info(db,account))
     db.commit()
     return {'created':created,'count':len(created),'store':{'id':store.id,'name':store.name}}
@@ -342,24 +377,28 @@ def add_users_batch(body: BatchUserInput,db=Depends(get_write_db),user=Depends(g
 
 @app.put('/api/users/{user_id}')
 def edit_user(user_id: int,body: UserUpdate,db=Depends(get_write_db),user=Depends(get_user)):
-    admin(user)
+    account_administrator(user)
     return change_access(db,user,user_id,body,account_info,assign_stores)
 
 
 @app.post('/api/users/{user_id}/password')
 def reset_password(user_id: int,body: ResetPasswordInput,db=Depends(get_write_db),user=Depends(get_user)):
-    admin(user)
-    target = db.get(User,user_id)
+    account_administrator(user)
+    scoped = store_admin_service.is_store_admin(user)
+    target = store_admin_service.lock_target(db, user, user_id) if scoped else db.get(User,user_id)
     if not target: raise HTTPException(404,'用户不存在')
     if target.id == user.id: raise HTTPException(409,'请使用“修改我的密码”')
     target.password_hash = hash_password(body.password)
     target.must_change_password = True
     db.execute(delete(LoginSession).where(LoginSession.user_id==target.id))
-    audit(db,user.id,'reset_password','users',target.id,reason=body.reason)
+    if scoped:
+        store_admin_service.account_event(db, user, 'reset_password', target, reason=body.reason)
+    else:
+        audit(db,user.id,'reset_password','users',target.id,reason=body.reason)
     if settings.assistant_runtime_enabled:
         from .assistant_runtime_access_signals import emit_user_security_changed
         record = next(row for row in db.new if type(row) is AuditLog and row.actor_id == user.id
-            and row.action == 'reset_password' and row.entity_type == 'users' and row.entity_id == target.id)
+            and row.action == 'reset_password' and row.entity_type == ('store_account' if scoped else 'users') and row.entity_id == target.id)
         emit_user_security_changed(db, record)
     db.commit(); return {'ok':True}
 
@@ -552,18 +591,33 @@ def review(finding_id:int,body:ReviewInput,db=Depends(get_db),user=Depends(get_u
 
 @app.get('/api/audit')
 def audit_list(page:int=Query(1,ge=1),entity_type:str='',entity_id:int|None=None,db=Depends(get_db),user=Depends(get_user)):
-    if user.role not in {'admin','manager','auditor'}: raise HTTPException(403,'没有查看全店审计日志的权限')
+    scoped = store_admin_service.is_store_admin(user)
+    if not scoped and user.role not in {'admin','manager','auditor'}:
+        raise HTTPException(403,'没有查看全店审计日志的权限')
     stmt = select(AuditLog)
-    if user.role != 'admin': stmt = stmt.where(AuditLog.entity_type.notin_(['users','stores','feedback','maintenance']))
-    # Record-domain audit payloads retain costs and invoice originals' metadata.
-    # Operational state reminders use their separate, field-filtered endpoint.
-    if user.role != 'admin': stmt = stmt.where(~AuditLog.entity_type.like('record_%'))
+    if scoped:
+        stmt = stmt.where(AuditLog.store_id == single_store(db),
+            or_(AuditLog.entity_type.startswith('record_', autoescape=True), AuditLog.entity_type == 'store_account'))
+    elif user.role != 'admin':
+        stmt = stmt.where(AuditLog.entity_type.notin_(['users','stores','feedback','maintenance','store_account']),
+                          ~AuditLog.entity_type.like('record_%'))
+    entity_types = sorted(set(db.scalars(stmt.with_only_columns(AuditLog.entity_type).distinct())))
+    if scoped and 'store_account' not in entity_types:
+        entity_types.append('store_account')
     if entity_type: stmt = stmt.where(AuditLog.entity_type==entity_type)
     if entity_id is not None: stmt = stmt.where(AuditLog.entity_id==entity_id)
     total = db.scalar(select(func.count()).select_from(stmt.subquery()))
     rows = list(db.scalars(stmt.order_by(AuditLog.id.desc()).offset((page-1)*30).limit(30)))
-    labels = {u.id:u.display_name for u in db.scalars(select(User))}
-    return {'items':[dict(plain(row),actor_name=labels.get(row.actor_id,'系统')) for row in rows],'total':total,'page':page}
+    labels = {u.id:u.display_name for u in db.scalars(select(User).where(User.id.in_({r.actor_id for r in rows})))}
+    items = []
+    for row in rows:
+        value = dict(plain(row), actor_name=labels.get(row.actor_id, '系统'))
+        if scoped and row.entity_type == 'store_account':
+            allowed = {'id','username','display_name','role','active','access_version','store_id','store_ids','can_group_summary'}
+            for field in ('before_data', 'after_data'):
+                value[field] = {key: val for key, val in (value[field] or {}).items() if key in allowed}
+        items.append(value)
+    return {'items':items,'total':total,'page':page,'entity_types':entity_types}
 
 
 @app.get('/api/settings')
@@ -606,14 +660,18 @@ def assign_stores(db, target, ids, store_roles=None):
     if ids and db.scalar(select(func.count()).select_from(Store).where(Store.id.in_(ids),Store.active.is_(True))) != len(ids):
         raise HTTPException(422, '指定门店不存在或已停用')
     db.execute(delete(UserStore).where(UserStore.user_id==target.id))
-    db.add_all([UserStore(user_id=target.id,store_id=i,role=explicit[i] if explicit is not None else existing.get(i)) for i in ids])
+    db.add_all([UserStore(user_id=target.id,store_id=i,role=explicit[i] if explicit is not None else ('store_admin' if target.role == 'store_admin' else existing.get(i))) for i in ids])
     db.flush()
 
 
 @app.get('/api/stores')
 def stores(db=Depends(get_db),user=Depends(get_user)):
-    rows = list(db.scalars(select(Store).order_by(Store.id))) if getattr(user,'account_role',user.role)=='admin' else accessible_stores(db,user)
-    return {'items':[plain(row) for row in rows], 'active_store_id':db.info.get('write_store')}
+    if store_admin_service.is_store_admin(user):
+        rows = list(db.scalars(select(Store).where(Store.id == single_store(db))))
+    else:
+        rows = list(db.scalars(select(Store).order_by(Store.id))) if getattr(user,'account_role',user.role)=='admin' else accessible_stores(db,user)
+    return {'items':[plain(row) for row in rows], 'active_store_id':db.info.get('write_store'),
+            'can_manage': getattr(user, 'account_role', user.role) == 'admin'}
 
 
 @app.post('/api/stores',status_code=201)

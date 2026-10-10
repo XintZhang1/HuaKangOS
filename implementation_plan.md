@@ -2,10 +2,12 @@
 
 ## V2.10 客户试用反馈候选（2026-10-10）
 
-- 状态：`implemented_and_validated`，仅 draft 候选，未发布。以阿里云已核对发布基准 `436f913c8b34eb96e6257a2c7d4bc442661f958a` 完成月度目标、条件审批及独立集团副总经理岗位、业务名称、核价帮助/总经理明细和版本缓存修复。
+- 追加状态：`implemented_and_validated`。业主明确总经理在原授权门店内查看完整核价（成本、利润、赠品及返佣）；新增独立门店管理员，读本店记录/导出并维护本店独占普通员工账号，后端禁止跨店、全局管理、提权和代办业务。继续同一 draft PR #17，详 [追加权限补丁](docs/implementation-patches/PATCH-STORE-ADMIN-20261010.md)及[新候选检查点](docs/implementation-checkpoints/V2.10-store-admin-20261010.md)。
+- 当前候选：685 个产品文件指纹 `296117cfddae55daf999b010e886aa60a157cb2ddaeed44a89eefdc7001caec1`；主流程 20/20 组（16 HTTP、4 原生 Chromium）、专项 29/29、缓存 3/3、运维 28 Python + 3 Node 均通过。GM四项非零金额和单店权限通过，页面异常/外网/真实模型调用为0。专项、缓存、运维复用同685文件且各自测试输入等值的第二候选结果；完整主流程为第五候选，失败及主动停止记录保留。只具备 draft 交付条件，不代表生产发布或原全量验收。
+- 首轮状态：`implemented_and_validated`，仅 draft 候选，未发布。以阿里云已核对发布基准 `436f913c8b34eb96e6257a2c7d4bc442661f958a` 完成月度目标、条件审批及独立集团副总经理岗位、业务名称、核价帮助/总经理明细和版本缓存修复。
 - 本轮授权仅分支与 draft PR，不合并、不部署、不修改线上业务数据。历史发布授权不适用于本轮。
-- 精确范围、成本字段源码结论、待验清单见 [反馈补丁](docs/implementation-patches/PATCH-CUSTOMER-FEEDBACK-20261010.md)。原成本利润人工口径和敏感权限不改；旧迁移只追加，未知不当零。
-- 最终冻结源码指纹 `2638b0d83fb1031e6e3979082c9e38080d91adf81f83dc2da32ed223ac23e75a`，683 个运行文件与仓库逐字节一致。外部合成候选主流程 14/14 组（11 HTTP、3 原生 Chromium）、专项 15/15（审批迁移 3、目标 12）、缓存 3/3 组、运维 28 Python + 3 Node 通过；浏览器错误、外网请求及真实模型调用均为 0，服务正常停止。未跑项目不计通过，详 [V2.10 检查点](docs/implementation-checkpoints/V2.10-customer-feedback-20261010.md)。GitHub draft PR 和对应 CI 以远端实际状态为准。
+- 首轮范围、成本字段源码结论见 [反馈补丁](docs/implementation-patches/PATCH-CUSTOMER-FEEDBACK-20261010.md)。成本利润人工口径保持；敏感权限按上述追加授权更新，旧迁移只追加，未知不当零。
+- 首轮历史源码指纹 `2638b0d83fb1031e6e3979082c9e38080d91adf81f83dc2da32ed223ac23e75a`，683 个运行文件与仓库逐字节一致。外部合成候选主流程 14/14 组（11 HTTP、3 原生 Chromium）、专项 15/15（审批迁移 3、目标 12）、缓存 3/3 组、运维 28 Python + 3 Node 通过；浏览器错误、外网请求及真实模型调用均为 0，服务正常停止。未跑项目不计通过，详 [首轮 V2.10 检查点](docs/implementation-checkpoints/V2.10-customer-feedback-20261010.md)。GitHub draft PR 和对应 CI 以远端实际状态为准。
 
 ## V2.9 员工试用流程与内勤日报（2026-10-09）
 

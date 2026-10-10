@@ -1,9 +1,10 @@
-"""Render office review data without granting access to a whole cost report.
+"""Render office review data with authorized original-sheet column metadata.
 
-The general manager reviews the public business fields of a contract. Its
-original sheet may also contain costs, so that sheet is intentionally absent
-from their report catalog. Return the authorized column metadata with the
-contract instead of making the UI depend on that inaccessible catalog.
+The caller first enforces the contract's store scope and financial-read role.
+General managers and store administrators can read the complete valuation
+within their existing authorized stores. Return column metadata so the UI does
+not depend on a separately loaded report catalog. Restricted projections keep
+their sensitive-field filter for callers without financial-read access.
 """
 
 import re
