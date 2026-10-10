@@ -92,13 +92,14 @@ async function businessAssistantRequest(path,{method='GET',body}={}){
  current.controllers.add(controller);
  if(method!=='GET'){headers['X-CSRF-Token']=csrf();if(!multipart)headers['Content-Type']='application/json';}
  const check=()=>{requireStoreContext(version,method);if(current!==businessAssistantState||context!==businessAssistantContext())throw Object.assign(new Error('门店或账号已切换。'),{staleContext:true});};
+ const finish=window.huakangAppVersion?.beginRequest(method);
  try{
-  const response=await fetch('/api/business-assistant'+path,{method,credentials:'same-origin',headers,signal:controller.signal,body:method==='GET'||body===undefined?undefined:multipart?body:JSON.stringify(body||{})});
+  const response=await fetch('/api/business-assistant'+path,{method,cache:'no-store',credentials:'same-origin',headers,signal:controller.signal,body:method==='GET'||body===undefined?undefined:multipart?body:JSON.stringify(body||{})});
   check();let value;try{value=await response.json();}catch(error){if(error.name==='AbortError')throw error;throw new Error('暂时无法读取结果，请刷新对话。');}check();
   if(!response.ok){if(response.status===401){state.user=null;loginPage();}throw Object.assign(new Error(typeof value.detail==='string'?value.detail:'操作未完成，请检查填写内容。'),{status:response.status});}
   return value;
  }catch(error){check();if(error.name==='AbortError')throw error;if(error instanceof TypeError)throw new Error('连接中断，请刷新对话核对结果。已填写的内容会保留。');throw error;}
- finally{current.controllers.delete(controller);}
+ finally{current.controllers.delete(controller);finish?.();}
 }
 function businessAssistantStoreName(){return state.stores.find(item=>String(item.id)===String(state.store))?.name||'当前门店';}
 // Decode UTF-8 before framing SSE: a network chunk may split a Chinese character,
@@ -116,8 +117,9 @@ async function businessAssistantStreamRequest(path,body,onEvent){
  if(state.storeSwitch||!state.user||state.store==='all')throw new Error('请先选择门店。');
  const check=()=>{requireStoreContext(version,'POST');if(!businessAssistantAlive(current,generation)||context!==businessAssistantContext())throw Object.assign(new Error('门店或账号已切换。'),{staleContext:true});if(controller.signal.aborted)throw new DOMException('Stopped','AbortError');};
  current.controllers.add(controller);let result=null,problem='';
+ const finish=window.huakangAppVersion?.beginRequest('POST');
  try{
-  const response=await fetch('/api/business-assistant'+path,{method:'POST',credentials:'same-origin',headers:{'X-App-Request':'1','X-Store-ID':String(state.store),'X-CSRF-Token':csrf(),'Content-Type':'application/json','Accept':'text/event-stream'},signal:controller.signal,body:JSON.stringify(body)});check();
+  const response=await fetch('/api/business-assistant'+path,{method:'POST',cache:'no-store',credentials:'same-origin',headers:{'X-App-Request':'1','X-Store-ID':String(state.store),'X-CSRF-Token':csrf(),'Content-Type':'application/json','Accept':'text/event-stream'},signal:controller.signal,body:JSON.stringify(body)});check();
   if(!response.ok){let value;try{value=await response.json();}catch{}check();if(response.status===401){state.user=null;loginPage();}throw Object.assign(new Error(typeof value?.detail==='string'?value.detail:'发送未完成，请刷新对话后重试。'),{status:response.status});}
   if(!response.headers.get('content-type')?.includes('text/event-stream')||!response.body?.getReader)throw new Error('暂时无法读取回复，请刷新对话核对结果。');
   await businessAssistantReadEvents(response.body.getReader(),(kind,value)=>{
@@ -133,7 +135,7 @@ async function businessAssistantStreamRequest(path,body,onEvent){
   if(problem)throw Object.assign(new Error(problem),{assistantSession:result});
   return result;
  }catch(error){if(error.name==='AbortError'||error.staleContext)throw error;if(error instanceof TypeError)throw new Error('连接中断，请刷新对话核对结果。已填写的内容会保留。');throw error;}
- finally{current.controllers.delete(controller);}
+ finally{current.controllers.delete(controller);finish?.();}
 }
 function businessAssistantReconcileRequest(){
  const current=businessAssistantState,last=current.session?.last_request,retry=current.retry;

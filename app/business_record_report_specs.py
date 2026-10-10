@@ -12,6 +12,7 @@ CONTRACT_REPORTS = frozenset(VEHICLE_REPORTS | {'sales_targets', 'sales_overview
     'model_profit', 'model_profit_sheet5', 'bank_finance', 'insurance_resources',
     'insurance_settlement', 'extended_warranty'})
 AFTER_SALES_REPORTS = frozenset({'after_sales_monthly', 'after_sales_targets', 'sales_targets'})
+TARGET_FIELDS = frozenset({'c02', 'c03', 'c04', 'c05'})
 
 SENSITIVE_REPORT_ROLES = frozenset({'admin', 'clerk', 'chairman'})
 SENSITIVE_REPORT_TERMS = ('成本', '毛利', '利润', '返佣', '返利', '收益', '净利', '提车价', '折让', '贴息', '支出')
@@ -174,6 +175,9 @@ def configure_catalog(catalog):
             else:
                 rules[name] = {'kind': 'sum'}
         report['aggregation_rules'] = rules
+        if key == 'sales_targets':
+            report['input_notice'] = ('月度目标由管理者按门店、月份、品牌和系列下达；未知或不适用不按零计算。'
+                '按系列比较时，仅使用已确认同系列的实绩，缺少系列的业务不会自动分配。')
         if key in SHARED_FIELDS:
             names = [column['label'] for column in report['columns'] if column['key'] in SHARED_FIELDS[key]]
             report['input_notice'] = ('、'.join(names) + '是门店、品牌、月份的共享数据；同范围在多个机构行重复填写时须一致，仅计一次；冲突留空并提示核对。')

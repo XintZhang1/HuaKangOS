@@ -49,8 +49,8 @@ function clearBusinessViews(){
 function rememberStore(){try{if(state.user&&state.store)sessionStorage.setItem('huakangos.active-store',JSON.stringify({user_id:state.user.id,store:String(state.store)}));}catch(_){/* Storage is optional; API authorization remains authoritative. */}}
 function forgetStore(){try{sessionStorage.removeItem('huakangos.active-store');}catch(_){}}
 function savedStore(user){try{const value=JSON.parse(sessionStorage.getItem('huakangos.active-store')||'null');if(value?.user_id!==user.id)return null;return value.store==='all'&&user.can_group_summary||user.stores?.some(s=>String(s.id)===value.store)?value.store:null;}catch(_){return null;}}
-const roleNames={admin:'系统管理员',clerk:'内勤',general_manager:'总经理',chairman:'董事长',manager:'门店销售经理',sales:'销售',inventory:'库管',service:'服务顾问',finance:'收银 / 财务',auditor:'审计',reception:'前台接待',technician:'维修技师',customer_service:'客服'};
-const recordAccountRoles=['sales','manager','clerk','finance','general_manager','chairman','admin'];
+const roleNames={admin:'系统管理员',clerk:'销售内勤',general_manager:'总经理',chairman:'董事长',group_deputy_manager:'集团副总经理',manager:'销售经理',sales:'销售',inventory:'库管',service:'服务顾问',finance:'收银 / 财务',auditor:'审计',reception:'前台接待',technician:'维修技师',customer_service:'客服'};
+const recordAccountRoles=['sales','manager','clerk','finance','general_manager','group_deputy_manager','chairman','admin'];
 const labels={transfer_reserved:'调拨占用',purchase_return:'采购退车占用',draft:'草稿',submitted:'待审核',approved:'已审核',rejected:'已退回',void:'已作废',available:'可售',reserved:'已预订',sold:'已交车',inactive:'未生效',ordered:'待交车',delivered:'已交车',open:'待处理',done:'已完成',cancelled:'已取消',completed:'已完成',bank:'银行账户',cash:'现金账户',wechat:'微信',alipay:'支付宝',other:'其他',in:'收入',out:'支出',none:'不关联',success:'摘要已生成',not_requested:'规则汇总',failed:'摘要未生成',disabled:'仅本地汇总',pending:'处理中',unconfigured:'未配置摘要服务',reviewing:'复核中',confirmed:'确认问题',dismissed:'正常',resolved:'已处理',high:'优先复核',medium:'建议复核',low:'提醒'};
 const legacyNames={vehicles:'整车库存',sales:'原有销售单',repairs:'原有维修单',policies:'原有保险单',cash:'财务流水'};
 const categories={sale_collection:'原销售单收款',repair_collection:'原维修单收款',premium_collection:'保费代收',commission:'佣金收款',vehicle_purchase:'车辆采购付款',operating_expense:'经营支出',refund:'原业务单退款',capital:'出资或撤资',loan:'借款或还款',transfer:'内部转账',group_member_topup:'集团会员本金充值',group_member_refund:'集团会员本金退款'};
@@ -113,12 +113,16 @@ const csrf=()=>document.cookie.split('; ').find(x=>x.startsWith('dealer_csrf='))
 let toastTimer,renderId=0,storeContextVersion=0;
 function requireStoreContext(version,method='GET'){if(version!==storeContextVersion){const error=new Error(method==='GET'?'门店或账号已切换，请在当前门店重新读取。':'门店或账号已切换。原门店的操作可能已提交，请回原门店核对办理结果，勿重复提交。');error.staleContext=true;error.staleMutation=method!=='GET';throw error;}}
 function toast(text,error=false){const t=$('#toast');t.textContent=text;t.className='visible'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className='',6000);}
-async function api(path,{method='GET',body,raw=false,store=state.store,storeRequest=false}={}){
+async function api(path,options={}){
+ const finish=window.huakangAppVersion?.beginRequest(options.method||'GET');
+ try{return await apiRequest(path,options);}finally{finish?.();}
+}
+async function apiRequest(path,{method='GET',body,raw=false,store=state.store,storeRequest=false}={}){
  const version=storeContextVersion;
  if(state.storeSwitch&&!storeRequest&&!path.includes('/auth/logout'))throw new Error('正在切换门店，请稍后再办理。');
  const h={'X-App-Request':'1'};if(store!==null&&!path.includes('/auth/login'))h['X-Store-ID']=String(store);
  if(method!=='GET'){h['X-CSRF-Token']=csrf();if(!(body instanceof FormData))h['Content-Type']='application/json';}
- let r;try{r=await fetch(path,{method,credentials:'same-origin',headers:h,body:method==='GET'?undefined:body instanceof FormData?body:JSON.stringify(body||{})});}catch{requireStoreContext(version,method);const error=new Error(method==='GET'?'未连接到服务，请稍后重新读取。':'连接中断，尚不能确认本次办理结果。请保留当前表单和请求编号，先核对原单，勿另建重复操作。');error.unknownResult=method!=='GET';throw error;}
+ let r;try{r=await fetch(path,{method,cache:'no-store',credentials:'same-origin',headers:h,body:method==='GET'?undefined:body instanceof FormData?body:JSON.stringify(body||{})});}catch{requireStoreContext(version,method);const error=new Error(method==='GET'?'未连接到服务，请稍后重新读取。':'连接中断，尚不能确认本次办理结果。请保留当前表单和请求编号，先核对原单，勿另建重复操作。');error.unknownResult=method!=='GET';throw error;}
  requireStoreContext(version,method);
  if(!r.ok){let obj;try{obj=await r.json();}catch{obj={detail:'操作未成功，请刷新后核对。'};}
   requireStoreContext(version,method);
@@ -212,7 +216,7 @@ async function loadAssistantFeatures(options={}){
 async function bootDefaultRoute(){await loadAssistantFeatures();return assistantDefaultRoute();}
 // Old bookmarks cannot reopen retired modules or load their catalogues.
 function normalizeAppRoute(route){
- return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|manual|settings)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:'records-dashboard';
+ return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly|targets))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|manual|settings)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:'records-dashboard';
 }
 function currentAppRoute(){
  const route=normalizeAppRoute(location.hash.slice(1));

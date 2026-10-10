@@ -46,6 +46,14 @@ class Action(Command):
     note: str = Field(default='', max_length=2000)
 
 
+class ManagerApproval(Action):
+    # Required for v30 by the route; optional here keeps historical v29 commands valid.
+    minimum_sale_price_cents: Money | None = None
+    gift_limit_cents: Money | None = None
+    offered_gift_value_cents: Money | None = None
+    approval_basis: str | None = Field(default=None, min_length=1, max_length=2000)
+
+
 class PriceReview(Action):
     expected_amount_cents: Money
     cost_cents: Money

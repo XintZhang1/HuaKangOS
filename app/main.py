@@ -8,7 +8,6 @@ import re
 from pathlib import Path
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, Query
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -18,6 +17,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from pydantic import ValidationError
 from .config import settings, ROOT
 from .branding import PRODUCT_TITLE
+from .web_release import WebRelease, ReleaseStaticFiles
 from .db import engine, get_db, get_write_db, today, utcnow, get_audited_read_db
 from .models import Store, UserStore, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
 from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, BatchUserInput, StoreRoleInput, StoreRole
@@ -25,6 +25,7 @@ from .security import get_user, authenticate, set_session, clear_cookies, revoke
 from .business_records import router as business_records_router
 from .business_record_invoices import router as business_record_invoices_router
 from .business_record_periods import router as business_record_periods_router
+from .business_record_targets import router as business_record_targets_router
 from .services import serialize, plain, audit, readable_query, get_record, create_record, update_record, act_record, check_version
 from .analytics import dashboard, source_revision, build_snapshot, external_payload, rules_config
 from .reports import generate_report
@@ -96,6 +97,7 @@ app.add_middleware(TrustedHostMiddleware,allowed_hosts=list(settings.allowed_hos
 app.include_router(business_records_router)
 app.include_router(business_record_invoices_router)
 app.include_router(business_record_periods_router)
+app.include_router(business_record_targets_router)
 
 
 @app.middleware('http')
@@ -264,7 +266,7 @@ def admin(user):
 def record_account_roles(body):
     from .security import RECORD_ACCOUNT_ROLES
     if body.role not in RECORD_ACCOUNT_ROLES or any(x.role not in RECORD_ACCOUNT_ROLES for x in body.store_roles or []):
-        raise HTTPException(422, '新账号及门店岗位请使用当前业务岗位：销售、门店销售经理、内勤、收银、总经理或董事长')
+        raise HTTPException(422, '新账号及门店岗位请使用当前业务岗位：销售、销售经理、销售内勤、收银、总经理、集团副总经理或董事长')
 
 
 @app.get('/api/users')
@@ -699,10 +701,18 @@ app.include_router(service_intake_router)
 
 
 @app.get('/',include_in_schema=False)
-def home(): return FileResponse(ROOT/'web'/'index.html')
+def home(): return web_release.home()
 
 
-app.mount('/static',StaticFiles(directory=ROOT/'web'),name='static')
+web_release = WebRelease(ROOT)
+
+
+@app.get('/api/app-version', include_in_schema=False)
+def app_version():
+    return {'version': web_release.version}
+
+
+app.mount('/static',ReleaseStaticFiles(web_release),name='static')
 
 from .opening_import_api import router as opening_import_router
 app.include_router(opening_import_router)
