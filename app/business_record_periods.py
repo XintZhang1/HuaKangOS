@@ -25,7 +25,7 @@ from .business_records_schemas import Command
 from .business_record_period_models import RecordDailyReport
 from .tenancy import single_store
 
-router = APIRouter(prefix='/api/business-records', tags=['内勤每日维护'])
+router = APIRouter(prefix='/api/business-records', tags=['销售内勤每日维护'])
 
 
 class ConfirmDailyReport(Command):
@@ -38,13 +38,14 @@ class ConfirmDailyReport(Command):
 UPDATE_ACTIONS = {
     'record_create': '销售预填合同',
     'record_edit': '销售更新预填合同',
-    'record_manager_approve': '门店销售经理审批通过',
-    'record_approve': '总经理合同审批通过，可打印',
+    'record_manager_approve': '销售经理审批通过',
+    'record_approve': '总经理合同审批通过',
+    'record_deputy_approve': '集团副总经理合同审批通过，可打印',
     'record_reject': '合同审批退回',
-    'record_office_save': '内勤资料已更新',
-    'record_office_submit': '内勤资料提交审批',
-    'record_office_approve': '内勤附带信息审批通过',
-    'record_office_reject': '内勤附带信息审批退回',
+    'record_office_save': '销售内勤资料已更新',
+    'record_office_submit': '销售内勤资料提交审批',
+    'record_office_approve': '销售内勤附带信息审批通过',
+    'record_office_reject': '销售内勤附带信息审批退回',
     'record_receipt': '收银确认实际到账',
     'record_invoice_upload': '发票已上传',
     'record_invoice_confirm': '发票信息已核实',
@@ -83,7 +84,7 @@ def report_periods(db=Depends(get_db), user=Depends(get_user)):
         periods.add((store, str(day)[:7]))
     return {'items': [{'store_id': store, 'month': month} for store, month in sorted(
         periods, key=lambda pair: (pair[1], pair[0]), reverse=True)], 'can_publish': False,
-        'mode': 'live', 'notice': '内勤更新表格后自动统计所选月份，可随时查询历史月份。'}
+        'mode': 'live', 'notice': '销售内勤更新表格后自动统计所选月份，可随时查询历史月份。'}
 
 
 def _day_window(day):
@@ -144,12 +145,12 @@ def build_daily_vehicle_updates(db, user, day):
     columns = [{'key': key, 'label': label, 'type': 'text', 'unit': '', 'precision': None} for key, label in (
         ('number', '合同号'), ('store', '门店'), ('salesperson', '销售'), ('customer_name', '客户'),
         ('brand', '品牌'), ('model', '车型'), ('vin', '车架号'), ('status_label', '当前合同状态'),
-        ('office_status_label', '当前内勤状态'), ('last_changed_at', '最后更新时间'),
+        ('office_status_label', '当前销售内勤状态'), ('last_changed_at', '最后更新时间'),
         ('change_count', '当日更新次数'), ('change_summary', '当日发生的更新'))]
     return {'day': day.isoformat(), 'status': 'updates', 'title': '当日车辆更新', 'rows': result,
         'pending_rows': [], 'columns': columns,
         'counts': {'changed_vehicles': len(result), 'changes': sum(row['change_count'] for row in result)},
-        'notice': '按当天实际发生的合同、审批、内勤资料及收银更新提醒逐台列示，不按合同日期或内勤统计日期筛选。内勤仍需自行维护、整理每日汇总报表；本清单不表示日报已完成。'}
+        'notice': '按当天实际发生的合同、审批、销售内勤资料及收银更新提醒逐台列示，不按合同日期或销售内勤统计日期筛选。销售内勤仍需自行维护、整理每日汇总报表；本清单不表示日报已完成。'}
 
 
 def daily_query(day: date | None = None, db=Depends(get_db), user=Depends(get_user)):
@@ -178,7 +179,7 @@ def _require_confirm(user):
     from .business_records import require_read
     require_read(user)
     if getattr(user, '_aggregate_scope', False) or user.role not in {'clerk', 'admin'}:
-        raise HTTPException(403, '请由当前门店内勤预览核对后确认日报')
+        raise HTTPException(403, '请由当前门店销售内勤预览核对后确认日报')
 
 
 def _daily_report_query(user):
@@ -264,9 +265,9 @@ def _render_daily(db, user, day, report, snapshots, *, brand='', salesperson_id=
     status = 'unconfirmed' if not snapshots else 'partial' if missing else 'confirmed'
     result['publication'] = {'status': status, 'day': str(day), 'confirmed_at': updated,
         'versions': [_daily_report_info(row, user) for row in snapshots], 'missing_store_ids': missing}
-    result['notice'] = ({'unconfirmed': '本日此报表尚未经内勤确认，空白不代表零业绩。',
+    result['notice'] = ({'unconfirmed': '本日此报表尚未经销售内勤确认，空白不代表零业绩。',
         'partial': '部分授权门店尚未确认本日报表，仅列示已确认门店，请勿视为集团完整汇总。',
-        'confirmed': '内勤已确认的日报版本；后续表格更新不会改写本版，重新确认将追加更正版本。'}[status]
+        'confirmed': '销售内勤已确认的日报版本；后续表格更新不会改写本版，重新确认将追加更正版本。'}[status]
         + result['notice'])
     return result
 
@@ -293,7 +294,7 @@ def preview_daily_report(day: date | None = None, report: str = 'sales_volume', 
     result['confirmation'] = {'day': str(day), 'report': key, 'source_digest': digest,
         'expected_version': prior.version if prior else 0, 'scope': 'entire_store_report'}
     result['publication'] = {'status': 'preview', 'day': str(day), 'versions': [], 'confirmed_at': None}
-    result['notice'] = '待内勤核对的整店当日原表，确认将保存完整报表；尚未成为员工看到的每日报表。' + result['notice']
+    result['notice'] = '待销售内勤核对的整店当日原表，确认将保存完整报表；尚未成为员工看到的每日报表。' + result['notice']
     return result
 
 
@@ -343,7 +344,7 @@ def confirmed_daily_query(day: date | None = None, report: str = 'sales_volume',
     from .business_record_report_specs import assert_report_access
     assert_report_access(user, report)
     if source_mode != 'combined':
-        raise HTTPException(422, '已确认日报使用内勤核对的完整原表，请勿切换来源口径')
+        raise HTTPException(422, '已确认日报使用销售内勤核对的完整原表，请勿切换来源口径')
     day = day or today()
     snapshots = _latest_daily(db, user, report.split(':', 1)[0], day, day, version=version)
     try:
@@ -387,7 +388,7 @@ def daily_trend_query(day: date | None = None, days: int = Query(7, ge=2, le=90)
     from .business_record_report_specs import assert_report_access
     assert_report_access(user, report)
     if source_mode != 'combined':
-        raise HTTPException(422, '已确认日报趋势使用内勤核对的完整原表')
+        raise HTTPException(422, '已确认日报趋势使用销售内勤核对的完整原表')
     day = day or today()
     start = day - timedelta(days=days - 1)
     snapshots = _latest_daily(db, user, report.split(':', 1)[0], start, day)
@@ -421,12 +422,12 @@ def daily_trend_query(day: date | None = None, days: int = Query(7, ge=2, le=90)
     columns = [
         {'key': 'label', 'label': '日期', 'type': 'date', 'unit': '', 'precision': None},
         {'key': 'value', 'label': template['metric_label'], 'type': 'decimal', 'unit': template['unit'], 'precision': template['precision']},
-        {'key': 'status_label', 'label': '内勤确认状态', 'type': 'text', 'unit': '', 'precision': None},
+        {'key': 'status_label', 'label': '销售内勤确认状态', 'type': 'text', 'unit': '', 'precision': None},
         {'key': 'difference', 'label': '较前一日变化', 'type': 'decimal', 'unit': template['unit'], 'precision': template['precision']},
         {'key': 'change_percent', 'label': '较前一日变化率', 'type': 'percent', 'unit': '%', 'precision': 6}]
     return {'report': template['report'], 'metric': template['metric'], 'title': template['title'] + ' · 日报趋势',
         'metric_label': template['metric_label'], 'unit': template['unit'], 'precision': template['precision'],
-        'period_basis': '每天内勤确认的日报版本', 'series': series, 'rows': rows, 'columns': columns,
+        'period_basis': '每天销售内勤确认的日报版本', 'series': series, 'rows': rows, 'columns': columns,
         'summary_rows': rows, 'summary_columns': columns,
         'grand_total': {'label': '所选日期', 'value': current['value'], template['metric']: current['value'],
                         'record_count': 1, 'unknown_count': int(current['value'] is None)},
@@ -435,7 +436,7 @@ def daily_trend_query(day: date | None = None, days: int = Query(7, ge=2, le=90)
         'publication': {'status': 'trend', 'day': str(day), 'days': days},
         'comparison': {'current': current['value'], 'previous': previous['value'],
                        'difference': current['difference'], 'change_percent': current['change_percent']},
-        'notice': '逐日读取内勤已确认版本；未确认、部分门店未确认及未知值保持空白，不计作零。与前一日相比，缺失日不跳过，基期为零时变化率留空。'}
+        'notice': '逐日读取销售内勤已确认版本；未确认、部分门店未确认及未知值保持空白，不计作零。与前一日相比，缺失日不跳过，基期为零时变化率留空。'}
 
 
 @router.get('/daily-reports/trend')

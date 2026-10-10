@@ -49,8 +49,8 @@ function clearBusinessViews(){
 function rememberStore(){try{if(state.user&&state.store)sessionStorage.setItem('huakangos.active-store',JSON.stringify({user_id:state.user.id,store:String(state.store)}));}catch(_){/* Storage is optional; API authorization remains authoritative. */}}
 function forgetStore(){try{sessionStorage.removeItem('huakangos.active-store');}catch(_){}}
 function savedStore(user){try{const value=JSON.parse(sessionStorage.getItem('huakangos.active-store')||'null');if(value?.user_id!==user.id)return null;return value.store==='all'&&user.can_group_summary||user.stores?.some(s=>String(s.id)===value.store)?value.store:null;}catch(_){return null;}}
-const roleNames={admin:'系统管理员',clerk:'内勤',general_manager:'总经理',chairman:'董事长',manager:'门店销售经理',sales:'销售',inventory:'库管',service:'服务顾问',finance:'收银 / 财务',auditor:'审计',reception:'前台接待',technician:'维修技师',customer_service:'客服'};
-const recordAccountRoles=['sales','manager','clerk','finance','general_manager','chairman','admin'];
+const roleNames={admin:'系统管理员',store_admin:'门店管理员',clerk:'销售内勤',general_manager:'总经理',chairman:'董事长',group_deputy_manager:'集团副总经理',manager:'销售经理',sales:'销售',inventory:'库管',service:'服务顾问',finance:'收银 / 财务',auditor:'审计',reception:'前台接待',technician:'维修技师',customer_service:'客服'};
+const recordAccountRoles=['sales','manager','clerk','finance','general_manager','group_deputy_manager','chairman','store_admin','admin'];
 const labels={transfer_reserved:'调拨占用',purchase_return:'采购退车占用',draft:'草稿',submitted:'待审核',approved:'已审核',rejected:'已退回',void:'已作废',available:'可售',reserved:'已预订',sold:'已交车',inactive:'未生效',ordered:'待交车',delivered:'已交车',open:'待处理',done:'已完成',cancelled:'已取消',completed:'已完成',bank:'银行账户',cash:'现金账户',wechat:'微信',alipay:'支付宝',other:'其他',in:'收入',out:'支出',none:'不关联',success:'摘要已生成',not_requested:'规则汇总',failed:'摘要未生成',disabled:'仅本地汇总',pending:'处理中',unconfigured:'未配置摘要服务',reviewing:'复核中',confirmed:'确认问题',dismissed:'正常',resolved:'已处理',high:'优先复核',medium:'建议复核',low:'提醒'};
 const legacyNames={vehicles:'整车库存',sales:'原有销售单',repairs:'原有维修单',policies:'原有保险单',cash:'财务流水'};
 const categories={sale_collection:'原销售单收款',repair_collection:'原维修单收款',premium_collection:'保费代收',commission:'佣金收款',vehicle_purchase:'车辆采购付款',operating_expense:'经营支出',refund:'原业务单退款',capital:'出资或撤资',loan:'借款或还款',transfer:'内部转账',group_member_topup:'集团会员本金充值',group_member_refund:'集团会员本金退款'};
@@ -113,12 +113,16 @@ const csrf=()=>document.cookie.split('; ').find(x=>x.startsWith('dealer_csrf='))
 let toastTimer,renderId=0,storeContextVersion=0;
 function requireStoreContext(version,method='GET'){if(version!==storeContextVersion){const error=new Error(method==='GET'?'门店或账号已切换，请在当前门店重新读取。':'门店或账号已切换。原门店的操作可能已提交，请回原门店核对办理结果，勿重复提交。');error.staleContext=true;error.staleMutation=method!=='GET';throw error;}}
 function toast(text,error=false){const t=$('#toast');t.textContent=text;t.className='visible'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className='',6000);}
-async function api(path,{method='GET',body,raw=false,store=state.store,storeRequest=false}={}){
+async function api(path,options={}){
+ const finish=window.huakangAppVersion?.beginRequest(options.method||'GET');
+ try{return await apiRequest(path,options);}finally{finish?.();}
+}
+async function apiRequest(path,{method='GET',body,raw=false,store=state.store,storeRequest=false}={}){
  const version=storeContextVersion;
  if(state.storeSwitch&&!storeRequest&&!path.includes('/auth/logout'))throw new Error('正在切换门店，请稍后再办理。');
  const h={'X-App-Request':'1'};if(store!==null&&!path.includes('/auth/login'))h['X-Store-ID']=String(store);
  if(method!=='GET'){h['X-CSRF-Token']=csrf();if(!(body instanceof FormData))h['Content-Type']='application/json';}
- let r;try{r=await fetch(path,{method,credentials:'same-origin',headers:h,body:method==='GET'?undefined:body instanceof FormData?body:JSON.stringify(body||{})});}catch{requireStoreContext(version,method);const error=new Error(method==='GET'?'未连接到服务，请稍后重新读取。':'连接中断，尚不能确认本次办理结果。请保留当前表单和请求编号，先核对原单，勿另建重复操作。');error.unknownResult=method!=='GET';throw error;}
+ let r;try{r=await fetch(path,{method,cache:'no-store',credentials:'same-origin',headers:h,body:method==='GET'?undefined:body instanceof FormData?body:JSON.stringify(body||{})});}catch{requireStoreContext(version,method);const error=new Error(method==='GET'?'未连接到服务，请稍后重新读取。':'连接中断，尚不能确认本次办理结果。请保留当前表单和请求编号，先核对原单，勿另建重复操作。');error.unknownResult=method!=='GET';throw error;}
  requireStoreContext(version,method);
  if(!r.ok){let obj;try{obj=await r.json();}catch{obj={detail:'操作未成功，请刷新后核对。'};}
   requireStoreContext(version,method);
@@ -168,12 +172,12 @@ async function switchStore(target,route=null,notice=''){
  state.storeSwitch=pending;renderId++;closeModal();clearBusinessViews();shell();
  const current=()=>state.storeSwitch===pending&&storeContextVersion===pending.version;
  const commit=async(context,store,nextRoute)=>{if(!current())return;Object.assign(state,context);state.store=store;state.storeSwitch=null;state.page=1;state.q='';state.status='';state.taskScope='mine';state.route=nextRoute;history.replaceState(null,'','#'+nextRoute);rememberStore();shell();await render();if(notice)toast(notice);};
- try{const context=await readStoreContext(pending.target);if(current()){await loadAssistantFeatures({store:pending.target,storeRequest:true});if(current())await commit(context,pending.target,pending.route||assistantDefaultRoute({store:pending.target}));}}
+ try{const context=await readStoreContext(pending.target);if(current()){await loadAssistantFeatures({store:pending.target,storeRequest:true},context.user);if(current())await commit(context,pending.target,pending.route||assistantDefaultRoute({store:pending.target}));}}
  catch(error){
   if(!current())return;
   // A failed target must not reuse its identity or any partially loaded catalog.
   pending.target=pending.previous;pending.recovering=true;pending.error='切换未完成，正在重新核对原门店。';shell();
-  try{const context=await readStoreContext(pending.previous);if(current()){await loadAssistantFeatures({store:pending.previous,storeRequest:true});if(current()){await commit(context,pending.previous,assistantDefaultRoute({store:pending.previous}));toast('切换未完成，已返回原门店。'+error.message,true);}}}
+  try{const context=await readStoreContext(pending.previous);if(current()){await loadAssistantFeatures({store:pending.previous,storeRequest:true},context.user);if(current()){await commit(context,pending.previous,assistantDefaultRoute({store:pending.previous}));toast('切换未完成，已返回原门店。'+error.message,true);}}}
   catch(recoveryError){if(current()){pending.failed=true;pending.recovering=false;pending.error='原门店也暂时无法读取，请重试或重新登录。'+recoveryError.message;shell();}}
  }
 }
@@ -203,8 +207,9 @@ async function boot(){
 // V2: the operating dashboard is the default; AI remains an explicit entry.
 function assistantFeatures(){return state.assistantFeatures||null;}
 function assistantDefaultRoute(){return 'records-dashboard';}
-async function loadAssistantFeatures(options={}){
+async function loadAssistantFeatures(options={},user=state.user){
  const version=storeContextVersion;
+ if(user?.can_business_assistant===false){state.assistantFeatures=null;state.assistantFeaturesError='';return null;}
  try{const view=await api('/api/business-assistant/workspace',options);if(version===storeContextVersion){state.assistantFeatures=(view&&view.features)||{};state.assistantFeaturesError='';}}
  catch(error){if(version===storeContextVersion){state.assistantFeatures=null;state.assistantFeaturesError=(error&&error.message)||'读取工作区开关失败';}}
  return state.assistantFeatures;
@@ -212,7 +217,9 @@ async function loadAssistantFeatures(options={}){
 async function bootDefaultRoute(){await loadAssistantFeatures();return assistantDefaultRoute();}
 // Old bookmarks cannot reopen retired modules or load their catalogues.
 function normalizeAppRoute(route){
- return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|manual|settings)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:'records-dashboard';
+ if(route==='business-assistant'&&state.user?.can_business_assistant===false)return 'records-dashboard';
+ if(route==='feedback'&&(state.user?.can_feedback===false||state.user?.store_admin))return 'records-dashboard';
+ return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly|targets))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|manual|settings)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:'records-dashboard';
 }
 function currentAppRoute(){
  const route=normalizeAppRoute(location.hash.slice(1));
@@ -381,21 +388,63 @@ async function legacyDialog(mod,edit=false){const row=edit?state.row:null;const 
  for(const f of fields)if(f.type==='date'&&!f.required&&!initial[f.key])initial[f.key]='';
  await formDialog((row?'编辑':'新增')+legacyNames[mod],fields,initial,async v=>{for(const f of fields)if((f.type==='date'||f.type==='int')&&!f.required&&!v[f.key])v[f.key]=null;const r=await api(`/api/records/${mod}${row?'/'+row.id:''}`,{method:row?'PUT':'POST',body:row?{version:row.version,data:v}:v});go(`legacy/${mod}/${r.id}`);},{notice:'保存为草稿，提交并审核后生效。'});}
 async function legacyAction(mod,key){const row=state.row;const fields=[F('reason','办理说明','textarea')];if(key==='advance')fields.push(F('effective_date','实际发生日期','date'));await formDialog(labels[key]||({submit:'提交审核',approve:'审核通过',reject:'退回单据',advance:'确认进度',void:'作废单据'}[key]),fields,{},v=>api(`/api/records/${mod}/${row.id}/actions/${key}`,{method:'POST',body:{version:row.version,...v}}),{notice:key==='void'?'作废会改变有效业务统计。存在关联款项或占用关系时，需要先处理原业务。':'请确认记录与实际情况一致。',warn:key==='void'});}
-async function usersPage(){const d=await api('/api/users');state.rows=d.items;state.accountData=d;return heading('员工账号','',b('open','刷新员工列表','data-route="users"')+(state.user.can_users&&typeof staffBatchButton==='function'?staffBatchButton():'')+b('newuser','新增员工','','primary'))+`<section class="panel">${table(['员工','登录账号','默认岗位','授权门店与岗位','集团汇总','状态','操作'],d.items.map(r=>[E(r.display_name),E(r.username),E(r.role_label),`<span class="wrap">${r.role==='admin'?'全部门店':r.stores.map(s=>E(s.name)+' · '+E(roleNames[r.store_roles?.find(x=>x.store_id===s.id)?.role||r.role])).join('<br>')}</span>`,r.can_group_summary?'已授权':'未授权',pill(r.active?'done':'cancelled',r.active?'启用':'停用'),`<div class="row">${b('edituser','编辑',`data-id="${r.id}"`)}${r.id!==state.user.id?b('resetpassword','重置密码',`data-id="${r.id}"`):''}</div>`]))}</section>`;}
-async function userDialog(id){
- const row=id?state.rows.find(r=>r.id===id):null;
- const editRequest=requestKey();
- const fields=[...(!row?[F('username','登录账号'),F('password','初始密码','password')]:[]),F('display_name','员工姓名'),F('role','账号默认岗位','select',true,[...new Set([...recordAccountRoles,...(row?[row.role]:[])])]),F('can_group_summary','允许集团汇总查询','bool',false),...(row?[F('active','启用','bool',false)]:[])];
- Object.assign(labels,roleNames);
- const checks=`<div class="mt20"><h3>门店与岗位</h3><div class="store-role-list">${state.accountData.stores.filter(s=>s.active).map(s=>{const assigned=row?.store_roles?.find(x=>x.store_id===s.id);return `<div class="store-role-row"><label class="checklabel"><input type="checkbox" name="store_ids" value="${s.id}" ${(row?.store_ids||[]).includes(s.id)?'checked':''}>${E(s.name)}</label><label>本店岗位<select name="store_role_${s.id}">${Object.entries(roleNames).filter(([k])=>k!=='admin'&&(recordAccountRoles.includes(k)||k===assigned?.role)).map(([k,v])=>`<option value="${k}" ${k===(assigned?.role||(row?.role==='admin'?'manager':row?.role)||'sales')?'selected':''}>${E(v)}</option>`).join('')}</select></label></div>`;}).join('')}</div></div>`;
- const dialog=await formDialog(row?'编辑员工':'新增员工',fields,row||{role:'sales',can_group_summary:false},(v,form)=>{const fd=new FormData(form),ids=fd.getAll('store_ids').map(Number);return api('/api/users'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:{...v,...(row?{access_version:row.access_version,request_id:editRequest}:{}),store_ids:v.role==='admin'?[]:ids,store_roles:v.role==='admin'?[]:ids.map(id=>({store_id:id,role:fd.get('store_role_'+id)}))}});},{extra:checks,notice:'非管理员至少选择一家门店及对应岗位。集团汇总仅包含获授权的管理、财务或审计门店，办理业务需切回具体门店。变更授权后原登录会话失效；他人修改后须关闭窗口、刷新员工列表再核对，旧页面不会覆盖新授权。'});
- if(typeof mountStaffAccessSummary==='function')mountStaffAccessSummary(dialog);
+function accountCapabilities(){return state.accountData?.capabilities||{};}
+function accountAssignableRoles(){return (accountCapabilities().assignable_roles||[]).filter(role=>typeof role==='string'&&roleNames[role]);}
+function accountLocalRole(row){return row?.store_roles?.find(item=>item.store_id===accountCapabilities().store_id)?.role||row?.role;}
+function accountCanEdit(row){return accountCapabilities().edit===true&&row?.can_edit===true;}
+function accountCanReset(row){return accountCapabilities().reset_password===true&&row?.can_reset_password===true&&row.id!==state.user.id;}
+async function usersPage(){
+ if(!state.user.can_users)throw new Error('当前岗位没有员工账号维护权限。');
+ const epoch=renderId,d=await api('/api/users');if(epoch!==renderId)return '';state.rows=d.items;state.accountData=d;
+ const caps=accountCapabilities(),local=caps.scope==='store';
+ const tools=b('open','刷新员工列表','data-route="users"')+(caps.batch&&typeof staffBatchButton==='function'?staffBatchButton():'')+(caps.create?b('newuser','新增员工','','primary'):'');
+ const headers=['员工','登录账号',local?'本店岗位':'默认岗位',local?'所属门店':'授权门店与岗位',...(!local?['集团汇总']:[]),'状态','操作'];
+ const rows=d.items.map(r=>[E(r.display_name),E(r.username),E(local?roleNames[accountLocalRole(r)]:r.role_label),`<span class="wrap">${r.role==='admin'?'全部门店':r.stores.map(s=>E(s.name)+(local?'':' · '+E(roleNames[r.store_roles?.find(x=>x.store_id===s.id)?.role||r.role]))).join('<br>')}</span>`,...(!local?[r.can_group_summary?'已授权':'未授权']:[]),pill(r.active?'done':'cancelled',r.active?'启用':'停用'),`<div class="row">${accountCanEdit(r)?b('edituser','编辑',`data-id="${r.id}"`):''}${accountCanReset(r)?b('resetpassword','重置密码',`data-id="${r.id}"`):''}${!accountCanEdit(r)&&!accountCanReset(r)?'仅可查看':''}</div>`]);
+ return heading(local?'本店员工账号':'员工账号',local?'维护仅授权本店的销售、销售经理、销售内勤和收银账号。管理岗位及跨店账号由系统管理员维护。':'',tools)+`<section class="panel">${table(headers,rows)}</section>`;
 }
-async function storesPage(){const d=await api('/api/stores');state.rows=d.items;return heading('门店设置','',b('newstore','新增门店','','primary'))+`<section class="panel">${table(['门店','门店编码','状态','操作'],d.items.map(r=>[E(r.name),E(r.code),pill(r.active?'done':'cancelled',r.active?'启用':'停用'),b('editstore','编辑',`data-id="${r.id}"`)]))}</section>`;}
-async function storeDialog(id){const row=id?state.rows.find(r=>r.id===id):null;const options={};await formDialog(row?'编辑门店':'新增门店',[F('name','门店名称'),F('code','门店编码'),F('active','启用','bool',false)],row||{active:true},async v=>{await api('/api/stores'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:v});const d=await api('/api/stores',{store:null});state.stores=d.items;const usable=activeStoreOptions(state.stores);const doomed=!usable.some(store=>String(store.id)===String(state.store));if(doomed&&usable.length){options.success=`当前门店已停用，已切换到「${usable[0].name}」。请核对右上角门店后再办理。`;await switchStore(String(usable[0].id),'stores');}else{reconcileStore(state.stores);shell();}},options);}
+async function userDialog(id){
+ const row=id?state.rows.find(r=>r.id===id):null,caps=accountCapabilities(),local=caps.scope==='store',roles=accountAssignableRoles();
+ if(!state.user.can_users||id&&!accountCanEdit(row)||!id&&!caps.create)throw new Error('当前账号不可办理，请刷新员工列表后核对。');
+ if(!roles.length||local&&String(caps.store_id)!==String(state.store))throw new Error('门店授权已变化，请刷新员工列表。');
+ const editRequest=requestKey();
+ const fields=[...(!row?[F('username','登录账号'),F('password','初始密码','password')]:[]),F('display_name','员工姓名'),F('role',local?'本店岗位':'账号默认岗位','select',true,[...new Set([...roles,...(!local&&row?[row.role]:[])])]),...(!local?[F('can_group_summary','允许集团汇总查询','bool',false)]:[]),...(row?[F('active','启用','bool',false)]:[])];
+ Object.assign(labels,roleNames);
+ const stores=state.accountData.stores.filter(s=>s.active),store=stores.find(s=>s.id===caps.store_id);
+ const checks=local?`<p class="notice">所属门店：${E(store?.name||'当前门店')}</p>`:`<div class="mt20"><h3>门店与岗位</h3><div class="store-role-list">${stores.map(s=>{const assigned=row?.store_roles?.find(x=>x.store_id===s.id);return `<div class="store-role-row"><label class="checklabel"><input type="checkbox" name="store_ids" value="${s.id}" ${(row?.store_ids||[]).includes(s.id)?'checked':''}>${E(s.name)}</label><label>本店岗位<select name="store_role_${s.id}">${Object.entries(roleNames).filter(([k])=>k!=='admin'&&(roles.includes(k)||k===assigned?.role)).map(([k,v])=>`<option value="${k}" ${k===(assigned?.role||(row?.role==='admin'?'manager':row?.role)||'sales')?'selected':''}>${E(v)}</option>`).join('')}</select></label></div>`;}).join('')}</div></div>`;
+ const initial=row?{...row,...(local?{role:accountLocalRole(row)}:{})}:{role:roles.includes('sales')?'sales':roles[0],can_group_summary:false};
+ const dialog=await formDialog(row?'编辑员工':'新增员工',fields,initial,(v,form)=>{
+  if(!roles.includes(v.role)&&!(row&&!local&&v.role===row.role))throw new Error('该岗位不在可分配范围，请刷新后核对。');
+  const fd=new FormData(form),ids=local?[caps.store_id]:fd.getAll('store_ids').map(Number),storeAdmin=v.role==='store_admin';
+  if(storeAdmin&&ids.length!==1)throw new Error('门店管理员账号只能选择一家门店。');
+  const role=local&&row&&v.role===initial.role?row.role:v.role;
+  return api('/api/users'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:{...v,role,...(local||storeAdmin?{can_group_summary:false}:{}),...(row?{access_version:row.access_version,request_id:editRequest}:{}),store_ids:v.role==='admin'?[]:ids,store_roles:v.role==='admin'?[]:ids.map(id=>({store_id:id,role:local||storeAdmin?v.role:fd.get('store_role_'+id)}))}});
+ },{extra:checks,notice:(local?'本次账号仅授权当前门店，不授予集团汇总或其他门店权限。':'非系统管理员至少选择一家门店及对应岗位。集团汇总仅包含获授权门店，办理业务需切回具体门店。')+'变更授权后原登录会话失效；他人修改后须关闭窗口、刷新员工列表再核对。'});
+ if(!local){
+  const form=$('form',dialog),role=form.elements.role,summary=form.elements.can_group_summary,assignments=[...form.querySelectorAll('[name^="store_role_"]')],choices=[...form.querySelectorAll('[name="store_ids"]')];
+  const help=document.createElement('p');help.className='fieldhelp';help.textContent='门店管理员使用独立账号，只能授权一家门店，门店岗位固定为门店管理员，不授予集团汇总。';form.querySelector('.store-role-list').after(help);
+  const configure=()=>{
+   const special=role.value==='store_admin';help.hidden=!special;summary.disabled=special;if(special)summary.checked=false;
+   for(const select of assignments){
+    if(special){if(select.value!=='store_admin')select.dataset.previousRole=select.value;select.innerHTML='<option value="store_admin">门店管理员</option>';}
+    else if(select.value==='store_admin'){const previous=select.dataset.previousRole||'sales';select.innerHTML=roles.filter(value=>!['admin','store_admin'].includes(value)).map(value=>`<option value="${E(value)}" ${value===previous?'selected':''}>${E(roleNames[value])}</option>`).join('');}
+    else select.querySelector('option[value="store_admin"]')?.remove();
+    select.disabled=special;
+   }
+  };
+  for(const checkbox of choices)checkbox.addEventListener('change',()=>{if(role.value==='store_admin'&&checkbox.checked)for(const other of choices)if(other!==checkbox)other.checked=false;});
+  role.addEventListener('change',configure);configure();
+  if(typeof mountStaffAccessSummary==='function')mountStaffAccessSummary(dialog);
+ }
+}
+async function resetPasswordDialog(id){
+ const row=state.rows.find(r=>r.id===id);if(!accountCanReset(row))throw new Error('当前账号不可重置密码，请刷新员工列表后核对。');
+ await formDialog('重置员工密码',[F('password','新的初始密码','password'),F('reason','重置原因','textarea')],{},v=>api('/api/users/'+id+'/password',{method:'POST',body:v}),{notice:'员工的现有登录会话将失效，首次重新登录必须改密。'});
+}
+async function storesPage(){if(!state.user.can_manage_stores)throw new Error('当前岗位没有门店设置权限。');const d=await api('/api/stores');state.rows=d.items;return heading('门店设置','',b('newstore','新增门店','','primary'))+`<section class="panel">${table(['门店','门店编码','状态','操作'],d.items.map(r=>[E(r.name),E(r.code),pill(r.active?'done':'cancelled',r.active?'启用':'停用'),b('editstore','编辑',`data-id="${r.id}"`)]))}</section>`;}
+async function storeDialog(id){if(!state.user.can_manage_stores)throw new Error('当前岗位没有门店设置权限。');const row=id?state.rows.find(r=>r.id===id):null;const options={};await formDialog(row?'编辑门店':'新增门店',[F('name','门店名称'),F('code','门店编码'),F('active','启用','bool',false)],row||{active:true},async v=>{await api('/api/stores'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:v});const d=await api('/api/stores',{store:null});state.stores=d.items;const usable=activeStoreOptions(state.stores);const doomed=!usable.some(store=>String(store.id)===String(state.store));if(doomed&&usable.length){options.success=`当前门店已停用，已切换到「${usable[0].name}」。请核对右上角门店后再办理。`;await switchStore(String(usable[0].id),'stores');}else{reconcileStore(state.stores);shell();}},options);}
 async function passwordDialog(required=false){await formDialog('修改个人密码',[F('current_password','当前密码','password'),F('new_password','新密码','password')],{},async v=>{await api('/api/auth/password',{method:'POST',body:v});state.user=null;loginPage();},{notice:required?'请设置至少12位的个人密码，完成后重新登录。':'修改密码后需要重新登录。'});}
 const auditLabels={create:'建立记录',update:'修改记录',submit:'提交审核',approve:'审核通过',reject:'退回',void:'作废',advance:'确认进度',login:'登录',download:'下载文件',export:'导出',create_user:'新增员工',update_user:'修改员工',create_store:'新增门店',update_store:'修改门店',change_password:'修改密码',reset_password:'重置密码',review:'复核记录',flow_create:'建立流程业务',flow_action:'办理业务',document:'生成文件',upload:'上传凭据'};
-const auditEntities={...legacyNames,flow:'业务流程',typed_master:'业务资料',dictionary:'分类设置',vehicle_catalog:'车型目录',customer_vehicle:'客户车辆',care_rule:'客户提醒规则',care_grant:'客户资料授权',users:'员工账号',stores:'门店',findings:'数据复核',feedback:'反馈',maintenance:'系统维护'};
+const auditEntities={...legacyNames,flow:'业务流程',typed_master:'业务资料',dictionary:'分类设置',vehicle_catalog:'车型目录',customer_vehicle:'客户车辆',care_rule:'客户提醒规则',care_grant:'客户资料授权',users:'员工账号',stores:'门店',findings:'数据复核',feedback:'反馈',maintenance:'系统维护',store_account:'本店员工账号',record_contract:'销售合同',record_customer:'客户资料',record_service:'售后业务',record_manual:'销售内勤统计',record_daily_report:'每日报表',record_monthly_target:'月度目标',record_settings:'业务审批设置',record_standard_price:'标准物品价格'};
 function bindAuditFilters(){
  const form=$('#audit-filters');if(!form)return;
  const identifier=form.elements.entity_id;
@@ -403,9 +452,11 @@ function bindAuditFilters(){
  form.onsubmit=async event=>{event.preventDefault();const value=identifier.value.trim();if(value&&(!/^[1-9]\d*$/.test(value)||!Number.isSafeInteger(Number(value)))){identifier.setCustomValidity('请输入有效的正整数编号。');identifier.reportValidity();return;}state.auditFilters={entity_type:form.elements.entity_type.value,entity_id:value};state.page=1;await render();};
 }
 async function auditPage(){
+ if(!state.user.can_audit)throw new Error('当前岗位没有查看操作记录的权限。');
  const current=renderId,filters=state.auditFilters,query=new URLSearchParams({page:String(state.page)});if(filters.entity_type)query.set('entity_type',filters.entity_type);if(filters.entity_id)query.set('entity_id',filters.entity_id);
  const d=await api('/api/audit?'+query);if(current!==renderId)return '';state.rows=d.items;
- const controls=`<form id="audit-filters" class="filterbar"><label>业务类型<select name="entity_type"><option value="">全部</option>${Object.entries(auditEntities).map(([key,label])=>`<option value="${E(key)}" ${filters.entity_type===key?'selected':''}>${E(label)}</option>`).join('')}</select></label><label>原记录编号<input name="entity_id" inputmode="numeric" value="${E(filters.entity_id)}" placeholder="留空查看全部"></label><button type="submit" class="primary">查询</button>${b('audit-reset','重置')}</form>`;
+ const types=Array.isArray(d.entity_types)?d.entity_types:Object.keys(auditEntities);
+ const controls=`<form id="audit-filters" class="filterbar"><label>业务类型<select name="entity_type"><option value="">全部</option>${types.map(key=>`<option value="${E(key)}" ${filters.entity_type===key?'selected':''}>${E(auditEntities[key]||'业务记录')}</option>`).join('')}</select></label><label>原记录编号<input name="entity_id" inputmode="numeric" value="${E(filters.entity_id)}" placeholder="留空查看全部"></label><button type="submit" class="primary">查询</button>${b('audit-reset','重置')}</form>`;
  return heading('操作记录','')+controls+`<section class="panel audit-records">${table(['时间','操作人','操作','业务范围','原记录编号','说明','查看'],d.items.map(r=>[time(r.occurred_at),E(r.actor_name),E(auditLabels[r.action]||r.reason||'业务操作'),E(auditEntities[r.entity_type]||'资料管理'),E(r.entity_id??'—'),`<span class="wrap">${E(r.reason||'—')}</span>`,b('auditdetail','详情',`data-id="${r.id}"`)]))}${pager(d.total)}</section>`;
 }
 async function reportsPage(){const d=await api('/api/reports?page='+state.page);state.rows=d.items;return heading('每日汇总','',b('newreport','生成日报',canWrite()?'':'disabled','primary'))+storeNotice()+`<section class="panel">${table(['业务日期','门店','生成时间','摘要','待复核线索','版本状态','操作'],d.items.map(r=>[E(r.business_date),E(state.stores.find(s=>s.id===r.store_id)?.name||''),time(r.generated_at),pill(r.ai_status),r.finding_count,r.stale?pill('overdue','有后续变化'):r.provisional?pill('pending','当日记录'):pill('done','已保存'),b('open','查看',`data-route="reports/${r.id}"`)]))}${pager(d.total)}</section>`;}
@@ -457,9 +508,9 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  else if(a==='group-action')await groupAction(el.dataset.key,Number(el.dataset.id)||null);
  else if(a==='newuser'||a==='edituser')await userDialog(el.dataset.id?Number(el.dataset.id):null);
  else if(a==='batchusers'&&typeof staffBatchDialog==='function')await staffBatchDialog();
- else if(a==='resetpassword'){const id=Number(el.dataset.id);await formDialog('重置员工密码',[F('password','新的初始密码','password'),F('reason','重置原因','textarea')],{},v=>api('/api/users/'+id+'/password',{method:'POST',body:v}),{notice:'员工的现有登录会话将失效，首次重新登录必须改密。'});}
+ else if(a==='resetpassword')await resetPasswordDialog(Number(el.dataset.id));
  else if(a==='newstore'||a==='editstore')await storeDialog(el.dataset.id?Number(el.dataset.id):null);
- else if(a==='auditdetail'){const r=state.rows.find(x=>x.id===Number(el.dataset.id));const known={...dataLabels,...Object.fromEntries([...commonFields,...Object.values(legacyFields).flat()].map(f=>[f.key,f.label])),active:'启用',display_name:'员工姓名',role:'岗位',name:'名称',code:'编码',contact_name:'联系人',phone:'联系电话',state:'进度',title:'事项',status:'状态'};const prettify=obj=>Object.fromEntries(Object.entries(obj||{}).filter(([k,v])=>known[k]&&typeof v!=='object').map(([k,v])=>[k,typeof v==='string'?(labels[v]||v):v]));modal('操作详情',`<div class="stack"><p>${E(r.reason||'业务操作')} · ${E(r.actor_name)} · ${time(r.occurred_at)}</p>${facts({业务范围:auditEntities[r.entity_type]||'资料管理',原记录编号:r.entity_id??'—'})}<h3>操作前</h3>${facts(prettify(r.before_data),known)}<h3>操作后</h3>${facts(prettify(r.after_data),known)}</div>`);}
+ else if(a==='auditdetail'){const r=state.rows.find(x=>x.id===Number(el.dataset.id));const known={...dataLabels,...Object.fromEntries([...commonFields,...Object.values(legacyFields).flat()].map(f=>[f.key,f.label])),active:'启用',display_name:'员工姓名',username:'登录账号',store_id:'所属门店',role:'岗位',name:'名称',code:'编码',contact_name:'联系人',phone:'联系电话',state:'进度',title:'事项',status:'状态'};const prettify=obj=>Object.fromEntries(Object.entries(obj||{}).filter(([k,v])=>known[k]&&typeof v!=='object').map(([k,v])=>[k,typeof v==='string'?(labels[v]||roleNames[v]||v):v]));modal('操作详情',`<div class="stack"><p>${E(r.reason||'业务操作')} · ${E(r.actor_name)} · ${time(r.occurred_at)}</p>${facts({业务范围:auditEntities[r.entity_type]||'资料管理',原记录编号:r.entity_id??'—'})}<h3>操作前</h3>${facts(prettify(r.before_data),known)}<h3>操作后</h3>${facts(prettify(r.after_data),known)}</div>`);}
  else if(a==='range'){state.dates={date_from:el.dataset.days==='month'?day().slice(0,8)+'01':relativeDay(1-Number(el.dataset.days)),date_to:day()};state.analytics=null;state.page=1;await render();}
  else if(a==='definitions'){const d=await analyticData();modal('统计口径',`<div class="definitions">${d.definitions.map(x=>`<p>${E(x)}</p>`).join('')}</div>`);}
  else if(a==='charttable')go('table/'+el.dataset.table);
