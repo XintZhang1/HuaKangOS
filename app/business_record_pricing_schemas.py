@@ -15,6 +15,8 @@ class VehiclePriceInput(Strict):
     def positive_prices(self):
         if not self.guide_price_cents or not self.control_price_cents:
             raise ValueError('指导价和销售管控价必须明确且大于零')
+        if len(self.series + ' ' + self.model) > 160:
+            raise ValueError('车系及车型配置合计请勿超过160字')
         return self
 
 

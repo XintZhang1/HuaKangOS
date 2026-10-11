@@ -26,6 +26,7 @@ class ContractSubmission(Strict):
     payment_method: Literal['全款', '贷款'] = '全款'
     installment_fee_cents: Money | None = None
     total_loss_product_cents: Money | None = None
+    total_loss_product_description: str = Field(default='', max_length=160)
     trade_in_subsidy_cents: Money | None = None
     used_car_commission_cents: Money | None = None
     finance_excess_cents: Money | None = None
@@ -72,6 +73,7 @@ class Action(Command):
 
 class ManagerApproval(Action):
     gift_excess_cents: Money = 0
+    submission_data: ContractSubmission | None = None
     # Required for v30 by the route; optional here keeps historical v29 commands valid.
     minimum_sale_price_cents: Money | None = None
     gift_limit_cents: Money | None = None
@@ -103,6 +105,7 @@ class OfficeReview(Action):
     cost_cents: Money | None = None
     profit_cents: int | None = Field(default=None, ge=-999999999999, le=999999999999, strict=True)
     gift_cost_cents: Money | None = None
+    cash_consumption_cents: Money | None = None
 
 
 class StandardPriceInput(Strict):

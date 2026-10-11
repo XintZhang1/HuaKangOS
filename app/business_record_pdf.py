@@ -204,7 +204,10 @@ def render_contract_pdf(data: dict) -> bytes:
 
     other = []
     if data.get('gift_description'):
-        other.append('赠品约定：' + _text(data['gift_description']))
+        # New contracts have a separately printable, frozen gift list. Keep
+        # its full names/quantities there instead of overflowing this fixed box.
+        other.append('赠品详见本合同赠品单' if data.get('workflow_version') == 'trial-v210'
+                     else '赠品约定：' + _text(data['gift_description']))
     if form.get('other_terms'):
         other.append(_text(form['other_terms']))
     for key, label in (('payment_bank', '贷款/付款银行'), ('seller_address', '卖方地址'),

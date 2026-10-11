@@ -1,7 +1,8 @@
 """Versioned store price publications and immutable contract submission evidence."""
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, BigInteger, DateTime, ForeignKey, JSON, LargeBinary, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from fastapi import HTTPException
+from sqlalchemy import String, Text, Integer, BigInteger, DateTime, ForeignKey, JSON, LargeBinary, UniqueConstraint, CheckConstraint, event, inspect
+from sqlalchemy.orm import Mapped, mapped_column, Session
 from .db import Base, utcnow
 from .models import StoreScoped
 from .business_records_models import Versioned
@@ -31,6 +32,7 @@ class RecordPricingFile(StoreScoped, Base):
     scan_code: Mapped[str] = mapped_column(String(50))
     created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    __table_args__ = (CheckConstraint("kind IN ('vehicle','gift','contract_attachment')", name='ck_record_pricing_file_kind'),)
 
 
 class RecordPriceBatch(StoreScoped, Base):
@@ -41,6 +43,9 @@ class RecordPriceBatch(StoreScoped, Base):
     created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     row_count: Mapped[int] = mapped_column(Integer)
+    __table_args__ = (
+        CheckConstraint("kind IN ('vehicle','gift')", name='ck_record_price_batch_kind'),
+        CheckConstraint('row_count > 0', name='ck_record_price_batch_count'),)
 
 
 class RecordVehicleVariant(Versioned, Base):
@@ -63,7 +68,8 @@ class RecordVehiclePrice(StoreScoped, Base):
     guide_price_cents: Mapped[int] = mapped_column(BigInteger)
     control_price_cents: Mapped[int] = mapped_column(BigInteger)
     note: Mapped[str] = mapped_column(Text, default='')
-    __table_args__ = (UniqueConstraint('batch_id', 'variant_id', name='uq_record_batch_variant'),)
+    __table_args__ = (UniqueConstraint('batch_id', 'variant_id', name='uq_record_batch_variant'),
+        CheckConstraint('guide_price_cents > 0 AND control_price_cents > 0', name='ck_record_vehicle_prices_positive'))
 
 
 class RecordGiftPrice(StoreScoped, Base):
@@ -73,7 +79,8 @@ class RecordGiftPrice(StoreScoped, Base):
     name: Mapped[str] = mapped_column(String(160))
     unit_price_cents: Mapped[int] = mapped_column(BigInteger)
     note: Mapped[str] = mapped_column(Text, default='')
-    __table_args__ = (UniqueConstraint('batch_id', 'name', name='uq_record_batch_gift'),)
+    __table_args__ = (UniqueConstraint('batch_id', 'name', name='uq_record_batch_gift'),
+        CheckConstraint('unit_price_cents >= 0', name='ck_record_gift_price_nonnegative'))
 
 
 class RecordContractTerms(Versioned, Base):
@@ -88,6 +95,17 @@ class RecordContractTerms(Versioned, Base):
     gift_excess_cents: Mapped[int] = mapped_column(BigInteger, default=0)
     special: Mapped[bool] = mapped_column(default=False)
     special_note: Mapped[str] = mapped_column(Text, default='')
-    general_approved_by: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True)
-    general_approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    general_approval_note: Mapped[str] = mapped_column(Text, default='')
+    __table_args__ = (CheckConstraint('gift_total_cents >= 0 AND price_below_cents >= 0 AND gift_excess_cents >= 0', name='ck_record_terms_nonnegative'),)
+
+
+@event.listens_for(Session, 'before_flush')
+def immutable_price_publications(db, *_):
+    """New publications replace only pointers; submitted price versions never move."""
+    for row in set(db.dirty) | set(db.deleted):
+        if isinstance(row, (RecordPriceBatch, RecordVehiclePrice, RecordGiftPrice)):
+            if row in db.deleted or db.is_modified(row):
+                raise HTTPException(409, '已发布价格批次保留追溯，不可改写或删除')
+        if isinstance(row, RecordContractTerms):
+            if row in db.deleted or any(inspect(row).attrs[key].history.has_changes()
+                    for key in ('contract_id', 'store_id', 'price_snapshot', 'gift_batch_id')):
+                raise HTTPException(409, '合同提交时的价格版本已冻结，不可改写或删除')

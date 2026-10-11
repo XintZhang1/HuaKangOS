@@ -61,7 +61,7 @@ FINANCE_REPORTS = {'expected_receipts', 'actual_receipts', 'insurance_settlement
 
 def _group_ids(user):
     return [item['id'] for item in getattr(user, '_stores', [])
-            if item.get('role') in GROUP_MANAGERS | {'chairman'}]
+            if item.get('role') in GROUP_MANAGERS | {'chairman', 'group_deputy_manager'}]
 
 
 def require_read(user):
@@ -77,7 +77,7 @@ def capabilities(user):
     result = {key: writable and user.role in roles for key, roles in CAPABILITY_ROLES.items()}
     # Reading finance/invoices must not imply receipt confirmation or uploads.
     # Keep invoice reads local, matching the invoice API's existing scope.
-    result['read_invoice'] = writable and user.role in {'admin', 'finance', 'clerk', 'chairman', 'store_admin'}
+    result['read_invoice'] = writable and user.role in {'admin', 'finance', 'clerk', 'general_manager', 'chairman', 'store_admin'}
     result['read_finance'] = (bool(_group_ids(user)) if not writable else
                             user.role in {'admin', 'finance', 'clerk', 'manager', 'general_manager', 'chairman', 'store_admin'})
     return result
@@ -518,6 +518,13 @@ def manager_approve_contract(key: int, body: ManagerApproval, request: Request,
             terms = get_terms(db, row)
             if terms is None:
                 raise HTTPException(409, '合同提交快照缺失，请联系管理员核对')
+            if body.submission_data is not None:
+                # The manager completes request details, never the frozen
+                # vehicle/gift publication or salesperson's agreed car price.
+                additions = body.submission_data.model_dump(exclude_unset=True)
+                terms.submission_data = {**terms.submission_data, **additions}
+                if 'payment_method' in additions:
+                    row.form_data = {**row.form_data, 'payment_method': additions['payment_method']}
             terms.gift_excess_cents = body.gift_excess_cents
             terms.special = terms.price_below_cents > 0 or body.gift_excess_cents > 0
             if terms.special and not body.note.strip():
@@ -1182,6 +1189,17 @@ def create_manual_report(body: ManualReportInput, request: Request,
     def perform():
         from .business_record_reports import validate_manual_values, CATALOG_BY_KEY
         from decimal import Decimal
+        if body.report_key == 'daily_operations':
+            if body.entry_mode != 'detail':
+                raise HTTPException(422, '日常经营记录是当日观察，请使用逐日填报方式')
+            _lock_customer_scope(db)
+            current = db.scalar(_manual_report_query(user).where(
+                ManualReportRecord.report_key == body.report_key,
+                ManualReportRecord.period == body.period,
+                ManualReportRecord.brand == body.brand,
+                ManualReportRecord.salesperson_id == body.salesperson_id))
+            if current is not None and body.supersedes_id != current.id:
+                raise HTTPException(409, '同门店、日期及归属已有日常经营记录，请引用当前记录追加更正，不能重复新增')
         previous = None
         if body.supersedes_id is not None:
             previous = _get_manual_report(db, user, body.supersedes_id)

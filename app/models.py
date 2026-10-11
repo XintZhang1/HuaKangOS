@@ -374,3 +374,5 @@ from . import assistant_runtime_models  # plan graph and durable assistant work;
 from . import business_records_models  # V2 independent contracts and manual operating records
 from . import business_record_invoice_models  # cashier-confirmed originals; no receipt side effects
 from . import business_record_period_models  # clerk-confirmed daily report revisions
+from . import business_record_pricing_models  # frozen store price publications and terms
+from . import business_record_delivery_models  # delivery originals, returns and refunds

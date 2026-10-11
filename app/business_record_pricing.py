@@ -2,7 +2,7 @@
 import hashlib
 import io
 from urllib.parse import quote
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from .db import get_db, get_write_db, utcnow
@@ -20,7 +20,7 @@ from .file_security import policy_mode, scan_clamav
 from .private_files import publish
 
 router = APIRouter(prefix='/api/business-records', tags=['门店价格与特殊审批'])
-GIFT_READERS = {'admin', 'manager', 'general_manager', 'deputy_general_manager', 'finance', 'clerk', 'chairman'}
+GIFT_READERS = {'admin', 'manager', 'general_manager', 'group_deputy_manager', 'finance', 'clerk', 'chairman', 'store_admin'}
 PRICE_WRITERS = {'manager', 'general_manager'}
 PROFILE_WRITERS = {'admin', 'clerk'}
 BASIC_COLORS = {'红', '橙', '黄', '绿', '青', '蓝', '紫', '白', '灰', '黑'}
@@ -88,13 +88,27 @@ def _save_file(db, user, kind, filename, content, media, contract_id=None):
 
 
 @router.get('/pricing/catalog')
-def price_catalog(db=Depends(get_db), user=Depends(get_user)):
+def price_catalog(contract_id: int | None = Query(None, gt=0), db=Depends(get_db), user=Depends(get_user)):
     _access(user)
     current = pricing_settings(db)
     vehicle_batch = current.vehicle_batch_id if current else None
     gift_batch = current.gift_batch_id if current else None
-    vehicles = [plain(item) for item in db.scalars(select(RecordVehiclePrice).where(
-        RecordVehiclePrice.batch_id == vehicle_batch, RecordVehiclePrice.store_id == single_store(db)).order_by(RecordVehiclePrice.id))] if vehicle_batch else []
+    frozen = None
+    if contract_id is not None:
+        from .business_records import get_contract
+        contract = get_contract(db, user, contract_id)
+        frozen = get_terms(db, contract)
+        if frozen is None:
+            raise HTTPException(409, '该历史合同没有本版提交目录快照')
+        vehicle_batch, gift_batch = frozen.price_snapshot['batch_id'], frozen.gift_batch_id
+    vehicles = ([dict(frozen.price_snapshot)] if frozen else
+        [plain(item) for item in db.scalars(select(RecordVehiclePrice).where(
+            RecordVehiclePrice.batch_id == vehicle_batch, RecordVehiclePrice.store_id == single_store(db)).order_by(RecordVehiclePrice.id))]
+        if vehicle_batch else [])
+    if user.role not in GIFT_READERS:
+        # Uploaded annotations can contain internal package/gift amounts too.
+        for item in vehicles:
+            item.pop('note', None)
     gifts = []
     if gift_batch:
         for item in db.scalars(select(RecordGiftPrice).where(RecordGiftPrice.batch_id == gift_batch,
@@ -105,6 +119,7 @@ def price_catalog(db=Depends(get_db), user=Depends(get_user)):
             gifts.append(value)
     return {'version': current.version if current else 0, 'profile': current.profile if current else {},
         'vehicle_batch_id': vehicle_batch, 'gift_batch_id': gift_batch, 'vehicles': vehicles, 'gifts': gifts,
+        'frozen_for_contract': contract_id,
         'can_import_vehicle': user.role in PRICE_WRITERS,
         'can_import_gifts': user.role in PRICE_WRITERS | {'admin'},
         'can_manage_profile': user.role in PROFILE_WRITERS,
@@ -197,6 +212,8 @@ def recognize_prices(key: int, body: Action, request: Request, db=Depends(get_db
     if item.kind not in {'vehicle', 'gift'}:
         raise HTTPException(422, '该原件不是价格表')
     _access(user, item.kind, True); _check_version(item, body.version)
+    if item.created_by != user.id:
+        raise HTTPException(403, '请由本次原表上传者核对识别结果并确认导入')
     content, media, kind = _content(item), item.content_type, item.kind
     db.rollback()
     result = recognize_price_file(content, media, kind)
@@ -211,6 +228,8 @@ def _import(body, request, db, user, kind):
     from .business_record_invoices import _content
     _manual(request); _access(user, kind, True)
     item = _file(db, body.file_id, kind)
+    if item.created_by != user.id:
+        raise HTTPException(403, '请由本次原表上传者逐行核对后确认整批生效')
     _content(item)
     keys = [(x.family, x.series, x.model) if kind == 'vehicle' else x.name for x in body.rows]
     if len(keys) != len(set(keys)):
@@ -261,6 +280,8 @@ def prepare_submission(db, user, body, existing=None):
     if current is None or not current.profile.get('brand'):
         raise HTTPException(422, '请先由内勤维护本店品牌及卖方资料')
     prior = get_terms(db, existing) if existing is not None else None
+    if existing is not None and prior is None:
+        raise HTTPException(409, '合同提交快照缺失，不能按新价格补造原依据，请联系管理员核对')
     if prior:
         price = prior.price_snapshot
         if body.vehicle_price_id != price['id']:
@@ -272,6 +293,11 @@ def prepare_submission(db, user, body, existing=None):
         if price_row is None:
             raise HTTPException(422, '请选择当前门店已发布限价中的车型；价格表更新后请重新核对')
         price = plain(price_row)
+        batch = db.scalar(select(RecordPriceBatch).where(RecordPriceBatch.id == price_row.batch_id,
+            RecordPriceBatch.store_id == single_store(db)))
+        if batch is None:
+            raise HTTPException(409, '价格批次来源缺失，请联系管理员核对')
+        price.update(source_file_id=batch.file_id, published_at=batch.created_at.isoformat())
         gift_batch_id = current.gift_batch_id
     gifts, total, seen = [], 0, set()
     for selection in body.gift_items:
@@ -302,7 +328,8 @@ def prepare_submission(db, user, body, existing=None):
         seller_agent=person.display_name, seller_phone=current.profile.get('sales_contacts', {}).get(str(person.id), ''),
         quantity='1', payment_method=body.submission_data.payment_method)
     form.setdefault('buyer_document_name', '身份证')
-    form.setdefault('buyer_agent', body.customer_name)
+    if not form.get('buyer_agent'):
+        form['buyer_agent'] = body.customer_name
     return {'price': price, 'gifts': gifts, 'gift_batch_id': gift_batch_id, 'gift_total_cents': total,
         'form_data': form, 'brand': current.profile['brand'], 'model': price['series'] + ' ' + price['model'],
         'submission_data': body.submission_data.model_dump(),
@@ -318,8 +345,6 @@ def save_submission(db, row, prepared):
     terms.gift_total_cents, terms.submission_data = prepared['gift_total_cents'], prepared['submission_data']
     terms.price_below_cents, terms.gift_excess_cents = prepared['price_below_cents'], 0
     terms.special, terms.special_note = prepared['price_below_cents'] > 0, ''
-    terms.general_approved_by = terms.general_approved_at = None
-    terms.general_approval_note = ''
     row.gift_cost_cents = terms.gift_total_cents
     row.gift_description = '；'.join(item['name'] + ' × ' + str(item['quantity']) for item in prepared['gifts'])
     db.flush()
@@ -337,6 +362,7 @@ def contract_terms_view(db, user, row):
     data['attachments'] = [_file_summary(item) for item in files if user.role != 'sales' or item.created_by == user.id]
     if user.role not in GIFT_READERS:
         data.pop('gift_total_cents', None); data.pop('gift_excess_cents', None); data.pop('special_note', None)
+        data['price_snapshot'] = {key: value for key, value in terms.price_snapshot.items() if key != 'note'}
         data['gifts_snapshot'] = [{key: value for key, value in item.items() if key in {'price_id', 'name', 'quantity'}} for item in terms.gifts_snapshot]
     return data
 
@@ -348,14 +374,14 @@ def upload_attachment(key: int, request: Request, file: UploadFile = File(...), 
     from .flow_documents import validate_upload
     _manual(request); _access(user); Command(request_id=request_id)
     row = get_contract(db, user, key)
-    if user.role not in {'admin', 'sales', 'manager', 'general_manager', 'deputy_general_manager'}:
+    if user.role not in {'admin', 'sales', 'manager', 'general_manager', 'group_deputy_manager'}:
         raise HTTPException(403, '当前岗位不能补充审批附件')
     content = file.file.read(10 * 1024 * 1024 + 1)
     media = validate_upload(file.filename or '', content)
     def perform():
         _check_version(row, version)
-        if row.status == 'approved':
-            raise HTTPException(409, '批准合同及审批附件已归档，不可追加改写')
+        if row.status not in {'submitted', 'rejected'}:
+            raise HTTPException(409, '审批附件须在销售经理审批前补齐；已有审批结论时请先按原流程退回核对')
         item = _save_file(db, user, 'contract_attachment', file.filename, content, media, row.id)
         row.updated_at = utcnow(); db.flush()
         result = _file_summary(item); result['contract_version'] = row.version
