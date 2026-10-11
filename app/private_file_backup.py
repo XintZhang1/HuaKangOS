@@ -9,6 +9,13 @@ from contextlib import closing
 import hashlib,json,os,sqlite3,uuid
 from .private_files import private_root,read_object,checked_bytes,object_path,_plain,_sync_directory
 
+# Fixed table names, never supplied by callers. Prefixes preserve older manifests.
+RECORD_FILE_TABLES = (
+    ('business_record_invoice_files', 'record-invoice-', 'record_invoice'),
+    ('business_record_pricing_files', 'record-pricing-', 'record_pricing'),
+    ('business_record_gift_documents', 'record-gift-document-', 'record_gift_document'),
+)
+
 
 def _query(connection,sql):
     return connection.exec_driver_sql(sql) if hasattr(connection,'exec_driver_sql') else connection.execute(sql)
@@ -53,7 +60,6 @@ def file_manifest(connection):
     names=_names(connection)
     if 'flow_files' not in names:
         if 'private_file_objects' in names and _rows(connection,'private_file_objects'):raise ValueError('私有附件缺少原文件表')
-        return []
     objects=_rows(connection,'private_file_objects') if 'private_file_objects' in names else []
     byfile={}
     for obj in objects:
@@ -62,7 +68,7 @@ def file_manifest(connection):
         byfile[obj['file_id']]=obj
     if len({obj['object_key'] for obj in objects})!=len(objects):raise ValueError('不同附件不能共享对象引用')
     result=[];seen=set();sources={}
-    for i,file in enumerate(_file_rows(connection)):
+    for i,file in enumerate(_file_rows(connection) if 'flow_files' in names else []):
         key=file.get('id',i+1);seen.add(key);ref=byfile.get(key)
         if ref and (ref['store_id']!=file.get('store_id') or ref['sha256']!=file['sha256'] or ref['size']!=file['size'] or file['content_length']!=0):
             raise ValueError('私有附件与原文件门店、大小、摘要或 BLOB 不一致')
@@ -80,30 +86,32 @@ def file_manifest(connection):
             if not expected or not source or not source['generated'] or source['category']!=expected or item['generated'] or (source['store_id'],source['case_id'])!=(item['store_id'],item['case_id']):
                 raise ValueError('签回附件须绑定同店同单对应类别的原生成文档')
     result = sorted(result,key=lambda r:r['file_id'])
-    for file in _invoice_file_rows(connection):
+    for file in _record_file_rows(connection):
         if file['object_key'] and file['content_length'] != 0:
-            raise ValueError('合同发票私有对象与BLOB不一致')
-        result.append({'file_id': 'record-invoice-' + str(file['id']), 'store_id': file['store_id'],
+            raise ValueError('业务记录附件私有对象与BLOB不一致')
+        result.append({'file_id': file['prefix'] + str(file['id']), 'store_id': file['store_id'],
             'sha256': file['sha256'], 'size': file['size'],
             'storage': 'private_local' if file['object_key'] else 'blob',
             'object_key': file['object_key'] or None, 'source_file_id': None,
-            'case_id': None, 'category': 'record_invoice', 'generated': False})
+            'case_id': None, 'category': file['category'], 'generated': False})
     return result
 
 
-def _invoice_file_rows(connection, content=False):
-    if 'business_record_invoice_files' not in _names(connection):
-        return
-    sql = ('SELECT id,store_id,sha256,size,object_key,' +
-           ('content' if content else 'length(content) AS content_length') +
-           ' FROM business_record_invoice_files ORDER BY id')
-    cursor = _query(connection, sql)
-    keys = list(cursor.keys()) if hasattr(cursor, 'keys') else [c[0] for c in cursor.description]
-    try:
-        for row in cursor:
-            yield dict(zip(keys, row))
-    finally:
-        cursor.close()
+def _record_file_rows(connection, content=False):
+    names = _names(connection)
+    for table, prefix, category in RECORD_FILE_TABLES:
+        if table not in names:
+            continue
+        sql = ('SELECT id,store_id,sha256,size,object_key,' +
+               ('content' if content else 'length(content) AS content_length') +
+               ' FROM ' + table + ' ORDER BY id')
+        cursor = _query(connection, sql)
+        keys = list(cursor.keys()) if hasattr(cursor, 'keys') else [c[0] for c in cursor.description]
+        try:
+            for row in cursor:
+                yield {**dict(zip(keys, row)), 'prefix': prefix, 'category': category}
+        finally:
+            cursor.close()
 
 
 def validate_connection_files(connection,object_root=None):
@@ -116,12 +124,12 @@ def validate_connection_files(connection,object_root=None):
     manifest=file_manifest(connection);private=[f for f in manifest if f['storage']=='private_local']
     if private and object_root is None:raise ValueError('此数据库引用私有附件；必须提供配套对象目录，数据库单文件不是完整备份')
     byfile={entry['file_id']:entry for entry in manifest}
-    for i,file in enumerate(_file_rows(connection,content=True) if manifest else []):
+    for i,file in enumerate(_file_rows(connection,content=True) if 'flow_files' in _names(connection) else []):
         entry=byfile[file.get('id',i+1)]
         if entry['storage']=='private_local':read_object(object_root,entry['object_key'],entry['store_id'],entry['size'],entry['sha256'])
         else:checked_bytes(file['content'],entry['size'],entry['sha256'])
-    for file in _invoice_file_rows(connection, content=True):
-        entry = byfile['record-invoice-' + str(file['id'])]
+    for file in _record_file_rows(connection, content=True):
+        entry = byfile[file['prefix'] + str(file['id'])]
         if entry['storage'] == 'private_local':
             read_object(object_root, entry['object_key'], entry['store_id'], entry['size'], entry['sha256'])
         else:

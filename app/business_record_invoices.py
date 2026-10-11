@@ -20,7 +20,7 @@ from .file_security import policy_mode, scan_clamav, MESSAGES
 from .private_files import publish, read_object, checked_bytes
 
 router = APIRouter(prefix='/api/business-records', tags=['合同发票'])
-INVOICE_ROLES = {'admin', 'finance', 'clerk', 'chairman', 'store_admin'}
+INVOICE_ROLES = {'admin', 'finance', 'clerk', 'general_manager', 'chairman', 'store_admin'}
 
 
 class InvoiceFields(Strict):
@@ -150,10 +150,12 @@ def upload_invoice(key: int, request: Request, file: UploadFile = File(...),
         if row.active_file_id != item.id:
             row.active_file_id = item.id
             row.fields = {}; row.confirmed_by = None; row.confirmed_at = None; row.note = ''
-        row.updated_at = utcnow()
+        row.uploaded_at = utcnow()
+        row.updated_at = row.uploaded_at
         db.flush()
         audit(db, user.id, 'record_invoice_upload', 'record_contract', contract.id,
-              before={'invoice': old}, after={'store_id': contract.store_id, 'invoice_id': row.id, 'file_id': item.id, 'sha256': digest})
+              before={'invoice': old}, after={'store_id': contract.store_id, 'invoice_id': row.id, 'file_id': item.id,
+              'sha256': digest, 'uploaded_at': row.uploaded_at.isoformat()})
         return _summary(db, row)
     return _run(db, user, request_id, 'invoice_upload', payload, perform)
 

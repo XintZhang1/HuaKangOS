@@ -16,7 +16,7 @@ DUMMY_HASH = hasher.hash(secrets.token_urlsafe(24))
 ROLES = {'admin':'系统管理员', 'manager':'店长 / 老板', 'sales':'销售', 'inventory':'库存管理员', 'service':'售后 / 保险', 'finance':'财务', 'auditor':'复核 / 审计'}
 ROLES.update({'reception':'前台接待','technician':'维修技师','customer_service':'客户服务'})
 ROLES.update({'clerk': '销售内勤', 'general_manager': '总经理', 'chairman': '董事长', 'group_deputy_manager': '集团副总经理', 'store_admin': '门店管理员'})
-ROLES.update({'manager': '销售经理', 'finance': '收银 / 财务'})
+ROLES.update({'sales': '销售顾问', 'manager': '销售经理', 'finance': '收银 / 财务'})
 # Old role codes remain readable on historical accounts. New accounts use the
 # present record product's jobs; chairman is explicit sensitive-data authority.
 RECORD_ACCOUNT_ROLES = {'admin', 'sales', 'manager', 'clerk', 'finance', 'general_manager', 'chairman', 'group_deputy_manager', 'store_admin'}

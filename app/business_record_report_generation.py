@@ -50,6 +50,10 @@ def prefill_contract_values(report_key, contract, salesperson_name=''):
         '精品成本（赠送）': money(approved_amount(contract, 'gift_cost_cents')), '精品明细': contract.gift_description,
         '单车利润': money(approved_amount(contract, 'profit_cents')), '核定单车利润': money(approved_amount(contract, 'profit_cents')),
         '单车利润2': money(approved_amount(contract, 'profit_cents')), '单车利润22': money(approved_amount(contract, 'profit_cents'))}
+    if getattr(contract, 'workflow_version', None) == 'trial-v210':
+        # The clerk's sale amount is an independent fact, not a mirror of the
+        # customer contract amount. Never overwrite it while generating reports.
+        labels.pop('车辆售价', None)
     # Old free-text supplemental amounts are not trusted as finite decimals.
     loan = form.get('loan_amount')
     if loan:
@@ -62,7 +66,7 @@ def prefill_contract_values(report_key, contract, salesperson_name=''):
     values = field_values(CATALOG_BY_KEY[report_key], labels)
     values = {key: value for key, value in values.items() if value is not None}
     locked = list(values)
-    if getattr(contract, 'workflow_version', None) in {'trial-v29', 'trial-v30'}:
+    if getattr(contract, 'workflow_version', None) in {'trial-v29', 'trial-v30', 'trial-v210'}:
         financial_labels = {'精品成本（赠送）', '单车利润', '核定单车利润', '单车利润2', '单车利润22'}
         financial_keys = {column['key'] for column in CATALOG_BY_KEY[report_key]['columns']
                           if column['label'] in financial_labels}
@@ -131,7 +135,7 @@ def _shared(rows, key):
             scopes[(row.get('store_id'), row.get('brand') or '', str(row.get('period', ''))[:7])].append(row)
     values, conflict = [], False
     for entries in scopes.values():
-        automatic = {row['contract_id']: row.get(key) for row in entries
+        automatic = {(row['contract_id'], row.get('event_kind', 'sale'), row.get('return_id')): row.get(key) for row in entries
                      if row.get('entry_mode') == 'generated' and row.get('contract_id') is not None}
         if automatic:
             values.append(_sum(list(automatic.values())))
@@ -296,6 +300,9 @@ def group_identity(row, group_by, category_field):
     if group_by == 'month':
         value = str(row.get('period') or '')[:7] or '未填日期'
         return ('month', value), value
+    if group_by == 'day':
+        value = str(row.get('period') or '')[:10] or '未填日期'
+        return ('day', value), value
     if group_by == 'brand':
         value = row.get('brand') or '未填品牌'
         return ('brand', value), value
@@ -308,7 +315,7 @@ def group_identity(row, group_by, category_field):
 
 def project(definition, records, *, group_by, metric, updated_at=None, category_field='',
             category_value='', source_mode='combined', legacy_rows=None):
-    if group_by not in {'salesperson', 'store', 'brand', 'month', 'group', 'category'}:
+    if group_by not in {'salesperson', 'store', 'brand', 'month', 'day', 'group', 'category'}:
         raise ValueError('不支持的报表分组。')
     fields = {column['key']: column for column in definition['metrics']}
     if metric not in fields:
@@ -340,7 +347,7 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
                 entry[output] = format((value / total * 100).quantize(Decimal('.000001')), 'f')
             elif total == 0:
                 entry[output] = None
-    summary.sort(key=(lambda row: row['label']) if group_by == 'month' else
+    summary.sort(key=(lambda row: row['label']) if group_by in {'month', 'day'} else
                  (lambda row: (row.get(metric) is None, -Decimal(row[metric] or 0), row['label'])))
     selected = fields[metric]
     series = [{'label': row['label'], 'value': float(row[metric]) if row.get(metric) is not None else None,
@@ -365,21 +372,39 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
         notice += '当前数据需核对：' + '；'.join(grand['aggregation_warnings'])
     def public(row):
         return {key: value for key, value in row.items() if not key.startswith('_')}
+    movements = {}
+    if any(row.get('event_kind') for row in rows):
+        for kind in ('sale', 'return'):
+            components = [row.get(metric) for row in rows if row.get('event_kind') == kind]
+            amount = _sum(components) if components else Decimal(0)
+            movements[kind] = format(amount, 'f') if amount is not None else None
+        movements['net'] = grand.get(metric)
     return {'report': definition['key'], 'metric': metric, 'title': definition['title'],
         'metric_label': selected['label'], 'unit': selected['unit'], 'precision': selected['precision'],
         'period_basis': definition['period_basis'], 'series': series, 'rows': [public(row) for row in rows],
         'columns': common + value_columns, 'summary_rows': summary, 'summary_columns': summary_columns,
         'grand_total': grand, 'legacy_rows': [public(row) for row in legacy], 'legacy_count': len(legacy),
-        'source_mode': source_mode, 'updated_at': updated_at, 'record_count': len(rows), 'notice': notice}
+        'source_mode': source_mode, 'updated_at': updated_at, 'record_count': len(rows), 'notice': notice,
+        'movement_summary': movements}
 
 
 def contract_statistics(key, contract, receipt, category, supplement, definition):
-    """Confirmed collection is the only sales-performance event."""
+    """Caller supplies the version-appropriate confirmed performance event."""
     extension_report = key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'}
     if receipt is None and not extension_report:
         return None
     profit, cost = money(approved_amount(contract, 'profit_cents')), money(approved_amount(contract, 'cost_cents'))
     income = money(receipt.actual_amount_cents) if receipt is not None else None
+    if key == 'trade_in':
+        if getattr(contract, 'workflow_version', None) != 'trial-v210':
+            return None
+        raw = (contract.form_data or {}).get('subsidy_deposit')
+        try:
+            deposit = Decimal(raw) if raw not in (None, '') else None
+            known = deposit is not None and deposit.is_finite() and deposit >= 0 and deposit == deposit.quantize(Decimal('.01'))
+        except (InvalidOperation, ValueError, TypeError):
+            known = False
+        return {'c07': ('1' if deposit > 0 else '0') if known else None}
     if extension_report:
         from .business_record_reports import CATALOG_BY_KEY
         vehicle_key = supplement.report_key if supplement is not None else 'vehicle_details'
@@ -574,6 +599,14 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     contract_ids = [item.id for item in contracts]
     receipts = {item.contract_id: item for item in db.scalars(select(ContractReceipt).where(
         ContractReceipt.contract_id.in_(contract_ids)))} if contract_ids else {}
+    from .business_record_delivery_models import RecordDelivery, RecordReturn
+    from .business_record_pricing_models import RecordContractTerms
+    deliveries = {item.contract_id: item for item in db.scalars(select(RecordDelivery).where(
+        RecordDelivery.contract_id.in_(contract_ids)))} if contract_ids else {}
+    returns = {item.contract_id: item for item in db.scalars(select(RecordReturn).where(
+        RecordReturn.contract_id.in_(contract_ids), RecordReturn.status == 'approved'))} if contract_ids else {}
+    terms = {item.contract_id: item for item in db.scalars(select(RecordContractTerms).where(
+        RecordContractTerms.contract_id.in_(contract_ids)))} if contract_ids else {}
     supplements = []
     if contract_ids:
         supplements = list(db.scalars(current_manual(visible_query(user, ManualReportRecord)).where(
@@ -619,7 +652,8 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             supplements_by_contract[value.contract_id] = value
     generated = []
     for contract in contracts:
-        new_flow = getattr(contract, 'workflow_version', None) in {'trial-v29', 'trial-v30'}
+        v210 = getattr(contract, 'workflow_version', None) == 'trial-v210'
+        new_flow = getattr(contract, 'workflow_version', None) in {'trial-v29', 'trial-v30', 'trial-v210'}
         approved_office = getattr(contract, 'office_approved_data', None)
         source = supplements_by_contract.get(contract.id)
         if approved_office:
@@ -634,6 +668,9 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         category = {'vehicle_details': '正常车辆', 'hail_vehicle_details': '冰雹车',
             'secondary_vehicle_details': '二级车辆', 'vehicle_details_sheet2': '补充车辆'}[vehicle_key]
         receipt = receipts.get(contract.id)
+        delivery = deliveries.get(contract.id)
+        performance = (SimpleNamespace(received_on=delivery.accounting_on,
+            actual_amount_cents=contract.sale_price_cents) if delivery else None) if v210 else receipt
         row = base(contract)
         row.update(contract_id=contract.id, entry_mode='generated', source_label='合同及内勤核价', note='')
         if key in VEHICLE_REPORTS:
@@ -641,7 +678,9 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
                 continue
             if new_flow and not approved_office:
                 continue
-            period = approved_office.get('period') if approved_office else source.period if source else contract.contract_date
+            if v210 and delivery is None:
+                continue
+            period = delivery.accounting_on if v210 else approved_office.get('period') if approved_office else source.period if source else contract.contract_date
             values = dict(source.values) if source is not None else {}
             values.update(prefill_contract_values(key, contract, row['salesperson'])['values'])
             row['source_label'] = '总经理批准的内勤资料' if approved_office else row['source_label'] + ('＋内勤补充' if source is not None else '')
@@ -650,33 +689,64 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             if key == 'expected_receipts':
                 if contract.status != 'approved':
                     continue
+                if v210 and delivery is None:
+                    continue
                 expected = approved_amount(contract, 'expected_amount_cents')
-                period, values = contract.contract_date, {'value': money(expected)}
+                period = delivery.accounting_on if v210 else contract.contract_date
+                values = {'value': money(expected)}
                 if new_flow and not approved_office:
                     values = {'value': money(contract.sale_price_cents)}
-            else:
-                if receipt is None:
+            elif key in {'cash_deliveries', 'cash_consumption_amount'}:
+                contract_terms = terms.get(contract.id)
+                if not v210 or performance is None or contract_terms is None:
                     continue
-                period = receipt.received_on
+                method = (contract_terms.submission_data or {}).get('payment_method')
+                if method not in {'全款', '贷款'}:
+                    values = {'value': None}
+                elif method == '贷款':
+                    continue
+                else:
+                    values = {'value': '1' if key == 'cash_deliveries' else
+                        money(approved_office.get('cash_consumption_cents')) if approved_office else None}
+                period = performance.received_on
+                row['source_label'] = '财务交车确认的全款合同'
+            else:
+                event = receipt if key == 'actual_receipts' else performance
+                if event is None:
+                    continue
+                period = event.received_on
                 values = {'value': money(receipt.actual_amount_cents) if key == 'actual_receipts'
                     else money(approved_amount(contract, 'profit_cents')) if key == 'profit' and (not new_flow or approved_office)
                     else None if key == 'profit' else '1'}
-                row['source_label'] = '财务确认到账＋内勤核价'
+                row['source_label'] = '财务确认交车＋独立内勤延伸' if v210 and key != 'actual_receipts' else '财务确认到账＋内勤核价'
         else:
             if new_flow and not approved_office and key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'}:
                 continue
-            values = contract_statistics(key, contract, receipt, category, source, definition)
+            if v210 and delivery is None:
+                continue
+            values = contract_statistics(key, contract, performance, category, source, definition)
             if values is None:
                 continue
             extension_report = key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'}
-            period = ((approved_office.get('period') if approved_office else source.period if source else receipt.received_on if receipt else None)
-                      if extension_report else receipt.received_on)
+            period = (delivery.accounting_on if v210 else
+                (approved_office.get('period') if approved_office else source.period if source else performance.received_on if performance else None)
+                if extension_report else performance.received_on)
             row['source_label'] = '总经理批准的内勤附带信息' if extension_report and approved_office else '已核实业务记录＋内勤核价'
-        if not _in_period(period, date_from, date_to):
-            continue
         row.update(values)
         row.update(period=str(period), _applicable_fields=set(values))
-        generated.append(row)
+        row['event_kind'] = 'sale'
+        if _in_period(period, date_from, date_to):
+            generated.append(row)
+        returned = returns.get(contract.id) if v210 else None
+        if returned and key != 'actual_receipts' and _in_period(returned.approved_on, date_from, date_to):
+            reversal = dict(row)
+            numeric = {field['key'] for field in (definition['columns'] if is_manual else definition['metrics'])
+                       if field['type'] in {'money', 'count', 'decimal'}}
+            for field in numeric & set(values):
+                reversal[field] = None if values[field] is None else format(-Decimal(values[field]), 'f')
+            reversal.update(period=str(returned.approved_on), event_kind='return', return_id=returned.id,
+                source_label='总经理批准退车冲减', note='原核算日 ' + str(period) + '；退车批准日追加冲减，原事实保留')
+            generated.append(reversal)
     for item in after_sales:
         if not _in_period(item.business_date, date_from, date_to):
             continue
@@ -736,7 +806,7 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
                 approved_office = getattr(linked, 'office_approved_data', None)
                 if approved_office and row['id'] != approved_office.get('manual_report_id'):
                     continue
-                if getattr(linked, 'workflow_version', None) in {'trial-v29', 'trial-v30'} and not approved_office:
+                if getattr(linked, 'workflow_version', None) in {'trial-v29', 'trial-v30', 'trial-v210'} and not approved_office:
                     continue
                 row.update(prefill_contract_values(key, linked, names.get(linked.salesperson_id, ''))['values'])
                 row['source_label'] = '内勤补充（合同共有事实锁定）'
@@ -801,4 +871,20 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     result = project(definition, rows, group_by=group_by, metric=metric if separator else definition['default_metric'],
         updated_at=max(updated, default=None), category_field=category_field, category_value=category_value,
         source_mode=source_mode, legacy_rows=legacy)
+    office_reports = VEHICLE_REPORTS | {'profit', 'cash_consumption_amount', 'bank_finance',
+        'insurance_resources', 'insurance_settlement', 'extended_warranty', 'individual_profit',
+        'model_profit', 'model_profit_sheet5', 'sales_profit_statement', 'secondary_profit_statement'}
+    pending = [item for item in contracts if item.workflow_version == 'trial-v210'
+        and item.id in deliveries and _in_period(deliveries[item.id].accounting_on, date_from, date_to)
+        and not item.office_approved_data] if key in office_reports else []
+    awaiting_approval = sum(item.office_status == 'submitted' for item in pending)
+    missing_result = result['grand_total'].get(result['metric']) is None
+    result['source_status'] = {
+        'status': 'awaiting_approval' if missing_result and awaiting_approval else
+                  'incomplete' if missing_result and (result['record_count'] or pending) else
+                  'no_source' if not result['record_count'] else 'known',
+        'awaiting_approval_count': awaiting_approval,
+        'awaiting_office_count': len(pending) - awaiting_approval,
+        'record_count': result['record_count'],
+    }
     return fill_month_window(result, date_from, date_to) if group_by == 'month' else result

@@ -10,7 +10,7 @@ VEHICLE_REPORTS = frozenset(DETAIL_REPORTS - {'accessory_details'})
 CONTRACT_REPORTS = frozenset(VEHICLE_REPORTS | {'sales_targets', 'sales_overview',
     'sales_profit_statement', 'secondary_profit_statement', 'individual_profit',
     'model_profit', 'model_profit_sheet5', 'bank_finance', 'insurance_resources',
-    'insurance_settlement', 'extended_warranty'})
+    'insurance_settlement', 'extended_warranty', 'trade_in', 'cash_deliveries', 'cash_consumption_amount'})
 AFTER_SALES_REPORTS = frozenset({'after_sales_monthly', 'after_sales_targets', 'sales_targets'})
 TARGET_FIELDS = frozenset({'c02', 'c03', 'c04', 'c05'})
 
@@ -18,7 +18,6 @@ TARGET_FIELDS = frozenset({'c02', 'c03', 'c04', 'c05'})
 # General managers need the complete valuation to review office submissions.
 SENSITIVE_REPORT_ROLES = frozenset({'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'})
 SENSITIVE_REPORT_TERMS = ('成本', '毛利', '利润', '返佣', '返利', '收益', '净利', '提车价', '折让', '贴息', '支出')
-SALES_PUBLIC_REPORTS = frozenset({'expected_receipts', 'actual_receipts', 'sales_volume'})
 
 
 def can_view_sensitive_reports(user):
@@ -27,7 +26,7 @@ def can_view_sensitive_reports(user):
     # Match the business-record aggregate scope (not every role that can use
     # some unrelated system-wide summary).
     roles = [item.get('role') for item in getattr(user, '_stores', ())
-             if item.get('role') in {'admin', 'general_manager', 'chairman'}]
+             if item.get('role') in {'admin', 'general_manager', 'chairman', 'group_deputy_manager'}]
     return bool(roles) and all(role in SENSITIVE_REPORT_ROLES for role in roles)
 
 
@@ -49,11 +48,10 @@ def assert_report_access(user, report):
     if definition is None:
         raise HTTPException(422, '报表不存在')
     if not getattr(user, '_aggregate_scope', False):
-        if user.role in {'finance', 'service'}:
+        if user.role in {'finance', 'service', 'sales'}:
             raise HTTPException(403, '当前岗位不开放经营报表')
-        if user.role == 'sales' and key not in SALES_PUBLIC_REPORTS:
-            raise HTTPException(403, '销售仅可查看本人销量及应到账、实到账统计')
-    if sensitive_report(definition) and not can_view_sensitive_reports(user):
+    if sensitive_report(definition) and not can_view_sensitive_reports(user) and not (
+            key == 'trade_in' and user.role == 'manager' and not getattr(user, '_aggregate_scope', False)):
         raise HTTPException(403, '当前岗位不能查看包含成本、毛利、利润或返佣的报表')
 
 # Numerator and denominator are field keys, never inferred from label fragments.
@@ -100,7 +98,7 @@ NON_ADDITIVE = {
     'marketing': {'c21', 'c22', 'c23'},
 }
 STOCK_FIELDS = {'sales_overview': {'c06', 'c07', 'c08', 'c09', 'c10'},
-                'after_sales_monthly': {'c09', 'c10'}}
+                'after_sales_monthly': {'c09', 'c10'}, 'daily_operations': {'c03'}}
 # Original merged cells are repeated only for entering institution rows. Their
 # values describe one store/brand/month, not a separate sale per institution.
 SHARED_FIELDS = {'bank_finance': {'c07', 'c08', 'c11', 'c12', 'c13', 'c14'},
@@ -133,8 +131,28 @@ DEFAULTS = {'sales_targets': 'c06', 'trade_in': 'c13', 'extended_warranty': 'c04
 
 
 def configure_catalog(catalog):
+    # New definitions leave already-confirmed daily snapshot definitions intact.
+    columns = [{'key': key, 'label': label, 'type': kind, 'unit': unit, 'precision': 2 if kind == 'money' else 0}
+        for key, label, kind, unit in (
+            ('c01', '实际收订台数', 'count', '台'),
+            ('c03', '剩余现金车', 'count', '台'), ('c04', '次日预计交车', 'count', '台'))]
+    catalog.append({'key': 'daily_operations', 'title': '内勤每日经营观察', 'source': 'manual',
+        'source_template': 'V2.10 人工核实每日事实', 'columns': columns, 'metrics': [dict(c) for c in columns],
+        'unit': '', 'default_metric': 'c01', 'period_basis': '内勤填写的观察日期'})
+    catalog.append({'key': 'cash_deliveries', 'title': '现金车消化台数', 'source': 'contracts',
+        'columns': [], 'metrics': [{'key': 'value', 'label': '现金车消化台数', 'type': 'count', 'unit': '台', 'precision': 0}],
+        'unit': '台', 'default_metric': 'value', 'period_basis': '财务确认交车；按所绑定发票业务上传日核算，批准退车当日冲减'})
+    catalog.append({'key': 'cash_consumption_amount', 'title': '现金车消化金额', 'source': 'contracts',
+        'columns': [], 'metrics': [{'key': 'value', 'label': '现金车消化金额', 'type': 'money', 'unit': '元', 'precision': 2}],
+        'unit': '元', 'default_metric': 'value', 'period_basis': '内勤逐车填写并获批准的消化金额；交车发票上传日计入、退车批准日冲减'})
     for report in catalog:
         key = report['key']
+        if key in {'sales_volume', 'profit'}:
+            report['definition_version'] = 'v210-delivery'
+            report['period_basis'] = '新版：财务确认交车、发票业务上传日核算；退车批准日冲减。历史合同保留原到账口径。'
+        if key == 'expected_receipts':
+            report['definition_version'] = 'v210-delivery'
+            report['period_basis'] = '新版：财务确认交车后按发票业务上传日计入合同应收、退车批准日冲减；历史合同按原批准合同日期。'
         if key == 'after_sales_revenue':
             for metric, label, kind, unit, precision in (
                 ('materials', '材料费', 'money', '元', 2), ('labor', '工时费', 'money', '元', 2),
@@ -156,6 +174,8 @@ def configure_catalog(catalog):
         report['entry_modes'] = ['detail', 'snapshot']
         report['supports_contract'] = key in VEHICLE_REPORTS
         report['default_entry_mode'] = 'detail' if key in DETAIL_REPORTS else 'snapshot'
+        if key == 'daily_operations':
+            report['entry_modes'], report['default_entry_mode'] = ['detail'], 'detail'
         report['grouping_fields'] = [dict(c) for c in report['columns']
                                      if c['key'] in GROUPING_FIELDS.get(key, [])]
         report['automatic_source'] = ('contracts_and_after_sales' if key in CONTRACT_REPORTS & AFTER_SALES_REPORTS
@@ -183,16 +203,21 @@ def configure_catalog(catalog):
         if key in SHARED_FIELDS:
             names = [column['label'] for column in report['columns'] if column['key'] in SHARED_FIELDS[key]]
             report['input_notice'] = ('、'.join(names) + '是门店、品牌、月份的共享数据；同范围在多个机构行重复填写时须一致，仅计一次；冲突留空并提示核对。')
-        report['period_basis'] = ('总经理已批准的内勤统计日期；不代表开票、交车或到账'
+        report['period_basis'] = ('新版合同：财务交车绑定的发票上传日；历史合同按已批准内勤统计日'
             if key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'} else
-            '实际到账日期（销售实绩）；人工统计日期（目标和补充）'
+            '新版已确认交车按发票上传日、退车按批准日；历史到账及人工统计保留原日期'
             if key in CONTRACT_REPORTS - VEHICLE_REPORTS else
-            '内勤核定统计日期（历史无统计日期时保留合同日期）；不计作到账业绩' if key in VEHICLE_REPORTS else
+            '新版：财务交车所绑定发票上传日；历史内勤核定统计日期（无统计日期时保留合同日期）；不计作到账业绩' if key in VEHICLE_REPORTS else
             '售后业务日期及人工统计日期' if key in AFTER_SALES_REPORTS else '人工填报的统计日期')
+        if key == 'daily_operations':
+            report['input_notice'] = '收订须已人工核实，合同定金不等于收订；余额及预计交车按当日实际观察填写。未知留空，同日更正请引用原记录。'
+            report['aggregation_rules']['c03'] = {'kind': 'closing_snapshot'}
+            report['aggregation_rules']['c04'] = {'kind': 'closing_snapshot'}
 
 
 # Fields generated from business facts. Other fields remain clerk-confirmed.
 GENERATED_FIELDS = {
+    'trade_in': {'c07'},
     'bank_finance': {'c04', 'c05', 'c06'},
     'insurance_resources': {'c02', 'c03'},
     'insurance_settlement': {'c04'},
