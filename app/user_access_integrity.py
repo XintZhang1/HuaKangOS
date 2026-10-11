@@ -3,6 +3,50 @@ import hashlib
 import json
 
 
+STORE_STAFF_ROLES = frozenset({'sales', 'manager', 'clerk', 'finance'})
+
+
+def receipt_digest(target_id, source, store_id=0):
+    payload = {'target_id': target_id, 'values': source}
+    if store_id:
+        payload['store_id'] = store_id
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+def validate_store_snapshot(snapshot, store_id):
+    if (not isinstance(snapshot, dict) or snapshot.get('store_id') != store_id
+            or snapshot.get('store_ids') != [store_id]
+            or snapshot.get('role') not in STORE_STAFF_ROLES
+            or snapshot.get('account_role') not in STORE_STAFF_ROLES
+            or snapshot.get('can_group_summary') is not False):
+        raise ValueError('门店账号回执包含跨店或非普通岗位')
+    roles = snapshot.get('store_roles')
+    if (not isinstance(roles, list) or len(roles) != 1 or not isinstance(roles[0], dict)
+            or roles[0].get('store_id') != store_id or roles[0].get('role') not in STORE_STAFF_ROLES):
+        raise ValueError('门店账号回执岗位不一致')
+
+
+def receipt_scope(audit, source, result, before):
+    """Validate a durable scope without requiring the actor's later/current role."""
+    if audit['entity_type'] == 'users' and audit['store_id'] == 0:
+        return 0
+    store_id = audit['store_id']
+    if audit['entity_type'] != 'store_account' or type(store_id) is not int or store_id < 1:
+        raise ValueError('账号审计归属范围不正确')
+    for snapshot in (before, result):
+        validate_store_snapshot(snapshot, store_id)
+    if source.get('role') not in STORE_STAFF_ROLES or source.get('can_group_summary') not in (None, False):
+        raise ValueError('门店账号回执含越权请求')
+    if source.get('store_ids') is not None and source['store_ids'] != [store_id]:
+        raise ValueError('门店账号回执请求跨店')
+    roles = source.get('store_roles')
+    if roles is not None and (not isinstance(roles, list) or len(roles) != 1
+            or not isinstance(roles[0], dict) or roles[0].get('store_id') != store_id
+            or roles[0].get('role') not in STORE_STAFF_ROLES):
+        raise ValueError('门店账号回执请求岗位不一致')
+    return store_id
+
+
 def validate(connection):
     names={r[0] for r in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     columns={r[1] for r in connection.execute('PRAGMA table_info(users)')}
@@ -24,15 +68,16 @@ def validate(connection):
         if not isinstance(source,dict) or not isinstance(result,dict):raise ValueError('账号授权回执内容不完整')
         if any(k in source or k in result for k in ('password','password_hash','csrf_hash','session_id')):
             raise ValueError('账号授权回执包含不应保存的登录凭据')
-        expected=hashlib.sha256(json.dumps({'target_id':receipt['target_id'],'values':source},
-                                         sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+        if not audit:raise ValueError('账号审计回执缺失')
+        scope=receipt_scope(audit,source,result,before)
+        expected=receipt_digest(receipt['target_id'],source,scope)
         prior=receipt['previous_version']
         if (receipt['actor_id'] not in users or receipt['target_id'] not in users or prior < 1
             or type(source.get('access_version')) is not int or source.get('access_version') != prior or receipt['digest'] != expected
             or result.get('id') != receipt['target_id'] or result.get('access_version') != prior+1
             or not audit or audit['actor_id'] != receipt['actor_id'] or audit['action'] != 'update_user'
-            or audit['entity_type'] != 'users' or audit['entity_id'] != receipt['target_id']
-            or audit['store_id'] != 0 or decoded(audit['after_data']) != result
+            or audit['entity_id'] != receipt['target_id']
+            or decoded(audit['after_data']) != result
             or not isinstance(before,dict) or before.get('access_version') != prior
             or not {'display_name','account_role','active','store_roles','can_group_summary'} <= result.keys()):
             raise ValueError('账号授权版本、请求或审计回执不一致')

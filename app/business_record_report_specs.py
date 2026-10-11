@@ -12,8 +12,11 @@ CONTRACT_REPORTS = frozenset(VEHICLE_REPORTS | {'sales_targets', 'sales_overview
     'model_profit', 'model_profit_sheet5', 'bank_finance', 'insurance_resources',
     'insurance_settlement', 'extended_warranty'})
 AFTER_SALES_REPORTS = frozenset({'after_sales_monthly', 'after_sales_targets', 'sales_targets'})
+TARGET_FIELDS = frozenset({'c02', 'c03', 'c04', 'c05'})
 
-SENSITIVE_REPORT_ROLES = frozenset({'admin', 'clerk', 'chairman'})
+# Read access applies only within the existing current-store/aggregate scope.
+# General managers need the complete valuation to review office submissions.
+SENSITIVE_REPORT_ROLES = frozenset({'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'})
 SENSITIVE_REPORT_TERMS = ('成本', '毛利', '利润', '返佣', '返利', '收益', '净利', '提车价', '折让', '贴息', '支出')
 SALES_PUBLIC_REPORTS = frozenset({'expected_receipts', 'actual_receipts', 'sales_volume'})
 
@@ -36,7 +39,7 @@ def sensitive_report(definition):
 def assert_report_access(user, report):
     """Apply the same whole-report guard to catalog, live API, CSV and AI reads.
 
-    Mixed original sheets remain intact for the clerk/chairman. Other roles
+    Mixed original sheets remain intact for authorized financial readers. Other roles
     cannot receive hidden costs through a different metric or a source export.
     """
     from fastapi import HTTPException
@@ -51,7 +54,7 @@ def assert_report_access(user, report):
         if user.role == 'sales' and key not in SALES_PUBLIC_REPORTS:
             raise HTTPException(403, '销售仅可查看本人销量及应到账、实到账统计')
     if sensitive_report(definition) and not can_view_sensitive_reports(user):
-        raise HTTPException(403, '包含成本、毛利、利润或返佣的报表仅向内勤和董事长开放')
+        raise HTTPException(403, '当前岗位不能查看包含成本、毛利、利润或返佣的报表')
 
 # Numerator and denominator are field keys, never inferred from label fragments.
 # A third item of 100 denotes a percentage; 1 denotes a unit price.
@@ -174,6 +177,9 @@ def configure_catalog(catalog):
             else:
                 rules[name] = {'kind': 'sum'}
         report['aggregation_rules'] = rules
+        if key == 'sales_targets':
+            report['input_notice'] = ('月度目标由管理者按门店、月份、品牌和系列下达；未知或不适用不按零计算。'
+                '按系列比较时，仅使用已确认同系列的实绩，缺少系列的业务不会自动分配。')
         if key in SHARED_FIELDS:
             names = [column['label'] for column in report['columns'] if column['key'] in SHARED_FIELDS[key]]
             report['input_notice'] = ('、'.join(names) + '是门店、品牌、月份的共享数据；同范围在多个机构行重复填写时须一致，仅计一次；冲突留空并提示核对。')

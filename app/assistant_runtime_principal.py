@@ -153,6 +153,7 @@ def _identity(reader, actor_id, store_id, role, access_version, session_id):
         AssistantSession.id == session_id, AssistantSession.owner_id == actor_id,
         AssistantSession.store_id == store_id))
     if (account is None or not account.active or account.must_change_password
+            or account.role == 'store_admin' or role == 'store_admin'
             or account.access_version != access_version or store is None or thread is None
             or thread.owner_role != role or thread.access_version != access_version):
         _denied()

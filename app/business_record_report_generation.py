@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from types import SimpleNamespace
 from .business_record_report_specs import (
     VEHICLE_REPORTS, GROUPING_FIELDS, GENERATED_FIELDS, STOCK_FIELDS, RATIOS,
-    CONTRACT_REPORTS, AFTER_SALES_REPORTS, SHARED_FIELDS)
+    CONTRACT_REPORTS, AFTER_SALES_REPORTS, SHARED_FIELDS, TARGET_FIELDS)
 
 SERVICE_LABELS = {'repair': '维修', 'maintenance': '保养', 'accident': '事故维修',
     'renewal': '续保', 'extended_warranty': '延保', 'accessories': '精品销售'}
@@ -62,7 +62,7 @@ def prefill_contract_values(report_key, contract, salesperson_name=''):
     values = field_values(CATALOG_BY_KEY[report_key], labels)
     values = {key: value for key, value in values.items() if value is not None}
     locked = list(values)
-    if getattr(contract, 'workflow_version', None) == 'trial-v29':
+    if getattr(contract, 'workflow_version', None) in {'trial-v29', 'trial-v30'}:
         financial_labels = {'精品成本（赠送）', '单车利润', '核定单车利润', '单车利润2', '单车利润22'}
         financial_keys = {column['key'] for column in CATALOG_BY_KEY[report_key]['columns']
                           if column['label'] in financial_labels}
@@ -90,10 +90,11 @@ def latest_snapshots(rows, definition):
     """A monthly cumulative input is one observation, not a new transaction."""
     snapshots, details = {}, []
     for row in rows:
-        if row.get('entry_mode') not in {'snapshot', 'final'}:
+        if row.get('entry_mode') not in {'snapshot', 'final', 'target'}:
             details.append(row)
             continue
-        key = (str(row.get('period', ''))[:7], dimension(row, definition), row.get('entry_mode') == 'final')
+        key = (str(row.get('period', ''))[:7], dimension(row, definition),
+               row.get('entry_mode') == 'final', row.get('entry_mode') == 'target')
         order = (str(row.get('_snapshot_source_period', row.get('period', ''))), row.get('id') or 0)
         prior = snapshots.get(key)
         if prior is None or order > (str(prior.get('period', '')), prior.get('id') or 0):
@@ -179,6 +180,41 @@ def _profit_totals(rows, key):
     return _sum(amounts), conflict
 
 
+def _target_ambiguities(rows, definition):
+    """Do not sum facts whose target/series scopes might describe the same work."""
+    if definition['key'] != 'sales_targets':
+        return set(), []
+    ambiguous, warnings = set(), []
+    targets = [row for row in rows if row.get('entry_mode') == 'target']
+    def applies(row, field):
+        return field in row.get('_applicable_fields', row)
+    for target in targets:
+        for other in rows:
+            if other is target or other.get('entry_mode') == 'generated':
+                continue
+            if target.get('store_id') != other.get('store_id') or str(target.get('period'))[:7] != str(other.get('period'))[:7]:
+                continue
+            if any(target.get(field) and other.get(field) and target[field] != other[field]
+                   for field in ('brand', 'c01')):
+                continue
+            ambiguous |= {field for field in TARGET_FIELDS if applies(target, field) and applies(other, field)}
+    if ambiguous:
+        warnings.append('管理者月度目标与旧目标或未分品牌目标存在范围重叠，相关合计留空；请核对品牌、系列和旧目标来源，不能将全店目标与分项重复相加。')
+    actual_fields = {'c06', 'c07', 'c08', 'c09'}
+    generated = [row for row in rows if row.get('entry_mode') == 'generated' and not row.get('c01')]
+    for manual in rows:
+        if manual.get('entry_mode') in {'generated', 'target'} or not manual.get('c01'):
+            continue
+        for automatic in generated:
+            if _overlap(manual, automatic, definition, include_categories=False):
+                conflict = {field for field in actual_fields if applies(manual, field) and applies(automatic, field)}
+                if conflict:
+                    ambiguous |= conflict
+                    if not any('未填写系列的业务' in warning for warning in warnings):
+                        warnings.append('未填写系列的业务与人工分系列实绩可能重叠，相关合计留空；请核实业务系列或使用已核对的完整范围数据。')
+    return ambiguous, warnings
+
+
 def aggregate_rows(rows, definition, label):
     result = {'label': label, 'record_count': len(rows), 'unknown_count': 0, 'aggregation_warnings': [],
               'source_labels': sorted({row.get('source_label', '人工核填') for row in rows})}
@@ -215,6 +251,10 @@ def aggregate_rows(rows, definition, label):
             if conflict:
                 result['aggregation_warnings'].append(column['label'] + '的全部车辆小计与分类数据不一致，请核对。')
         result['unknown_count'] += sum(value in (None, '') for value in values)
+    ambiguous, warnings = _target_ambiguities(rows, definition)
+    for field in ambiguous:
+        numbers[field] = None
+    result['aggregation_warnings'].extend(warnings)
     if definition['key'] == 'insurance_renewal':
         # Institution-specific inside/outside facts sum to the store total.
         # If either side is absent, retain the unique clerk-confirmed total.
@@ -228,7 +268,9 @@ def aggregate_rows(rows, definition, label):
         numerator, denominator = _operand(numbers, rule['numerator']), _operand(numbers, rule['denominator'])
         numbers[key] = (numerator / denominator * rule['scale']
                         if numerator is not None and denominator not in (None, 0) else None)
-        if numbers[key] is None and denominator != 0:
+        operands = (rule['numerator'] if isinstance(rule['numerator'], (list, tuple)) else [rule['numerator']])
+        operands = list(operands) + list(rule['denominator'] if isinstance(rule['denominator'], (list, tuple)) else [rule['denominator']])
+        if numbers[key] is None and denominator != 0 and not (set(operands) & ambiguous):
             entered = _values(rows, key)
             # One clerk-confirmed observation can be displayed unchanged when
             # its operands were not recorded. Multiple rates cannot be averaged.
@@ -367,7 +409,15 @@ def contract_statistics(key, contract, receipt, category, supplement, definition
             return None
         return {'c01': labels.get('延保合作公司') or '未填写延保合作公司', 'c02': '1', 'c04': warranty}
     if key == 'sales_targets':
-        return {'c06': '1'}
+        values = {'c06': '1'}
+        if supplement is not None:
+            from .business_record_reports import CATALOG_BY_KEY
+            source = CATALOG_BY_KEY.get(supplement.report_key, {})
+            series_field = next((field['key'] for field in source.get('columns', [])
+                                 if field['label'] == '车系'), None)
+            if series_field and supplement.values.get(series_field):
+                values['c01'] = supplement.values[series_field]
+        return values
     if key == 'sales_overview':
         return {'c04': '1'}
     if key in {'sales_profit_statement', 'secondary_profit_statement'}:
@@ -422,6 +472,11 @@ def _overlap(manual, automatic, definition, include_categories=True):
     for key in GROUPING_FIELDS.get(definition['key'], []) if include_categories else []:
         if key == 'c11' and definition['key'] in {'sales_profit_statement', 'secondary_profit_statement'} and manual.get(key) in {'全部', '全部车辆', '合计', '总计'}:
             continue
+        if definition['key'] == 'sales_targets' and key == 'c01' and manual.get(key):
+            # A missing business series cannot replace a confirmed series or be
+            # removed by that series' manually confirmed performance figure.
+            if manual[key] != automatic.get(key):
+                return False
         if manual.get(key) and automatic.get(key) and manual[key] != automatic[key]:
             return False
     return True
@@ -536,9 +591,16 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             'brand': item.brand, 'salesperson_id': owner, 'salesperson': names.get(owner, '未指定销售/经办人'),
             'number': getattr(item, 'number', str(item.id)), 'customer_name': getattr(item, 'customer_name', '')}
     def manual_row(item):
-        return dict(base(item), **item.values, period=str(item.period), entry_mode=item.entry_mode,
+        values = dict(item.values)
+        if item.entry_mode == 'target':
+            # The original slash remains in the target history. Report numbers
+            # retain null, never zero, for both unknown and inapplicable cells.
+            values = {field: None if field in TARGET_FIELDS and value == '/' else value
+                      for field, value in values.items()}
+        return dict(base(item), **values, period=str(item.period), entry_mode=item.entry_mode,
             contract_id=item.contract_id, supersedes_id=item.supersedes_id,
-            source_label='历史人工记录' if item.entry_mode == 'legacy' else '人工核填', note=item.note or '')
+            source_label='管理者下达月度目标' if item.entry_mode == 'target' else
+                '历史人工记录' if item.entry_mode == 'legacy' else '人工核填', note=item.note or '')
     manual_rows = effective_records([manual_row(item) for item in manual_objects])
     if key == 'profit':
         for row in manual_rows:
@@ -557,7 +619,7 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             supplements_by_contract[value.contract_id] = value
     generated = []
     for contract in contracts:
-        new_flow = getattr(contract, 'workflow_version', None) == 'trial-v29'
+        new_flow = getattr(contract, 'workflow_version', None) in {'trial-v29', 'trial-v30'}
         approved_office = getattr(contract, 'office_approved_data', None)
         source = supplements_by_contract.get(contract.id)
         if approved_office:
@@ -630,12 +692,22 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     prepared = []
     # An explicitly final monthly value is authoritative for its scope. It is
     # never another transaction to add to the automatically generated numbers.
+    target_rows = [row for row in manual_rows if row['entry_mode'] == 'target'
+                   and _in_period(row['period'], date_from, date_to)]
+    def has_issued_target(row):
+        # Only replace the exact same target scope. An unclassified old target
+        # is not guessed to be one of the manager's named series.
+        return key == 'sales_targets' and row.get('salesperson_id') is None and any(
+            target['store_id'] == row['store_id'] and target['brand'] == row['brand']
+            and target.get('c01') == row.get('c01')
+            and target['period'][:7] == row['period'][:7] for target in target_rows)
     final_rows = [row for row in manual_rows if row['entry_mode'] == 'final'
                   and _in_period(row['period'], date_from, date_to)]
     value_columns = definition['columns'] if is_manual else definition['metrics']
     numeric_keys = {field['key'] for field in value_columns if field['type'] not in {'text', 'date'}}
     def final_fields(row):
-        return {key for key in numeric_keys if row.get(key) not in (None, '')}
+        fields = {key for key in numeric_keys if row.get(key) not in (None, '')}
+        return fields - TARGET_FIELDS - {'c10', 'c11'} if has_issued_target(row) else fields
     for index, first in enumerate(final_rows):
         for second in final_rows[index + 1:]:
             if final_fields(first) & final_fields(second) and (
@@ -664,7 +736,7 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
                 approved_office = getattr(linked, 'office_approved_data', None)
                 if approved_office and row['id'] != approved_office.get('manual_report_id'):
                     continue
-                if getattr(linked, 'workflow_version', None) == 'trial-v29' and not approved_office:
+                if getattr(linked, 'workflow_version', None) in {'trial-v29', 'trial-v30'} and not approved_office:
                     continue
                 row.update(prefill_contract_values(key, linked, names.get(linked.salesperson_id, ''))['values'])
                 row['source_label'] = '内勤补充（合同共有事实锁定）'
@@ -673,6 +745,10 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
                 # but an obsolete valuation is not a current business fact.
                 continue
         applicable = {column['key'] for column in value_columns}
+        if row['entry_mode'] == 'target':
+            applicable &= TARGET_FIELDS | {'c01'}
+        elif has_issued_target(row):
+            applicable -= TARGET_FIELDS | {'c10', 'c11'}
         if not _in_period(row['period'], date_from, date_to):
             # Before-period rows only carry closing stock, not prior period revenue.
             applicable &= STOCK_FIELDS.get(key, set())
@@ -681,11 +757,11 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             row['note'] = ((row.get('note') or '') + '；库存来源快照日期：' + row['period']).lstrip('；')
             row['_snapshot_source_period'] = row['period']
             row['period'] = str(date_from)
-        if source_mode in {'combined', 'manual'} and row['entry_mode'] != 'final' and any(
+        if source_mode in {'combined', 'manual'} and row['entry_mode'] not in {'final', 'target'} and any(
                 _overlap(final, row, definition) for final in final_rows):
             applicable -= set().union(*(final_fields(final) for final in final_rows if _overlap(final, row, definition)))
             row['source_label'] = '人工补录（数值已由内勤最终月值替代）'
-        if source_mode == 'combined' and key in GENERATED_FIELDS and row['entry_mode'] != 'final':
+        if source_mode == 'combined' and key in GENERATED_FIELDS and row['entry_mode'] not in {'final', 'target'}:
             candidates = generated_by_period_store[(row['period'][:7], row['store_id'])]
             overlaps = [item for item in candidates if _overlap(row, item, definition)]
             if overlaps:

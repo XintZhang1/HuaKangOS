@@ -1002,6 +1002,12 @@
     grantStatusText: grantStatusText, followupAllowed: followupAllowed, waitingText: waitingText,
     pendingHandoff: pendingHandoff, clearHandoff: clearHandoff, handoffLabel: handoffLabel,
     rememberUi: rememberUi, restoreUi: restoreUi, clearUi: clearUi,
+    hasUnsavedUi: function () {
+      return [...uiBySession].some(([key, saved]) => key !== uiKey() &&
+        (String(saved.draft || '').trim() || saved.files?.items?.length ||
+          Object.values(saved.answers || {}).some(answers =>
+            Object.values(answers || {}).some(value => value != null && String(value).trim()))));
+    },
     snapshot: function () {
       return { groups: state.groups.map((group) => ({ key: group.key, count: (group.items || []).length,
         next_cursor: group.next_cursor || null })),

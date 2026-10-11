@@ -269,6 +269,7 @@ def _source_facts(reader, event):
 def _access_source_facts(reader, values):
     from .models import AuditLog, Store, User
     from .user_access_models import UserAccessReceipt
+    from .user_access_integrity import receipt_scope, receipt_digest, validate_store_snapshot
     source, store_id = values['source_ref'], values['store_id']
     ident, version = source['id'], source['version']
     if (type(ident) is not int or any(values[key] is not None for key in
@@ -280,8 +281,15 @@ def _access_source_facts(reader, values):
     if (values['topic'], source['type']) == ('access.changed', 'user_access_receipt'):
         receipt = reader.scalar(select(UserAccessReceipt).where(UserAccessReceipt.id == ident))
         audit = reader.scalar(select(AuditLog).where(AuditLog.id == receipt.audit_id)) if receipt else None
-        if (receipt is None or audit is None or audit.store_id != 0
-                or audit.action != 'update_user' or audit.entity_type != 'users'
+        if receipt is None or audit is None:
+            _invalid()
+        try:
+            scope_id = receipt_scope({'entity_type': audit.entity_type, 'store_id': audit.store_id},
+                receipt.request_data, receipt.result, audit.before_data)
+        except (ValueError, KeyError, TypeError):
+            _invalid()
+        if (scope_id and scope_id != store_id or receipt.digest != receipt_digest(receipt.target_id, receipt.request_data, scope_id)
+                or audit.action != 'update_user'
                 or audit.entity_id != receipt.target_id or audit.actor_id != receipt.actor_id
                 or type(audit.before_data) is not dict or type(audit.after_data) is not dict
                 or receipt.result != audit.after_data or version != receipt.previous_version + 1
@@ -297,11 +305,19 @@ def _access_source_facts(reader, values):
         return facts
     if source['type'] != 'audit_log' or version is not None:
         _invalid()
-    audit = reader.scalar(select(AuditLog).where(AuditLog.id == ident, AuditLog.store_id == 0))
+    audit = reader.scalar(select(AuditLog).where(AuditLog.id == ident))
     if audit is None:
         _invalid()
+    if audit.entity_type == 'store_account':
+        try:
+            validate_store_snapshot(audit.after_data, store_id)
+        except (ValueError, KeyError, TypeError):
+            _invalid()
     if (values['topic'] == 'access.changed' and audit.action == 'reset_password'
-            and audit.entity_type == 'users' and type(audit.entity_id) is int
+            and (audit.entity_type == 'users' and audit.store_id == 0
+                 or audit.entity_type == 'store_account' and audit.store_id == store_id
+                 and type(audit.after_data) is dict and audit.after_data.get('store_id') == store_id
+                 and audit.after_data.get('id') == audit.entity_id) and type(audit.entity_id) is int
             and audit.entity_id != audit.actor_id
             and values['signal_key'] == f'audit_log:{ident}:access:store:{store_id}'):
         if reader.scalar(select(User.id).where(User.id == audit.entity_id)) is None:
@@ -311,7 +327,7 @@ def _access_source_facts(reader, values):
         facts['owner_id'] = audit.entity_id
         return facts
     if (values['topic'] == 'store.access_changed' and audit.action == 'update_store'
-            and audit.entity_type == 'stores' and audit.entity_id == store_id
+            and audit.entity_type == 'stores' and audit.store_id == 0 and audit.entity_id == store_id
             and values['signal_key'] == f'audit_log:{ident}:store:{store_id}'
             and type(audit.before_data) is dict and type(audit.after_data) is dict
             and audit.before_data.get('id') == store_id and audit.after_data.get('id') == store_id

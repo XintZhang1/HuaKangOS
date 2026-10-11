@@ -14,6 +14,7 @@ from .config import settings
 from .db import utcnow
 from .models import AuditLog, Store, User, UserStore
 from .user_access_models import UserAccessReceipt
+from .user_access_integrity import receipt_scope, receipt_digest, validate_store_snapshot
 from .assistant_runtime_models import FollowupGrant, Run, WakeEvent
 
 
@@ -38,11 +39,25 @@ def _actor(db, actor_id):
 def _audit(db, audit_id, actor_id, action, family, target_id):
     table = AuditLog.__table__
     value = db.execute(select(table).where(table.c.id == audit_id)).mappings().one_or_none()
-    if (value is None or value['store_id'] != 0 or value['actor_id'] != actor_id
+    local = family == 'store_account'
+    if local:
+        from .tenancy import single_store
+        from .store_administration import revalidate_actor, require_target
+        scope_id = single_store(db)
+        actor = db.scalar(select(User).where(User.id == actor_id))
+        target = db.scalar(select(User).where(User.id == target_id))
+        if actor is None or target is None:
+            _invalid()
+        revalidate_actor(db, actor, actor)
+        require_target(db, actor, target)
+    else:
+        scope_id = 0
+    if (value is None or value['store_id'] != scope_id or value['actor_id'] != actor_id
             or value['action'] != action or value['entity_type'] != family
             or value['entity_id'] != target_id):
         _invalid()
-    _actor(db, actor_id)
+    if not local:
+        _actor(db, actor_id)
     return value
 
 
@@ -116,8 +131,16 @@ def emit_user_access_changed(db, receipt):
     _pending(db, receipt, UserAccessReceipt)
     db.flush()
     target = db.scalar(select(User).where(User.id == receipt.target_id))
-    audit = _audit(db, receipt.audit_id, receipt.actor_id, 'update_user', 'users', receipt.target_id)
+    source = db.get(AuditLog, receipt.audit_id)
+    family = source.entity_type if source and source.entity_type == 'store_account' else 'users'
+    audit = _audit(db, receipt.audit_id, receipt.actor_id, 'update_user', family, receipt.target_id)
     before, after = audit['before_data'], audit['after_data']
+    try:
+        scope_id = receipt_scope(audit, receipt.request_data, receipt.result, before)
+    except (ValueError, KeyError, TypeError):
+        _invalid()
+    if receipt.digest != receipt_digest(receipt.target_id, receipt.request_data, scope_id):
+        _invalid()
     if (target is None or type(before) is not dict or type(after) is not dict
             or receipt.result != after or before.get('id') != target.id or after.get('id') != target.id
             or before.get('access_version') != receipt.previous_version
@@ -128,7 +151,8 @@ def emit_user_access_changed(db, receipt):
     current_stores = set(db.scalars(select(UserStore.store_id).where(UserStore.user_id == target.id)))
     if _membership_ids(after.get('store_ids')) != current_stores:
         _invalid()
-    return _emit(db, _user_stores(db, target, before=before, after=after),
+    destinations = [scope_id] if scope_id else _user_stores(db, target, before=before, after=after)
+    return _emit(db, destinations,
         key_prefix='user_access_receipt:' + str(receipt.id), topic='access.changed',
         source_ref={'type': 'user_access_receipt', 'id': receipt.id, 'version': target.access_version})
 
@@ -139,11 +163,18 @@ def emit_user_security_changed(db, audit_record):
         return ()
     _pending(db, audit_record, AuditLog)
     db.flush()
-    audit = _audit(db, audit_record.id, audit_record.actor_id, 'reset_password', 'users', audit_record.entity_id)
+    family = 'store_account' if audit_record.entity_type == 'store_account' else 'users'
+    audit = _audit(db, audit_record.id, audit_record.actor_id, 'reset_password', family, audit_record.entity_id)
     target = db.scalar(select(User).where(User.id == audit['entity_id']))
+    if family == 'store_account':
+        try:
+            validate_store_snapshot(audit['after_data'], audit['store_id'])
+        except (ValueError, KeyError, TypeError):
+            _invalid()
     if target is None or not target.must_change_password or target.id == audit['actor_id']:
         _invalid()
-    return _emit(db, _user_stores(db, target),
+    destinations = [audit['store_id']] if family == 'store_account' else _user_stores(db, target)
+    return _emit(db, destinations,
         key_prefix='audit_log:' + str(audit['id']) + ':access', topic='access.changed',
         source_ref={'type': 'audit_log', 'id': audit['id'], 'version': None})
 

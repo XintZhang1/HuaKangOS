@@ -15,12 +15,11 @@ hasher = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=2)
 DUMMY_HASH = hasher.hash(secrets.token_urlsafe(24))
 ROLES = {'admin':'系统管理员', 'manager':'店长 / 老板', 'sales':'销售', 'inventory':'库存管理员', 'service':'售后 / 保险', 'finance':'财务', 'auditor':'复核 / 审计'}
 ROLES.update({'reception':'前台接待','technician':'维修技师','customer_service':'客户服务'})
-ROLES.update({'clerk': '内勤', 'general_manager': '总经理', 'chairman': '董事长'})
-ROLES.update({'sales': '销售顾问', 'manager': '销售经理', 'finance': '收银 / 财务',
-              'deputy_general_manager': '集团副总经理'})
+ROLES.update({'clerk': '销售内勤', 'general_manager': '总经理', 'chairman': '董事长', 'group_deputy_manager': '集团副总经理', 'store_admin': '门店管理员'})
+ROLES.update({'sales': '销售顾问', 'manager': '销售经理', 'finance': '收银 / 财务'})
 # Old role codes remain readable on historical accounts. New accounts use the
 # present record product's jobs; chairman is explicit sensitive-data authority.
-RECORD_ACCOUNT_ROLES = {'admin', 'sales', 'manager', 'clerk', 'finance', 'general_manager', 'deputy_general_manager', 'chairman'}
+RECORD_ACCOUNT_ROLES = {'admin', 'sales', 'manager', 'clerk', 'finance', 'general_manager', 'chairman', 'group_deputy_manager', 'store_admin'}
 ALL = {'vehicles','sales','repairs','policies','cash'}
 READ = {'admin':ALL, 'manager':ALL, 'finance':ALL, 'auditor':ALL,
         'sales':{'vehicles','sales'}, 'inventory':{'vehicles'}, 'service':{'repairs','policies'}}
@@ -29,8 +28,8 @@ WRITE = {'admin':ALL, 'manager':ALL, 'finance':{'cash'}, 'auditor':set(),
 READ.update({'reception':set(),'technician':set(),'customer_service':set()})
 WRITE.update({'reception':set(),'technician':set(),'customer_service':set()})
 # V2 roles use their own scoped record APIs; do not grant legacy module access.
-READ.update({'clerk': set(), 'general_manager': set(), 'deputy_general_manager': set(), 'chairman': set()})
-WRITE.update({'clerk': set(), 'general_manager': set(), 'deputy_general_manager': set(), 'chairman': set()})
+READ.update({'clerk': set(), 'general_manager': set(), 'chairman': set(), 'group_deputy_manager': set(), 'store_admin': set()})
+WRITE.update({'clerk': set(), 'general_manager': set(), 'chairman': set(), 'group_deputy_manager': set(), 'store_admin': set()})
 FULL_VIEW = {'admin','manager','finance','auditor'}
 
 
@@ -100,7 +99,10 @@ def clear_cookies(response: Response):
 def get_user(request: Request, db: Session = Depends(get_db)) -> User:
     if '_huakang_runtime' in request.scope:
         from .assistant_runtime_principal import internal_user
-        return internal_user(request, db)
+        principal = internal_user(request, db)
+        from .store_administration import guard_request
+        guard_request(request, principal)
+        return principal
     token = request.cookies.get('dealer_session', '')
     session = db.get(LoginSession, digest(token)) if token else None
     if session is None or session.expires_at <= utcnow():
@@ -117,6 +119,8 @@ def get_user(request: Request, db: Session = Depends(get_db)) -> User:
         raise HTTPException(403, '首次登录必须修改密码')
     from .tenancy import attach_scope
     principal = attach_scope(request, db, user)
+    from .store_administration import guard_request
+    guard_request(request, principal)
     # The refusal log (评审申请的依据) needs to know who was refused and in which store.
     request.state.user_id = principal.id
     request.state.store_id = getattr(principal, '_active_store_id', None)
@@ -155,6 +159,7 @@ def require_full(user: User):
 def user_info(user: User):
     aggregate = getattr(user, '_aggregate_scope', False)
     global_role = getattr(user, 'account_role', user.role)
+    store_admin = global_role == 'store_admin' or user.role == 'store_admin'
     return {'id': user.id, 'username': user.username, 'display_name': user.display_name,
             'store_ids':getattr(user,'_store_ids',[]), 'stores':getattr(user,'_stores',[]),
             'active_store_id':getattr(user,'_active_store_id',None),
@@ -166,4 +171,7 @@ def user_info(user: User):
             'read_modules': sorted(READ[user.role]), 'write_modules': [] if aggregate else sorted(WRITE[user.role] if settings.legacy_business_write else WRITE[user.role]-{'vehicles','sales','repairs','policies'}),
             'legacy_business_read_only':not settings.legacy_business_write,
             'can_approve': not aggregate and user.role in {'admin','manager'}, 'can_report': user.role in FULL_VIEW,
-            'can_users': not aggregate and global_role == 'admin', 'can_audit': user.role in {'admin','manager','auditor'}}
+            'can_users': not aggregate and (global_role == 'admin' or store_admin),
+            'can_manage_stores': not aggregate and global_role == 'admin',
+            'can_business_assistant': not store_admin, 'can_feedback': not store_admin,
+            'store_admin': store_admin, 'can_audit': user.role in {'admin','manager','auditor'} or store_admin}

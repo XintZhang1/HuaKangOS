@@ -72,6 +72,11 @@ class Action(Command):
 
 class ManagerApproval(Action):
     gift_excess_cents: Money = 0
+    # Required for v30 by the route; optional here keeps historical v29 commands valid.
+    minimum_sale_price_cents: Money | None = None
+    gift_limit_cents: Money | None = None
+    offered_gift_value_cents: Money | None = None
+    approval_basis: str | None = Field(default=None, min_length=1, max_length=2000)
 
 
 class PriceReview(Action):
