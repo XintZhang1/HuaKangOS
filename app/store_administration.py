@@ -30,7 +30,7 @@ def guard_request(request, user):
         method == 'GET' and (path in {'/api/auth/me', '/api/users', '/api/stores', '/api/audit'}
                             or _RECORD_READS.fullmatch(path))
         or method == 'POST' and (path in {'/api/auth/password', '/api/auth/logout', '/api/users',
-            '/api/users/batch'}
+            '/api/users/batch', '/api/business-records/pricing/gift-policy-check'}
             or re.fullmatch(r'/api/users/[1-9]\d*/password', path))
         or method == 'PUT' and re.fullmatch(r'/api/users/[1-9]\d*', path))
     if not allowed or (getattr(user, '_aggregate_scope', False)):

@@ -17,7 +17,7 @@ from .business_record_pricing_models import (RecordPricingSettings, RecordPricin
 from .business_record_pricing_models import RecordBrandVariant
 from .business_record_brand_catalog import (store_brand, profile_view, catalog_state, lock_brand_catalog,
     allowed_batch, catalog_rows, published_brand_file)
-from .business_record_pricing_schemas import VehiclePriceImport, GiftPriceImport, StoreProfileInput, VehicleVariantInput
+from .business_record_pricing_schemas import VehiclePriceImport, GiftPriceImport, StoreProfileInput, VehicleVariantInput, GiftPolicyCheck
 from .business_record_pricing_recognition import validate_price_file, recognize_price_file
 from .file_security import policy_mode, scan_clamav
 from .private_files import publish
@@ -37,6 +37,43 @@ def _access(user, kind=None, write=False):
         raise HTTPException(403, '请切换到具体授权门店查看或维护本店目录')
     if write and user.role not in (PRICE_WRITERS | ({'admin'} if kind == 'gift' else set())):
         raise HTTPException(403, '车价由本店销售经理或总经理上传；赠品另允许维护管理员上传')
+
+
+def gift_policy_assessment(policy, cost_total):
+    """Compare frozen actual costs; unknown costs cannot pass a budget check."""
+    if policy is None:
+        return {'status': 'no_policy', 'requires_special': False, 'has_cost_limit': False,
+            'text': '本车型未设置赠品成本额度'}
+    limit = policy.get('cost_limit_cents')
+    if type(limit) is not int or limit < 0:
+        raise HTTPException(409, '冻结赠品政策缺少已核定成本额度，请联系管理员核对')
+    status = 'unknown_cost' if cost_total is None else 'exceeded' if cost_total > limit else 'within_limit'
+    return {'status': status, 'requires_special': status in {'unknown_cost', 'exceeded'},
+        'has_cost_limit': True, 'text': policy.get('text') or '按已确认赠品成本额度核对',
+        'cost_limit_cents': limit, 'gift_cost_total_cents': cost_total,
+        'excess_cost_cents': None if cost_total is None else max(0, cost_total - limit)}
+
+
+def _policy_view(policy, user):
+    if policy is None:
+        return None
+    if user.role not in GIFT_READERS:
+        # Original policy prose can itself contain amounts. A fixed public
+        # explanation is safer than trying to redact every way to write money.
+        return {'text': '本车型赠品按已确认政策核对，超出政策须提交特殊申请。', 'has_cost_limit': True}
+    return {'has_cost_limit': True, **{key: policy[key] for key in
+        ('text', 'cost_limit_cents', 'confirmed_by', 'confirmed_at') if key in policy}}
+
+
+def _policy_result_view(result, user):
+    result = dict(result)
+    if user.role not in GIFT_COST_READERS:
+        result.pop('gift_cost_total_cents', None); result.pop('excess_cost_cents', None)
+    if user.role not in GIFT_READERS:
+        result.pop('cost_limit_cents', None)
+        result['text'] = ('本车型赠品按已确认政策核对，超出政策须提交特殊申请。'
+            if result['has_cost_limit'] else '本车型未设置赠品成本额度')
+    return result
 
 
 def pricing_settings(db):
@@ -108,6 +145,8 @@ def price_catalog(contract_id: int | None = Query(None, gt=0), db=Depends(get_db
             raise HTTPException(409, '该历史合同没有本版提交目录快照')
         vehicle_batch, gift_batch = frozen.price_snapshot['batch_id'], frozen.gift_batch_id
     vehicles = [dict(frozen.price_snapshot)] if frozen else catalog_rows(db, 'vehicle', vehicle_batch)
+    for item in vehicles:
+        item['gift_policy'] = _policy_view(item.get('gift_policy'), user)
     if user.role not in GIFT_READERS:
         # Uploaded annotations can contain internal package/gift amounts too.
         for item in vehicles:
@@ -215,6 +254,8 @@ def upload_price_file(request: Request, kind: str = Form(...), file: UploadFile 
     _access(user, kind, True); Command(request_id=request_id)
     content = file.file.read(10 * 1024 * 1024 + 1)
     media = validate_price_file(file.filename or '', content)
+    if kind == 'vehicle' and media != 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+        raise HTTPException(422, '车价限价表请上传Excel（.xlsx）')
     def perform():
         item = _save_file(db, user, kind, file.filename, content, media)
         result = _file_summary(item)
@@ -298,7 +339,11 @@ def _import(body, request, db, user, kind):
                 if variant is None:
                     variant = RecordVehicleVariant(store_id=single_store(db), family=source.family, series=source.series, model=source.model)
                     db.add(variant); db.flush()
-                row = RecordVehiclePrice(store_id=single_store(db), batch_id=batch.id, variant_id=variant.id, **source.model_dump())
+                values = source.model_dump()
+                if values['gift_policy'] is not None:
+                    values['gift_policy'] = {**values['gift_policy'], 'confirmed_by': user.id,
+                        'confirmed_at': utcnow().isoformat() + 'Z'}
+                row = RecordVehiclePrice(store_id=single_store(db), batch_id=batch.id, variant_id=variant.id, **values)
             else:
                 values = source.model_dump()
                 values['brand'] = expected
@@ -309,6 +354,8 @@ def _import(body, request, db, user, kind):
         current.updated_at = shared.updated_at = utcnow(); db.flush()
         result = {'batch_id': batch.id, 'kind': kind, 'count': len(body.rows), 'version': current.version,
             'brand': shared.brand, 'brand_version': shared.version, 'shared_by_brand': True}
+        if kind == 'vehicle':
+            result['policy_confirmed'] = True
         audit(db, user.id, 'record_price_publish', 'record_price_batch', batch.id, after=result)
         return result
     return _run(db, user, body.request_id, 'pricing:publish:' + kind, _body(body), perform)
@@ -332,6 +379,54 @@ def get_terms(db, contract):
 def frozen_gift_cost(terms):
     """Legacy accounting is preserved explicitly, never backfilled as actual cost."""
     return terms.gift_total_cents if terms.gift_pricing_basis == 'legacy-single-price' else terms.gift_cost_total_cents
+
+
+def _selected_gifts(db, gift_batch_id, selections, existing=None):
+    from types import SimpleNamespace
+    available = {item['id']: SimpleNamespace(**item) for item in
+        catalog_rows(db, 'gift', gift_batch_id, contract=existing)}
+    gifts, total, cost_total, seen = [], 0, 0, set()
+    for selection in selections:
+        if selection.price_id in seen:
+            raise HTTPException(422, '同一赠品请合并数量，不要重复勾选')
+        seen.add(selection.price_id)
+        gift = available.get(selection.price_id)
+        if gift is None:
+            raise HTTPException(422, '赠品不在本合同冻结的目录中，请重新核对；新目录项目须新建合同')
+        amount = None if gift.unit_price_cents is None else gift.unit_price_cents * selection.quantity
+        cost = None if gift.unit_cost_cents is None else gift.unit_cost_cents * selection.quantity
+        total = None if amount is None or total is None else total + amount
+        cost_total = None if cost is None or cost_total is None else cost_total + cost
+        if any(value is not None and value > 999999999999 for value in (amount, cost, total, cost_total)):
+            raise HTTPException(422, '赠品金额超出可记录范围')
+        gifts.append({'price_id': gift.id, 'name': gift.name, 'quantity': selection.quantity,
+            'unit_price_cents': gift.unit_price_cents, 'amount_cents': amount,
+            'unit_cost_cents': gift.unit_cost_cents, 'cost_cents': cost,
+            'brand': gift.brand, 'unit': gift.unit, 'applicable_models': gift.applicable_models, 'source_ref': gift.source_ref})
+    return gifts, total, cost_total
+
+
+@router.post('/pricing/gift-policy-check')
+def check_gift_policy(body: GiftPolicyCheck, db=Depends(get_db), user=Depends(get_user)):
+    """Read-only selection preview; no command, audit, lock or publication."""
+    _access(user)
+    contract = None
+    if body.contract_id is not None:
+        from .business_records import get_contract
+        contract = get_contract(db, user, body.contract_id)
+        terms = get_terms(db, contract)
+        if terms is None or terms.price_snapshot['id'] != body.vehicle_price_id:
+            raise HTTPException(409, '请选择本合同冻结的车型价格')
+        price, gift_batch = terms.price_snapshot, terms.gift_batch_id
+    else:
+        shared = catalog_state(db)
+        price = next((item for item in catalog_rows(db, 'vehicle', shared['vehicle_batch_id'])
+            if item['id'] == body.vehicle_price_id), None)
+        if price is None:
+            raise HTTPException(422, '请选择本店当前品牌已发布的车型价格')
+        gift_batch = shared['gift_batch_id']
+    _, _, cost_total = _selected_gifts(db, gift_batch, body.gift_items, contract)
+    return _policy_result_view(gift_policy_assessment(price.get('gift_policy'), cost_total), user)
 
 
 def prepare_submission(db, user, body, existing=None):
@@ -361,27 +456,8 @@ def prepare_submission(db, user, body, existing=None):
             raise HTTPException(409, '价格批次来源缺失，请联系管理员核对')
         price.update(source_file_id=batch.file_id, published_at=batch.created_at.isoformat(), brand=brand)
         gift_batch_id = shared['gift_batch_id']
-    from types import SimpleNamespace
-    available_gifts = {item['id']: SimpleNamespace(**item) for item in
-        catalog_rows(db, 'gift', gift_batch_id, contract=existing if prior else None)}
-    gifts, total, cost_total, seen = [], 0, 0, set()
-    for selection in body.gift_items:
-        if selection.price_id in seen:
-            raise HTTPException(422, '同一赠品请合并数量，不要重复勾选')
-        seen.add(selection.price_id)
-        gift = available_gifts.get(selection.price_id)
-        if gift is None:
-            raise HTTPException(422, '赠品不在本合同冻结的目录中，请重新核对；新目录项目须新建合同')
-        amount = None if gift.unit_price_cents is None else gift.unit_price_cents * selection.quantity
-        cost = None if gift.unit_cost_cents is None else gift.unit_cost_cents * selection.quantity
-        total = None if amount is None or total is None else total + amount
-        cost_total = None if cost is None or cost_total is None else cost_total + cost
-        if any(value is not None and value > 999999999999 for value in (amount, cost, total, cost_total)):
-            raise HTTPException(422, '赠品金额超出可记录范围')
-        gifts.append({'price_id': gift.id, 'name': gift.name, 'quantity': selection.quantity,
-            'unit_price_cents': gift.unit_price_cents, 'amount_cents': amount,
-            'unit_cost_cents': gift.unit_cost_cents, 'cost_cents': cost,
-            'brand': gift.brand, 'unit': gift.unit, 'applicable_models': gift.applicable_models, 'source_ref': gift.source_ref})
+    gifts, total, cost_total = _selected_gifts(db, gift_batch_id, body.gift_items, existing if prior else None)
+    policy_check = gift_policy_assessment(price.get('gift_policy'), cost_total)
     form = dict(body.form_data)
     sellers = [seller for seller in current.profile.get('sellers', []) if seller['name'] == form.get('seller_name')]
     if len(sellers) != 1:
@@ -400,6 +476,7 @@ def prepare_submission(db, user, body, existing=None):
         form['buyer_agent'] = body.customer_name
     return {'price': price, 'gifts': gifts, 'gift_batch_id': gift_batch_id, 'gift_total_cents': total,
         'gift_cost_total_cents': cost_total,
+        'gift_policy_check': policy_check,
         'gift_pricing_basis': prior.gift_pricing_basis if prior else 'separate-cost-v1',
         'form_data': form, 'brand': brand, 'model': price['series'] + ' ' + price['model'],
         'submission_data': body.submission_data.model_dump(),
@@ -416,7 +493,8 @@ def save_submission(db, row, prepared):
     terms.gift_pricing_basis = prepared['gift_pricing_basis']
     terms.gift_cost_total_cents = prepared['gift_cost_total_cents'] if terms.gift_pricing_basis != 'legacy-single-price' else None
     terms.price_below_cents, terms.gift_excess_cents = prepared['price_below_cents'], 0
-    terms.special, terms.special_note = prepared['price_below_cents'] > 0, ''
+    terms.special = prepared['price_below_cents'] > 0 or prepared['gift_policy_check']['requires_special']
+    terms.special_note = ''
     row.gift_cost_cents = frozen_gift_cost(terms)
     row.gift_description = '；'.join(item['name'] + ' × ' + str(item['quantity']) for item in prepared['gifts'])
     db.flush()
@@ -440,6 +518,10 @@ def contract_terms_view(db, user, row):
         data.pop('gift_total_cents', None); data.pop('gift_excess_cents', None); data.pop('special_note', None)
         data['price_snapshot'] = {key: value for key, value in terms.price_snapshot.items() if key != 'note'}
         data['gifts_snapshot'] = [{key: value for key, value in item.items() if key in {'price_id', 'name', 'quantity', 'unit', 'applicable_models', 'brand'}} for item in terms.gifts_snapshot]
+    data['price_snapshot'] = {**data['price_snapshot'],
+        'gift_policy': _policy_view(terms.price_snapshot.get('gift_policy'), user)}
+    data['gift_policy_check'] = _policy_result_view(gift_policy_assessment(
+        terms.price_snapshot.get('gift_policy'), frozen_gift_cost(terms)), user)
     return data
 
 

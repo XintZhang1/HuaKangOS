@@ -13,11 +13,24 @@ def _calendar_series(panel, start, end):
     current = start
     while current <= end:
         label = str(current)
-        series.append(by_day.get(label, {'label': label, 'value': None, 'exact_value': None,
-            'record_count': 0, 'unknown_count': 1, 'status': 'no_source'}))
+        empty_is_zero = panel.get('empty_is_zero', False)
+        series.append(by_day.get(label, {'label': label, 'value': 0 if empty_is_zero else None,
+            'exact_value': '0' if empty_is_zero else None, 'record_count': 0,
+            'unknown_count': 0 if empty_is_zero else 1,
+            'status': 'known' if empty_is_zero else _source_display(panel['report'], None)['data_status']}))
         current += timedelta(days=1)
     panel['series'] = series
     return panel
+
+
+def _source_display(key, value, status=''):
+    automatic = key.split(':', 1)[0] in {'contract_orders', 'sales_volume', 'cash_deliveries', 'trade_in'}
+    state = ('known' if value is not None else 'awaiting_contract' if automatic else
+        'awaiting_approval' if status == 'awaiting_approval' else 'awaiting_office')
+    return {'data_source': 'automatic' if automatic else 'office', 'data_status': state,
+        'status_label': {'known': '自动汇总' if automatic else '已上传',
+            'awaiting_contract': '待核对合同信息', 'awaiting_approval': '待总经理审核',
+            'awaiting_office': '待内勤上传'}[state]}
 
 
 def _observation_source_dates(rows, metric):
@@ -41,10 +54,10 @@ def dashboard_panels(mode: str = 'daily', day: date | None = None,
         group_by: str = '', db=Depends(get_db), user=Depends(get_user)):
     from .business_records import require_read
     from .business_record_report_generation import build
-    from .business_record_report_specs import can_view_sensitive_reports
+    from .business_record_report_specs import can_view_sensitive_reports, can_view_dashboard
     require_read(user)
-    if user.role in {'sales', 'finance', 'service'}:
-        raise HTTPException(403, '当前岗位不开放经营看板')
+    if not can_view_dashboard(user):
+        raise HTTPException(403, '可视化看板仅向当前授权门店的集团副总经理、董事长和系统管理员开放')
     if mode not in {'daily', 'monthly'}:
         raise HTTPException(422, '请选择日报或月报')
     selected = day or today()
@@ -67,7 +80,7 @@ def dashboard_panels(mode: str = 'daily', day: date | None = None,
         return cache[identity]
     specifications = [
         ('sales_trend', '实销及退车趋势', 'sales_volume', 'day', ''),
-        ('orders_trend', '实际收订趋势', 'daily_operations:c01', 'day', ''),
+        ('orders_trend', '合同订单趋势', 'contract_orders', 'day', ''),
         ('sales_comparison', '门店 / 销售顾问实销比较', 'sales_volume', grouping, ''),
         ('cash_trend', '现金车消化台数', 'cash_deliveries', 'day', ''),
         ('cash_amount', '现金车消化金额', 'cash_consumption_amount', 'day', ''),
@@ -90,11 +103,11 @@ def dashboard_panels(mode: str = 'daily', day: date | None = None,
         result.update(panel_id=ident, panel_title=title, group_by=group,
             query={'report': key, 'date_from': str(start), 'date_to': str(end), 'group_by': group,
                    'category_field': category, 'brand': brand, 'salesperson_id': salesperson_id},
-            data_status=result['source_status']['status'])
+            **_source_display(key, result['grand_total'].get(result['metric']), result['source_status']['status']))
         panels.append(result)
     flow_start = start if mode == 'monthly' else end
     flow_prefix = '期间累计' if mode == 'monthly' else '当日'
-    orders = report('daily_operations', 'group', flow_start, end)
+    orders = report('contract_orders', 'group', flow_start, end)
     sales = report('sales_volume', 'group', flow_start, end)
     cash = report('cash_deliveries', 'group', flow_start, end)
     cash_amount = report('cash_consumption_amount', 'group', flow_start, end)
@@ -110,15 +123,16 @@ def dashboard_panels(mode: str = 'daily', day: date | None = None,
         raise HTTPException(422, str(exc)) from None
     overview = []
     for key, label, result, metric, unit in (
-        ('orders', flow_prefix + '实际收订', orders, 'c01', '台'),
+        ('orders', flow_prefix + '合同订单', orders, 'value', '台'),
         ('sales', flow_prefix + '净实销', sales, 'value', '台'),
         ('cash_count', flow_prefix + '现金车消化', cash, 'value', '台'),
         ('cash_amount', flow_prefix + '现金车消化金额', cash_amount, 'value', '元'),
         ('cash_remaining', '剩余现金车', observation, 'c03', '台'),
         ('tomorrow_delivery', '次日预计交车', observation, 'c04', '台')):
         value = result['grand_total'].get(metric)
+        display = _source_display(result['report'], value, result['source_status']['status'])
         item = {'key': key, 'label': label, 'value': value, 'unit': unit,
-                'status': 'known' if value is not None else 'awaiting_data',
+                'status': display['data_status'], **display,
                 'date_from': str(flow_start), 'date_to': str(end),
                 'note': str(flow_start) + ' 至 ' + str(end) if mode == 'monthly' else '核算日 ' + str(end)}
         if key in {'cash_remaining', 'tomorrow_delivery'}:
@@ -133,8 +147,8 @@ def dashboard_panels(mode: str = 'daily', day: date | None = None,
                 item.update(forecast_date=forecast_date,
                     note=item['note'] + '；预计交车日期 ' + forecast_date)
             if value is None:
-                item['note'] += '；待补齐'
+                item['note'] += '；' + display['status_label']
         overview.append(item)
     return {'mode': mode, 'day': str(end), 'date_from': str(start), 'date_to': str(end),
         'updated_at': utcnow().isoformat(), 'publication': {'status': 'live'}, 'panels': panels, 'overview': overview,
-        'notice': '实时事实视图，不等于内勤已确认日报。交车按发票上传日、退车按批准日；收订、现金余额和预计交车使用各自人工核实来源，缺项保留待补齐。'}
+        'notice': '合同订单、实销和全款交车由已有业务自动汇总，无需内勤确认；订单不代表定金到账。交车按发票上传日、退车按批准日。消化金额、现金余额、预计交车及延伸资料缺失时显示待内勤上传，已提交资料保留总经理审核流程。'}

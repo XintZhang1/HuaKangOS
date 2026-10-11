@@ -217,10 +217,13 @@ async function loadAssistantFeatures(options={},user=state.user){
 async function bootDefaultRoute(){await loadAssistantFeatures();return assistantDefaultRoute();}
 // Old bookmarks cannot reopen retired modules or load their catalogues.
 function normalizeAppRoute(route){
- if(route.startsWith('records-dashboard')&&['sales','finance','service'].includes(state.user?.role))return state.user.role==='finance'?'records-finance':state.user.role==='service'?'records-after-sales':'records-sales';
- if(route==='business-assistant'&&state.user?.can_business_assistant===false)return 'records-dashboard';
- if(route==='feedback'&&(state.user?.can_feedback===false||state.user?.store_admin))return 'records-dashboard';
- return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly|targets|history))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|manual|settings)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:'records-dashboard';
+ const home=assistantDefaultRoute();
+ if(route==='records-dashboard/targets')return 'records-targets';
+ if(route==='records-dashboard/history')return 'records-daily';
+ if(route.startsWith('records-dashboard')&&!brCanDashboard())return home;
+ if(route==='business-assistant'&&state.user?.can_business_assistant===false)return home;
+ if(route==='feedback'&&(state.user?.can_feedback===false||state.user?.store_admin))return home;
+ return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|manual|settings|targets|daily)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:home;
 }
 function currentAppRoute(){
  const route=normalizeAppRoute(location.hash.slice(1));

@@ -97,7 +97,7 @@ def catalog_rows(db, kind, batch_id, *, contract=None):
     if kind == 'vehicle':
         table = RecordVehiclePrice.__table__
         names = ('id', 'store_id', 'batch_id', 'variant_id', 'family', 'series', 'model',
-                 'guide_price_cents', 'control_price_cents', 'note')
+                 'guide_price_cents', 'control_price_cents', 'note', 'gift_policy')
     elif kind == 'gift':
         table = RecordGiftPrice.__table__
         names = ('id', 'store_id', 'batch_id', 'name', 'unit_price_cents', 'unit_cost_cents',

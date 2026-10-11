@@ -94,6 +94,7 @@ class RecordVehiclePrice(StoreScoped, Base):
     guide_price_cents: Mapped[int] = mapped_column(BigInteger)
     control_price_cents: Mapped[int] = mapped_column(BigInteger)
     note: Mapped[str] = mapped_column(Text, default='')
+    gift_policy: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     __table_args__ = (UniqueConstraint('batch_id', 'variant_id', name='uq_record_batch_variant'),
         CheckConstraint('guide_price_cents > 0 AND control_price_cents > 0', name='ck_record_vehicle_prices_positive'))
 

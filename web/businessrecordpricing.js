@@ -3,18 +3,31 @@
 // A preview is never a publication. Publish against the version originally reviewed.
 async function brPricingCatalog(contractId){return api(BR_API+'/pricing/catalog'+(contractId?'?contract_id='+contractId:''));}
 function brBrandPublication(catalog){
- if(!catalog.brand)throw new Error('本店尚未设置经营品牌，请联系系统管理员在门店设置中补齐。');
+ if(!catalog.brand)throw new Error('本店未设置品牌，请联系系统管理员。');
  if(!Number.isInteger(catalog.brand_version)||catalog.brand_version<0)throw new Error('未能读取品牌目录版本，请刷新后重新核对。');
  return {brand:catalog.brand,brand_version:catalog.brand_version};
 }
 function brFlowButton(action,label,extra='',cls=''){return `<button type="button" data-br-flow="${E(action)}" ${extra} class="${E(cls)}">${E(label)}</button>`;}
+function brVehiclePolicySummary(policy,canViewAmounts){
+ if(!policy)return '未设置金额限制';
+ const amount=canViewAmounts&&Object.hasOwn(policy,'cost_limit_cents')?'成本额度 '+brAmount(policy.cost_limit_cents):policy.has_cost_limit?'已设置赠品政策':'';
+ return `${amount?`<div>${E(amount)}</div>`:''}${policy.text?`<details><summary>政策内容</summary><p class="br-source-note">${E(policy.text)}</p></details>`:''}`;
+}
+function brVehicleGiftPolicy(values,index){
+ const label='第 '+(index+1)+' 行';
+ if(values.policy_mode==='none')return null;
+ if(values.policy_mode!=='limit')throw new Error(label+'请选择赠品政策。');
+ const text=String(values.policy_text??'');if([...text].length>3000)throw new Error(label+'的赠品政策不能超过 3000 字。');
+ const amount=String(values.policy_limit??'').trim();if(!amount)throw new Error(label+'请填写赠品成本额度，零额度请填 0。');
+ return {text,cost_limit_cents:moneyFen(amount,{label:label+' 赠品成本额度',allowZero:true})};
+}
 async function brPricingSettings(){
  const context=brContext(),data=await brPricingCatalog();if(context!==brContext())return '';brState.pricing=data;
  const profile=data.profile||{},vehicles=data.vehicles||[],gifts=data.gifts||[],vehicleNotes=vehicles.some(v=>v.note);
- return heading('品牌车型与价格目录','同品牌门店共用车系车型、精品赠品和限价。发布后本品牌全部门店生效；已提交合同继续使用冻结版本。',brLink('records-sales','返回销售业务'))+
- `<section class="panel"><div class="panelhead spread"><h2>门店与合同卖方资料</h2><div class="row">${data.can_manage_profile?brFlowButton('store-profile','维护门店资料')+brFlowButton('vehicle-variant','补充品牌车系车型',data.brand?'':'disabled'):''}</div></div><div class="panelbody">${brFacts([['共享品牌',data.brand||'未设置'],['目录版本',data.brand?'版本 '+data.brand_version:'待设置品牌'],['发布范围',data.brand?data.brand+' · 全部同品牌门店':'待设置品牌'],['本店地址',profile.address],['本店卖方公司',(profile.sellers||[]).map(s=>s.name).join('、')]])}<p class="br-caption">经营品牌由系统管理员在门店设置中维护；地址、卖方公司及销售联系方式仅用于本店合同。</p></div></section>`+
- `<section class="panel"><div class="panelhead spread"><div><h2>纯车价限价 · ${vehicles.length} 款</h2><p class="br-caption">${vehicles.length?'请同时核对原表适用条件。车价低于销售管控价须经集团副总经理特殊审批。':data.brand?'本品牌尚未发布车型限价。任一同品牌门店的销售经理或总经理核对发布后，全部同品牌门店共享。':'请先在门店设置中指定经营品牌。'}</p></div>${data.can_import_vehicle?brFlowButton('price-upload','上传限价 Excel','data-kind="vehicle"','primary'):''}</div>${table(['车系','年款 / 系列','车型配置','指导价','销售管控价',...(vehicleNotes?['条件与来源']:[])],vehicles.map(v=>[E(v.family),E(v.series),E(v.model),brAmount(v.guide_price_cents),brAmount(v.control_price_cents),...(vehicleNotes?[v.note?`<details><summary>查看原表说明</summary><p class="br-source-note">${E(v.note)}</p></details>`:'—']:[])]))}</section>`+
- `<section class="panel"><div class="panelhead spread"><div><h2>赠品目录 · ${gifts.length} 项</h2><p class="br-caption">成本与售价分别记录，空白表示待补齐；无系统赠品限额，销售经理判断超价并填写特殊申请。</p></div>${data.can_import_gifts?brFlowButton('price-upload','上传赠品成本 / 售价表','data-kind="gift"','primary'):''}</div>${table(['赠品','品牌','单位','适用车型',...(data.can_view_gift_amounts?['售价']:[]),...(data.can_view_gift_costs?['成本','说明']:[])],gifts.map(g=>[E(g.name),E(g.brand||profile.brand),E(g.unit||'—'),E(g.applicable_models||'—'),...(data.can_view_gift_amounts?[g.unit_price_cents==null?'待补齐':brAmount(g.unit_price_cents)]:[]),...(data.can_view_gift_costs?[g.unit_cost_cents==null?'待补齐':brAmount(g.unit_cost_cents),E(g.note||'—')]:[])]))}</section>`;
+ return heading('门店基础资料','',brLink('records-sales','返回销售业务'))+
+ `<section class="panel"><div class="panelhead spread"><h2>门店与卖方</h2><div class="row">${data.can_manage_profile?brFlowButton('store-profile','编辑资料')+brFlowButton('vehicle-variant','添加车型',data.brand?'':'disabled'):''}</div></div><div class="panelbody">${brFacts([['经营品牌',data.brand||'未设置'],['目录版本',data.brand?'版本 '+data.brand_version:'待设置品牌'],['发布范围',data.brand?'同品牌门店':'待设置品牌'],['本店地址',profile.address],['卖方公司',(profile.sellers||[]).map(s=>s.name).join('、')]])}</div></section>`+
+ `<section class="panel"><div class="panelhead spread"><div><h2>车型限价 · ${vehicles.length} 款</h2>${vehicles.length?'':`<p class="br-caption">${data.brand?'暂无已发布限价':'本店未设置品牌'}</p>`}</div>${data.can_import_vehicle?brFlowButton('price-upload','上传限价 Excel','data-kind="vehicle"','primary'):''}</div>${table(['车系','年款 / 系列','车型配置','指导价','销售管控价','赠品政策',...(vehicleNotes?['条件与来源']:[])],vehicles.map(v=>[E(v.family),E(v.series),E(v.model),brAmount(v.guide_price_cents),brAmount(v.control_price_cents),brVehiclePolicySummary(v.gift_policy,data.can_view_gift_amounts),...(vehicleNotes?[v.note?`<details><summary>查看说明</summary><p class="br-source-note">${E(v.note)}</p></details>`:'—']:[])]))}</section>`+
+ `<section class="panel"><div class="panelhead spread"><h2>赠品目录 · ${gifts.length} 项</h2>${data.can_import_gifts?brFlowButton('price-upload','上传赠品表','data-kind="gift"','primary'):''}</div>${table(['赠品','品牌','单位','适用车型',...(data.can_view_gift_amounts?['售价']:[]),...(data.can_view_gift_costs?['成本','说明']:[])],gifts.map(g=>[E(g.name),E(g.brand||profile.brand),E(g.unit||'—'),E(g.applicable_models||'—'),...(data.can_view_gift_amounts?[g.unit_price_cents==null?'待补齐':brAmount(g.unit_price_cents)]:[]),...(data.can_view_gift_costs?[g.unit_cost_cents==null?'待补齐':brAmount(g.unit_cost_cents),E(g.note||'—')]:[])]))}</section>`;
 }
 function brVehicleReviewRow(values,index){
  const row=Object.fromEntries(['family','series','model','note'].map(key=>[key,String(values[key]??'').trim()])),label='第 '+(index+1)+' 行';
@@ -30,82 +43,87 @@ function brVehicleReviewRow(values,index){
  return row;
 }
 function brUniqueVehicleReviewRows(rows){
- if(!rows.length||rows.length>2000)throw new Error('核对表需要 1 至 2000 行车型。');
+ if(!rows.length||rows.length>2000)throw new Error('请保留 1 至 2000 行车型。');
  const seen=new Set();rows.forEach((row,i)=>{const key=JSON.stringify([row.family,row.series,row.model]);if(seen.has(key))throw new Error('第 '+(i+1)+' 行车型重复，请核对车系、年款 / 系列和车型配置。');seen.add(key);});return rows;
-}
-function brParseVehicleReviewTable(source){
- // Excel clipboard TSV can quote cells containing tabs, newlines or quotes.
- // Keep multiline source policies in the sixth cell instead of splitting rows.
- const text=String(source).replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n'),table=[];let row=[],cell='',quoted=false,closed=false;
- const field=()=>{row.push(cell);cell='';closed=false;};
- const line=()=>{field();if(row.some(value=>value.trim()))table.push(row);row=[];};
- for(let i=0;i<text.length;i++){
-  const ch=text[i];
-  if(quoted){if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++;}else{quoted=false;closed=true;}}else cell+=ch;continue;}
-  if(ch==='\t'){field();continue;}if(ch==='\n'){line();continue;}
-  if(closed)throw new Error('核对表的引号格式不完整，请直接从 Excel 复制六列。');
-  if(ch==='"'&&!cell){quoted=true;continue;}cell+=ch;
- }
- if(quoted)throw new Error('核对表有未结束的引号，请重新复制完整内容。');
- if(cell||row.length||closed)line();
- if(table[0]?.length===6&&table[0][0].trim()==='车系'&&table[0][3].includes('指导价')&&table[0][4].includes('销售管控价'))table.shift();
- return brUniqueVehicleReviewRows(table.map((cells,i)=>{
-  if(cells.length!==6)throw new Error('第 '+(i+1)+' 行需要六列：车系、年款 / 系列、车型、指导价、销售管控价、说明；请用制表符分隔，空说明保留第六列。');
-  return brVehicleReviewRow(Object.fromEntries(['family','series','model','guide_price_cents','control_price_cents','note'].map((key,j)=>[key,cells[j]])),i);
- }));
 }
 async function brPricingUpload(kind){
  const context=brContext(),catalog=await brPricingCatalog();let requestId=requestKey();if(context!==brContext())return;
  if(!(kind==='vehicle'?catalog.can_import_vehicle:catalog.can_import_gifts))throw new Error('当前岗位不能上传此价格目录。');
- const scope=brBrandPublication(catalog);let upload=null,rows=null,publicationId=requestKey(),reviewFileVersion=0;
- const reviewTable=kind==='vehicle'?`<details><summary>人工核对表：批量填写</summary><p class="notice">先上传原始 Excel 留档，再从核对表复制六列：车系、年款 / 系列、车型、指导价（元）、销售管控价（元）、说明。列之间用制表符分隔，可包含表头；多行说明可直接从 Excel 复制。载入后仍须核对并点击发布。</p><label>选择已核对的制表符表格文件<input type="file" data-price-review-file accept=".tsv,text/tab-separated-values" disabled></label><p class="br-caption">此文件只在当前页面读取，不会上传；原始 Excel 仍作为发布依据留档。</p><label>或粘贴核对表<textarea data-price-review rows="8" placeholder="车系&#9;年款 / 系列&#9;车型&#9;指导价（元）&#9;销售管控价（元）&#9;说明"></textarea></label><button type="button" data-price-review-load disabled>载入核对表</button></details>`:'';
- const dialog=modal(kind==='vehicle'?'上传品牌纯车价限价表':'上传品牌赠品成本 / 售价表',`<form><p class="notice">当前品牌：${E(scope.brand)} · 目录版本 ${scope.brand_version}。${kind==='vehicle'?'可仅上传原表后人工填写核对表，也可使用 DeepSeek Flash 按 max 思考识别销售管控价。空白价格和特殊条件请逐项核实并补齐。':'本地解析明确的成本、售价两列，无需模型。成本和售价不相互替代，未知留空。复杂合并表或xls请先整理为分品牌标准CSV。'}确认后整批替换本品牌有效目录，影响全部同品牌门店。已提交合同保留冻结价格。如果其他门店已发布新版本，请刷新并重新核对。</p><label>选择 Excel / CSV 文件<input type="file" name="file" accept="${kind==='vehicle'?'.xlsx':'.xlsx,.csv'}" required></label>${kind==='vehicle'?'<button type="button" data-price-upload-only>仅上传原表</button>':''}<button type="button" data-price-recognize>${kind==='vehicle'?'上传并识别':'上传并预览'}</button><p data-price-status role="status"></p>${reviewTable}<div data-price-warnings></div><div class="br-price-edit-table" data-price-rows></div><div class="formerror" role="alert"></div><div class="modalfoot"><button type="submit" class="primary" disabled>已逐项核对，发布到全部同品牌门店</button></div></form>`,async form=>{
+ const scope=brBrandPublication(catalog);let upload=null,rows=null,edits=[],publicationId=requestKey(),pending=false;
+ const policyFields=(prefix)=>`<label>赠品政策<select data-${prefix}-mode><option value="">待确认</option><option value="limit">按成本额度</option><option value="none">无金额限制</option></select></label><label>政策内容<textarea data-${prefix}-text rows="3" maxlength="3000"></textarea></label><label>成本额度（元）<input data-${prefix}-limit inputmode="decimal"></label>`;
+ const giftReference=kind==='vehicle'&&catalog.can_view_gift_amounts?`<details class="br-disclosure"><summary>赠品售价参考 · ${(catalog.gifts||[]).length} 项</summary>${table(['赠品','适用车型','单位','售价'],(catalog.gifts||[]).map(g=>[E(g.name),E(g.applicable_models||'—'),E(g.unit||'—'),g.unit_price_cents==null?'待补齐':brAmount(g.unit_price_cents)]))}</details>`:'';
+ const dialog=modal(kind==='vehicle'?'上传限价表':'上传赠品表',`<form><p class="notice">${E(scope.brand)} · 版本 ${scope.brand_version} · 同品牌门店共享</p><label>${kind==='vehicle'?'选择 Excel 文件':'选择 Excel / CSV 文件'}<input type="file" name="file" accept="${kind==='vehicle'?'.xlsx':'.xlsx,.csv'}" required></label><button type="button" data-price-recognize>${kind==='vehicle'?'上传并识别':'上传并预览'}</button><p data-price-status role="status"></p><div data-price-warnings></div>${kind==='vehicle'?`<div data-policy-tools hidden><details><summary>批量设置赠品政策</summary><div class="formgrid">${policyFields('policy-bulk')}</div><button type="button" data-policy-apply>应用到勾选车型</button></details>${giftReference}</div>`:''}<div class="br-price-edit-table" data-price-rows></div>${kind==='vehicle'?'<label data-policy-confirm-label hidden><input type="checkbox" data-policy-confirm>已逐行核对车价、赠品政策及成本额度</label>':''}<div class="formerror" role="alert"></div><div class="modalfoot"><button type="submit" class="primary" disabled>确认发布</button></div></form>`,async form=>{
   if(context!==brContext())throw new Error('账号或门店已切换，请重新上传。');
-  if(!upload||!rows)throw new Error('请先上传原表并载入核对表，或完成识别。');
+  if(!upload||!rows)throw new Error('请先上传并核对价格表。');
   const text=(i,key)=>form.querySelector(`[data-price-index="${i}"][data-price-key="${key}"]`).value.trim();
   const optionalAmount=(i,key)=>text(i,key)===''?null:moneyFen(text(i,key),{label:'第 '+(i+1)+' 行金额',allowZero:true});
-  const confirmed=rows.map((_,i)=>kind==='vehicle'?brVehicleReviewRow(Object.fromEntries(['family','series','model','guide_price_cents','control_price_cents','note'].map(key=>[key,text(i,key)])),i):{name:text(i,'name'),brand:text(i,'brand'),unit:text(i,'unit'),applicable_models:text(i,'applicable_models'),unit_price_cents:optionalAmount(i,'unit_price_cents'),...(catalog.can_view_gift_costs?{unit_cost_cents:optionalAmount(i,'unit_cost_cents'),source_ref:text(i,'source_ref'),note:text(i,'note')}:{} )});
-  if(kind==='vehicle')brUniqueVehicleReviewRows(confirmed);
-  await api(BR_API+'/pricing/'+(kind==='vehicle'?'vehicle':'gifts')+'/import',{method:'POST',body:{request_id:publicationId,version:catalog.version,...scope,file_id:upload.id,rows:confirmed}});
-  if(context!==brContext())return;closeModal();await render();toast(scope.brand+'全部同品牌门店目录已更新，已提交合同的价格版本保持不变');
+  const confirmed=rows.map((_,i)=>kind==='vehicle'?{...brVehicleReviewRow(Object.fromEntries(['family','series','model','guide_price_cents','control_price_cents','note'].map(key=>[key,text(i,key)])),i),gift_policy:brVehicleGiftPolicy(Object.fromEntries(['policy_mode','policy_text','policy_limit'].map(key=>[key,form.querySelector(`[data-price-index="${i}"][data-price-key="${key}"]`).value])),i)}:{name:text(i,'name'),brand:text(i,'brand'),unit:text(i,'unit'),applicable_models:text(i,'applicable_models'),unit_price_cents:optionalAmount(i,'unit_price_cents'),...(catalog.can_view_gift_costs?{unit_cost_cents:optionalAmount(i,'unit_cost_cents'),source_ref:text(i,'source_ref'),note:text(i,'note')}:{} )});
+  if(kind==='vehicle'){brUniqueVehicleReviewRows(confirmed);if(!$('[data-policy-confirm]',form).checked)throw new Error('请勾选确认已核对车价及赠品政策。');}
+  await api(BR_API+'/pricing/'+(kind==='vehicle'?'vehicle':'gifts')+'/import',{method:'POST',body:{request_id:publicationId,version:catalog.version,...scope,file_id:upload.id,rows:confirmed,...(kind==='vehicle'?{policy_confirmed:true}:{})}});
+  if(context!==brContext())return;closeModal();await render();toast(scope.brand+'目录已更新');
  });
- const form=$('form',dialog),recognize=$('[data-price-recognize]',form),uploadOnly=$('[data-price-upload-only]',form),reviewLoad=$('[data-price-review-load]',form),reviewFile=$('[data-price-review-file]',form),submit=$('[type=submit]',form),status=$('[data-price-status]',form),error=$('.formerror',form);
+ const form=$('form',dialog),recognize=$('[data-price-recognize]',form),submit=$('[type=submit]',form),status=$('[data-price-status]',form),error=$('.formerror',form),rowArea=$('[data-price-rows]',form);
  const keys=kind==='vehicle'?[['family','车系'],['series','年款 / 系列'],['model','车型配置'],['guide_price_cents','指导价（元）'],['control_price_cents','销售管控价（元）'],['note','条件 / 核对说明']]:[['name','赠品名称'],['brand','品牌'],['unit','单位'],['applicable_models','适用车型'],['unit_price_cents','售价（元，未知留空）'],...(catalog.can_view_gift_costs?[['unit_cost_cents','成本（元，未知留空）'],['source_ref','来源位置'],['note','说明']]:[])];
+ const policyKeys=['policy_mode','policy_text','policy_limit'];
+ const policyValue=(row,i,key)=>edits[i]?.[key]??(key==='policy_mode'?'':key==='policy_text'?row.gift_policy_suggestion?.text||'':brInputAmount(row.gift_policy_suggestion?.cost_limit_cents));
+ const policyCell=(row,i)=>{const mode=policyValue(row,i,'policy_mode'),attrs=key=>`data-price-index="${i}" data-price-key="${key}" aria-label="第 ${i+1} 行${({policy_mode:'赠品政策',policy_text:'政策内容',policy_limit:'成本额度（元）'})[key]}"`;
+  return `<label>赠品政策<select ${attrs('policy_mode')} required>${[['','待确认'],['limit','按成本额度'],['none','无金额限制']].map(([value,label])=>`<option value="${value}" ${mode===value?'selected':''}>${label}</option>`).join('')}</select></label><label>政策内容<textarea ${attrs('policy_text')} rows="4" maxlength="3000" ${mode==='none'?'disabled':''}>${E(policyValue(row,i,'policy_text'))}</textarea></label><label>成本额度（元）<input ${attrs('policy_limit')} inputmode="decimal" value="${E(policyValue(row,i,'policy_limit'))}" ${mode==='limit'?'required':'disabled'}></label>`;};
+ const resetConfirmation=()=>{const check=$('[data-policy-confirm]',form);if(check)check.checked=false;};
  const input=(row,i,key,label)=>{
   const attrs=`data-price-index="${i}" data-price-key="${key}" aria-label="第 ${i+1} 行${E(label)}"`;
-  if(key==='note')return `<textarea ${attrs} rows="3" maxlength="2000">${E(row[key]??'')}</textarea>`;
-  return `<input ${attrs} value="${E(key.endsWith('_cents')?brInputAmount(row[key]):row[key]??(key==='brand'?catalog.profile?.brand||'':''))}" ${(kind==='vehicle'?key!=='note':['name','brand'].includes(key))?'required':''} ${key.endsWith('_cents')?'inputmode="decimal"':''}>`;
+  const value=edits[i]?.[key]??(key.endsWith('_cents')?brInputAmount(row[key]):row[key]??(key==='brand'?catalog.profile?.brand||'':''));
+  if(key==='note')return `<textarea ${attrs} rows="3" maxlength="2000">${E(value)}</textarea>`;
+  return `<input ${attrs} value="${E(value)}" ${(kind==='vehicle'?key!=='note':['name','brand'].includes(key))?'required':''} ${key.endsWith('_cents')?'inputmode="decimal"':''}>`;
  };
- const draw=()=>{$('[data-price-rows]',form).innerHTML=table(['行',...keys.map(k=>k[1])],rows.map((row,i)=>[String(i+1)+(row.source?'<small class="br-caption">'+E(row.source)+'</small>':''),...keys.map(([key,label])=>input(row,i,key,label))]));submit.disabled=!rows.length;};
- const manual=document.createElement('button');manual.type='button';manual.textContent='人工补录一行';manual.hidden=true;recognize.after(manual);manual.onclick=()=>{try{if(!upload)return;const previous=rows||[];rows=previous.map((row,i)=>Object.fromEntries(keys.map(([key])=>{const v=form.querySelector(`[data-price-index="${i}"][data-price-key="${key}"]`).value.trim();return [key,key.endsWith('_cents')?(v===''?null:moneyFen(v,{allowZero:true,label:'第 '+(i+1)+' 行金额'})):v];})));rows.push({});draw();}catch(e){error.textContent=e.message;}};
- const busy=value=>{recognize.disabled=value;manual.disabled=value;if(uploadOnly)uploadOnly.disabled=value;if(reviewLoad)reviewLoad.disabled=value||!upload||upload.available!==true;if(reviewFile)reviewFile.disabled=value||!upload||upload.available!==true;};
+ const captureEdits=()=>{edits=(rows||[]).map((_,i)=>({...Object.fromEntries([...keys.map(([key])=>key),...(kind==='vehicle'?policyKeys:[])].map(key=>[key,form.querySelector(`[data-price-index="${i}"][data-price-key="${key}"]`).value])),...(kind==='vehicle'?{selected:!!form.querySelector(`[data-policy-select="${i}"]`)?.checked}:{})}));};
+ const draw=()=>{rowArea.innerHTML=table([...(kind==='vehicle'?['选择']:[]),'行',...keys.map(k=>k[1]),...(kind==='vehicle'?['赠品政策','操作']:[])],rows.map((row,i)=>[...(kind==='vehicle'?[`<input type="checkbox" data-policy-select="${i}" aria-label="选择第 ${i+1} 行车型" ${edits[i]?.selected?'checked':''}>`]:[]),String(i+1)+(row.source?'<small class="br-caption">'+E(row.source)+'</small>':''),...keys.map(([key,label])=>input(row,i,key,label)),...(kind==='vehicle'?[policyCell(row,i),`<button type="button" data-price-remove="${i}" aria-label="移除预览第 ${i+1} 行" ${pending?'disabled':''}>移除</button>`]:[])]));if(kind==='vehicle'){rowArea.insertAdjacentHTML('afterbegin','<label><input type="checkbox" data-policy-select-all>全选车型</label>');$('[data-policy-tools]',form).hidden=!rows.length;$('[data-policy-confirm-label]',form).hidden=!rows.length;resetConfirmation();}submit.disabled=pending||!rows.length;status.textContent='待核对 '+rows.length+' 项';};
+ const manual=document.createElement('button');manual.type='button';manual.textContent=kind==='vehicle'?'添加车型':'添加赠品';manual.hidden=true;recognize.after(manual);manual.onclick=()=>{if(!upload||pending)return;captureEdits();rows=rows||[];rows.push({});edits.push({});draw();};
+ rowArea.addEventListener('click',event=>{const button=event.target.closest('[data-price-remove]');if(!button||button.disabled||pending)return;captureEdits();const index=Number(button.dataset.priceRemove);rows.splice(index,1);edits.splice(index,1);draw();});
+ rowArea.addEventListener('input',event=>{if(event.target.matches('[data-price-key]'))resetConfirmation();});
+ rowArea.addEventListener('change',event=>{if(event.target.matches('[data-policy-select-all]'))rowArea.querySelectorAll('[data-policy-select]').forEach(check=>{check.checked=event.target.checked;});if(event.target.dataset.priceKey==='policy_mode'){const i=event.target.dataset.priceIndex,mode=event.target.value,limit=form.querySelector(`[data-price-index="${i}"][data-price-key="policy_limit"]`);limit.disabled=mode!=='limit';limit.required=mode==='limit';form.querySelector(`[data-price-index="${i}"][data-price-key="policy_text"]`).disabled=mode==='none';resetConfirmation();}});
+ if(kind==='vehicle'){
+  const mode=$('[data-policy-bulk-mode]',form),limit=$('[data-policy-bulk-limit]',form),text=$('[data-policy-bulk-text]',form);
+  const updateBulk=()=>{limit.disabled=mode.value!=='limit';text.disabled=mode.value==='none';};mode.onchange=updateBulk;updateBulk();
+  $('[data-policy-apply]',form).onclick=()=>{if(pending||form.dataset.submitting==='true')return;try{captureEdits();const selected=edits.map((edit,i)=>edit.selected?i:-1).filter(i=>i>=0);if(!selected.length)throw new Error('请先勾选车型。');const values={policy_mode:mode.value,policy_text:text.value,policy_limit:limit.value};brVehicleGiftPolicy(values,selected[0]);for(const i of selected)Object.assign(edits[i],values);draw();error.textContent='';}catch(e){error.textContent=e.message;}};
+ }
+ const busy=value=>{pending=value;recognize.disabled=value;manual.disabled=value;form.elements.file.disabled=value;submit.disabled=value||!rows?.length;rowArea.querySelectorAll('[data-price-remove]').forEach(button=>{button.disabled=value;});};
  const uploadOriginal=async()=>{
   if(context!==brContext())throw new Error('门店已切换。');const file=form.elements.file.files[0];if(!file)throw new Error('请选择价格表文件。');
   if(!upload){const activeRequest=requestId,body=new FormData();body.set('file',file);body.set('kind',kind);body.set('request_id',activeRequest);status.textContent='正在上传原表…';const saved=await api(BR_API+'/pricing/uploads',{method:'POST',body});if(context!==brContext()||!form.isConnected)return false;if(activeRequest!==requestId||file!==form.elements.file.files[0])throw new Error('原表已更换，请重新上传当前文件。');upload=saved;}
   if(context!==brContext()||!form.isConnected)return false;
   if(upload.available!==true)throw new Error('原表尚不可用于发布，请联系管理员检查文件状态。');manual.hidden=false;return true;
  };
- form.elements.file.onchange=()=>{upload=null;rows=null;requestId=requestKey();publicationId=requestKey();manual.hidden=true;submit.disabled=true;if(reviewLoad)reviewLoad.disabled=true;if(reviewFile){reviewFile.disabled=true;reviewFile.value='';reviewFileVersion++;}$('[data-price-rows]',form).replaceChildren();$('[data-price-warnings]',form).replaceChildren();status.textContent='';};
- if(uploadOnly)uploadOnly.onclick=async()=>{busy(true);error.textContent='';try{if(await uploadOriginal())status.textContent='原表已留档，尚未发布。请载入人工核对表，或逐行填写后核对。';}catch(e){error.textContent=e.message;status.textContent='尚未生效，原有效目录不变。';}finally{if(form.isConnected)busy(false);}};
- const loadReview=content=>{if(context!==brContext())throw new Error('账号或门店已切换，请重新上传。');if(!upload||upload.available!==true)throw new Error('请先上传原表。');const parsed=brParseVehicleReviewTable(content);rows=parsed;publicationId=requestKey();draw();$('[data-price-warnings]',form).replaceChildren();status.textContent=`已载入 ${rows.length} 项人工核对内容，尚未发布。请核实车型、金额及适用条件，再点击发布。`;};
- if(reviewLoad)reviewLoad.onclick=()=>{error.textContent='';try{loadReview($('[data-price-review]',form).value);}catch(e){error.textContent=e.message;}};
- if(reviewFile)reviewFile.onchange=async()=>{const file=reviewFile.files[0],version=++reviewFileVersion,originalId=upload?.id;if(!file)return;error.textContent='';try{const content=await file.text();if(!form.isConnected||context!==brContext()||version!==reviewFileVersion||file!==reviewFile.files[0]||originalId!==upload?.id)return;loadReview(content);$('[data-price-review]',form).value=content;}catch(e){error.textContent=e.message;}};
+ form.elements.file.onchange=()=>{upload=null;rows=null;edits=[];requestId=requestKey();publicationId=requestKey();manual.hidden=true;submit.disabled=true;rowArea.replaceChildren();if(kind==='vehicle'){$('[data-policy-tools]',form).hidden=true;$('[data-policy-confirm-label]',form).hidden=true;resetConfirmation();}$('[data-price-warnings]',form).replaceChildren();status.textContent='';error.textContent='';};
  recognize.onclick=async()=>{busy(true);submit.disabled=true;error.textContent='';try{
   if(!await uploadOriginal())return;
-  status.textContent=kind==='vehicle'?'正在识别销售管控价，完成后请逐项核对…':'正在识别赠品目录…';
+  status.textContent=kind==='vehicle'?'正在识别销售管控价…':'正在读取赠品目录…';
   const activeUpload=upload.id,result=await api(BR_API+'/pricing/uploads/'+activeUpload+'/recognize',{method:'POST',body:{request_id:requestKey(),version:upload.version}});
-  if(context!==brContext()||!form.isConnected)return;if(upload?.id!==activeUpload)throw new Error('原表已更换，请重新核对当前文件。');if(!Array.isArray(result.rows)||!result.rows.length)throw new Error('没有完整的可核对项目，请检查原表后重新上传。');rows=result.rows;
+  if(context!==brContext()||!form.isConnected)return;if(upload?.id!==activeUpload)throw new Error('原表已更换，请重新核对当前文件。');if(!Array.isArray(result.rows)||!result.rows.length)throw new Error('未识别到项目，请手工补充或更换原表。');rows=result.rows;edits=[];
   draw();
-  $('[data-price-warnings]',form).innerHTML=(result.warnings||[]).map(w=>`<p class="notice warn">${E(typeof w==='string'?w:JSON.stringify(w))}</p>`).join('');status.textContent=`已解析 ${rows.length} 项。${kind==='gift'?'逐项核对品牌与金额，每项至少有成本或售价。':'所有空缺必填项补齐后才能生效。'}`;submit.disabled=false;publicationId=requestKey();
+  $('[data-price-warnings]',form).innerHTML=(result.warnings||[]).map(w=>`<p class="notice warn">${E(typeof w==='string'?w:JSON.stringify(w))}</p>`).join('');publicationId=requestKey();
  }catch(e){error.textContent=e.message;status.textContent='尚未生效，原有效目录不变。';}finally{if(form.isConnected)busy(false);}};
 }
 async function brStoreProfileEdit(){
  const context=brContext(),data=await api(BR_API+'/store-profile');if(context!==brContext())return;
- const p=data.profile||data,people=state.recordCatalog.sales_people||[],fields=[F('address','本店地址'),F('sellers','卖方公司列表（一行一个：公司名称 | 地址）','textarea'),...people.map(s=>F('contact_'+s.id,s.label+' · 联系电话','text',false))];
- return brForm('维护门店与卖方资料',[{title:'合同默认资料',fields}],{address:p.address,sellers:(p.sellers||[]).map(s=>s.name+' | '+(s.address||'')).join('\n'),...Object.fromEntries(people.map(s=>['contact_'+s.id,p.sales_contacts?.[String(s.id)]||'']))},(v,request_id)=>{
-  const sellers=v.sellers.split('\n').filter(x=>x.trim()).map(line=>{const [name,...rest]=line.split('|');return {name:name.trim(),address:rest.join('|').trim()};});
-  return api(BR_API+'/store-profile',{method:'PUT',body:{request_id,version:data.version,brand:p.brand,address:v.address,sellers,sales_contacts:Object.fromEntries(people.map(s=>[String(s.id),v['contact_'+s.id]]))}});
- },{draftKey:'store-profile-'+p.brand+'-'+data.version,notice:'经营品牌：'+(p.brand||'未设置')+'（来自门店设置，由系统管理员维护）。以下卖方名称、地址和销售顾问联系电话仅用于本店合同，不修改其他同品牌门店。'});
+ const p=data.profile||data,people=state.recordCatalog.sales_people||[],fields=[F('address','本店地址'),...people.map(s=>F('contact_'+s.id,s.label+' · 联系电话','text',false))];
+ const draftKey='store-profile-'+p.brand+'-'+data.version,existing=brState.drafts[draftKey],draft=existing?.context===context?existing:null,request_id=draft?.request_id||requestKey();
+ const initial=draft?.values||{address:p.address,sellers:p.sellers||[],...Object.fromEntries(people.map(s=>['contact_'+s.id,p.sales_contacts?.[String(s.id)]||'']))};
+ const controls=await Promise.all(fields.map(f=>fieldHTML(f,initial[f.key]||'')));
+ if(context!==brContext())return;
+ const sellerRow=seller=>`<div class="br-form-section" data-seller-row><div class="formgrid"><label>公司名称<input data-seller-name value="${E(seller.name||'')}" maxlength="160" required></label><label>公司地址<input data-seller-address value="${E(seller.address||'')}" maxlength="500"></label></div><button type="button" data-seller-remove>移除公司</button></div>`;
+ const collect=form=>({...formValues(form,fields),sellers:[...form.querySelectorAll('[data-seller-row]')].map(row=>({name:$('[data-seller-name]',row).value.trim(),address:$('[data-seller-address]',row).value.trim()}))});
+ const dialog=modal('门店基础资料',`<form data-br-form="${E(draftKey)}"><p class="notice">经营品牌：${E(p.brand||'未设置')}</p><fieldset class="br-form-section"><legend>门店地址</legend><div class="formgrid">${controls[0]}</div></fieldset><fieldset class="br-form-section"><legend>卖方公司</legend><div data-sellers>${(Array.isArray(initial.sellers)?initial.sellers:[]).map(sellerRow).join('')}</div><button type="button" data-seller-add>添加公司</button></fieldset>${people.length?`<fieldset class="br-form-section"><legend>销售联系方式</legend><div class="formgrid">${controls.slice(1).join('')}</div></fieldset>`:''}<div class="formerror" role="alert"></div><div class="modalfoot">${brButton('defer-form','稍后再填')}<button type="submit" class="primary">保存</button></div></form>`,async form=>{
+  if(context!==brContext())throw new Error('门店或账号已切换，请重新打开。');
+  const v=collect(form);brState.drafts[draftKey]={context,request_id,values:v};
+  if(v.sellers.some(s=>!s.name))throw new Error('请填写公司名称。');
+  await api(BR_API+'/store-profile',{method:'PUT',body:{request_id,version:data.version,brand:p.brand,address:v.address,sellers:v.sellers,sales_contacts:Object.fromEntries(people.map(s=>[String(s.id),v['contact_'+s.id]]))}});
+  if(context!==brContext())return;delete brState.drafts[draftKey];closeModal();await render();toast('已保存');
+ });
+ const form=$('form',dialog),sellers=$('[data-sellers]',form),add=$('[data-seller-add]',form),remember=()=>{brState.drafts[draftKey]={context,request_id,values:collect(form)};};
+ const updateLimit=()=>{add.disabled=sellers.querySelectorAll('[data-seller-row]').length>=50;};
+ add.onclick=()=>{if(form.dataset.submitting==='true'||add.disabled)return;sellers.insertAdjacentHTML('beforeend',sellerRow({}));updateLimit();remember();sellers.lastElementChild.querySelector('[data-seller-name]').focus();};
+ sellers.addEventListener('click',event=>{const button=event.target.closest('[data-seller-remove]');if(!button||form.dataset.submitting==='true')return;button.closest('[data-seller-row]').remove();updateLimit();remember();});
+ form.addEventListener('input',remember);form.addEventListener('change',remember);updateLimit();return dialog;
 }
-async function brVehicleVariant(){const context=brContext(),data=await brPricingCatalog();if(context!==brContext())return;const scope=brBrandPublication(data);return brForm('补充品牌车型',[{title:'车系车型目录',fields:[F('family','车系'),F('series','年款 / 系列'),F('model','车型配置')]}],{},(v,request_id)=>api(BR_API+'/vehicle-variants',{method:'POST',body:{...v,request_id,version:data.version,...scope}}),{draftKey:'vehicle-variant-'+scope.brand+'-'+scope.brand_version,notice:'当前品牌：'+scope.brand+' · 目录版本 '+scope.brand_version+'。新增车系车型对全部同品牌门店生效。车型目录与价格分开维护，完成限价表确认发布后，该配置才能用于新合同；已提交合同保持原版本。'});}
+async function brVehicleVariant(){const context=brContext(),data=await brPricingCatalog();if(context!==brContext())return;const scope=brBrandPublication(data);return brForm('添加车型',[{title:'车型',fields:[F('family','车系'),F('series','年款 / 系列'),F('model','车型配置')]}],{},(v,request_id)=>api(BR_API+'/vehicle-variants',{method:'POST',body:{...v,request_id,version:data.version,...scope}}),{draftKey:'vehicle-variant-'+scope.brand+'-'+scope.brand_version,notice:scope.brand+' · 版本 '+scope.brand_version+' · 同品牌门店共享'});}
 document.addEventListener('click',async event=>{const el=event.target.closest('[data-br-flow]');if(!el||el.disabled||state.storeSwitch)return;const a=el.dataset.brFlow;if(!['price-upload','store-profile','vehicle-variant'].includes(a))return;el.disabled=true;try{if(a==='price-upload')await brPricingUpload(el.dataset.kind);if(a==='store-profile')await brStoreProfileEdit();if(a==='vehicle-variant')await brVehicleVariant();}catch(error){toast(error.message,true);}finally{if(el.isConnected)el.disabled=false;}});

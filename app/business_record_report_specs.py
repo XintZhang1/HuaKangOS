@@ -17,7 +17,17 @@ TARGET_FIELDS = frozenset({'c02', 'c03', 'c04', 'c05'})
 # Read access applies only within the existing current-store/aggregate scope.
 # General managers need the complete valuation to review office submissions.
 SENSITIVE_REPORT_ROLES = frozenset({'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'})
+DASHBOARD_ROLES = frozenset({'admin', 'chairman', 'group_deputy_manager'})
 SENSITIVE_REPORT_TERMS = ('成本', '毛利', '利润', '返佣', '返利', '收益', '净利', '提车价', '折让', '贴息', '支出')
+
+
+def can_view_dashboard(user):
+    """A dashboard grant never widens the effective store-role scope."""
+    if not getattr(user, '_aggregate_scope', False):
+        return user.role in DASHBOARD_ROLES
+    selected = set(getattr(user, '_group_store_ids', ()))
+    roles = {item['id']: item.get('role') for item in getattr(user, '_stores', ())}
+    return bool(selected) and all(roles.get(ident) in DASHBOARD_ROLES for ident in selected)
 
 
 def can_view_sensitive_reports(user):
@@ -132,6 +142,11 @@ DEFAULTS = {'sales_targets': 'c06', 'trade_in': 'c13', 'extended_warranty': 'c04
 
 def configure_catalog(catalog):
     # New definitions leave already-confirmed daily snapshot definitions intact.
+    catalog.append({'key': 'contract_orders', 'title': '合同订单', 'source': 'contracts',
+        'columns': [], 'metrics': [{'key': 'value', 'label': '合同订单', 'type': 'count', 'unit': '台', 'precision': 0}],
+        'unit': '台', 'default_metric': 'value',
+        'definition_version': 'v212-contract-orders',
+        'period_basis': '按合同日期统计已提交且非驳回合同；含待审批合同，不代表收到定金或确认交车'})
     columns = [{'key': key, 'label': label, 'type': kind, 'unit': unit, 'precision': 2 if kind == 'money' else 0}
         for key, label, kind, unit in (
             ('c01', '实际收订台数', 'count', '台'),
@@ -147,6 +162,10 @@ def configure_catalog(catalog):
         'unit': '元', 'default_metric': 'value', 'period_basis': '内勤逐车填写并获批准的消化金额；交车发票上传日计入、退车批准日冲减'})
     for report in catalog:
         key = report['key']
+        if key in {'contract_orders', 'sales_volume', 'cash_deliveries'}:
+            # A complete query with no qualifying event is zero. A present
+            # event with an unknown field remains unknown, never guessed.
+            report['empty_is_zero'] = True
         if key in {'sales_volume', 'profit'}:
             report['definition_version'] = 'v210-delivery'
             report['period_basis'] = '新版：财务确认交车、发票业务上传日核算；退车批准日冲减。历史合同保留原到账口径。'

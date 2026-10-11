@@ -1,6 +1,11 @@
 """Employee-confirmed price publications; model suggestions use the same units."""
 from pydantic import Field, model_validator
-from .business_records_schemas import Strict, Command, Money, Key
+from .business_records_schemas import Strict, Command, Money, Key, GiftSelection
+
+
+class GiftPolicyInput(Strict):
+    text: str = Field(default='', max_length=3000)
+    cost_limit_cents: Money
 
 
 class VehiclePriceInput(Strict):
@@ -10,6 +15,7 @@ class VehiclePriceInput(Strict):
     guide_price_cents: Money
     control_price_cents: Money
     note: str = Field(default='', max_length=2000)
+    gift_policy: GiftPolicyInput | None
 
     @model_validator(mode='after')
     def positive_prices(self):
@@ -43,6 +49,19 @@ class VehiclePriceImport(Command):
     brand: str = Field(min_length=1, max_length=100)
     file_id: Key
     rows: list[VehiclePriceInput] = Field(min_length=1, max_length=2000)
+    policy_confirmed: bool = Field(strict=True)
+
+    @model_validator(mode='after')
+    def reviewed_policy(self):
+        if self.policy_confirmed is not True:
+            raise ValueError('请逐行核对赠品政策及成本额度，或明确无金额限制后勾选确认')
+        return self
+
+
+class GiftPolicyCheck(Strict):
+    vehicle_price_id: Key
+    gift_items: list[GiftSelection] = Field(default_factory=list, max_length=100)
+    contract_id: Key | None = None
 
 
 class GiftPriceImport(Command):

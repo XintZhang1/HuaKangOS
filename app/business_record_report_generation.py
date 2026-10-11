@@ -250,6 +250,8 @@ def aggregate_rows(rows, definition, label):
             numbers[key] = Decimal(str(values[0])) if len(values) == 1 and values[0] not in (None, '') else None
         else:
             numbers[key] = _sum(values)
+            if not values and definition.get('empty_is_zero'):
+                numbers[key] = Decimal(0)
         if definition['key'] in {'sales_profit_statement', 'secondary_profit_statement'} and kind == 'sum':
             numbers[key], conflict = _profit_totals(rows, key)
             if conflict:
@@ -366,6 +368,8 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
         notice += '同月同维度的内勤最终月值替代相应自动统计，不重复累加；普通补录仅补充其他字段。'
     if definition['source'] != 'manual':
         notice = '按当前授权范围及筛选条件汇总；未核定数据保留为空，不按零计算。'
+        if definition.get('empty_is_zero'):
+            notice = '按当前授权范围及筛选条件自动汇总；没有符合条件的业务记为零，已有记录缺失的合同信息保留为空。'
     if definition.get('input_notice'):
         notice += definition['input_notice']
     if grand['aggregation_warnings']:
@@ -528,10 +532,14 @@ def fill_month_window(result, date_from, date_to):
             summaries[label] = blank
             series[label] = {'label': label, 'value': None, 'exact_value': None,
                              'record_count': 0, 'unknown_count': 1}
+            if result.get('empty_is_zero'):
+                summaries[label].update({result['metric']: '0', 'unknown_count': 0})
+                series[label].update(value=0, exact_value='0', unknown_count=0)
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)
     result['summary_rows'] = [summaries[label] for label in labels]
     result['series'] = [series[label] for label in labels]
-    result['notice'] += '所选月份窗口逐月列示，未录入月份留空，不按零处理或跨过缺失月份比较。'
+    result['notice'] += ('所选月份窗口逐月列示，没有符合条件的业务记为零。' if result.get('empty_is_zero') else
+        '所选月份窗口逐月列示，未录入月份留空，不按零处理或跨过缺失月份比较。')
     return result
 
 
@@ -686,7 +694,12 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             row['source_label'] = '总经理批准的内勤资料' if approved_office else row['source_label'] + ('＋内勤补充' if source is not None else '')
             row['note'] = source.note if source is not None else ''
         elif definition['source'] == 'contracts':
-            if key == 'expected_receipts':
+            if key == 'contract_orders':
+                if contract.status == 'rejected':
+                    continue
+                period, values = contract.contract_date, {'value': '1'}
+                row['source_label'] = '已提交且非驳回合同'
+            elif key == 'expected_receipts':
                 if contract.status != 'approved':
                     continue
                 if v210 and delivery is None:
@@ -698,9 +711,9 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
                     values = {'value': money(contract.sale_price_cents)}
             elif key in {'cash_deliveries', 'cash_consumption_amount'}:
                 contract_terms = terms.get(contract.id)
-                if not v210 or performance is None or contract_terms is None:
+                if not v210 or performance is None:
                     continue
-                method = (contract_terms.submission_data or {}).get('payment_method')
+                method = (contract_terms.submission_data or {}).get('payment_method') if contract_terms else None
                 if method not in {'全款', '贷款'}:
                     values = {'value': None}
                 elif method == '贷款':
@@ -718,7 +731,7 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
                 values = {'value': money(receipt.actual_amount_cents) if key == 'actual_receipts'
                     else money(approved_amount(contract, 'profit_cents')) if key == 'profit' and (not new_flow or approved_office)
                     else None if key == 'profit' else '1'}
-                row['source_label'] = '财务确认交车＋独立内勤延伸' if v210 and key != 'actual_receipts' else '财务确认到账＋内勤核价'
+                row['source_label'] = ('财务确认交车＋独立内勤延伸' if key == 'profit' else '财务确认交车') if v210 and key != 'actual_receipts' else '财务确认到账＋内勤核价'
         else:
             if new_flow and not approved_office and key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'}:
                 continue
@@ -738,7 +751,7 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         if _in_period(period, date_from, date_to):
             generated.append(row)
         returned = returns.get(contract.id) if v210 else None
-        if returned and key != 'actual_receipts' and _in_period(returned.approved_on, date_from, date_to):
+        if returned and key not in {'actual_receipts', 'contract_orders'} and _in_period(returned.approved_on, date_from, date_to):
             reversal = dict(row)
             numeric = {field['key'] for field in (definition['columns'] if is_manual else definition['metrics'])
                        if field['type'] in {'money', 'count', 'decimal'}}
@@ -871,6 +884,7 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     result = project(definition, rows, group_by=group_by, metric=metric if separator else definition['default_metric'],
         updated_at=max(updated, default=None), category_field=category_field, category_value=category_value,
         source_mode=source_mode, legacy_rows=legacy)
+    result['empty_is_zero'] = bool(definition.get('empty_is_zero'))
     office_reports = VEHICLE_REPORTS | {'profit', 'cash_consumption_amount', 'bank_finance',
         'insurance_resources', 'insurance_settlement', 'extended_warranty', 'individual_profit',
         'model_profit', 'model_profit_sheet5', 'sales_profit_statement', 'secondary_profit_statement'}
@@ -882,7 +896,7 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     result['source_status'] = {
         'status': 'awaiting_approval' if missing_result and awaiting_approval else
                   'incomplete' if missing_result and (result['record_count'] or pending) else
-                  'no_source' if not result['record_count'] else 'known',
+                  'no_source' if not result['record_count'] and not result['empty_is_zero'] else 'known',
         'awaiting_approval_count': awaiting_approval,
         'awaiting_office_count': len(pending) - awaiting_approval,
         'record_count': result['record_count'],

@@ -73,8 +73,10 @@ def require_read(user):
 
 
 def capabilities(user):
+    from .business_record_report_specs import can_view_dashboard
     writable = not getattr(user, '_aggregate_scope', False)
     result = {key: writable and user.role in roles for key, roles in CAPABILITY_ROLES.items()}
+    result['read_dashboard'] = can_view_dashboard(user)
     # Reading finance/invoices must not imply receipt confirmation or uploads.
     # Keep invoice reads local, matching the invoice API's existing scope.
     result['read_invoice'] = writable and user.role in {'admin', 'finance', 'clerk', 'general_manager', 'chairman', 'store_admin'}
@@ -514,7 +516,7 @@ def manager_approve_contract(key: int, body: ManagerApproval, request: Request,
             raise HTTPException(409, '仅待销售经理审批的新版合同可办理此操作')
         before = _contract_data(db, user, row)
         if row.workflow_version == 'trial-v210':
-            from .business_record_pricing import get_terms
+            from .business_record_pricing import get_terms, gift_policy_assessment, frozen_gift_cost
             terms = get_terms(db, row)
             if terms is None:
                 raise HTTPException(409, '合同提交快照缺失，请联系管理员核对')
@@ -526,7 +528,8 @@ def manager_approve_contract(key: int, body: ManagerApproval, request: Request,
                 if 'payment_method' in additions:
                     row.form_data = {**row.form_data, 'payment_method': additions['payment_method']}
             terms.gift_excess_cents = body.gift_excess_cents
-            terms.special = terms.price_below_cents > 0 or body.gift_excess_cents > 0
+            policy_check = gift_policy_assessment(terms.price_snapshot.get('gift_policy'), frozen_gift_cost(terms))
+            terms.special = terms.price_below_cents > 0 or body.gift_excess_cents > 0 or policy_check['requires_special']
             if terms.special and not body.note.strip():
                 raise HTTPException(422, '请填写特殊申请说明')
             terms.special_note = body.note if terms.special else ''
