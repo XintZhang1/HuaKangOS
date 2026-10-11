@@ -35,6 +35,7 @@
 
 #modal:has(.br-price-edit-table){width:min(1320px,96vw);max-width:1320px}#modal:has(.br-profit-panel),#modal:has(.br-special-review){width:min(1080px,96vw);max-width:1080px}.br-panel-status{display:inline-block;color:#698194;background:#f0f5f8;border-radius:4px;font-size:10px;padding:3px 6px;font-weight:400;vertical-align:middle;margin-left:6px}
 
+.br-source-note{white-space:pre-wrap;overflow-wrap:anywhere;max-width:38em}
 /* Login keeps the full group collage visible, without overlays. */
 .hk-login .loginart{padding:28px;justify-content:center;align-items:center;background:#edf0f3}
 .hk-login .hk-login-photo{position:static;display:block;width:100%;height:auto;max-height:calc(100svh - 56px);object-fit:contain;background:none;border-radius:10px}
