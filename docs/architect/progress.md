@@ -1,6 +1,6 @@
 # 当前交付任务
 
-2026-10-11 第三版赠品成本及主页图：继续 [customer-records-v2](tasks/customer-records-v2.md)，root 集成与发布，gift_logic_review 实施成本/售价分离，gift_source_audit 核对七份原表，homepage_branding 合成并接入集团图片。唯一状态和门禁见实施计划 V2.12，原表及验证证据外置，保留线上历史事实。
+2026-10-11 品牌共享、第三版赠品成本及主页图：继续 [customer-records-v2](tasks/customer-records-v2.md)，root 集成与发布，gift_logic_review 实施成本/售价分离与共享目录，gift_source_audit 核对七份原表及隔离验证，homepage_branding 接入集团图与门店品牌设置。来源→隔离验证→恢复副本→线上导入结果均已留证；唯一状态、实际运行版本和门禁见实施计划 V2.12，原表及价格证据外置，保留线上历史事实。
 
 2026-10-11 PR18评审后发布：[customer-records-v2](tasks/customer-records-v2.md)修复交车必须具备盖章赠品单及绑定原件；3项定向HTTP、修复/main CI通过。合并提交bbc32e0f4f78经aliyun CLI发布，联合备份恢复和h63副本/正式升级核对保留原496表原事实，五服务及公网health正常。运行SHA保持合并提交，后续仅文档回填；真实赠品售价和模型实调仍待后续。唯一状态见实施计划V2.11 PR18段，下文保留先前时点。
 
