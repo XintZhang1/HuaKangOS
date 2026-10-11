@@ -1,5 +1,5 @@
 'use strict';
-// Invoice originals, model suggestions and receipt facts are separate actions.
+// Invoice originals, model suggestions and delivery confirmation are separate facts.
 let recordInvoiceContext=null;
 let recordInvoiceRun=0;
 function clearRecordInvoices(){recordInvoiceContext=null;recordInvoiceRun++;}
@@ -11,7 +11,7 @@ async function brInvoiceSection(contract){
  const context={contract,data,ctx,epoch};if(!recordInvoiceCurrent(context))return '';
  recordInvoiceContext=context;
  const r=data.invoice,editable=brCaps().upload_invoice===true&&state.store!=='all',f=r?.fields||{},quarantined=(data.files||[]).some(file=>file.current&&!file.available);
- return `<section class="panel"><div class="panelhead spread"><h2>合同发票${r?.confirmed_at?' · 收银已确认':''}</h2><div class="row">${editable?recordInvoiceButton('upload',r?'替换发票并识别':'上传发票并识别')+(r?recordInvoiceButton('recognize','重新识别')+recordInvoiceButton('edit','核对 / 确认发票'):''):''}</div></div><div class="panelbody">${quarantined?'<p class="notice warn">当前原件尚未通过文件检查，请由收银重新上传同一原件重试检查。上传记录已保留。</p>':''}${r?brFacts([['发票号码',f.invoice_number],['开票日期',f.issued_on],['购买方',f.buyer_name],['销售方',f.seller_name],['发票VIN',f.vin],['价税合计',f.total_amount_cents==null?'待核对':brAmount(f.total_amount_cents)],['税额',f.tax_amount_cents==null?'待核对':brAmount(f.tax_amount_cents)],['收银确认时间',r.confirmed_at?time(r.confirmed_at):'尚未确认'],['备注',r.note]]):'<p class="empty">尚未上传发票。</p>'}${r?`<div class="tablewrap">${table(['原件','状态','上传时间','操作'],(data.files||[]).map(x=>[E(x.filename),E(x.current?'当前发票':'替换前留档'),time(x.created_at),x.available?`<button type="button" data-record-invoice="download" data-file="${x.id}" data-name="${E(x.filename)}">下载原件</button>`:'原件隔离中']))}</div>`:''}<p class="fieldhelp">每合同一张当前发票，由收银核对确认；识别只填建议，不会确认到账。替换前的原件与确认记录保留。</p></div></section>`;
+ return `<section class="panel"><div class="panelhead spread"><h2>合同发票${r?.confirmed_at?' · 收银已确认':''}</h2><div class="row">${editable?recordInvoiceButton('upload',r?'替换发票并识别':'上传发票并识别')+(r?recordInvoiceButton('recognize','重新识别')+recordInvoiceButton('edit','核对 / 确认发票'):''):''}</div></div><div class="panelbody">${quarantined?'<p class="notice warn">当前原件尚未通过文件检查，请由收银重新上传同一原件重试检查。上传记录已保留。</p>':''}${r?brFacts([['发票号码',f.invoice_number],['开票日期',f.issued_on],['购买方',f.buyer_name],['销售方',f.seller_name],['发票VIN',f.vin],['价税合计',f.total_amount_cents==null?'待核对':brAmount(f.total_amount_cents)],['税额',f.tax_amount_cents==null?'待核对':brAmount(f.tax_amount_cents)],['业务上传时间',r.uploaded_at?time(r.uploaded_at):'历史记录未提供'],['财务核对时间',r.confirmed_at?time(r.confirmed_at):'尚未确认'],['备注',r.note]]):'<p class="empty">尚未上传发票。</p>'}${r?`<div class="tablewrap">${table(['原件','状态','上传时间','操作'],(data.files||[]).map(x=>[E(x.filename),E(x.current?'当前发票':'替换前留档'),time(x.created_at),x.available?`<button type="button" data-record-invoice="download" data-file="${x.id}" data-name="${E(x.filename)}">下载原件</button>`:'原件隔离中']))}</div>`:''}<p class="fieldhelp">每合同一张当前发票，由收银核对确认；识别只填建议，核对后还须财务主动确认交车。替换前的原件与确认记录保留。</p></div></section>`;
 }
 function recordInvoiceFields(){return [F('invoice_number','发票号码'),F('invoice_code','发票代码','text',false),F('invoice_type','发票类型','text',false),F('issued_on','开票日期','date'),F('buyer_name','购买方','text',false),F('buyer_tax_id','购买方识别号','text',false),F('seller_name','销售方','text',false),F('seller_tax_id','销售方识别号','text',false),F('vin','车辆识别号VIN','text',false),F('vehicle_model','车辆型号','text',false),F('total_amount','价税合计（元）','money_zero'),F('tax_amount','税额（元）','money_zero',false),F('net_amount','不含税金额（元）','money_zero',false),F('note','核对备注','textarea',false)];}
 async function recordInvoiceEdit(context,suggestion=null,notice='请核对原件与下列信息后确认。'){
@@ -21,14 +21,14 @@ async function recordInvoiceEdit(context,suggestion=null,notice='请核对原件
  for(const key of ['total_amount','tax_amount','net_amount'])values[key]=raw[key+'_cents']==null?'':brInputAmount(raw[key+'_cents']);
  const marker=$('#modal').firstElementChild,html=(await Promise.all(fields.map(field=>fieldHTML(field,values[field.key]??'')))).join('');
  if(!recordInvoiceCurrent(context)||$('#modal').firstElementChild!==marker)return;
- modal('收银核对发票',`<form><div class="notice">${E(notice)} 确认发票不会自动记录实际到账。</div><div class="formgrid">${html}</div><div class="formerror" role="alert"></div><div class="modalfoot">${b('close','取消')}<button type="submit" class="primary">收银确认发票</button></div></form>`,async form=>{
+ modal('收银核对发票',`<form><div class="notice">${E(notice)} 确认发票后再由财务确认交车；上传日作为核算日期。</div><div class="formgrid">${html}</div><div class="formerror" role="alert"></div><div class="modalfoot">${b('close','取消')}<button type="submit" class="primary">收银确认发票</button></div></form>`,async form=>{
   if(!recordInvoiceCurrent(context))throw new Error('合同、门店或账号已变化，请重新打开核对。');
   const v=formValues(form,fields),payload={...v};delete payload.note;
   for(const key of ['total_amount','tax_amount','net_amount']){payload[key+'_cents']=v[key]===''?null:moneyFen(v[key],{label:key==='total_amount'?'价税合计':key==='tax_amount'?'税额':'不含税金额',allowZero:true});delete payload[key];}
   const result=await api(`${BR_API}/contracts/${context.contract.id}/invoice/confirm`,{method:'POST',body:{request_id:requestId,version:row.version,fields:payload,note:v.note}});
   if(!recordInvoiceCurrent(context))return;context.data=result;delete context.suggestion;
   if($('#modal form')===form&&$('#modal').open){closeModal();await render();}
-  toast('合同 '+context.contract.number+' 的发票已由收银确认，到账记录未变更');
+  toast('合同 '+context.contract.number+' 的发票已核实，请从合同页面确认交车');
  });
 }
 async function recordInvoiceRecognize(context){

@@ -49,6 +49,12 @@ UPDATE_ACTIONS = {
     'record_receipt': '收银确认实际到账',
     'record_invoice_upload': '发票已上传',
     'record_invoice_confirm': '发票信息已核实',
+    'record_gift_document_upload': '财务上传盖章赠品单',
+    'record_delivery_confirm': '财务确认交车并抄送总经理',
+    'record_return_request': '销售顾问申请退车',
+    'record_return_approve': '退车批准，当月冲减；日报需追加修订说明',
+    'record_return_reject': '退车申请退回',
+    'record_return_refund': '财务另行记录实际退款',
 }
 
 
@@ -63,9 +69,10 @@ def _require_updates(user):
 def report_periods(db=Depends(get_db), user=Depends(get_user)):
     """List months present in authorized facts; there is no publication gate."""
     from .business_records import visible_query, require_read
-    from .business_record_report_specs import can_view_sensitive_reports
+    from .business_record_report_specs import assert_report_access
+    from .business_record_reports import CATALOG_BY_KEY
     require_read(user)
-    if user.role in {'finance', 'service'}:
+    if user.role in {'finance', 'service', 'sales'}:
         raise HTTPException(403, '当前岗位不开放经营报表')
     periods = set()
     for model, field in ((SalesContract, SalesContract.contract_date),
@@ -73,15 +80,31 @@ def report_periods(db=Depends(get_db), user=Depends(get_user)):
         query = visible_query(user, model).with_only_columns(model.store_id, field).distinct()
         for store, day in db.execute(query):
             periods.add((store, str(day)[:7]))
-    if can_view_sensitive_reports(user):
-        query = visible_query(user, ManualReportRecord).with_only_columns(
-            ManualReportRecord.store_id, ManualReportRecord.period).distinct()
+    visible_reports = []
+    for key, definition in CATALOG_BY_KEY.items():
+        if definition['source'] != 'manual':
+            continue
+        try:
+            assert_report_access(user, key)
+        except HTTPException as exc:
+            if exc.status_code == 403:
+                continue
+            raise
+        visible_reports.append(key)
+    if visible_reports:
+        query = visible_query(user, ManualReportRecord).where(
+            ManualReportRecord.report_key.in_(visible_reports)).with_only_columns(
+                ManualReportRecord.store_id, ManualReportRecord.period).distinct()
         for store, day in db.execute(query):
             periods.add((store, str(day)[:7]))
     contracts = visible_query(user, SalesContract).with_only_columns(SalesContract.id)
     for store, day in db.execute(select(ContractReceipt.store_id, ContractReceipt.received_on).where(
             ContractReceipt.contract_id.in_(contracts)).distinct()):
         periods.add((store, str(day)[:7]))
+    from .business_record_delivery_models import RecordDelivery, RecordReturn
+    for model, field in ((RecordDelivery, RecordDelivery.accounting_on), (RecordReturn, RecordReturn.approved_on)):
+        for store, day in db.execute(select(model.store_id, field).where(model.contract_id.in_(contracts), field.is_not(None)).distinct()):
+            periods.add((store, str(day)[:7]))
     return {'items': [{'store_id': store, 'month': month} for store, month in sorted(
         periods, key=lambda pair: (pair[1], pair[0]), reverse=True)], 'can_publish': False,
         'mode': 'live', 'notice': '销售内勤更新表格后自动统计所选月份，可随时查询历史月份。'}
@@ -315,6 +338,8 @@ def confirm_daily_report(body: ConfirmDailyReport, request: Request,
             RecordDailyReport.report_key == body.report).order_by(RecordDailyReport.version.desc()).limit(1))
         if body.expected_version != (prior.version if prior else 0):
             raise HTTPException(409, '日报已有新确认版本，请重新预览核对')
+        if prior is not None and not body.note.strip():
+            raise HTTPException(422, '追加日报修订请填写说明，原确认版本将保留')
         try:
             payload, digest = _capture_daily_source(db, user, body.day, body.report)
         except ValueError as exc:

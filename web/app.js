@@ -49,7 +49,7 @@ function clearBusinessViews(){
 function rememberStore(){try{if(state.user&&state.store)sessionStorage.setItem('huakangos.active-store',JSON.stringify({user_id:state.user.id,store:String(state.store)}));}catch(_){/* Storage is optional; API authorization remains authoritative. */}}
 function forgetStore(){try{sessionStorage.removeItem('huakangos.active-store');}catch(_){}}
 function savedStore(user){try{const value=JSON.parse(sessionStorage.getItem('huakangos.active-store')||'null');if(value?.user_id!==user.id)return null;return value.store==='all'&&user.can_group_summary||user.stores?.some(s=>String(s.id)===value.store)?value.store:null;}catch(_){return null;}}
-const roleNames={admin:'系统管理员',store_admin:'门店管理员',clerk:'销售内勤',general_manager:'总经理',chairman:'董事长',group_deputy_manager:'集团副总经理',manager:'销售经理',sales:'销售',inventory:'库管',service:'服务顾问',finance:'收银 / 财务',auditor:'审计',reception:'前台接待',technician:'维修技师',customer_service:'客服'};
+const roleNames={admin:'系统管理员',store_admin:'门店管理员',clerk:'销售内勤',general_manager:'总经理',chairman:'董事长',group_deputy_manager:'集团副总经理',manager:'销售经理',sales:'销售顾问',inventory:'库管',service:'服务顾问',finance:'收银 / 财务',auditor:'审计',reception:'前台接待',technician:'维修技师',customer_service:'客服'};
 const recordAccountRoles=['sales','manager','clerk','finance','general_manager','group_deputy_manager','chairman','store_admin','admin'];
 const labels={transfer_reserved:'调拨占用',purchase_return:'采购退车占用',draft:'草稿',submitted:'待审核',approved:'已审核',rejected:'已退回',void:'已作废',available:'可售',reserved:'已预订',sold:'已交车',inactive:'未生效',ordered:'待交车',delivered:'已交车',open:'待处理',done:'已完成',cancelled:'已取消',completed:'已完成',bank:'银行账户',cash:'现金账户',wechat:'微信',alipay:'支付宝',other:'其他',in:'收入',out:'支出',none:'不关联',success:'摘要已生成',not_requested:'规则汇总',failed:'摘要未生成',disabled:'仅本地汇总',pending:'处理中',unconfigured:'未配置摘要服务',reviewing:'复核中',confirmed:'确认问题',dismissed:'正常',resolved:'已处理',high:'优先复核',medium:'建议复核',low:'提醒'};
 const legacyNames={vehicles:'整车库存',sales:'原有销售单',repairs:'原有维修单',policies:'原有保险单',cash:'财务流水'};
@@ -206,7 +206,7 @@ async function boot(){
 }
 // V2: the operating dashboard is the default; AI remains an explicit entry.
 function assistantFeatures(){return state.assistantFeatures||null;}
-function assistantDefaultRoute(){return 'records-dashboard';}
+function assistantDefaultRoute(){return typeof brDashboardHome==='function'?brDashboardHome():'records-sales';}
 async function loadAssistantFeatures(options={},user=state.user){
  const version=storeContextVersion;
  if(user?.can_business_assistant===false){state.assistantFeatures=null;state.assistantFeaturesError='';return null;}
@@ -217,9 +217,10 @@ async function loadAssistantFeatures(options={},user=state.user){
 async function bootDefaultRoute(){await loadAssistantFeatures();return assistantDefaultRoute();}
 // Old bookmarks cannot reopen retired modules or load their catalogues.
 function normalizeAppRoute(route){
+ if(route.startsWith('records-dashboard')&&['sales','finance','service'].includes(state.user?.role))return state.user.role==='finance'?'records-finance':state.user.role==='service'?'records-after-sales':'records-sales';
  if(route==='business-assistant'&&state.user?.can_business_assistant===false)return 'records-dashboard';
  if(route==='feedback'&&(state.user?.can_feedback===false||state.user?.store_admin))return 'records-dashboard';
- return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly|targets))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|manual|settings)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:'records-dashboard';
+ return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly|targets|history))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|manual|settings)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:'records-dashboard';
 }
 function currentAppRoute(){
  const route=normalizeAppRoute(location.hash.slice(1));

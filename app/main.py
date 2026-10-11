@@ -26,6 +26,10 @@ from .business_records import router as business_records_router
 from .business_record_invoices import router as business_record_invoices_router
 from .business_record_periods import router as business_record_periods_router
 from .business_record_targets import router as business_record_targets_router
+from .business_record_pricing import router as business_record_pricing_router
+from .business_record_delivery import router as business_record_delivery_router
+from .business_record_profit import router as business_record_profit_router
+from .business_record_dashboard import router as business_record_dashboard_router
 from .services import serialize, plain, audit, readable_query, get_record, create_record, update_record, act_record, check_version
 from .analytics import dashboard, source_revision, build_snapshot, external_payload, rules_config
 from .reports import generate_report
@@ -99,6 +103,10 @@ app.include_router(business_records_router)
 app.include_router(business_record_invoices_router)
 app.include_router(business_record_periods_router)
 app.include_router(business_record_targets_router)
+app.include_router(business_record_pricing_router)
+app.include_router(business_record_delivery_router)
+app.include_router(business_record_profit_router)
+app.include_router(business_record_dashboard_router)
 
 
 @app.middleware('http')
@@ -111,10 +119,11 @@ async def safety_headers(request: Request, call_next):
             return JSONResponse({'detail':'请求来源不匹配，请使用同一个地址访问'},status_code=403)
         is_vehicle_import = bool(re.fullmatch(r'/api/vehicle-imports/orders/[1-9][0-9]*/batches',request.url.path))
         is_assistant_preview = request.url.path == '/api/business-assistant/file-preview' and request.method == 'POST'
-        is_record_invoice = request.method == 'POST' and bool(re.fullmatch(r'/api/business-records/contracts/[1-9][0-9]*/invoice', request.url.path))
-        is_upload = (request.url.path.startswith('/api/flow/cases/') and request.url.path.endswith('/files')) or is_vehicle_import or is_assistant_preview or is_record_invoice or request.url.path == '/api/branding/photo' and request.method == 'POST'
+        is_record_upload = request.method == 'POST' and (request.url.path == '/api/business-records/pricing/uploads' or bool(re.fullmatch(r'/api/business-records/contracts/[1-9][0-9]*/(?:invoice|gift-document|attachments)', request.url.path)))
+        is_upload = (request.url.path.startswith('/api/flow/cases/') and request.url.path.endswith('/files')) or is_vehicle_import or is_assistant_preview or is_record_upload or request.url.path == '/api/branding/photo' and request.method == 'POST'
+        is_price_import = request.method == 'POST' and request.url.path in {'/api/business-records/pricing/vehicle/import', '/api/business-records/pricing/gifts/import'}
         is_opening = request.url.path == '/api/opening-import/preflight'
-        limit = 21 * 1024 * 1024 if is_assistant_preview else 256 * 1024 if is_vehicle_import else 12 * 1024 * 1024 if is_upload else 1_000_000 if is_opening else 100_000
+        limit = 21 * 1024 * 1024 if is_assistant_preview else 256 * 1024 if is_vehicle_import else 12 * 1024 * 1024 if is_upload else 2 * 1024 * 1024 if is_price_import else 1_000_000 if is_opening else 100_000
         accepted = 'multipart/form-data' if is_upload else 'application/json'
         if not request.headers.get('content-type','').lower().startswith(accepted):
             return JSONResponse({'detail':'提交格式不正确，请从对应页面重新操作'},status_code=415)

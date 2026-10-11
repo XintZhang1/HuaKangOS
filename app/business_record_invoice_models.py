@@ -14,6 +14,8 @@ class RecordInvoice(Versioned, Base):
     fields: Mapped[dict] = mapped_column(JSON, default=dict)
     confirmed_by: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Business upload event, independent of deduplicated original object age.
+    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     note: Mapped[str] = mapped_column(Text, default='')
 
 
