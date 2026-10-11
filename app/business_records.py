@@ -1143,7 +1143,7 @@ def _report_prefill(db, user, report_key, contract):
     if contract.workflow_version == 'trial-v210':
         from decimal import Decimal
         from .business_record_delivery import require_office_materials
-        from .business_record_pricing import get_terms
+        from .business_record_pricing import get_terms, frozen_gift_cost
         from .business_record_reports import CATALOG_BY_KEY
         delivery = require_office_materials(db, contract)
         terms = get_terms(db, contract)
@@ -1156,13 +1156,14 @@ def _report_prefill(db, user, report_key, contract):
             data['values'].pop(key, None)
             data['source_fields'].pop(key, None)
         data['locked_fields'] = [key for key in data['locked_fields'] if key not in removed]
-        facts = {'精品成本（赠送）': terms.gift_total_cents,
+        facts = {'精品成本（赠送）': frozen_gift_cost(terms),
                  '指导价': terms.price_snapshot['guide_price_cents'],
                  '开票价': delivery.invoice_amount_cents}
         for column in columns:
             if column['label'] in facts:
                 key = column['key']
-                data['values'][key] = format(Decimal(facts[column['label']]) / 100, '.2f')
+                amount = facts[column['label']]
+                data['values'][key] = None if amount is None else format(Decimal(amount) / 100, '.2f')
                 data['source_fields'][key] = '财务交车发票' if column['label'] == '开票价' else '合同提交快照'
                 if key not in data['locked_fields']:
                     data['locked_fields'].append(key)

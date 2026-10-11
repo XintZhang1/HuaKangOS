@@ -65,7 +65,8 @@ def apply_office_profit(db, contract, data, *, require_materials=True):
     from .business_record_reports import validate_manual_values
     values = dict(data.get('values', {}))
     terms = db.scalar(select(RecordContractTerms).where(RecordContractTerms.contract_id == contract.id))
-    gift_cost = terms.gift_total_cents if terms is not None else contract.gift_cost_cents
+    from .business_record_pricing import frozen_gift_cost
+    gift_cost = frozen_gift_cost(terms) if terms is not None else contract.gift_cost_cents
     gift_key = column_key(FORMULAS[data['report_key']][2])
     values[gift_key] = None if gift_cost is None else format(Decimal(gift_cost) / 100, '.2f')
     if require_materials:

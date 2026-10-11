@@ -441,8 +441,21 @@ async function resetPasswordDialog(id){
  const row=state.rows.find(r=>r.id===id);if(!accountCanReset(row))throw new Error('当前账号不可重置密码，请刷新员工列表后核对。');
  await formDialog('重置员工密码',[F('password','新的初始密码','password'),F('reason','重置原因','textarea')],{},v=>api('/api/users/'+id+'/password',{method:'POST',body:v}),{notice:'员工的现有登录会话将失效，首次重新登录必须改密。'});
 }
-async function storesPage(){if(!state.user.can_manage_stores)throw new Error('当前岗位没有门店设置权限。');const d=await api('/api/stores');state.rows=d.items;return heading('门店设置','',b('newstore','新增门店','','primary'))+`<section class="panel">${table(['门店','门店编码','状态','操作'],d.items.map(r=>[E(r.name),E(r.code),pill(r.active?'done':'cancelled',r.active?'启用':'停用'),b('editstore','编辑',`data-id="${r.id}"`)]))}</section>`;}
-async function storeDialog(id){if(!state.user.can_manage_stores)throw new Error('当前岗位没有门店设置权限。');const row=id?state.rows.find(r=>r.id===id):null;const options={};await formDialog(row?'编辑门店':'新增门店',[F('name','门店名称'),F('code','门店编码'),F('active','启用','bool',false)],row||{active:true},async v=>{await api('/api/stores'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:v});const d=await api('/api/stores',{store:null});state.stores=d.items;const usable=activeStoreOptions(state.stores);const doomed=!usable.some(store=>String(store.id)===String(state.store));if(doomed&&usable.length){options.success=`当前门店已停用，已切换到「${usable[0].name}」。请核对右上角门店后再办理。`;await switchStore(String(usable[0].id),'stores');}else{reconcileStore(state.stores);shell();}},options);}
+async function storesPage(){if(!state.user.can_manage_stores)throw new Error('当前岗位没有门店设置权限。');const d=await api('/api/stores');state.rows=d.items;return heading('门店设置','每店设置一个品牌；同品牌门店共用车系车型、精品赠品和限价目录。',b('newstore','新增门店','','primary'))+`<section class="panel">${table(['门店','门店编码','品牌','状态','操作'],d.items.map(r=>[E(r.name),E(r.code),E(r.brand||'未设置'),pill(r.active?'done':'cancelled',r.active?'启用':'停用'),b('editstore','编辑',`data-id="${r.id}"`)]))}</section>`;}
+async function storeDialog(id){
+ if(!state.user.can_manage_stores)throw new Error('当前岗位没有门店设置权限。');
+ const row=id?state.rows.find(r=>r.id===id):null;
+ const brands=[...new Set(state.rows.map(r=>r.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-CN'));
+ const options={notice:'每店只能设置一个品牌，可选择已有品牌或填写新品牌。同品牌门店共用车型、精品和限价。修改品牌后，新合同使用新品牌目录；已提交合同保留原品牌及冻结价格，客户、审批和财务记录仍归原门店。'};
+ const dialog=await formDialog(row?'编辑门店':'新增门店',[F('name','门店名称'),F('code','门店编码'),F('brand','经营品牌','text',!row||!!row.brand),F('active','启用','bool',false)],row||{active:true,brand:''},async v=>{
+  await api('/api/stores'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:v});
+  const d=await api('/api/stores',{store:null});state.stores=d.items;state.recordCatalog=null;
+  const usable=activeStoreOptions(state.stores),doomed=!usable.some(store=>String(store.id)===String(state.store));
+  if(doomed&&usable.length){options.success=`当前门店已停用，已切换到「${usable[0].name}」。请核对右上角门店后再办理。`;await switchStore(String(usable[0].id),'stores');}else{reconcileStore(state.stores);shell();}
+ },options);
+ const input=dialog.querySelector('[name=brand]');input.maxLength=100;input.setAttribute('list','store-brand-options');input.placeholder='选择已有品牌，或填写一个新品牌';
+ const choices=document.createElement('datalist');choices.id='store-brand-options';choices.innerHTML=brands.map(brand=>`<option value="${E(brand)}"></option>`).join('');input.after(choices);
+}
 async function passwordDialog(required=false){await formDialog('修改个人密码',[F('current_password','当前密码','password'),F('new_password','新密码','password')],{},async v=>{await api('/api/auth/password',{method:'POST',body:v});state.user=null;loginPage();},{notice:required?'请设置至少12位的个人密码，完成后重新登录。':'修改密码后需要重新登录。'});}
 const auditLabels={create:'建立记录',update:'修改记录',submit:'提交审核',approve:'审核通过',reject:'退回',void:'作废',advance:'确认进度',login:'登录',download:'下载文件',export:'导出',create_user:'新增员工',update_user:'修改员工',create_store:'新增门店',update_store:'修改门店',change_password:'修改密码',reset_password:'重置密码',review:'复核记录',flow_create:'建立流程业务',flow_action:'办理业务',document:'生成文件',upload:'上传凭据'};
 const auditEntities={...legacyNames,flow:'业务流程',typed_master:'业务资料',dictionary:'分类设置',vehicle_catalog:'车型目录',customer_vehicle:'客户车辆',care_rule:'客户提醒规则',care_grant:'客户资料授权',users:'员工账号',stores:'门店',findings:'数据复核',feedback:'反馈',maintenance:'系统维护',store_account:'本店员工账号',record_contract:'销售合同',record_customer:'客户资料',record_service:'售后业务',record_manual:'销售内勤统计',record_daily_report:'每日报表',record_monthly_target:'月度目标',record_settings:'业务审批设置',record_standard_price:'标准物品价格'};

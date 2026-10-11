@@ -256,7 +256,19 @@ class AIResult(Strict):
 class StoreInput(Strict):
     code: str = Field(min_length=1, max_length=30, pattern=r'^[A-Za-z0-9_-]+$')
     name: str = Field(min_length=1, max_length=100)
+    brand: str | None = Field(default=None, max_length=100)
     active: bool = True
+
+    @field_validator('brand')
+    @classmethod
+    def single_brand(cls, value):
+        if value is None:
+            return None
+        from .business_record_gift_import import canonical_brand
+        value = canonical_brand(value)
+        if any(separator in value for separator in ('、', ',', '，', '/', '|', ';', '；', '\n')):
+            raise ValueError('每家门店只能设置一个品牌')
+        return value
 
 
 class FeedbackInput(Strict):

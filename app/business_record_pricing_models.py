@@ -21,6 +21,7 @@ class RecordPricingFile(StoreScoped, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     kind: Mapped[str] = mapped_column(String(30))
+    brand: Mapped[str] = mapped_column(String(100), default='', server_default='')
     contract_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_contracts.id'), nullable=True, index=True)
     filename: Mapped[str] = mapped_column(String(180))
     content_type: Mapped[str] = mapped_column(String(100))
@@ -39,6 +40,7 @@ class RecordPriceBatch(StoreScoped, Base):
     __tablename__ = 'business_record_price_batches'
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(String(20))
+    brand: Mapped[str] = mapped_column(String(100), default='', server_default='')
     file_id: Mapped[int] = mapped_column(ForeignKey('business_record_pricing_files.id'))
     created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
@@ -55,6 +57,30 @@ class RecordVehicleVariant(Versioned, Base):
     model: Mapped[str] = mapped_column(String(160))
     active: Mapped[bool] = mapped_column(default=True)
     __table_args__ = (UniqueConstraint('store_id', 'family', 'series', 'model', name='uq_record_vehicle_variant'),)
+
+
+class RecordBrandPricing(Base):
+    """Only published catalog pointers are shared; never business ownership."""
+    __tablename__ = 'business_record_brand_pricing'
+    brand: Mapped[str] = mapped_column(String(100), primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    vehicle_batch_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_price_batches.id'), nullable=True)
+    gift_batch_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_price_batches.id'), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    __mapper_args__ = {'version_id_col': version}
+
+
+class RecordBrandVariant(Base):
+    __tablename__ = 'business_record_brand_variants'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    brand: Mapped[str] = mapped_column(String(100), index=True)
+    family: Mapped[str] = mapped_column(String(100))
+    series: Mapped[str] = mapped_column(String(160))
+    model: Mapped[str] = mapped_column(String(160))
+    active: Mapped[bool] = mapped_column(default=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    __table_args__ = (UniqueConstraint('brand', 'family', 'series', 'model', name='uq_record_brand_variant'),)
 
 
 class RecordVehiclePrice(StoreScoped, Base):
@@ -77,10 +103,16 @@ class RecordGiftPrice(StoreScoped, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     batch_id: Mapped[int] = mapped_column(ForeignKey('business_record_price_batches.id'), index=True)
     name: Mapped[str] = mapped_column(String(160))
-    unit_price_cents: Mapped[int] = mapped_column(BigInteger)
+    unit_price_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    unit_cost_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    brand: Mapped[str] = mapped_column(String(100), default='', server_default='')
+    unit: Mapped[str] = mapped_column(String(40), default='', server_default='')
+    applicable_models: Mapped[str] = mapped_column(String(300), default='', server_default='')
+    source_ref: Mapped[str] = mapped_column(String(300), default='', server_default='')
     note: Mapped[str] = mapped_column(Text, default='')
     __table_args__ = (UniqueConstraint('batch_id', 'name', name='uq_record_batch_gift'),
-        CheckConstraint('unit_price_cents >= 0', name='ck_record_gift_price_nonnegative'))
+        CheckConstraint('unit_price_cents >= 0', name='ck_record_gift_price_nonnegative'),
+        CheckConstraint('unit_cost_cents IS NULL OR unit_cost_cents >= 0', name='ck_record_gift_cost_nonnegative'))
 
 
 class RecordContractTerms(Versioned, Base):
@@ -89,13 +121,17 @@ class RecordContractTerms(Versioned, Base):
     price_snapshot: Mapped[dict] = mapped_column(JSON)
     gift_batch_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     gifts_snapshot: Mapped[list] = mapped_column(JSON, default=list)
-    gift_total_cents: Mapped[int] = mapped_column(BigInteger, default=0)
+    gift_total_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    gift_cost_total_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    gift_pricing_basis: Mapped[str] = mapped_column(String(40), default='separate-cost-v1', server_default='legacy-single-price')
     submission_data: Mapped[dict] = mapped_column(JSON, default=dict)
     price_below_cents: Mapped[int] = mapped_column(BigInteger, default=0)
     gift_excess_cents: Mapped[int] = mapped_column(BigInteger, default=0)
     special: Mapped[bool] = mapped_column(default=False)
     special_note: Mapped[str] = mapped_column(Text, default='')
-    __table_args__ = (CheckConstraint('gift_total_cents >= 0 AND price_below_cents >= 0 AND gift_excess_cents >= 0', name='ck_record_terms_nonnegative'),)
+    __table_args__ = (CheckConstraint('gift_total_cents >= 0 AND price_below_cents >= 0 AND gift_excess_cents >= 0', name='ck_record_terms_nonnegative'),
+        CheckConstraint('gift_cost_total_cents IS NULL OR gift_cost_total_cents >= 0', name='ck_record_terms_gift_cost'),
+        CheckConstraint("gift_pricing_basis IN ('legacy-single-price','separate-cost-v1')", name='ck_record_terms_gift_basis'))
 
 
 @event.listens_for(Session, 'before_flush')
@@ -107,5 +143,5 @@ def immutable_price_publications(db, *_):
                 raise HTTPException(409, '已发布价格批次保留追溯，不可改写或删除')
         if isinstance(row, RecordContractTerms):
             if row in db.deleted or any(inspect(row).attrs[key].history.has_changes()
-                    for key in ('contract_id', 'store_id', 'price_snapshot', 'gift_batch_id')):
+                    for key in ('contract_id', 'store_id', 'price_snapshot', 'gift_batch_id', 'gift_pricing_basis')):
                 raise HTTPException(409, '合同提交时的价格版本已冻结，不可改写或删除')

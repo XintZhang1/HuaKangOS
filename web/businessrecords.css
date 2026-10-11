@@ -34,3 +34,16 @@
 @media(max-width:600px){.br-live-overview{grid-template-columns:repeat(2,minmax(0,1fr))}.br-live-overview strong{font-size:23px}.br-special-review .br-facts,.br-office-fact-head .br-facts{grid-template-columns:1fr}.br-special-review,.br-profit-panel{padding:16px}.br-live-controls{padding:15px}.br-profit-items>div{grid-template-columns:16px 1fr auto;font-size:12px}.br-profit-items strong{font-size:12px}}
 
 #modal:has(.br-price-edit-table){width:min(1320px,96vw);max-width:1320px}#modal:has(.br-profit-panel),#modal:has(.br-special-review){width:min(1080px,96vw);max-width:1080px}.br-panel-status{display:inline-block;color:#698194;background:#f0f5f8;border-radius:4px;font-size:10px;padding:3px 6px;font-weight:400;vertical-align:middle;margin-left:6px}
+
+/* The group collage has text and logos: fit the whole image, without overlays. */
+.hk-login .loginart{padding:28px;justify-content:center;align-items:center;background:#edf0f3}
+.hk-login .hk-login-photo{position:static;display:block;width:100%;height:auto;max-height:calc(100svh - 56px);object-fit:contain;background:none;border-radius:10px}
+.hk-page-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,32%);align-items:center;gap:20px;padding:20px 24px;background:#fff;border:1px solid #e0e7ee;border-radius:10px}
+.hk-page-hero::after{display:none}
+.hk-page-hero .hk-hero-photo{position:static;display:block;width:100%;height:auto;max-height:240px;object-fit:contain;opacity:1;background:none;border-radius:6px}
+.hk-page-hero .hk-hero-content{padding:0;min-width:0}
+.hk-page-hero .pagehead{margin:0;display:block}
+.hk-page-hero .pagehead .row{margin-top:18px;justify-content:flex-start}
+@media(max-width:1150px){.hk-page-hero{grid-template-columns:minmax(0,1fr) 240px;gap:18px;padding:20px}}
+@media(max-width:800px){.hk-login .loginart{height:auto;min-height:0;padding:16px}.hk-login .hk-login-photo{max-height:270px;border-radius:8px}.hk-login .loginform{margin-top:0}.hk-page-hero{grid-template-columns:1fr;gap:18px;padding:18px}.hk-page-hero .hk-hero-photo{max-height:250px}.hk-page-hero .pagehead h1{font-size:24px}}
+@media print{.hk-page-hero{display:block;padding:0;border:0}.hk-page-hero .hk-hero-photo{display:none}}

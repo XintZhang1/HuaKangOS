@@ -1,4 +1,4 @@
-"""A deliberately public, sanitized login photo; never a business attachment."""
+"""One public group image for login and homepages; never a business attachment."""
 import base64
 import hashlib
 import io
@@ -23,9 +23,10 @@ def photo(db=Depends(get_db)):
     row=db.get(AppMetadata,KEY)
     if row:
         return Response(base64.b64decode(row.value['image']),media_type='image/jpeg')
-    with Image.open(Path(__file__).resolve().parent.parent/'web/assets/huakang-store-source.jpg') as source:
-        output=io.BytesIO();source.crop((0,0,1080,724)).save(output,format='JPEG',quality=95)
-    return Response(output.getvalue(),media_type='image/jpeg')
+    return FileResponse(
+        Path(__file__).resolve().parent.parent/'web/assets/huakang-group-home-20261011.png',
+        media_type='image/png',
+    )
 
 @router.post('/photo')
 async def replace_photo(file:UploadFile=File(...),db=Depends(get_db),user=Depends(get_user)):

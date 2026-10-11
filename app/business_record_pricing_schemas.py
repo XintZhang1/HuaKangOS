@@ -22,19 +22,34 @@ class VehiclePriceInput(Strict):
 
 class GiftPriceInput(Strict):
     name: str = Field(min_length=1, max_length=160)
-    unit_price_cents: Money
+    unit_price_cents: Money | None = None
+    unit_cost_cents: Money | None = None
+    brand: str = Field(default='', max_length=100)
+    unit: str = Field(default='', max_length=40)
+    applicable_models: str = Field(default='', max_length=300)
+    source_ref: str = Field(default='', max_length=300)
     note: str = Field(default='', max_length=2000)
+
+    @model_validator(mode='after')
+    def known_amount(self):
+        if self.unit_price_cents is None and self.unit_cost_cents is None:
+            raise ValueError('赠品成本或售价至少须有一项已核定，空白不可当作零')
+        return self
 
 
 class VehiclePriceImport(Command):
     version: int = Field(ge=0, strict=True)
+    brand_version: int = Field(ge=0, strict=True)
+    brand: str = Field(min_length=1, max_length=100)
     file_id: Key
     rows: list[VehiclePriceInput] = Field(min_length=1, max_length=2000)
 
 
 class GiftPriceImport(Command):
     version: int = Field(ge=0, strict=True)
+    brand_version: int = Field(ge=0, strict=True)
     file_id: Key
+    brand: str = Field(min_length=1, max_length=100)
     rows: list[GiftPriceInput] = Field(min_length=1, max_length=2000)
 
 
@@ -45,7 +60,7 @@ class SellerInput(Strict):
 
 class StoreProfileInput(Command):
     version: int = Field(ge=0, strict=True)
-    brand: str = Field(min_length=1, max_length=100)
+    brand: str | None = Field(default=None, max_length=100)
     address: str = Field(default='', max_length=500)
     sellers: list[SellerInput] = Field(default_factory=list, max_length=50)
     sales_contacts: dict[str, str] = Field(default_factory=dict, max_length=500)
@@ -53,6 +68,8 @@ class StoreProfileInput(Command):
 
 class VehicleVariantInput(Command):
     version: int = Field(ge=0, strict=True)
+    brand_version: int = Field(ge=0, strict=True)
+    brand: str = Field(min_length=1, max_length=100)
     family: str = Field(min_length=1, max_length=100)
     series: str = Field(min_length=1, max_length=160)
     model: str = Field(min_length=1, max_length=160)

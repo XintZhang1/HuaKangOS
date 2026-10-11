@@ -686,7 +686,11 @@ def stores(db=Depends(get_db),user=Depends(get_user)):
 @app.post('/api/stores',status_code=201)
 def add_store(body:StoreInput,db=Depends(get_write_db),user=Depends(get_user)):
     admin(user)
-    row = Store(**body.model_dump()); db.add(row); db.flush()
+    values = body.model_dump()
+    values['brand'] = values.get('brand') or ''
+    if not values['brand']:
+        raise HTTPException(422, '新增门店须明确设置一个品牌')
+    row = Store(**values); db.add(row); db.flush()
     audit(db,user.id,'create_store','stores',row.id,after=plain(row))
     db.commit(); return plain(row)
 
@@ -696,10 +700,14 @@ def edit_store(store_id:int,body:StoreInput,db=Depends(get_write_db),user=Depend
     admin(user)
     row = db.get(Store,store_id)
     if not row: raise HTTPException(404,'门店不存在')
+    if row.brand and body.brand == '':
+        raise HTTPException(422, '已设置品牌的门店不能清空品牌，请选择其实际品牌')
     if not body.active and row.active and db.scalar(select(func.count()).select_from(Store).where(Store.active.is_(True)))<=1:
         raise HTTPException(409,'不能停用最后一家可用门店')
     before=plain(row)
-    for k,v in body.model_dump().items(): setattr(row,k,v)
+    for k,v in body.model_dump().items():
+        if k != 'brand' or v is not None:
+            setattr(row,k,v)
     audit(db,user.id,'update_store','stores',row.id,before,plain(row))
     if settings.assistant_runtime_enabled and before['active'] != row.active:
         from .assistant_runtime_access_signals import emit_store_access_changed

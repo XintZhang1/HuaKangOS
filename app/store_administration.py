@@ -12,6 +12,7 @@ STAFF_ROLES = frozenset({'sales', 'manager', 'clerk', 'finance'})
 _RECORD_READS = re.compile(r'/api/business-records/(?:'
     r'catalog|contracts(?:/[1-9]\d*(?:/print|/invoice(?:/files/[1-9]\d*/download)?)?)?'
     r'|standard-prices|customers(?:/[1-9]\d*)?|after-sales'
+    r'|pricing/(?:catalog|files/[1-9]\d*/download)|store-profile|vehicle-variants'
     r'|manual-reports(?:/[1-9]\d*)?|report-prefill|settings|reports(?:/export)?'
     r'|report-periods|monthly-targets|daily-vehicle-reports(?:/export)?'
     r'|daily-reports(?:/(?:preview|export|trend(?:/export)?))?)')

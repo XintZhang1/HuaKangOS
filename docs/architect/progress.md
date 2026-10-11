@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-11 第三版赠品成本及主页图：继续 [customer-records-v2](tasks/customer-records-v2.md)，root 集成与发布，gift_logic_review 实施成本/售价分离，gift_source_audit 核对七份原表，homepage_branding 合成并接入集团图片。唯一状态和门禁见实施计划 V2.12，原表及验证证据外置，保留线上历史事实。
+
 2026-10-11 PR18评审后发布：[customer-records-v2](tasks/customer-records-v2.md)修复交车必须具备盖章赠品单及绑定原件；3项定向HTTP、修复/main CI通过。合并提交bbc32e0f4f78经aliyun CLI发布，联合备份恢复和h63副本/正式升级核对保留原496表原事实，五服务及公网health正常。运行SHA保持合并提交，后续仅文档回填；真实赠品售价和模型实调仍待后续。唯一状态见实施计划V2.11 PR18段，下文保留先前时点。
 
 2026-10-11 V2.11：[customer-records-v2](tasks/customer-records-v2.md)先同步 GitHub main 76e73cf 并保留本地改动，实施门店限价/赠品目录及冻结版本、截图特殊审批、财务交车、利润/退车和默认多图看板。12组核心隔离HTTP、附件恢复11项、长赠品打印及5条原生Chrome流程通过，最终4份看板改动的引擎与日/月/范围/窄屏复验分别留证；真实模型0、无线上业务写入，服务正常停止。28de088草稿PR #18及自动Operations检查成功；CLI经现有代理/云助手取得4项名称并交付待补价临时表，源目录没有售价，仍待门店确认。正式状态及门禁唯一见实施计划V2.11，未宣称上线。
