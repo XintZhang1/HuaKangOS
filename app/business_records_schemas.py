@@ -15,6 +15,27 @@ class Command(Strict):
     request_id: str = Field(min_length=16, max_length=80, pattern=r'^[A-Za-z0-9_-]+$')
 
 
+class GiftSelection(Strict):
+    price_id: Key
+    quantity: int = Field(gt=0, le=10000, strict=True)
+
+
+class ContractSubmission(Strict):
+    vehicle_invoice_price_cents: Money | None = None
+    registration_fee_cents: Money | None = None
+    payment_method: Literal['全款', '贷款'] = '全款'
+    installment_fee_cents: Money | None = None
+    total_loss_product_cents: Money | None = None
+    trade_in_subsidy_cents: Money | None = None
+    used_car_commission_cents: Money | None = None
+    finance_excess_cents: Money | None = None
+    registration_excess_cents: Money | None = None
+    transfer_store: str = Field(default='', max_length=160)
+    towing_cost_cents: Money | None = None
+    department: str = Field(default='', max_length=160)
+    note: str = Field(default='', max_length=4000)
+
+
 class ContractInput(Command):
     customer_name: str = Field(min_length=1, max_length=100)
     customer_phone: str = Field(default='', max_length=40)
@@ -26,6 +47,9 @@ class ContractInput(Command):
     sale_price_cents: int = Field(gt=0, le=999999999999, strict=True)
     gift_description: str = Field(default='', max_length=4000)
     form_data: dict[str, str] = Field(default_factory=dict, max_length=50)
+    vehicle_price_id: Key | None = None
+    gift_items: list[GiftSelection] = Field(default_factory=list, max_length=100)
+    submission_data: ContractSubmission = Field(default_factory=ContractSubmission)
 
     @field_validator('form_data')
     @classmethod
@@ -44,6 +68,10 @@ class ContractUpdate(ContractInput):
 class Action(Command):
     version: Key
     note: str = Field(default='', max_length=2000)
+
+
+class ManagerApproval(Action):
+    gift_excess_cents: Money = 0
 
 
 class PriceReview(Action):

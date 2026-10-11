@@ -20,11 +20,11 @@ from .business_records_models import (SalesContract, ContractReceipt, RecordCust
     StandardRecordPrice)
 from .business_records_schemas import (ContractInput, ContractUpdate, Action, PriceReview,
     Reject, ReceiptInput, CustomerInput, AfterSalesInput, ManualReportInput, SettingsInput,
-    OfficeReview, StandardPriceImport, StandardPriceEstimate)
+    OfficeReview, StandardPriceImport, StandardPriceEstimate, ManagerApproval)
 
 router = APIRouter(prefix='/api/business-records', tags=['业务记录'])
-MANAGERS = {'admin', 'manager', 'general_manager'}
-GROUP_MANAGERS = {'admin', 'general_manager'}
+MANAGERS = {'admin', 'manager', 'general_manager', 'deputy_general_manager'}
+GROUP_MANAGERS = {'admin', 'general_manager', 'deputy_general_manager'}
 READERS = MANAGERS | {'sales', 'clerk', 'finance', 'chairman'}
 SENSITIVE_ROLES = {'admin', 'clerk', 'chairman'}
 INTERNAL_READERS = SENSITIVE_ROLES
@@ -32,7 +32,8 @@ CAPABILITY_ROLES = {
     'create_sales': {'admin', 'sales'},
     'price': {'admin', 'clerk'},
     'manager_approve': {'admin', 'manager'},
-    'approve': GROUP_MANAGERS,
+    'approve': {'admin', 'general_manager'},
+    'deputy_approve': {'admin', 'deputy_general_manager'},
     'confirm_receipt': {'admin', 'finance'},
     'upload_invoice': {'admin', 'finance'},
     'manage_settings': {'admin', 'general_manager'},
@@ -45,6 +46,7 @@ SERVICE_TYPES = [{'value': key, 'label': label} for key, label in (
     ('repair', '维修'), ('maintenance', '保养'), ('accident', '事故维修'),
     ('renewal', '续保'), ('extended_warranty', '延保'), ('accessories', '精品销售'))]
 STATUS_LABELS = {'submitted': '待销售经理审批', 'manager_approved': '待总经理审批',
+                 'general_approved': '特殊申请待集团副总经理审批',
                  'priced': '历史合同待管理审批', 'approved': '合同审批通过，可打印', 'rejected': '已退回'}
 OFFICE_STATUS_LABELS = {'not_started': '待内勤填报', 'draft': '内勤填报中',
     'submitted': '待总经理审批附带信息', 'approved': '附带信息已批准', 'rejected': '附带信息已退回'}
@@ -60,7 +62,7 @@ def _group_ids(user):
 def require_read(user):
     if getattr(user, '_aggregate_scope', False):
         if not _group_ids(user):
-            raise HTTPException(403, '经营记录集团汇总仅向获授权的总经理或董事长开放')
+            raise HTTPException(403, '经营记录集团汇总仅向获授权的管理岗位开放')
     elif user.role not in READERS:
         raise HTTPException(403, '当前岗位没有业务记录访问权限')
 
@@ -234,7 +236,7 @@ def _contract_data(db, user, row):
     data['office_status_label'] = OFFICE_STATUS_LABELS[row.office_status]
     caps = capabilities(user)
     actions = []
-    trial = row.workflow_version == 'trial-v29'
+    trial = row.workflow_version in {'trial-v29', 'trial-v210'}
     independent = user.id not in {row.salesperson_id, row.created_by}
     if row.status in {'submitted', 'rejected'}:
         if caps['create_sales'] and (user.role != 'sales' or row.salesperson_id == user.id):
@@ -247,7 +249,7 @@ def _contract_data(db, user, row):
         actions.extend(['approve', 'reject'])
     if row.status == 'approved':
         actions.append('print')
-        if caps['confirm_receipt'] and not receipt:
+        if caps['confirm_receipt'] and not receipt and row.workflow_version != 'trial-v210':
             actions.append('receipt')
         if caps['upload_invoice']:
             actions.append('upload_invoice')
@@ -263,7 +265,7 @@ def _contract_data(db, user, row):
         for field in ('cost_cents', 'profit_cents', 'gift_cost_cents', 'price_note',
                       'office_data', 'office_approved_data', 'office_approval_note'):
             data.pop(field, None)
-        if user.role == 'general_manager':
+        if user.role in {'general_manager', 'deputy_general_manager'}:
             # The manager approves all office submissions but reads only the
             # customer/business fields; explicit chairman access is separate.
             from .business_record_reports import CATALOG_BY_KEY
@@ -278,6 +280,16 @@ def _contract_data(db, user, row):
                     data[field] = {key: source[key] for key in ('report_key', 'period', 'manual_report_id') if key in source}
                     data[field]['values'] = {key: value for key, value in source.get('values', {}).items() if key in allowed}
                     data[field]['sensitive_fields_hidden'] = True
+    if row.workflow_version == 'trial-v210':
+        from .business_record_pricing import contract_terms_view, get_terms
+        terms = get_terms(db, row)
+        data['terms'] = contract_terms_view(db, user, row)
+        if row.status == 'general_approved' and caps['deputy_approve'] and independent and terms and user.id not in {row.manager_approved_by, terms.general_approved_by}:
+            actions.extend(['deputy_approve', 'reject'])
+        if user.role == 'sales':
+            # Internal discretionary gift reasons can contain amounts too.
+            for key in ('manager_approval_note', 'approval_note', 'office_approval_note'):
+                data.pop(key, None)
     data['actions'] = actions
     return data
 
@@ -361,14 +373,18 @@ def create_contract(body: ContractInput, request: Request,
     require_capability(user, 'create_sales')
     _salesperson(db, user, body.salesperson_id)
     def perform():
-        values = body.model_dump(exclude={'request_id'})
+        from .business_record_pricing import prepare_submission, save_submission
+        prepared = prepare_submission(db, user, body)
+        values = body.model_dump(exclude={'request_id', 'vehicle_price_id', 'gift_items', 'submission_data'})
+        values.update(brand=prepared['brand'], model=prepared['model'], form_data=prepared['form_data'])
         customer_id = _record_customer(db, body.salesperson_id, body.customer_name, body.customer_phone)
         row = SalesContract(**values, store_id=single_store(db), created_by=user.id,
                             customer_id=customer_id,
                             number='XS-' + uuid.uuid4().hex[:20].upper(), status='submitted',
-                            workflow_version='trial-v29')
+                            workflow_version='trial-v210')
         db.add(row)
         db.flush()
+        save_submission(db, row, prepared)
         data = _contract_data(db, user, row)
         audit(db, user.id, 'record_create', 'record_contract', row.id, after=data)
         return data
@@ -394,10 +410,17 @@ def edit_contract(key: int, body: ContractUpdate, request: Request,
         if row.status not in {'submitted', 'rejected'}:
             raise HTTPException(409, '已审批合同不可修改；有变更请重新预填一份新合同，原合同保留归档')
         before = _contract_data(db, user, row)
+        prepared = None
+        if row.workflow_version == 'trial-v210':
+            from .business_record_pricing import prepare_submission, save_submission
+            prepared = prepare_submission(db, user, body, row)
         if row.customer_id is None or (row.customer_name, row.customer_phone) != (body.customer_name, body.customer_phone):
             row.customer_id = _record_customer(db, row.salesperson_id, body.customer_name, body.customer_phone)
-        for name, value in body.model_dump(exclude={'request_id', 'version'}).items():
+        for name, value in body.model_dump(exclude={'request_id', 'version', 'vehicle_price_id', 'gift_items', 'submission_data'}).items():
             setattr(row, name, value)
+        if prepared:
+            row.brand, row.model, row.form_data = prepared['brand'], prepared['model'], prepared['form_data']
+            save_submission(db, row, prepared)
         row.status = 'submitted'
         row.manager_approved_by = row.manager_approved_at = None
         row.manager_approval_note = row.approval_note = ''
@@ -420,7 +443,7 @@ def price_contract(key: int, body: PriceReview, request: Request,
     row = get_contract(db, user, key)
     def perform():
         _check_version(row, body.version)
-        if row.workflow_version == 'trial-v29':
+        if row.workflow_version in {'trial-v29', 'trial-v210'}:
             raise HTTPException(409, '新版合同先由销售经理、总经理审批；内勤请使用独立的附带信息核对入口')
         if row.status != 'submitted':
             raise HTTPException(409, '仅待核价合同可完成内勤核价；退回合同须先修改重提')
@@ -437,7 +460,7 @@ def price_contract(key: int, body: PriceReview, request: Request,
 
 
 @router.post('/contracts/{key}/manager-approve')
-def manager_approve_contract(key: int, body: Action, request: Request,
+def manager_approve_contract(key: int, body: ManagerApproval, request: Request,
                              db=Depends(get_write_db), user=Depends(get_user)):
     _manual(request)
     require_capability(user, 'manager_approve')
@@ -446,9 +469,19 @@ def manager_approve_contract(key: int, body: Action, request: Request,
         raise HTTPException(403, '合同销售或填单本人不能审批自己的合同')
     def perform():
         _check_version(row, body.version)
-        if row.workflow_version != 'trial-v29' or row.status != 'submitted':
+        if row.workflow_version not in {'trial-v29', 'trial-v210'} or row.status != 'submitted':
             raise HTTPException(409, '仅待销售经理审批的新版合同可办理此操作')
         before = _contract_data(db, user, row)
+        if row.workflow_version == 'trial-v210':
+            from .business_record_pricing import get_terms
+            terms = get_terms(db, row)
+            if terms is None:
+                raise HTTPException(409, '合同提交快照缺失，请联系管理员核对')
+            terms.gift_excess_cents = body.gift_excess_cents
+            terms.special = terms.price_below_cents > 0 or body.gift_excess_cents > 0
+            if terms.special and not body.note.strip():
+                raise HTTPException(422, '请填写特殊申请说明')
+            terms.special_note = body.note if terms.special else ''
         row.status = 'manager_approved'
         row.manager_approved_by, row.manager_approved_at = user.id, utcnow()
         row.manager_approval_note = body.note
@@ -469,11 +502,24 @@ def approve_contract(key: int, body: Action, request: Request,
         raise HTTPException(403, '销售、填单人及本合同销售经理审批人不能办理总经理审批')
     def perform():
         _check_version(row, body.version)
-        trial = row.workflow_version == 'trial-v29'
+        trial = row.workflow_version in {'trial-v29', 'trial-v210'}
         if row.status != ('manager_approved' if trial else 'priced'):
             raise HTTPException(409, '请先由销售经理审批合同' if trial else '历史合同须先完成内勤核价')
         from .business_record_pdf import TEMPLATE_VERSION, validate_contract_print_data
         before = _contract_data(db, user, row)
+        if row.workflow_version == 'trial-v210':
+            from .business_record_pricing import get_terms
+            terms = get_terms(db, row)
+            if terms is None:
+                raise HTTPException(409, '合同提交快照缺失，请联系管理员核对')
+            if terms.special:
+                terms.general_approved_by, terms.general_approved_at = user.id, utcnow()
+                terms.general_approval_note = body.note
+                row.status, row.approval_note = 'general_approved', body.note
+                db.flush()
+                data = _contract_data(db, user, row)
+                audit(db, user.id, 'record_general_special_approve', 'record_contract', row.id, before, data, body.note)
+                return data
         try:
             validate_contract_print_data(before)
         except ValueError as exc:
@@ -500,19 +546,24 @@ def reject_contract(key: int, body: Reject, request: Request,
                     db=Depends(get_write_db), user=Depends(get_user)):
     _manual(request)
     require_read(user)
-    if not (capabilities(user)['price'] or capabilities(user)['manager_approve'] or capabilities(user)['approve']):
+    if not (capabilities(user)['price'] or capabilities(user)['manager_approve'] or capabilities(user)['approve'] or capabilities(user)['deputy_approve']):
         raise HTTPException(403, '当前岗位不能退回合同')
     row = get_contract(db, user, key)
     if user.id in {row.salesperson_id, row.created_by}:
         raise HTTPException(403, '合同销售本人不能办理审核退回')
     def perform():
         _check_version(row, body.version)
-        if row.workflow_version == 'trial-v29':
+        if row.workflow_version in {'trial-v29', 'trial-v210'}:
             allowed = set()
             if capabilities(user)['manager_approve']:
                 allowed.add('submitted')
             if capabilities(user)['approve']:
                 allowed.add('manager_approved')
+            if row.workflow_version == 'trial-v210' and capabilities(user)['deputy_approve']:
+                from .business_record_pricing import get_terms
+                terms = get_terms(db, row)
+                if terms and user.id not in {row.manager_approved_by, terms.general_approved_by}:
+                    allowed.add('general_approved')
         else:
             allowed = {'submitted'} if user.role == 'clerk' else {'submitted', 'priced'}
         if row.status not in allowed:
@@ -526,6 +577,44 @@ def reject_contract(key: int, body: Reject, request: Request,
     return _run(db, user, body.request_id, f'contract:{key}:reject', _body(body), perform)
 
 
+@router.post('/contracts/{key}/deputy-approve')
+def deputy_approve_contract(key: int, body: Action, request: Request,
+                            db=Depends(get_write_db), user=Depends(get_user)):
+    """The third approval exists only for a frozen, explicitly special request."""
+    _manual(request)
+    require_capability(user, 'deputy_approve')
+    row = get_contract(db, user, key)
+    from .business_record_pricing import get_terms
+    terms = get_terms(db, row)
+    if terms is None or row.workflow_version != 'trial-v210':
+        raise HTTPException(409, '该合同不属于本版特殊审批流程')
+    if user.id in {row.salesperson_id, row.created_by, row.manager_approved_by, terms.general_approved_by}:
+        raise HTTPException(403, '销售、填单人及前序审批人不能办理集团副总经理终批')
+    def perform():
+        _check_version(row, body.version)
+        if row.status != 'general_approved' or not terms.special or terms.general_approved_by is None:
+            raise HTTPException(409, '特殊合同须先由销售经理提交并经总经理审批')
+        from .business_record_pdf import TEMPLATE_VERSION, validate_contract_print_data
+        before = _contract_data(db, user, row)
+        try:
+            validate_contract_print_data(before)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        row.status, row.approved_by, row.approved_at = 'approved', user.id, utcnow()
+        row.expected_amount_cents = row.sale_price_cents
+        row.approval_note, row.template_version = body.note, TEMPLATE_VERSION
+        with db.no_autoflush:
+            snapshot = _contract_data(db, user, row)
+        snapshot['version'] = row.version + 1
+        snapshot.pop('actions', None)
+        row.approved_snapshot = snapshot
+        db.flush()
+        data = _contract_data(db, user, row)
+        audit(db, user.id, 'record_deputy_approve', 'record_contract', row.id, before, data, body.note)
+        return data
+    return _run(db, user, body.request_id, f'contract:{key}:deputy_approve', _body(body), perform)
+
+
 @router.post('/contracts/{key}/receipt')
 def confirm_receipt(key: int, body: ReceiptInput, request: Request,
                     db=Depends(get_write_db), user=Depends(get_user)):
@@ -534,6 +623,8 @@ def confirm_receipt(key: int, body: ReceiptInput, request: Request,
     row = get_contract(db, user, key)
     def perform():
         _check_version(row, body.version)
+        if row.workflow_version == 'trial-v210':
+            raise HTTPException(409, '本版由财务上传材料并确认交车，不办理到账确认')
         if row.status != 'approved':
             raise HTTPException(409, '请先完成合同审批')
         if _receipt(db, row):
@@ -557,7 +648,7 @@ def confirm_receipt(key: int, body: ReceiptInput, request: Request,
 def print_contract(key: int, db=Depends(get_db), user=Depends(get_user)):
     row = get_contract(db, user, key)
     if row.status != 'approved' or not row.approved_snapshot:
-        raise HTTPException(409, '合同须经销售经理、总经理审批通过后才能打印；历史合同沿用原审批')
+        raise HTTPException(409, '普通合同须完成销售经理、总经理审批；特殊合同还须集团副总经理终批后才能打印')
     from .business_record_pdf import render_contract_pdf
     try:
         pdf = render_contract_pdf(row.approved_snapshot)

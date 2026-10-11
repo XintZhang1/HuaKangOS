@@ -44,7 +44,7 @@ class SalesContract(Versioned, Base):
     status: Mapped[str] = mapped_column(String(20), default='submitted', index=True)
     # Old rows keep their original pricing-before-approval contract. Only new
     # trial records use two contract approvals followed by a separate office review.
-    workflow_version: Mapped[str] = mapped_column(String(20), default='trial-v29', server_default='legacy-v2')
+    workflow_version: Mapped[str] = mapped_column(String(20), default='trial-v210', server_default='legacy-v2')
     manager_approved_by: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True)
     manager_approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     manager_approval_note: Mapped[str] = mapped_column(Text, default='', server_default='')
@@ -70,14 +70,14 @@ class SalesContract(Versioned, Base):
     approved_snapshot: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     template_version: Mapped[str] = mapped_column(String(100), default='')
     __table_args__ = (
-        CheckConstraint("status IN ('submitted','manager_approved','priced','approved','rejected')", name='ck_record_contract_status'),
-        CheckConstraint("workflow_version IN ('legacy-v2','trial-v29')", name='ck_record_contract_workflow'),
+        CheckConstraint("status IN ('submitted','manager_approved','general_approved','priced','approved','rejected')", name='ck_record_contract_status'),
+        CheckConstraint("workflow_version IN ('legacy-v2','trial-v29','trial-v210')", name='ck_record_contract_workflow'),
         CheckConstraint("office_status IN ('not_started','draft','submitted','approved','rejected')", name='ck_record_contract_office'),
         CheckConstraint('sale_price_cents > 0', name='ck_record_contract_price'),
         CheckConstraint('expected_amount_cents IS NULL OR expected_amount_cents >= 0', name='ck_record_contract_expected'),
         CheckConstraint('cost_cents IS NULL OR cost_cents >= 0', name='ck_record_contract_cost'),
         CheckConstraint('gift_cost_cents IS NULL OR gift_cost_cents >= 0', name='ck_record_contract_gift'),
-        CheckConstraint("workflow_version = 'trial-v29' OR status NOT IN ('priced','approved') OR (expected_amount_cents IS NOT NULL AND cost_cents IS NOT NULL AND profit_cents IS NOT NULL AND gift_cost_cents IS NOT NULL AND priced_by IS NOT NULL)", name='ck_record_contract_priced'),
+        CheckConstraint("workflow_version IN ('trial-v29','trial-v210') OR status NOT IN ('priced','approved') OR (expected_amount_cents IS NOT NULL AND cost_cents IS NOT NULL AND profit_cents IS NOT NULL AND gift_cost_cents IS NOT NULL AND priced_by IS NOT NULL)", name='ck_record_contract_priced'),
         CheckConstraint("status != 'approved' OR (approved_by IS NOT NULL AND approved_snapshot IS NOT NULL)", name='ck_record_contract_approved'),
     )
 
