@@ -48,6 +48,8 @@ def delivery_summary(db, user, contract):
     delivery, gift, invoice = _delivery(db, contract), _gift(db, contract), _invoice(db, contract.id)
     invoice_ready = bool(invoice and invoice.confirmed_at and invoice.uploaded_at and invoice.active_file_id and _safe(_file(db, invoice)))
     gift_ready = bool(gift and _safe(gift))
+    bound_gift = db.scalar(select(RecordGiftDocument).where(RecordGiftDocument.id == delivery.gift_document_id,
+        RecordGiftDocument.contract_id == contract.id)) if delivery else None
     bound_invoice_ready = bool(delivery and invoice and _safe(_file(db, invoice, delivery.invoice_file_id)))
     writable = not getattr(user, '_aggregate_scope', False)
     returns, actions = [], []
@@ -66,13 +68,13 @@ def delivery_summary(db, user, contract):
     if writable and contract.status == 'approved' and contract.workflow_version == 'trial-v210':
         if user.role in {'finance', 'admin'}:
             actions.append('upload_gift_document')
-            if not delivery and invoice_ready:
+            if not delivery and invoice_ready and gift_ready:
                 actions.append('confirm_delivery')
         if delivery and user.role in {'sales', 'admin'} and not any(r['status'] in {'submitted', 'approved'} for r in returns):
             actions.append('request_return')
     return {'delivery': plain(delivery) if delivery else None, 'invoice_ready': invoice_ready,
             'invoice_version': invoice.version if invoice else None,
-            'gift_document': _file_info(gift), 'materials_ready': bool(bound_invoice_ready and gift_ready),
+            'gift_document': _file_info(gift), 'materials_ready': bool(bound_invoice_ready and bound_gift and _safe(bound_gift)),
             'returns': returns, 'actions': actions}
 
 
@@ -85,7 +87,8 @@ def require_office_materials(db, contract):
     if not invoice:
         raise HTTPException(409, '交车关联发票尚待财务核对')
     _content(_file(db, invoice, delivery.invoice_file_id))
-    gift = _gift(db, contract)
+    gift = db.scalar(select(RecordGiftDocument).where(RecordGiftDocument.id == delivery.gift_document_id,
+                                                    RecordGiftDocument.contract_id == contract.id))
     if not gift or gift.contract_id != contract.id:
         raise HTTPException(409, '交车关联盖章赠品单不存在')
     _content(gift)
@@ -219,13 +222,16 @@ def confirm_delivery(key: int, body: DeliveryConfirm, request: Request, db=Depen
         gift = _gift(db, contract)
         if not invoice or not invoice.confirmed_at or not invoice.uploaded_at:
             raise HTTPException(409, '请先上传核实发票，再人工确认交车')
+        if gift is None:
+            raise HTTPException(409, '请先上传盖章赠品单，再人工确认交车')
+        _content(gift)
         _check_version(invoice, body.invoice_version)
         invoice_file = _file(db, invoice)
         _content(invoice_file)
         uploaded_at = invoice.uploaded_at
         accounting_on = uploaded_at.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(settings.timezone)).date()
         row = RecordDelivery(store_id=contract.store_id, contract_id=key, invoice_id=invoice.id,
-            invoice_file_id=invoice_file.id, gift_document_id=gift.id if gift else None, accounting_on=accounting_on,
+            invoice_file_id=invoice_file.id, gift_document_id=gift.id, accounting_on=accounting_on,
             invoice_amount_cents=invoice.fields['total_amount_cents'], confirmed_by=user.id, note=body.note)
         db.add(row); contract.updated_at = utcnow(); db.flush()
         audit(db, user.id, 'record_delivery_confirm', 'record_contract', key,
