@@ -13,6 +13,37 @@ function brGiftPolicyResult(check){
  const label=({within_limit:'赠品在额度内',exceeded:'赠品超额，需特殊审批',unknown_cost:'赠品成本未核定，需特殊审批'})[check.status]||'赠品政策待核对';
  return `<div class="notice ${check.requires_special?'br-special':''}"><strong>${E(label)}</strong>${Object.hasOwn(check,'cost_limit_cents')?`<div>赠品成本额度：${E(brAmount(check.cost_limit_cents))}</div>`:''}${Object.hasOwn(check,'gift_cost_total_cents')?`<div>已选赠品成本：${E(check.gift_cost_total_cents==null?'未核定':brAmount(check.gift_cost_total_cents))}</div>`:''}${check.text?`<details><summary>赠品政策</summary><p class="br-source-note">${E(check.text)}</p></details>`:''}</div>`;
 }
+function brMountGiftSearch(form,section,gifts,canViewAmounts){
+ const grid=section.querySelector('.formgrid');
+ // Keep the original controls mounted so filtering preserves quantities, drafts and submission values.
+ const entries=gifts.map(g=>{
+  const check=form.elements['gift_selected_'+g.id],quantity=form.elements['gift_quantity_'+g.id],row=document.createElement('div');
+  row.className='br-gift-option';row.dataset.brGiftRow=String(g.id);row.append(check.closest('label'),quantity.closest('label'));
+  const detail=document.createElement('small');detail.className='br-caption';detail.textContent=[g.unit&&'单位：'+g.unit,g.applicable_models&&'适用车型：'+g.applicable_models,canViewAmounts&&'单价 '+brAmount(g.unit_price_cents)].filter(Boolean).join(' · ');row.append(detail);
+  quantity.min='1';quantity.max='10000';quantity.step='1';
+  const enable=()=>{quantity.disabled=!check.checked;if(check.checked&&!quantity.value)quantity.value='1';};enable();
+  return {check,quantity,row,enable,text:[g.name,g.applicable_models,g.unit,g.brand].filter(Boolean).join(' ').normalize('NFKC').toLocaleLowerCase()};
+ });
+ grid.className='br-gift-picker';
+ grid.innerHTML='<div class="br-gift-search-controls"><label>搜索赠品<input type="search" data-br-gift-search placeholder="输入赠品名称或适用车型" autocomplete="off" aria-describedby="br-gift-search-hint"></label><button type="button" data-br-gift-search-clear>清空搜索</button></div><p id="br-gift-search-hint" class="br-caption">输入赠品名称或适用车型搜索；已选赠品会一直保留，可取消勾选。</p><p class="br-caption" data-br-gift-search-status role="status" aria-live="polite"></p><h3>已选赠品 <span data-br-gift-selected-count></span></h3><p class="br-caption" data-br-gift-selected-empty>尚未选择赠品。</p><div data-br-gift-selected></div><h3 data-br-gift-results-title hidden>搜索结果</h3><div data-br-gift-results></div>';
+ const search=grid.querySelector('[data-br-gift-search]'),clear=grid.querySelector('[data-br-gift-search-clear]'),selectedList=grid.querySelector('[data-br-gift-selected]'),results=grid.querySelector('[data-br-gift-results]'),status=grid.querySelector('[data-br-gift-search-status]');
+ const refresh=()=>{
+  const words=search.value.normalize('NFKC').toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);let selected=0,matches=0;
+  for(const entry of entries){
+   const chosen=entry.check.checked,match=words.length>0&&words.every(word=>entry.text.includes(word)),destination=chosen?selectedList:results;
+   if(chosen)selected++;else if(match)matches++;
+   if(entry.row.parentNode!==destination)destination.append(entry.row);
+   entry.row.hidden=!chosen&&!match;
+  }
+  grid.querySelector('[data-br-gift-selected-count]').textContent='（'+selected+' 项）';grid.querySelector('[data-br-gift-selected-empty]').hidden=selected>0;
+  grid.querySelector('[data-br-gift-results-title]').hidden=!words.length;results.hidden=!words.length;clear.disabled=!search.value;
+  status.textContent=!gifts.length?'本店尚无可选赠品，请联系销售经理维护。':words.length?(matches?'找到 '+matches+' 项未选赠品。':entries.some(entry=>words.every(word=>entry.text.includes(word)))?'匹配的赠品已在上方已选列表中。':'没有找到匹配赠品，请更换关键词。'):'未搜索时仅显示已选赠品。';
+ };
+ search.addEventListener('input',refresh);search.addEventListener('search',refresh);search.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.isComposing)event.preventDefault();});
+ clear.addEventListener('click',()=>{search.value='';refresh();search.focus();});
+ for(const entry of entries)entry.check.addEventListener('change',()=>{const focused=document.activeElement===entry.check;entry.enable();refresh();if(focused)(entry.row.hidden?search:entry.check).focus({preventScroll:true});});
+ refresh();
+}
 function brSpecialFacts(r){const t=r.terms,p=t.price_snapshot||{},s=t.submission_data||{};return brFacts([['销售顾问',r.salesperson_name],['客户姓名',r.customer_name],['客户联系电话',r.customer_phone],['销售车型及配置',r.model],['车身 / 内饰颜色',[r.form_data?.exterior_color,r.form_data?.interior_color].filter(Boolean).join(' / ')],['VIN',r.vin],['指导价',brAmount(p.guide_price_cents)],['集团限价 / 销售管控价',brAmount(p.control_price_cents)],['优惠金额',brAmount(t.discount_cents)],['提交纯车价',brAmount(r.sale_price_cents)],['低于限价',brAmount(t.price_below_cents)],['机动车开票价',brAmount(s.vehicle_invoice_price_cents)],...brSubmissionFields().filter(f=>!['vehicle_invoice_price'].includes(f.key)).map(f=>[f.label.replace('（元）',''),f.type==='money_zero'?brAmount(s[f.key+'_cents']):s[f.key]]),...(Object.hasOwn(t,'gift_excess_cents')?[['赠送成本超价（经理填写）',brAmount(t.gift_excess_cents)]]:[]),['其他说明',t.special_note||s.note],['限价版本',p.batch_id],['限价发布时间',p.published_at?time(p.published_at):'']]);}
 async function brNewContractV210(edit=false){
  const r=edit?brState.detail:null;if(edit&&!r)throw new Error('请重新打开合同。');if(r&&r.workflow_version!=='trial-v210')return brNewContractLegacy(edit);
@@ -56,7 +87,7 @@ async function brNewContractV210(edit=false){
  const priceNotice=document.createElement('p');priceNotice.className='notice';form.elements.sale_price.closest('label').after(priceNotice);
  const priceCheck=()=>{const v=vehicles.find(x=>x.id===Number(form.elements.vehicle_price_id.value));if(!v){priceNotice.textContent='';return;}let below=false;try{below=moneyFen(form.elements.sale_price.value,{label:'纯车销售金额'})<v.control_price_cents;}catch(_){}priceNotice.className='notice'+(below?' br-special':'');priceNotice.textContent='销售管控价 '+brAmount(v.control_price_cents)+(below?' · 需特殊审批':'');};priceCheck();form.elements.vehicle_price_id.addEventListener('change',priceCheck);form.elements.sale_price.addEventListener('input',priceCheck);
  let agentAutomatic=!r?.form_data?.buyer_agent;form.elements.buyer_agent.placeholder='本人办理，可填写其他代理人';form.elements.buyer_agent.addEventListener('input',()=>{agentAutomatic=false;});form.elements.customer_name.addEventListener('input',()=>{if(agentAutomatic)form.elements.buyer_agent.value=form.elements.customer_name.value;});
- for(const g of gifts){const check=form.elements['gift_selected_'+g.id],quantity=form.elements['gift_quantity_'+g.id];quantity.min='1';quantity.max='10000';quantity.step='1';const enable=()=>{quantity.disabled=!check.checked;if(check.checked&&!quantity.value)quantity.value='1';};check.addEventListener('change',enable);enable();if(catalog.can_view_gift_amounts){const label=check.closest('label'),note=document.createElement('small');note.className='br-caption';note.textContent='单价 '+brAmount(g.unit_price_cents);label.append(note);}}
+ brMountGiftSearch(form,giftSection,gifts,catalog.can_view_gift_amounts);
 }
 async function brContractV210(id){
  const epoch=renderId,r=await api(BR_API+'/contracts/'+id);if(epoch!==renderId)return '';if(r.workflow_version!=='trial-v210')return brContractLegacy(id);brState.detail=r;
