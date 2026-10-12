@@ -1,4 +1,4 @@
-name: Record pricing checks
+name: Record pricing and delivery checks
 
 on:
   pull_request:
@@ -11,8 +11,10 @@ on:
       - 'web/businessrecordflow.js'
       - 'web/businessrecords.js'
       - 'web/businessrecords.css'
+      - 'web/recordinvoices.js'
       - 'requirements.txt'
       - 'tests/record_pricing/**'
+      - 'tests/record_delivery/**'
       - '.github/workflows/record-pricing.yml'
   push:
     branches: [main]
@@ -25,8 +27,10 @@ on:
       - 'web/businessrecordflow.js'
       - 'web/businessrecords.js'
       - 'web/businessrecords.css'
+      - 'web/recordinvoices.js'
       - 'requirements.txt'
       - 'tests/record_pricing/**'
+      - 'tests/record_delivery/**'
       - '.github/workflows/record-pricing.yml'
   workflow_dispatch:
 
@@ -51,14 +55,20 @@ jobs:
         run: python -m pip install -r requirements.txt pytest==8.4.2
       - name: Run source-only pricing checks
         run: python tests/record_pricing/run_isolated.py --output "$RUNNER_TEMP/record-pricing-${{ github.run_id }}-${{ github.run_attempt }}"
+      - name: Run source-only delivery checks
+        run: python tests/record_pricing/run_isolated.py --suite delivery --output "$RUNNER_TEMP/record-delivery-${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Check changed JavaScript syntax
         run: |
           node --check web/businessrecordpricing.js
           node --check web/businessrecordflow.js
+          node --check web/businessrecords.js
+          node --check web/recordinvoices.js
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: record-pricing-evidence-${{ github.sha }}
-          path: ${{ runner.temp }}/record-pricing-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
+          path: |
+            ${{ runner.temp }}/record-pricing-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
+            ${{ runner.temp }}/record-delivery-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
           retention-days: 7
           if-no-files-found: warn

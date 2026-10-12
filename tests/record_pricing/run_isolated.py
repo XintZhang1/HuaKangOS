@@ -12,7 +12,8 @@ import uuid
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE_DIRS = ('app', 'web', 'tests/record_pricing')
+SOURCE_DIRS = ('app', 'web', 'tests/record_pricing', 'tests/record_delivery')
+SOURCE_FILES = {'app/assets/sales-contract-2026.pdf'}
 SUFFIXES = {'.py', '.js', '.mjs', '.css', '.html', '.json', '.md'}
 BOOTSTRAP = '''import os, runpy, socket, sys, threading
 from pathlib import Path
@@ -42,7 +43,7 @@ socket.getaddrinfo = blocked
 sys.argv = ['pytest', '-q', '-p', 'no:cacheprovider',
     '--basetemp=' + os.environ['RECORD_PRICING_RUNTIME'] + '/pytest',
     '--junitxml=' + os.environ['RECORD_PRICING_EVIDENCE'] + '/junit.xml',
-    'tests/record_pricing/test_pricing_api.py']
+    os.environ['RECORD_TEST_SUITE']]
 runpy.run_module('pytest', run_name='__main__')
 '''
 
@@ -53,9 +54,9 @@ def inventory():
     result = {}
     for name in sorted(set(names)):
         relative = Path(name)
-        if not name or not any(name.startswith(folder + '/') for folder in SOURCE_DIRS):
+        if not name or not (name in SOURCE_FILES or any(name.startswith(folder + '/') for folder in SOURCE_DIRS)):
             continue
-        if relative.suffix not in SUFFIXES or any(p.startswith('.') or p == '__pycache__' for p in relative.parts):
+        if (relative.suffix not in SUFFIXES and name not in SOURCE_FILES) or any(p.startswith('.') or p == '__pycache__' for p in relative.parts):
             continue
         source = ROOT / relative
         if not source.is_file():
@@ -69,6 +70,7 @@ def inventory():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--suite', choices=('pricing', 'delivery'), default='pricing')
     args = parser.parse_args()
     output = (args.output or Path(tempfile.gettempdir()) / ('huakangos-record-pricing-' + uuid.uuid4().hex)).resolve()
     if output.is_relative_to(ROOT) or ROOT.is_relative_to(output):
@@ -86,7 +88,7 @@ def main():
         shutil.copyfile(ROOT / name, destination)
     copied = {name: hashlib.sha256((mirror / name).read_bytes()).hexdigest() for name in before}
     after = inventory()
-    manifest = {'synthetic_data_only': True,
+    manifest = {'synthetic_data_only': True, 'suite': args.suite,
         'head': subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD']).decode().strip(),
         'source_sha256': hashlib.sha256(json.dumps(copied, sort_keys=True).encode()).hexdigest(),
         'snapshot_stable': before == copied == after, 'files': copied}
@@ -100,6 +102,7 @@ def main():
         'TMP', 'TEMP', 'TMPDIR', 'LANG', 'LC_ALL'}}
     env.update({'RECORD_PRICING_RUNTIME': str(runtime), 'RECORD_PRICING_EVIDENCE': str(evidence),
         'RECORD_PRICING_ISOLATED': '1', 'PYTHONDONTWRITEBYTECODE': '1',
+        'RECORD_TEST_SUITE': 'tests/record_delivery/test_delivery_api.py' if args.suite == 'delivery' else 'tests/record_pricing/test_pricing_api.py',
         'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1', 'APP_ENV': 'test',
         'DATABASE_URL': 'sqlite:///' + (runtime / 'unused.sqlite').as_posix(),
         'FILE_SCAN_MODE': 'structure_only', 'FILE_STORAGE_MODE': 'blob',
@@ -110,7 +113,7 @@ def main():
         cwd=mirror, env=env, text=True, encoding='utf-8', errors='replace',
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     (evidence / 'python.log').write_text(result.stdout, encoding='utf-8')
-    summary = {'synthetic_data_only': True, 'source_sha256': manifest['source_sha256'],
+    summary = {'synthetic_data_only': True, 'suite': args.suite, 'source_sha256': manifest['source_sha256'],
         'passed': result.returncode == 0, 'exit_code': result.returncode,
         'network': 'All Python network sockets blocked; in-process ASGI transport only',
         'real_model_calls': 0, 'database': 'Fresh ORM-created SQLite; not a migration acceptance test'}
