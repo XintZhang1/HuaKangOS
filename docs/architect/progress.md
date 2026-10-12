@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-12 PR与内勤复核：[pr21-office-review](tasks/pr21-office-review.md)，root负责整合发布，pr_review审查PR21，form_investigation核对附件与内勤表单，deployment_prepare只读准备部署。唯一执行状态及门禁仍在implementation_plan.md维护。
+
 2026-10-12 发布追加：[customer-records-v2](tasks/customer-records-v2.md)同一V2.14纳入管理员上传、销售基础资料只读，并按用户授权合并main、备份部署和改名/停用门店；root统一生产写入，前后端协作者补权限，另一协作者只读审查配置路径。执行事实及检查点只在implementation_plan.md当前V2.14段维护。
 
 2026-10-12 午会迭代：[customer-records-v2](tasks/customer-records-v2.md)继续V2.14，root负责现金车口径/内勤表单/集成，dashboard_backend和dashboard_frontend分别负责新运营统计及数字卡钻取；限价/赠品上传留Cutie。逐字稿、AI时间轴及视频参考帧已核对，当前范围及唯一状态见实施计划V2.14。
