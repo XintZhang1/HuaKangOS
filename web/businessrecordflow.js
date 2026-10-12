@@ -44,11 +44,13 @@ function brMountGiftSearch(form,section,gifts,canViewAmounts){
  clear.addEventListener('click',()=>{search.value='';refresh();search.focus();});
  for(const entry of entries)entry.check.addEventListener('change',()=>{const focused=document.activeElement===entry.check;entry.enable();refresh();if(focused)(entry.row.hidden?search:entry.check).focus({preventScroll:true});});
  refresh();
+ return ()=>{for(const entry of entries)entry.enable();refresh();};
 }
 function brSpecialFacts(r){const t=r.terms,p=t.price_snapshot||{},s=t.submission_data||{};return brFacts([['销售顾问',r.salesperson_name],['客户姓名',r.customer_name],['客户联系电话',r.customer_phone],['销售车型及配置',r.model],['车身 / 内饰颜色',[r.form_data?.exterior_color,r.form_data?.interior_color].filter(Boolean).join(' / ')],['VIN',r.vin],['指导价',brAmount(p.guide_price_cents)],['集团限价 / 销售管控价',brAmount(p.control_price_cents)],['优惠金额',brAmount(t.discount_cents)],['提交纯车价',brAmount(r.sale_price_cents)],['低于限价',brAmount(t.price_below_cents)],['机动车开票价',brAmount(s.vehicle_invoice_price_cents)],...brSubmissionFields().filter(f=>!['vehicle_invoice_price'].includes(f.key)).map(f=>[f.label.replace('（元）',''),f.key==='is_cash_vehicle'?brCashVehicleLabel(s[f.key]):f.type==='money_zero'?brAmount(s[f.key+'_cents']):s[f.key]]),...(Object.hasOwn(t,'gift_excess_cents')?[['赠送成本超价（经理填写）',brAmount(t.gift_excess_cents)]]:[]),['其他说明',t.special_note||s.note],['限价版本',p.batch_id],['限价发布时间',p.published_at?time(p.published_at):'']]);}
 async function brNewContractV210(edit=false){
  const r=edit?brState.detail:null;if(edit&&!r)throw new Error('请重新打开合同。');if(r&&r.workflow_version!=='trial-v210')return brNewContractLegacy(edit);
  const context=brContext(),catalog=await brPricingCatalog(r?.id);if(context!==brContext())return;
+ const draftKey=r?'contract-'+r.id:'contract',restoring=brState.drafts[draftKey]?.context===context;
  const profile=catalog.profile||{},vehicles=catalog.vehicles||[],gifts=catalog.gifts||[],people=state.recordCatalog.sales_people||[],sellers=profile.sellers||[];
  if(!vehicles.length||!profile.brand||!sellers.length)throw new Error('本店车型限价、车辆品牌或卖方公司资料尚未维护，请联系销售经理或内勤。');
  const main=[F('customer_name','客户姓名'),F('customer_phone','客户联系电话'),F('salesperson_id','所属销售顾问','select',true,people.map(p=>({value:p.id,label:p.label}))),F('contract_date','合同日期','date'),F('brand','车辆品牌'),F('vehicle_price_id','车系 / 年款 / 车型配置','select',true,[{value:'',label:'请选择车型'},...vehicles.map(v=>({value:v.id,label:[v.family,v.series,v.model].filter(Boolean).join(' / ')}))]),F('vin','车辆识别号 VIN'),F('sale_price','纯车销售金额（元）','money')];
@@ -67,7 +69,7 @@ async function brNewContractV210(edit=false){
   for(const f of extra.filter(f=>f.type==='money_zero'))if(form_data[f.key]!=='')form_data[f.key]=brInputAmount(moneyFen(form_data[f.key],{label:f.label,allowZero:true}));
   const gift_items=gifts.filter(g=>v['gift_selected_'+g.id]).map(g=>{const quantity=v['gift_quantity_'+g.id];if(!Number.isInteger(quantity)||quantity<1||quantity>10000)throw new Error(g.name+'数量须为 1 至 10000 的整数。');return {price_id:g.id,quantity};});
   return api(BR_API+'/contracts'+(r?'/'+r.id:''),{method:r?'PUT':'POST',body:{request_id,...(r?{version:r.version}:{}),customer_name:v.customer_name,customer_phone:v.customer_phone,salesperson_id:Number(v.salesperson_id),contract_date:v.contract_date,brand:profile.brand,model:vehicle.series+' '+vehicle.model,vin:v.vin,sale_price_cents:moneyFen(v.sale_price,{label:'纯车销售金额'}),gift_description:'',form_data,vehicle_price_id:vehicle.id,gift_items,submission_data:brSubmissionPayload(v)}});
- },{draftKey:r?'contract-'+r.id:'contract',submit:'提交销售经理审批',notice:'低于销售管控价会进入特殊审批；赠品由销售经理查看金额并判断。批准后可打印，已提交合同保留当前限价及赠品版本。',nextRoute:result=>'records-sales/'+result.id});
+ },{draftKey,submit:'提交销售经理审批',notice:'低于销售管控价会进入特殊审批；赠品由销售经理查看金额并判断。批准后可打印，已提交合同保留当前限价及赠品版本。',nextRoute:result=>'records-sales/'+result.id});
  const form=$('form',dialog);for(const key of ['brand','seller_phone','seller_address','seller_agent'])form.elements[key].readOnly=true;
  const policyResult=document.createElement('div');policyResult.dataset.giftPolicyResult='';
  const giftSection=[...form.querySelectorAll('fieldset')].find(section=>section.querySelector('legend')?.textContent==='选择赠品');giftSection.querySelector('legend').after(policyResult);
@@ -82,13 +84,44 @@ async function brNewContractV210(edit=false){
    if(sequence!==policySequence||context!==brContext()||!form.isConnected)return;policyResult.innerHTML=brGiftPolicyResult(check);
   }catch(error){if(sequence===policySequence&&context===brContext()&&form.isConnected)policyResult.textContent=error.message;}
  };
- form.addEventListener('input',event=>{if(event.target.name==='vehicle_price_id'||event.target.name?.startsWith('gift_')){++policySequence;clearTimeout(policyTimer);policyTimer=setTimeout(()=>{if(form.isConnected)checkGiftPolicy();},200);}});
+ const schedulePolicyCheck=()=>{++policySequence;clearTimeout(policyTimer);policyTimer=setTimeout(()=>{if(form.isConnected&&context===brContext())checkGiftPolicy();},200);};
+ form.addEventListener('input',event=>{if(event.target.name==='vehicle_price_id'||event.target.name?.startsWith('gift_'))schedulePolicyCheck();});
  checkGiftPolicy();
  const defaults=()=>{const person=people.find(p=>p.id===Number(form.elements.salesperson_id.value)),seller=sellers.find(s=>s.name===form.elements.seller_name.value);form.elements.seller_agent.value=person?.label||'';form.elements.seller_phone.value=profile.sales_contacts?.[String(person?.id)]||'';form.elements.seller_address.value=seller?.address||profile.address||'';};defaults();form.elements.salesperson_id.addEventListener('change',defaults);form.elements.seller_name.addEventListener('change',defaults);
- const priceNotice=document.createElement('p');priceNotice.className='notice';form.elements.sale_price.closest('label').after(priceNotice);
- const priceCheck=()=>{const v=vehicles.find(x=>x.id===Number(form.elements.vehicle_price_id.value));if(!v){priceNotice.textContent='';return;}let below=false;try{below=moneyFen(form.elements.sale_price.value,{label:'纯车销售金额'})<v.control_price_cents;}catch(_){}priceNotice.className='notice'+(below?' br-special':'');priceNotice.textContent='销售管控价 '+brAmount(v.control_price_cents)+(below?' · 需特殊审批':'');};priceCheck();form.elements.vehicle_price_id.addEventListener('change',priceCheck);form.elements.sale_price.addEventListener('input',priceCheck);
+ const priceNotice=document.createElement('p');priceNotice.className='notice';priceNotice.dataset.brVehiclePriceHint='';priceNotice.setAttribute('aria-live','polite');form.elements.sale_price.closest('label').after(priceNotice);
+ const priceCheck=()=>{const v=vehicles.find(x=>x.id===Number(form.elements.vehicle_price_id.value));if(!v){priceNotice.textContent='请选择车型后查看指导价与销售管控价。';return;}let sale=null;try{sale=moneyFen(form.elements.sale_price.value,{label:'纯车销售金额'});}catch(_){}const below=sale!=null&&sale<v.control_price_cents;priceNotice.className='notice'+(below?' br-special':'');priceNotice.textContent='指导价 '+brAmount(v.guide_price_cents)+' · 销售管控价 '+brAmount(v.control_price_cents)+' · 本次售价 '+(sale==null?'待填写':brAmount(sale))+(below?' · 低于限价，需特殊审批':'');};priceCheck();form.elements.vehicle_price_id.addEventListener('change',priceCheck);form.elements.sale_price.addEventListener('input',priceCheck);
  let agentAutomatic=!r?.form_data?.buyer_agent;form.elements.buyer_agent.placeholder='本人办理，可填写其他代理人';form.elements.buyer_agent.addEventListener('input',()=>{agentAutomatic=false;});form.elements.customer_name.addEventListener('input',()=>{if(agentAutomatic)form.elements.buyer_agent.value=form.elements.customer_name.value;});
- brMountGiftSearch(form,giftSection,gifts,catalog.can_view_gift_amounts);
+ const refreshGiftSearch=brMountGiftSearch(form,giftSection,gifts,catalog.can_view_gift_amounts),standardHint=document.createElement('div');standardHint.className='notice';standardHint.dataset.brStandardGifts='';giftSection.querySelector('legend').after(standardHint);
+ // Remember user changes beside the in-memory draft. A restored draft or edited
+ // contract never gets default selections applied again merely by opening it.
+ let giftDefaults=null;
+ if(!r){
+  const previous=brState.contractGiftDefaults;
+  giftDefaults=restoring&&previous?.context===context?previous:{context,manual:{},automatic:{}};
+  if(restoring&&giftDefaults!==previous)for(const gift of gifts)giftDefaults.manual[gift.id]=true;
+  brState.contractGiftDefaults=giftDefaults;
+  const rememberGiftChoice=event=>{const match=event.target.name?.match(/^gift_(?:selected|quantity)_(\d+)$/);if(match)giftDefaults.manual[match[1]]=true;};
+  form.addEventListener('input',rememberGiftChoice);form.addEventListener('change',rememberGiftChoice);
+ }
+ const standardsFor=vehicle=>{
+  const policy=vehicle?.gift_policy,items=policy?.standard_gifts||[];
+  const invalid=policy?.standard_gifts_status==='outdated'||!Array.isArray(items)||items.some(item=>!Number.isSafeInteger(item.price_id)||!gifts.some(g=>g.id===item.price_id)||!Number.isSafeInteger(item.quantity)||item.quantity<1||item.quantity>10000);
+  return {items:invalid?[]:items,invalid,policy};
+ };
+ const showStandardGifts=()=>{
+  const vehicle=vehicles.find(x=>x.id===Number(form.elements.vehicle_price_id.value));standardHint.hidden=!vehicle;if(!vehicle)return;
+  const {items,invalid,policy}=standardsFor(vehicle);
+  standardHint.innerHTML=`<strong>本车型标准赠品</strong><p>${invalid?'标准赠品目录已变更，请联系销售经理核对；当前选择保持不变。':items.length?items.map(item=>{const gift=gifts.find(g=>g.id===item.price_id);return E(gift.name)+' × '+E(item.quantity)+(gift.unit?' '+E(gift.unit):'');}).join('；'):'此车型未配置可默认勾选的标准赠品，请按政策核对后选择。'}</p>${items.length?'<p class="br-caption">标准赠品仅作初始默认，可取消、替换或修改数量；已手工调整的选择保持不变。</p>':''}${policy?.standard_gift_note?`<p class="br-source-note">${E(policy.standard_gift_note)}</p>`:''}${policy?.text?`<p class="br-source-note">${E(policy.text)}</p>`:''}`;
+ };
+ const applyStandardGifts=()=>{
+  showStandardGifts();if(!giftDefaults||context!==brContext())return;
+  const vehicle=vehicles.find(x=>x.id===Number(form.elements.vehicle_price_id.value)),{items,invalid}=standardsFor(vehicle);if(invalid)return;
+  for(const id of Object.keys(giftDefaults.automatic))if(!giftDefaults.manual[id]&&form.elements['gift_selected_'+id])form.elements['gift_selected_'+id].checked=false;
+  const automatic={};
+  for(const item of items){const id=item.price_id;if(giftDefaults.manual[id])continue;const check=form.elements['gift_selected_'+id];if(check.checked&&!Object.hasOwn(giftDefaults.automatic,id))continue;check.checked=true;form.elements['gift_quantity_'+id].value=String(item.quantity);automatic[id]=item.quantity;}
+  giftDefaults.automatic=automatic;refreshGiftSearch();form.dispatchEvent(new Event('input',{bubbles:true}));
+ };
+ showStandardGifts();form.elements.vehicle_price_id.addEventListener('change',()=>{applyStandardGifts();schedulePolicyCheck();});
 }
 async function brContractV210(id){
  const epoch=renderId,r=await api(BR_API+'/contracts/'+id);if(epoch!==renderId)return '';if(r.workflow_version!=='trial-v210')return brContractLegacy(id);brState.detail=r;
