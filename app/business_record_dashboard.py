@@ -31,7 +31,7 @@ def _calendar_series(panel, start, end):
 
 
 @router.get('/dashboard-panels')
-def dashboard_panels(mode: str = 'daily', day: date | None = None,
+def dashboard_panels(mode: str = 'monthly', day: date | None = None,
         date_from: date | None = None, date_to: date | None = None,
         brand: str = Query('', max_length=100), salesperson_id: int | None = Query(None, gt=0),
         group_by: str = '', db=Depends(get_db), user=Depends(get_user)):
@@ -44,7 +44,10 @@ def dashboard_panels(mode: str = 'daily', day: date | None = None,
         raise HTTPException(403, '可视化看板仅向当前授权门店的集团副总经理、董事长和系统管理员开放')
     if mode not in {'daily', 'monthly', 'range'}:
         raise HTTPException(422, '请选择日报、月报或日期范围')
-    end = date_to or day or today()
+    current_day = today()
+    end = date_to or day or current_day
+    if mode == 'monthly' and (end.year, end.month) == (current_day.year, current_day.month):
+        end = min(end, current_day)
     start = date_from or end.replace(day=1)
     if start > end or (end - start).days > 366:
         raise HTTPException(422, '请选择不超过一年的有效日期范围')
@@ -113,13 +116,18 @@ def dashboard_panels(mode: str = 'daily', day: date | None = None,
     def item(ident, label, key, unit):
         comparison = report(key, grouping, flow_start, end)
         trend = report(key, 'day', start, end)
+        daily = report(key, grouping, end, end)
         panel = dict(comparison, panel_id=ident, panel_title=label,
-            trend=trend, comparison=comparison)
+            trend=trend, comparison=comparison, daily=daily)
         panels.append(panel)
         value = comparison['grand_total'].get(comparison['metric'])
         display = _source_display(key, value)
+        daily_value = daily['grand_total'].get(daily['metric'])
+        daily_display = _source_display(key, daily_value)
         return {'key': ident, 'panel_id': ident, 'label': label, 'value': value, 'unit': unit,
             'status': display['data_status'], **display,
+            'daily_delta': {'value': daily_value, 'unit': unit, 'date': str(end),
+                'status': daily_display['data_status'], **daily_display},
             'date_from': str(flow_start), 'date_to': str(end),
             'note': '核算日 ' + str(end) if mode == 'daily' else str(flow_start) + ' 至 ' + str(end)}
 
@@ -143,7 +151,8 @@ def dashboard_panels(mode: str = 'daily', day: date | None = None,
         'status': 'known' if best is not None else 'empty',
         'status_label': '按实销台数' if best is not None else '暂无实销', 'panel_id': 'sales',
         'comparison': champion_comparison}
-    return {'mode': mode, 'day': str(end), 'date_from': str(start), 'date_to': str(end),
+    return {'mode': mode, 'day': str(end), 'today': str(current_day),
+        'date_from': str(start), 'date_to': str(end),
         'overview_date_from': str(flow_start), 'overview_date_to': str(end),
         'trend_date_from': str(start), 'trend_date_to': str(end),
         'updated_at': utcnow().isoformat(), 'publication': {'status': 'live'},
