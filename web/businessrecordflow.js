@@ -159,10 +159,24 @@ function brDeliverySection(r){
  `<section class="panel"><div class="panelhead spread"><h2>退车与退款记录</h2>${actions.includes('request_return')?brFlowButton('return-request','销售顾问申请退车'):''}</div><div class="panelbody">${(s.returns||[]).map(item=>`<article class="br-return-card">${brFacts([['退车状态',({submitted:'待总经理批准',requested:'待总经理批准',pending:'待总经理批准',approved:'已批准退车',rejected:'已退回'})[item.status]||item.status],['申请原因',item.note],['请求退款金额',brAmount(item.requested_refund_cents)],['退车批准日',item.approved_on],['另行记录退款合计',brAmount(item.refunded_amount_cents)]])}<div class="row">${(item.actions||[]).map(a=>brFlowButton('return-'+a,({approve:'总经理批准退车',reject:'退回退车申请',refund:'记录已发生退款'})[a],`data-return="${item.id}"`)).join('')}</div>${item.refunds?.length?table(['退款日期','金额','说明'],item.refunds.map(x=>[E(x.refunded_on),brAmount(x.amount_cents),E(x.note)])):''}</article>`).join('')||'<p class="br-caption">暂无退车申请</p>'}</div></section>`;
 }
 async function brDeliveryAction(action,button){
- const r=brState.detail,context=brContext(),s=r.delivery_state;if(!s)throw new Error('请刷新合同。');
+ const r=brState.detail,context=brContext(),s=r?.delivery_state;if(!s)throw new Error('请刷新合同。');
  if(action==='gift-print')return download(BR_API+'/contracts/'+r.id+'/gift-document/print',r.number+'-赠品单.pdf');
  if(action==='gift-download')return download(BR_API+'/contracts/'+r.id+'/gift-document/files/'+button.dataset.file+'/download',button.dataset.name);
- if(action==='gift-upload'){const requestId=requestKey();modal('上传盖章赠品单',`<form><label>盖章后的赠品单<input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" required></label><div class="formerror" role="alert"></div><div class="modalfoot"><button type="submit" class="primary">上传并关联本合同</button></div></form>`,async form=>{if(context!==brContext())throw new Error('门店已切换。');const body=new FormData(form);body.set('request_id',requestId);body.set('version',r.version);await api(BR_API+'/contracts/'+r.id+'/gift-document',{method:'POST',body});if(context!==brContext())return;closeModal();await render();toast('盖章赠品单已保存');});return;}
+ if(action==='gift-upload'){
+  if(!s.actions?.includes('upload_gift_document'))throw new Error('合同状态或岗位权限已变化，请刷新后办理。');
+  const requestId=requestKey(),epoch=renderId,current=()=>context===brContext()&&epoch===renderId&&state.route==='records-sales/'+r.id&&brState.detail?.id===r.id;
+  modal('上传盖章赠品单',`<form><p class="notice">合同 ${E(r.number)} · ${E(r.customer_name)}</p><label>盖章后的赠品单<input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" required></label><p class="fieldhelp">PDF、PNG 或 JPEG，单个文件不超过 10MB。请上传已盖章原件；发票另行上传并核实，两项材料齐备后才能确认交车。追加更正保留原件历史。</p><div class="formerror" role="alert"></div><div class="modalfoot">${b('close','取消')}<button type="submit" class="primary">上传并关联本合同</button></div></form>`,async form=>{
+   if(!current()||$('#modal form')!==form||!$('#modal').open)throw new Error('合同、门店或账号已变化，请重新打开合同。');
+   const file=form.elements.file.files[0];
+   if(!file||!file.size||file.size>10*1024*1024)throw new Error('请选择非空且不超过 10MB 的盖章赠品单文件。');
+   if(!/\.(pdf|png|jpe?g)$/i.test(file.name))throw new Error('盖章赠品单仅支持 PDF、PNG 或 JPEG 文件。');
+   const body=new FormData(form);body.set('request_id',requestId);body.set('version',String(r.version));
+   await api(BR_API+'/contracts/'+r.id+'/gift-document',{method:'POST',body});
+   if(!current())return;
+   if($('#modal form')!==form||!$('#modal').open){toast('盖章赠品单已保存，请刷新本合同查看；当前窗口未改变。');return;}
+   closeModal();await render();toast('盖章赠品单已保存');
+  });return;
+ }
  let title,fields,path,version=r.version,notice;
  if(action==='delivery-confirm'){title='财务确认交车';fields=[F('note','交车确认说明','textarea',false)];path='/delivery-confirm';notice='确认后结束合同交付部分，并抄送总经理。基础销量按对应发票上传日统计，不记录实际到账。';}
  else if(action==='return-request'){title='申请退车';fields=[F('amount','请求退款金额（元）','money_zero',false),F('note','退车原因','textarea')];path='/returns';notice='退车申请交总经理批准；批准当月冲减，原销售事实保留。';}
