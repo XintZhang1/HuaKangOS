@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from types import SimpleNamespace
 from .business_record_report_specs import (
     VEHICLE_REPORTS, GROUPING_FIELDS, GENERATED_FIELDS, STOCK_FIELDS, RATIOS,
-    CONTRACT_REPORTS, AFTER_SALES_REPORTS, SHARED_FIELDS, TARGET_FIELDS)
+    CONTRACT_REPORTS, AFTER_SALES_REPORTS, SHARED_FIELDS, TARGET_FIELDS, OPERATING_REPORTS)
 
 SERVICE_LABELS = {'repair': '维修', 'maintenance': '保养', 'accident': '事故维修',
     'renewal': '续保', 'extended_warranty': '延保', 'accessories': '精品销售'}
@@ -12,6 +12,71 @@ SERVICE_LABELS = {'repair': '维修', 'maintenance': '保养', 'accident': '事�
 
 def money(value):
     return None if value is None else format(Decimal(value) / 100, '.2f')
+
+
+def operating_rows(key, contract, terms, delivery, returned, row, start, end):
+    """Project V2.14 facts without recasting earlier report definitions.
+
+    Every delivered vehicle contributes a row even if its office information is
+    still missing. A known partial total must never hide unapproved vehicles.
+    """
+    rows = []
+    if key == 'operating_sales' and contract.status != 'rejected' and _in_period(contract.contract_date, start, end):
+        rows.append(dict(row, period=str(contract.contract_date), orders='1',
+            event_kind='order', source_label='已提交且非驳回合同', _applicable_fields={'orders'}))
+    if delivery is None:
+        return rows
+    approved = getattr(contract, 'office_approved_data', None)
+    labels = {}
+    if approved:
+        from .business_record_reports import CATALOG_BY_KEY
+        definition = CATALOG_BY_KEY[approved['report_key']]
+        values = approved.get('values', {})
+        labels = {field['label']: values.get(field['key']) for field in definition['columns']}
+    if key == 'operating_sales':
+        cash = (terms.submission_data or {}).get('is_cash_vehicle') if terms else None
+        values = {'deliveries': '1', 'vehicle_amount': money(contract.sale_price_cents),
+            'cash_count': '1' if cash is True else '0' if cash is False else None,
+            'cash_amount': money(contract.sale_price_cents) if cash is True else '0.00' if cash is False else None}
+        source_label = '财务确认交车；现金车取合同独立标记'
+    elif key == 'operating_extensions':
+        extension = approved.get('extension_data', {}) or {} if approved else {}
+        loan = labels.get('核实放款金额')
+        values = {'deliveries': '1', 'insurance_count': labels.get('保险出单数量'),
+            'warranty_count': labels.get('延保出单数量'),
+            'total_loss_count': extension.get('total_loss_count'),
+            'product_count': extension.get('product_count'),
+            'trade_in_count': extension.get('trade_in_count'),
+            'finance_count': ('1' if Decimal(str(loan)) > 0 else '0') if loan not in (None, '') else None,
+            'insurance_company': labels.get('承保公司'), 'warranty_company': labels.get('延保合作公司'),
+            'finance_institution': labels.get('金融机构'), 'finance_category': labels.get('金融类别')}
+        for name in ('insurance', 'warranty', 'total_loss', 'product', 'trade_in', 'finance'):
+            count = values[name + '_count']
+            values[name + '_count'] = str(count) if count is not None else None
+            values[name + '_vehicles'] = ('1' if Decimal(str(count)) > 0 else '0') if count not in (None, '') else None
+        source_label = '总经理批准的内勤延伸快照' if approved else '待审核'
+    else:
+        values = {'value': money(approved.get('profit_cents')) if approved else None,
+            'finance_amount': labels.get('核实放款金额'),
+            **{name: labels.get(label) for name, label in (
+                ('insurance_commission', '保险返佣'), ('warranty_commission', '延保返佣'),
+                ('trade_in_commission', '二手车返佣'), ('bank_commission', '银行返佣'))}}
+        source_label = '总经理批准的核定毛利及返佣快照' if approved else '待审核'
+    sale = dict(row, **values, period=str(delivery.accounting_on), event_kind='sale',
+        source_label=source_label, _applicable_fields=set(values))
+    if _in_period(delivery.accounting_on, start, end):
+        rows.append(sale)
+    if returned and _in_period(returned.approved_on, start, end):
+        from .business_record_reports import CATALOG_BY_KEY
+        numeric = {field['key'] for field in CATALOG_BY_KEY[key]['metrics']
+                   if field['type'] in {'money', 'count', 'decimal'}}
+        reversal = dict(sale)
+        for field in numeric & set(values):
+            reversal[field] = None if values[field] is None else format(-Decimal(str(values[field])), 'f')
+        reversal.update(period=str(returned.approved_on), event_kind='return', return_id=returned.id,
+            source_label='总经理批准退车冲减', note='原核算日 ' + str(delivery.accounting_on) + '；原事实保留')
+        rows.append(reversal)
+    return rows
 
 
 def approved_amount(contract, key):
@@ -359,6 +424,7 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
               for key, label, kind in (('period', '统计日期', 'date'), ('store', '门店', 'text'),
               ('brand', '品牌', 'text'), ('salesperson', '销售/经办人', 'text'),
               ('number', '合同号/记录号', 'text'), ('source_label', '数据来源', 'text'), ('note', '备注', 'text'))]
+    common += definition.get('detail_fields', [])
     value_columns = definition['columns'] if definition['source'] == 'manual' else definition['metrics']
     summary_columns = [{'key': 'label', 'label': '分组', 'type': 'text', 'precision': None, 'unit': ''}] + value_columns
     notice = ('累计快照每月每维度取最新，单笔记录累加；库存取截至日最后快照。'
@@ -681,6 +747,10 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             actual_amount_cents=contract.sale_price_cents) if delivery else None) if v210 else receipt
         row = base(contract)
         row.update(contract_id=contract.id, entry_mode='generated', source_label='合同及内勤核价', note='')
+        if key in OPERATING_REPORTS:
+            generated.extend(operating_rows(key, contract, terms.get(contract.id), delivery,
+                returns.get(contract.id), row, date_from, date_to))
+            continue
         if key in VEHICLE_REPORTS:
             if vehicle_key != key or contract.status not in {'priced', 'approved'}:
                 continue
@@ -886,6 +956,7 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         source_mode=source_mode, legacy_rows=legacy)
     result['empty_is_zero'] = bool(definition.get('empty_is_zero'))
     office_reports = VEHICLE_REPORTS | {'profit', 'cash_consumption_amount', 'bank_finance',
+        'operating_extensions', 'operating_profit',
         'insurance_resources', 'insurance_settlement', 'extended_warranty', 'individual_profit',
         'model_profit', 'model_profit_sheet5', 'sales_profit_statement', 'secondary_profit_statement'}
     pending = [item for item in contracts if item.workflow_version == 'trial-v210'
@@ -901,4 +972,6 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         'awaiting_office_count': len(pending) - awaiting_approval,
         'record_count': result['record_count'],
     }
+    if key in OPERATING_REPORTS and missing_result:
+        result['source_status']['status'] = 'awaiting_contract' if key == 'operating_sales' else 'awaiting_approval'
     return fill_month_window(result, date_from, date_to) if group_by == 'month' else result

@@ -1171,7 +1171,12 @@ def _report_prefill(db, user, report_key, contract):
                 if key not in data['locked_fields']:
                     data['locked_fields'].append(key)
             elif column['label'] == '现金或三方':
-                data['values'][column['key']] = terms.submission_data.get('payment_method', '')
+                cash_vehicle = terms.submission_data.get('is_cash_vehicle')
+                data['values'][column['key']] = ('现金' if cash_vehicle else '三方') if isinstance(cash_vehicle, bool) else None
+                if isinstance(cash_vehicle, bool):
+                    data['source_fields'][column['key']] = '合同内部库存资金标记'
+                    if column['key'] not in data['locked_fields']:
+                        data['locked_fields'].append(column['key'])
         data.update(period=str(delivery.accounting_on), accounting_on=str(delivery.accounting_on),
                     invoice_amount_cents=delivery.invoice_amount_cents)
     return data
