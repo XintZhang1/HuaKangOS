@@ -5,7 +5,16 @@ from .business_records_schemas import Strict, Command, Money, Key, GiftSelection
 
 class GiftPolicyInput(Strict):
     text: str = Field(default='', max_length=3000)
-    cost_limit_cents: Money
+    standard_gift_note: str = Field(default='', max_length=3000)
+    cost_limit_cents: Money | None
+    # These are employee-selected catalog identities, never parsed from prose.
+    standard_gifts: list[GiftSelection] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode='after')
+    def unique_standard_gifts(self):
+        if len({item.price_id for item in self.standard_gifts}) != len(self.standard_gifts):
+            raise ValueError('标准赠品请合并同一项目的数量，不要重复选择')
+        return self
 
 
 class VehiclePriceInput(Strict):

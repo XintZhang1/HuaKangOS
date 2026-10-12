@@ -25,7 +25,7 @@ from .private_files import publish
 router = APIRouter(prefix='/api/business-records', tags=['门店价格与特殊审批'])
 GIFT_READERS = {'admin', 'manager', 'general_manager', 'group_deputy_manager', 'finance', 'clerk', 'chairman', 'store_admin'}
 GIFT_COST_READERS = {'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'}
-PRICE_WRITERS = {'manager', 'general_manager'}
+PRICE_WRITERS = {'admin', 'manager', 'general_manager'}
 PROFILE_WRITERS = {'admin', 'clerk'}
 BASIC_COLORS = {'红', '橙', '黄', '绿', '青', '蓝', '紫', '白', '灰', '黑'}
 
@@ -35,8 +35,8 @@ def _access(user, kind=None, write=False):
     require_read(user)
     if getattr(user, '_aggregate_scope', False):
         raise HTTPException(403, '请切换到具体授权门店查看或维护本店目录')
-    if write and user.role not in (PRICE_WRITERS | ({'admin'} if kind == 'gift' else set())):
-        raise HTTPException(403, '车价由本店销售经理或总经理上传；赠品另允许维护管理员上传')
+    if write and user.role not in PRICE_WRITERS:
+        raise HTTPException(403, '车型限价和赠品表由本店销售经理、总经理或系统管理员上传')
 
 
 def gift_policy_assessment(policy, cost_total):
@@ -45,6 +45,11 @@ def gift_policy_assessment(policy, cost_total):
         return {'status': 'no_policy', 'requires_special': False, 'has_cost_limit': False,
             'text': '本车型未设置赠品成本额度'}
     limit = policy.get('cost_limit_cents')
+    if 'cost_limit_cents' in policy and limit is None:
+        # An explicitly unlimited policy may still name optional defaults.
+        # It has the same cost-rule meaning as the earlier null policy.
+        return {'status': 'no_policy', 'requires_special': False, 'has_cost_limit': False,
+            'text': policy.get('text') or '本车型未设置赠品成本额度'}
     if type(limit) is not int or limit < 0:
         raise HTTPException(409, '冻结赠品政策缺少已核定成本额度，请联系管理员核对')
     status = 'unknown_cost' if cost_total is None else 'exceeded' if cost_total > limit else 'within_limit'
@@ -54,15 +59,39 @@ def gift_policy_assessment(policy, cost_total):
         'excess_cost_cents': None if cost_total is None else max(0, cost_total - limit)}
 
 
-def _policy_view(policy, user):
+def _policy_view(policy, user, gift_batch_id=None):
     if policy is None:
         return None
+    configured = policy.get('standard_gifts') or []
+    current = bool(gift_batch_id) and policy.get('standard_gift_batch_id') == gift_batch_id
+    standards = [{key: item[key] for key in ('price_id', 'quantity', 'name', 'unit', 'applicable_models')
+                  if key in item} for item in configured] if current else []
+    public = {'has_cost_limit': policy.get('cost_limit_cents') is not None,
+        # This separate, employee-confirmed public field is never populated from
+        # internal policy text or the uploaded vehicle note.
+        'standard_gift_note': policy.get('standard_gift_note') or '',
+        'standard_gifts': standards,
+        'standard_gifts_status': 'current' if configured and current else 'outdated' if configured else 'none'}
     if user.role not in GIFT_READERS:
         # Original policy prose can itself contain amounts. A fixed public
         # explanation is safer than trying to redact every way to write money.
-        return {'text': '本车型赠品按已确认政策核对，超出政策须提交特殊申请。', 'has_cost_limit': True}
-    return {'has_cost_limit': True, **{key: policy[key] for key in
+        return {**public, 'text': '本车型赠品按已确认政策核对，超出政策须提交特殊申请。'
+            if public['has_cost_limit'] else '本车型未设置赠品成本额度，标准赠品可调整或取消。'}
+    return {**public, **{key: policy[key] for key in
         ('text', 'cost_limit_cents', 'confirmed_by', 'confirmed_at') if key in policy}}
+
+
+def _freeze_standard_gifts(db, policy, gift_batch_id):
+    """Freeze only a manager's explicit choices from this brand's live catalog."""
+    selections = policy.get('standard_gifts') or []
+    available = {item['id']: item for item in catalog_rows(db, 'gift', gift_batch_id)} if selections else {}
+    frozen = []
+    for selection in selections:
+        gift = available.get(selection['price_id'])
+        if gift is None:
+            raise HTTPException(422, '标准赠品不在本品牌当前有效目录中，请刷新并重新选择')
+        frozen.append({**selection, **{key: gift[key] for key in ('name', 'unit', 'applicable_models')}})
+    return {**policy, 'standard_gifts': frozen, 'standard_gift_batch_id': gift_batch_id if frozen else None}
 
 
 def _policy_result_view(result, user):
@@ -146,7 +175,7 @@ def price_catalog(contract_id: int | None = Query(None, gt=0), db=Depends(get_db
         vehicle_batch, gift_batch = frozen.price_snapshot['batch_id'], frozen.gift_batch_id
     vehicles = [dict(frozen.price_snapshot)] if frozen else catalog_rows(db, 'vehicle', vehicle_batch)
     for item in vehicles:
-        item['gift_policy'] = _policy_view(item.get('gift_policy'), user)
+        item['gift_policy'] = _policy_view(item.get('gift_policy'), user, gift_batch)
     if user.role not in GIFT_READERS:
         # Uploaded annotations can contain internal package/gift amounts too.
         for item in vehicles:
@@ -168,7 +197,7 @@ def price_catalog(contract_id: int | None = Query(None, gt=0), db=Depends(get_db
         'vehicle_batch_id': vehicle_batch, 'gift_batch_id': gift_batch, 'vehicles': vehicles, 'gifts': gifts,
         'frozen_for_contract': contract_id,
         'can_import_vehicle': user.role in PRICE_WRITERS,
-        'can_import_gifts': user.role in PRICE_WRITERS | {'admin'},
+        'can_import_gifts': user.role in PRICE_WRITERS,
         'can_manage_profile': user.role in PROFILE_WRITERS,
         'can_view_gift_amounts': user.role in GIFT_READERS,
         'can_view_gift_costs': user.role in GIFT_COST_READERS}
@@ -341,7 +370,7 @@ def _import(body, request, db, user, kind):
                     db.add(variant); db.flush()
                 values = source.model_dump()
                 if values['gift_policy'] is not None:
-                    values['gift_policy'] = {**values['gift_policy'], 'confirmed_by': user.id,
+                    values['gift_policy'] = {**_freeze_standard_gifts(db, values['gift_policy'], catalog_state(db)['gift_batch_id']), 'confirmed_by': user.id,
                         'confirmed_at': utcnow().isoformat() + 'Z'}
                 row = RecordVehiclePrice(store_id=single_store(db), batch_id=batch.id, variant_id=variant.id, **values)
             else:
@@ -519,7 +548,7 @@ def contract_terms_view(db, user, row):
         data['price_snapshot'] = {key: value for key, value in terms.price_snapshot.items() if key != 'note'}
         data['gifts_snapshot'] = [{key: value for key, value in item.items() if key in {'price_id', 'name', 'quantity', 'unit', 'applicable_models', 'brand'}} for item in terms.gifts_snapshot]
     data['price_snapshot'] = {**data['price_snapshot'],
-        'gift_policy': _policy_view(terms.price_snapshot.get('gift_policy'), user)}
+        'gift_policy': _policy_view(terms.price_snapshot.get('gift_policy'), user, terms.gift_batch_id)}
     data['gift_policy_check'] = _policy_result_view(gift_policy_assessment(
         terms.price_snapshot.get('gift_policy'), frozen_gift_cost(terms)), user)
     return data

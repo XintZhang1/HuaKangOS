@@ -24,6 +24,9 @@ class ContractSubmission(Strict):
     vehicle_invoice_price_cents: Money | None = None
     registration_fee_cents: Money | None = None
     payment_method: Literal['全款', '贷款'] = '全款'
+    # Inventory funding is independent of how the customer pays. Old snapshots
+    # deliberately remain unknown until an employee explicitly records it.
+    is_cash_vehicle: Annotated[bool, Field(strict=True)] | None = None
     installment_fee_cents: Money | None = None
     total_loss_product_cents: Money | None = None
     total_loss_product_description: str = Field(default='', max_length=160)
@@ -97,6 +100,12 @@ class ReceiptInput(Action):
     received_on: date
 
 
+class OfficeExtensionFacts(Strict):
+    total_loss_count: Annotated[int, Field(ge=0, le=10000, strict=True)] | None = None
+    product_count: Annotated[int, Field(ge=0, le=10000, strict=True)] | None = None
+    trade_in_count: Annotated[int, Field(ge=0, le=10000, strict=True)] | None = None
+
+
 class OfficeReview(Action):
     report_key: Literal['vehicle_details', 'hail_vehicle_details', 'secondary_vehicle_details', 'vehicle_details_sheet2'] = 'vehicle_details'
     period: date | None = None
@@ -106,6 +115,7 @@ class OfficeReview(Action):
     profit_cents: int | None = Field(default=None, ge=-999999999999, le=999999999999, strict=True)
     gift_cost_cents: Money | None = None
     cash_consumption_cents: Money | None = None
+    extension_data: OfficeExtensionFacts = Field(default_factory=OfficeExtensionFacts)
 
 
 class StandardPriceInput(Strict):

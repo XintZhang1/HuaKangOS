@@ -1,5 +1,9 @@
 # 当前交付任务
 
+2026-10-12 发布追加：[customer-records-v2](tasks/customer-records-v2.md)同一V2.14纳入管理员上传、销售基础资料只读，并按用户授权合并main、备份部署和改名/停用门店；root统一生产写入，前后端协作者补权限，另一协作者只读审查配置路径。执行事实及检查点只在implementation_plan.md当前V2.14段维护。
+
+2026-10-12 午会迭代：[customer-records-v2](tasks/customer-records-v2.md)继续V2.14，root负责现金车口径/内勤表单/集成，dashboard_backend和dashboard_frontend分别负责新运营统计及数字卡钻取；限价/赠品上传留Cutie。逐字稿、AI时间轴及视频参考帧已核对，当前范围及唯一状态见实施计划V2.14。
+
 2026-10-12 已交付：[customer-records-v2](tasks/customer-records-v2.md)处理门店基础资料、看板三岗权限与自动数据；赠品政策原表识别和经理确认纳入同一增量，用户2026-10-12确认仅按经理核定成本额度限制，允许改选赠品，超额走特殊审批，不设置项目/次数硬限制。f9673f7已保留数据发布，经理新政策确认不代办；独立分工、证据与唯一状态见实施计划V2.13。
 
 2026-10-11 追加：[customer-records-v2](tasks/customer-records-v2.md)处理登录后主页去图及补充10月车型限价表；沿用原分工，价格来源与实测证据外置，唯一状态见实施计划V2.12追加段。

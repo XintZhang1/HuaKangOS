@@ -13,6 +13,7 @@ CONTRACT_REPORTS = frozenset(VEHICLE_REPORTS | {'sales_targets', 'sales_overview
     'insurance_settlement', 'extended_warranty', 'trade_in', 'cash_deliveries', 'cash_consumption_amount'})
 AFTER_SALES_REPORTS = frozenset({'after_sales_monthly', 'after_sales_targets', 'sales_targets'})
 TARGET_FIELDS = frozenset({'c02', 'c03', 'c04', 'c05'})
+OPERATING_REPORTS = frozenset({'operating_sales', 'operating_extensions', 'operating_profit'})
 
 # Read access applies only within the existing current-store/aggregate scope.
 # General managers need the complete valuation to review office submissions.
@@ -141,6 +142,54 @@ DEFAULTS = {'sales_targets': 'c06', 'trade_in': 'c13', 'extended_warranty': 'c04
 
 
 def configure_catalog(catalog):
+    # The noon meeting changes cash-vehicle meaning. Append new definitions so
+    # frozen daily reports and the older payment-method statistics keep theirs.
+    operating = {
+        'operating_sales': ('销售经营汇总', 'deliveries', [
+            ('orders', '合同订单', 'count', '台'), ('deliveries', '实销车辆', 'count', '台'),
+            ('vehicle_amount', '实销车辆金额', 'money', '元'),
+            ('cash_count', '现金车消化台数', 'count', '台'),
+            ('cash_amount', '现金车消化金额', 'money', '元')]),
+        'operating_extensions': ('已审核延伸业务', 'insurance_count', [
+            ('deliveries', '实销车辆', 'count', '台'),
+            *[(name + '_count', label, 'count', unit) for name, label, unit in (
+                ('insurance', '保险出单', '单'), ('warranty', '延保出单', '单'),
+                ('total_loss', '全损出单', '单'), ('product', '小产品出单', '单'),
+                ('trade_in', '置换', '台'), ('finance', '金融放款车辆', '台'))],
+            *[(name + '_vehicles', label + '车辆', 'count', '台') for name, label in (
+                ('insurance', '保险'), ('warranty', '延保'), ('total_loss', '全损'),
+                ('product', '小产品'), ('trade_in', '置换'), ('finance', '金融'))],
+            *[(name + '_rate', label + '渗透率', 'percent', '%') for name, label in (
+                ('insurance', '保险'), ('warranty', '延保'), ('total_loss', '全损'),
+                ('product', '小产品'), ('trade_in', '置换'), ('finance', '金融'))],
+            ('insurance_company', '承保公司', 'text', ''),
+            ('warranty_company', '延保合作公司', 'text', ''),
+            ('finance_institution', '金融机构', 'text', ''),
+            ('finance_category', '金融类别', 'text', '')]),
+        'operating_profit': ('含延伸业务核定毛利', 'value', [
+            ('value', '核定毛利', 'money', '元'),
+            ('finance_amount', '核实放款金额', 'money', '元'),
+            ('insurance_commission', '保险返佣', 'money', '元'),
+            ('warranty_commission', '延保返佣', 'money', '元'),
+            ('trade_in_commission', '二手车返佣', 'money', '元'),
+            ('bank_commission', '银行返佣', 'money', '元')]),
+    }
+    for key, (title, default, fields) in operating.items():
+        metrics = [{'key': name, 'label': label, 'type': kind, 'unit': unit,
+            'precision': None if kind == 'text' else 2 if kind == 'money' else 6 if kind == 'percent' else 0}
+            for name, label, kind, unit in fields]
+        catalog.append({'key': key, 'title': title, 'source': 'contracts', 'columns': [],
+            'metrics': [field for field in metrics if field['type'] != 'text'],
+            'detail_fields': [field for field in metrics if field['type'] == 'text'],
+            'unit': '', 'default_metric': default,
+            'definition_version': 'v214-operating-approved', 'empty_is_zero': key == 'operating_sales',
+            'grouping_fields': [dict(field) for field in metrics if field['type'] == 'text'],
+            'aggregation_rules': {name + '_rate': {'kind': 'ratio', 'numerator': name + '_vehicles',
+                'denominator': 'deliveries', 'scale': 100}
+                for name in ('insurance', 'warranty', 'total_loss', 'product', 'trade_in', 'finance')}
+                if key == 'operating_extensions' else {},
+            'period_basis': '合同订单按合同日期；实销按财务交车绑定发票上传日，退车批准日冲减。'
+                '现金车按合同独立标记，消化金额取该车合同售价；延伸与毛利仅取总经理批准快照，缺项待审核。'})
     # New definitions leave already-confirmed daily snapshot definitions intact.
     catalog.append({'key': 'contract_orders', 'title': '合同订单', 'source': 'contracts',
         'columns': [], 'metrics': [{'key': 'value', 'label': '合同订单', 'type': 'count', 'unit': '台', 'precision': 0}],

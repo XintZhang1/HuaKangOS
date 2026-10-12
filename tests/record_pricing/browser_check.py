@@ -264,6 +264,7 @@ def run(source, browser, output):
             page.locator('#modal [name=sale_price]').fill('110000')
             page.locator('#modal [name=exterior_color]').select_option('白')
             page.locator('#modal [name=interior_color]').select_option('黑')
+            page.locator('#modal [name=is_cash_vehicle]').select_option('false')
             page.locator('[data-br=defer-form]').click()
             page.goto(origin + '/#records-settings')
             page.locator('[data-price-toggle=vehicle]').click()
