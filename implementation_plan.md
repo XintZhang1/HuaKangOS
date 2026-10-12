@@ -2,6 +2,10 @@
 
 ## V2.14 午会经营看板与现金车口径（2026-10-12）
 
+- 最终交付：`done`（本增量实现、必要隔离验证及业主授权的保留数据发布），CP-V2.14=`released`，仅本轮范围。PR #20 已按用户授权合并main，运行提交`f3eded9d414b097b8317fa325650925549e08e99`；分支最终源码`3c1d4bb`的CI `38211187098`与main的CI `38211333747`均成功。后续本条仅回填部署事实，不改运行源码，不继承原未做的全量/员工验收。
+- 阿里云交付：`/opt/huakangos/releases/main-f3eded9d414b`，h66不迁移、不导入价格政策、不重置。联合备份`/var/lib/huakangos/backups/meeting-v214-20261012T061249Z`含业务数据库与BLOB附件、运维队列、邮件outbox及原私有配置；恢复副本、实际库及只读探针后509表旧行旧列全部相等。随后调用原门店修改处理器：MAIN默认店改为“比亚迪王朝门店”，只保留其启用，补停6/7/8/9，2/3/4/5原已停用跳过。仅stores、追加audit与门店访问wake变化，其余506表全等，全部原账号及UserStore、合同/附件/限价历史保留；不删除门店。
+- 发布核验：五个HuaKangOS服务新进程稳定，公网health返回上述精确main SHA，8份前端资源与源码一致，登录图不变；全量源交付1380文件白名单/manifest一致。本轮测试与部署工具未触发真实模型。证据`meeting-v214-20261012/deployment/evidence/`中的`cloud-deploy-f3eded9-result.json`、`public-verification.json`和`cloud-final-state-result.json`；私有逐项门店前后与审计证据在备份目录`store-maintenance-result.json`。员工原会话、未发草稿升级及所有岗位真人试用未代验；新增权限与合同/看板行为的合成真实API及DOM代表按下列独立指纹记录。
+
 - 最新看板追加：客户要求主卡大数字为截至当日累计、旁注今日新增台数/金额；用户明确累计起点为本月1日。默认本月1日至服务端今天，卡内显示今日净变化（含退车负数/明确零），保留二级当日及历史自选范围，金额权限和同口径导出保持。同一增量仅允许dashboard后端及页面必要接线，backend/frontend分工，root等待该代表检查后统一合并部署。
 - 累计后端验证：仅`app/business_record_dashboard.py`追加默认monthly、当月截止不超服务端today、每卡daily_delta及panel.daily投影，主卡/comparison/导出维持累计同范围；原显式daily兼容、历史月和range保持。`meeting-v214-mtd-20261012/run-20261012T060505036692Z/result.json`21项合成ASGI断言通过，覆盖金额与现金、累计/当日分别导出、当月/历史、退车负数、权限与过滤、未知不置零；源码SHA256 `05fab7f0cf1944319f6453bd8ca64d07eac625d671d44be0550cc369a98fdb0e`，真实模型/生产访问0。此新dashboard指纹另行留证，前次后端统计源及定义未修改，不冒用旧dashboard结果。
 - 累计页面验证：仅`web/businessrecorddashboard.js`默认请求服务端本月累计，卡显示今日/历史当日增量，二级累计与当日明细/导出分别取真实query；不用浏览器日期猜服务器今天。实际ASGI样本DOM3组、桌面/390px及历史退车截图通过，证据`meeting-v214-20261012/frontend/mtd-2026-10-12T06-08-26-873Z/`，源码SHA256 `1e9209ae7fdd6a2072d52dcfbb439425b4a5d6d3686bcd20fb20aad30c86eefb`，未修改app路由/其它已验证表单。首轮仅测试装置innerText空白断言失败保留，未据此改产品；node语法及diff检查通过，外网/真实模型0。
