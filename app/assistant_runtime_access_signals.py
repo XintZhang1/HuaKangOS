@@ -14,7 +14,7 @@ from .config import settings
 from .db import utcnow
 from .models import AuditLog, Store, User, UserStore
 from .user_access_models import UserAccessReceipt
-from .user_access_integrity import receipt_scope, receipt_digest, validate_store_snapshot
+from .user_access_integrity import receipt_scope, receipt_digest, receipt_action, validate_archive_transition, validate_store_snapshot
 from .assistant_runtime_models import FollowupGrant, Run, WakeEvent
 
 
@@ -57,7 +57,14 @@ def _audit(db, audit_id, actor_id, action, family, target_id):
             or value['entity_id'] != target_id):
         _invalid()
     if not local:
-        _actor(db, actor_id)
+        if family == 'users':
+            from .store_administration import revalidate_global_actor
+            actor = db.scalar(select(User).where(User.id == actor_id))
+            if actor is None:
+                _invalid()
+            revalidate_global_actor(db, actor, actor)
+        else:
+            _actor(db, actor_id)
     return value
 
 
@@ -133,10 +140,11 @@ def emit_user_access_changed(db, receipt):
     target = db.scalar(select(User).where(User.id == receipt.target_id))
     source = db.get(AuditLog, receipt.audit_id)
     family = source.entity_type if source and source.entity_type == 'store_account' else 'users'
-    audit = _audit(db, receipt.audit_id, receipt.actor_id, 'update_user', family, receipt.target_id)
+    audit = _audit(db, receipt.audit_id, receipt.actor_id, receipt_action(receipt.request_data), family, receipt.target_id)
     before, after = audit['before_data'], audit['after_data']
     try:
         scope_id = receipt_scope(audit, receipt.request_data, receipt.result, before)
+        validate_archive_transition(receipt.request_data, before, after)
     except (ValueError, KeyError, TypeError):
         _invalid()
     if receipt.digest != receipt_digest(receipt.target_id, receipt.request_data, scope_id):

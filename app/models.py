@@ -46,6 +46,7 @@ class User(Base):
     access_version: Mapped[int] = mapped_column(Integer, default=1, server_default='1')
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     __table_args__ = (CheckConstraint("role IN ('admin','manager','sales','inventory','service','finance','auditor','reception','technician','customer_service','clerk','general_manager','chairman','group_deputy_manager','store_admin')", name='ck_user_role'), CheckConstraint('access_version >= 1', name='ck_user_access_version'), CheckConstraint("role != 'store_admin' OR NOT can_group_summary", name='ck_store_admin_no_summary'))
 

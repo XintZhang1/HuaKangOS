@@ -269,7 +269,7 @@ def _source_facts(reader, event):
 def _access_source_facts(reader, values):
     from .models import AuditLog, Store, User
     from .user_access_models import UserAccessReceipt
-    from .user_access_integrity import receipt_scope, receipt_digest, validate_store_snapshot
+    from .user_access_integrity import receipt_scope, receipt_digest, receipt_action, validate_archive_transition, validate_store_snapshot
     source, store_id = values['source_ref'], values['store_id']
     ident, version = source['id'], source['version']
     if (type(ident) is not int or any(values[key] is not None for key in
@@ -286,10 +286,11 @@ def _access_source_facts(reader, values):
         try:
             scope_id = receipt_scope({'entity_type': audit.entity_type, 'store_id': audit.store_id},
                 receipt.request_data, receipt.result, audit.before_data)
+            validate_archive_transition(receipt.request_data, audit.before_data, receipt.result)
         except (ValueError, KeyError, TypeError):
             _invalid()
         if (scope_id and scope_id != store_id or receipt.digest != receipt_digest(receipt.target_id, receipt.request_data, scope_id)
-                or audit.action != 'update_user'
+                or audit.action != receipt_action(receipt.request_data)
                 or audit.entity_id != receipt.target_id or audit.actor_id != receipt.actor_id
                 or type(audit.before_data) is not dict or type(audit.after_data) is not dict
                 or receipt.result != audit.after_data or version != receipt.previous_version + 1

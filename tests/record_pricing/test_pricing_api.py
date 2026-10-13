@@ -77,12 +77,14 @@ class Fixture:
     def prepared(self):
         self.call('admin', 'PUT', '/store-profile', json=command(version=0,
             sellers=[{'name': '合成卖方', 'address': '合成地址'}]))
-        vehicle = self.upload()
-        self.publish('manager', 'vehicle', vehicle, [VEHICLE_ROW])
         gifts = self.upload('general_manager', 'gift', 'synthetic.csv', gift_csv())
         preview = self.call('general_manager', 'POST', f'/pricing/uploads/{gifts["id"]}/recognize',
             json=command(version=gifts['version']))
         self.publish('general_manager', 'gift', gifts, preview['rows'])
+        configured = [{'price_id': item['id'], 'quantity': 1} for item in self.catalog()['gifts'][:2]]
+        vehicle = self.upload()
+        self.publish('manager', 'vehicle', vehicle, [{**VEHICLE_ROW,
+            'gift_policy': {**VEHICLE_ROW['gift_policy'], 'standard_gifts': configured}}])
         return self.catalog('sales')
 
     def contract_body(self, catalog, selections):
@@ -90,7 +92,8 @@ class Fixture:
             vin='SYNTHETIC-' + uuid.uuid4().hex[:16], salesperson_id=4,
             contract_date=date(2026, 10, 12).isoformat(), sale_price_cents=11000000,
             vehicle_price_id=catalog['vehicles'][0]['id'], gift_items=selections,
-            form_data={'seller_name': '合成卖方', 'exterior_color': '白', 'interior_color': '黑'})
+            form_data={'seller_name': '合成卖方', 'exterior_color': '白', 'interior_color': '黑', 'deposit': '0'},
+            submission_data={'payment_method': '全款'})
 
 
 @pytest.fixture
@@ -188,8 +191,13 @@ def test_gift_csv_preview_actual_import_and_price_projection(fx):
     assert len(preview['rows']) == 3
     assert fx.catalog()['gifts'] == []
     fx.publish('general_manager', 'gift', uploaded, preview['rows'])
+    assert fx.catalog('sales')['gifts'] == []  # No model has an explicit gift configuration yet.
+    configured = [{'price_id': item['id'], 'quantity': 1} for item in fx.catalog()['gifts'][:2]]
+    vehicle = fx.upload()
+    fx.publish('manager', 'vehicle', vehicle, [{**VEHICLE_ROW,
+        'gift_policy': {**VEHICLE_ROW['gift_policy'], 'standard_gifts': configured}}])
     sales, manager, gm = (fx.catalog(role) for role in ('sales', 'manager', 'general_manager'))
-    assert len(sales['gifts']) == 3
+    assert len(sales['gifts']) == 2
     assert all('unit_price_cents' not in row and 'unit_cost_cents' not in row for row in sales['gifts'])
     assert manager['gifts'][0]['unit_price_cents'] == 6000
     assert 'unit_cost_cents' not in manager['gifts'][0]
@@ -214,6 +222,10 @@ def test_contract_gift_save_readback_remove_and_frozen_catalog(fx):
     first, second = catalog['gifts'][:2]
     choices = [{'price_id': first['id'], 'quantity': 1}, {'price_id': second['id'], 'quantity': 2}]
     body = fx.contract_body(catalog, choices)
+    unconfigured = fx.catalog()['gifts'][2]
+    denied = fx.call('sales', 'POST', '/contracts', 422,
+        json={**body, **command(), 'gift_items': [{'price_id': unconfigured['id'], 'quantity': 1}]})
+    assert '本车型明确配置' in denied['detail']
     created = fx.call('sales', 'POST', '/contracts', 201, json=body)
     key = created['id']
     saved = fx.call('sales', 'GET', f'/contracts/{key}')

@@ -75,10 +75,29 @@ def _policy_view(policy, user, gift_batch_id=None):
     if user.role not in GIFT_READERS:
         # Original policy prose can itself contain amounts. A fixed public
         # explanation is safer than trying to redact every way to write money.
-        return {**public, 'text': '本车型赠品按已确认政策核对，超出政策须提交特殊申请。'
-            if public['has_cost_limit'] else '本车型未设置赠品成本额度，标准赠品可调整或取消。'}
+        return {**public, 'text': '仅可选择本车型已配置赠品，可取消或调整数量；超出成本额度须提交特殊申请。'
+            if public['has_cost_limit'] else '仅可选择本车型已配置赠品，可取消或调整数量。'}
     return {**public, **{key: policy[key] for key in
         ('text', 'cost_limit_cents', 'confirmed_by', 'confirmed_at') if key in policy}}
+
+
+def _vehicle_gift_ids(price, gift_batch_id):
+    """Only the explicit, batch-bound model configuration permits selection."""
+    policy = price.get('gift_policy') or {}
+    if not gift_batch_id or policy.get('standard_gift_batch_id') != gift_batch_id:
+        return set()
+    return {item['price_id'] for item in policy.get('standard_gifts') or []}
+
+
+def _validate_vehicle_gifts(price, gift_batch_id, selections, frozen_gifts=()):
+    allowed = _vehicle_gift_ids(price, gift_batch_id)
+    preserved = {item['price_id']: item['quantity'] for item in frozen_gifts}
+    changed = [item for item in selections if item.price_id not in allowed
+               and preserved.get(item.price_id) != item.quantity]
+    if changed and not allowed:
+        raise HTTPException(422, '本车型尚未配置有效赠品，请联系销售经理维护后再选择；也可取消全部赠品提交')
+    if changed:
+        raise HTTPException(422, '仅可选择本车型明确配置的赠品，请取消不适用项目或联系销售经理维护')
 
 
 def _freeze_standard_gifts(db, policy, gift_batch_id):
@@ -174,6 +193,9 @@ def price_catalog(contract_id: int | None = Query(None, gt=0), db=Depends(get_db
             raise HTTPException(409, '该历史合同没有本版提交目录快照')
         vehicle_batch, gift_batch = frozen.price_snapshot['batch_id'], frozen.gift_batch_id
     vehicles = [dict(frozen.price_snapshot)] if frozen else catalog_rows(db, 'vehicle', vehicle_batch)
+    selectable_gifts = set().union(*(_vehicle_gift_ids(item, gift_batch) for item in vehicles))
+    if frozen:
+        selectable_gifts.update(item['price_id'] for item in frozen.gifts_snapshot)
     for item in vehicles:
         item['gift_policy'] = _policy_view(item.get('gift_policy'), user, gift_batch)
     if user.role not in GIFT_READERS:
@@ -183,6 +205,8 @@ def price_catalog(contract_id: int | None = Query(None, gt=0), db=Depends(get_db
     gifts = []
     if gift_batch:
         for item in catalog_rows(db, 'gift', gift_batch, contract=contract):
+            if user.role not in GIFT_READERS and item['id'] not in selectable_gifts:
+                continue
             value = {key: item[key] for key in ('id', 'name', 'brand', 'unit', 'applicable_models')}
             if user.role in GIFT_READERS:
                 value.update(unit_price_cents=item['unit_price_cents'])
@@ -454,6 +478,7 @@ def check_gift_policy(body: GiftPolicyCheck, db=Depends(get_db), user=Depends(ge
         if price is None:
             raise HTTPException(422, '请选择本店当前品牌已发布的车型价格')
         gift_batch = shared['gift_batch_id']
+    _validate_vehicle_gifts(price, gift_batch, body.gift_items, terms.gifts_snapshot if contract else ())
     _, _, cost_total = _selected_gifts(db, gift_batch, body.gift_items, contract)
     return _policy_result_view(gift_policy_assessment(price.get('gift_policy'), cost_total), user)
 
@@ -485,6 +510,7 @@ def prepare_submission(db, user, body, existing=None):
             raise HTTPException(409, '价格批次来源缺失，请联系管理员核对')
         price.update(source_file_id=batch.file_id, published_at=batch.created_at.isoformat(), brand=brand)
         gift_batch_id = shared['gift_batch_id']
+    _validate_vehicle_gifts(price, gift_batch_id, body.gift_items, prior.gifts_snapshot if prior else ())
     gifts, total, cost_total = _selected_gifts(db, gift_batch_id, body.gift_items, existing if prior else None)
     policy_check = gift_policy_assessment(price.get('gift_policy'), cost_total)
     form = dict(body.form_data)

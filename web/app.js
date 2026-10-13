@@ -36,7 +36,7 @@ function clearBusinessViews(){
  state.aftercareOrder=null;
  if(typeof clearVehicleOperationsSession==='function')clearVehicleOperationsSession();
  for(const key of ['row','group','benefits','repairOrder','repairLineHtml','retailOrder','retailLineHtml','invoiceOrder','membershipMember','membershipOrder','membershipRules','reconciliation','clearing','clearingOrigins','intakeRecord','intakeSection','intakeCatalog','intakeList','accountData'])state[key]=null;
- state.rows=[];state.analytics=null;state.invoiceSourcePage=1;state.invoiceOrdersPage=1;
+ state.rows=[];state.accountsArchived=false;state.analytics=null;state.invoiceSourcePage=1;state.invoiceOrdersPage=1;
  if(typeof clearWarehouseSession==='function')clearWarehouseSession();
  if(typeof clearMembershipSession==='function')clearMembershipSession();
  if(typeof clearVehicleProcurementSession==='function')clearVehicleProcurementSession();
@@ -223,7 +223,7 @@ function normalizeAppRoute(route){
  if(route.startsWith('records-dashboard')&&!brCanDashboard())return home;
  if(route==='business-assistant'&&state.user?.can_business_assistant===false)return home;
  if(route==='feedback'&&(state.user?.can_feedback===false||state.user?.store_admin))return home;
- return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|manual|settings|targets|daily)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:home;
+ return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|office|manual|settings|targets|daily)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:home;
 }
 function currentAppRoute(){
  const route=normalizeAppRoute(location.hash.slice(1));
@@ -394,17 +394,20 @@ async function legacyDialog(mod,edit=false){const row=edit?state.row:null;const 
 async function legacyAction(mod,key){const row=state.row;const fields=[F('reason','办理说明','textarea')];if(key==='advance')fields.push(F('effective_date','实际发生日期','date'));await formDialog(labels[key]||({submit:'提交审核',approve:'审核通过',reject:'退回单据',advance:'确认进度',void:'作废单据'}[key]),fields,{},v=>api(`/api/records/${mod}/${row.id}/actions/${key}`,{method:'POST',body:{version:row.version,...v}}),{notice:key==='void'?'作废会改变有效业务统计。存在关联款项或占用关系时，需要先处理原业务。':'请确认记录与实际情况一致。',warn:key==='void'});}
 function accountCapabilities(){return state.accountData?.capabilities||{};}
 function accountAssignableRoles(){return (accountCapabilities().assignable_roles||[]).filter(role=>typeof role==='string'&&roleNames[role]);}
-function accountLocalRole(row){return row?.store_roles?.find(item=>item.store_id===accountCapabilities().store_id)?.role||row?.role;}
+function accountLocalRole(row){return row?.current_store_role||row?.store_roles?.find(item=>String(item.store_id)===String(state.store))?.role||row?.role;}
 function accountCanEdit(row){return accountCapabilities().edit===true&&row?.can_edit===true;}
 function accountCanReset(row){return accountCapabilities().reset_password===true&&row?.can_reset_password===true&&row.id!==state.user.id;}
+function accountCanArchive(row){return row?.can_archive===true&&row.id!==state.user.id;}
+function accountCanRestore(row){return row?.can_restore===true;}
 async function usersPage(){
  if(!state.user.can_users)throw new Error('当前岗位没有员工账号维护权限。');
- const epoch=renderId,d=await api('/api/users');if(epoch!==renderId)return '';state.rows=d.items;state.accountData=d;
+ const epoch=renderId,d=await api('/api/users'+(state.accountsArchived?'?archived=true':''));if(epoch!==renderId)return '';state.rows=d.items;state.accountData=d;
  const caps=accountCapabilities(),local=caps.scope==='store';
- const tools=b('open','刷新员工列表','data-route="users"')+(caps.batch&&typeof staffBatchButton==='function'?staffBatchButton():'')+(caps.create?b('newuser','新增员工','','primary'):'');
- const headers=['员工','登录账号',local?'本店岗位':'默认岗位',local?'所属门店':'授权门店与岗位',...(!local?['集团汇总']:[]),'状态','操作'];
- const rows=d.items.map(r=>[E(r.display_name),E(r.username),E(local?roleNames[accountLocalRole(r)]:r.role_label),`<span class="wrap">${r.role==='admin'?'全部门店':r.stores.map(s=>E(s.name)+(local?'':' · '+E(roleNames[r.store_roles?.find(x=>x.store_id===s.id)?.role||r.role]))).join('<br>')}</span>`,...(!local?[r.can_group_summary?'已授权':'未授权']:[]),pill(r.active?'done':'cancelled',r.active?'启用':'停用'),`<div class="row">${accountCanEdit(r)?b('edituser','编辑',`data-id="${r.id}"`):''}${accountCanReset(r)?b('resetpassword','重置密码',`data-id="${r.id}"`):''}${!accountCanEdit(r)&&!accountCanReset(r)?'仅可查看':''}</div>`]);
- return heading(local?'本店员工账号':'员工账号',local?'维护仅授权本店的销售、销售经理、销售内勤和收银账号。管理岗位及跨店账号由系统管理员维护。':'',tools)+`<section class="panel">${table(headers,rows)}</section>`;
+ const tools=b('open','刷新员工列表','data-route="users"')+b('archivedusers',state.accountsArchived?'返回员工列表':'已删除员工')+(!state.accountsArchived&&caps.batch&&typeof staffBatchButton==='function'?staffBatchButton():'')+(!state.accountsArchived&&caps.create?b('newuser','新增员工','','primary'):'');
+ const currentStore=state.accountData.stores.find(s=>String(s.id)===String(state.store));
+ const headers=['员工','登录账号','本店岗位','所属门店',...(!local?['集团汇总']:[]),'状态','操作'];
+ const rows=d.items.map(r=>[E(r.display_name),E(r.username),E(r.current_store_role_label||roleNames[accountLocalRole(r)]),E(currentStore?.name||'当前门店'),...(!local?[r.can_group_summary?'已授权':'未授权']:[]),pill(r.active?'done':'cancelled',r.archived_at?'已删除':r.active?'启用':'停用'),`<div class="row">${accountCanEdit(r)?b('edituser','编辑',`data-id="${r.id}"`):''}${accountCanReset(r)?b('resetpassword','重置密码',`data-id="${r.id}"`):''}${accountCanArchive(r)?b('archiveuser','删除员工',`data-id="${r.id}"`,'danger'):''}${accountCanRestore(r)?b('restoreuser','恢复员工',`data-id="${r.id}"`):''}${!accountCanEdit(r)&&!accountCanReset(r)&&!accountCanArchive(r)&&!accountCanRestore(r)?'仅可查看':''}</div>`]);
+ return heading(state.accountsArchived?'已删除员工':'本店员工账号',state.accountsArchived?'删除后保留历史业务记录；恢复后请核对岗位，再编辑启用。':local?'维护仅授权本店的销售、销售经理、销售内勤和收银账号。管理岗位及跨店账号由系统管理员或集团副总经理维护。':'仅显示当前门店获授权的账号及本店岗位。',tools)+`<section class="panel">${table(headers,rows)}</section>`;
 }
 async function userDialog(id){
  const row=id?state.rows.find(r=>r.id===id):null,caps=accountCapabilities(),local=caps.scope==='store',roles=accountAssignableRoles();
@@ -413,15 +416,15 @@ async function userDialog(id){
  const editRequest=requestKey();
  const fields=[...(!row?[F('username','登录账号'),F('password','初始密码','password')]:[]),F('display_name','员工姓名'),F('role',local?'本店岗位':'账号默认岗位','select',true,[...new Set([...roles,...(!local&&row?[row.role]:[])])]),...(!local?[F('can_group_summary','允许集团汇总查询','bool',false)]:[]),...(row?[F('active','启用','bool',false)]:[])];
  Object.assign(labels,roleNames);
- const stores=state.accountData.stores.filter(s=>s.active),store=stores.find(s=>s.id===caps.store_id);
- const checks=local?`<p class="notice">所属门店：${E(store?.name||'当前门店')}</p>`:`<div class="mt20"><h3>门店与岗位</h3><div class="store-role-list">${stores.map(s=>{const assigned=row?.store_roles?.find(x=>x.store_id===s.id);return `<div class="store-role-row"><label class="checklabel"><input type="checkbox" name="store_ids" value="${s.id}" ${(row?.store_ids||[]).includes(s.id)?'checked':''}>${E(s.name)}</label><label>本店岗位<select name="store_role_${s.id}">${Object.entries(roleNames).filter(([k])=>k!=='admin'&&(roles.includes(k)||k===assigned?.role)).map(([k,v])=>`<option value="${k}" ${k===(assigned?.role||(row?.role==='admin'?'manager':row?.role)||'sales')?'selected':''}>${E(v)}</option>`).join('')}</select></label></div>`;}).join('')}</div></div>`;
+ const stores=state.accountData.stores.filter(s=>s.active||(row?.store_ids||[]).includes(s.id)),store=stores.find(s=>s.id===caps.store_id);
+ const checks=local?`<p class="notice">所属门店：${E(store?.name||'当前门店')}</p>`:`<div class="mt20"><h3>门店与岗位</h3><div class="store-role-list">${stores.map(s=>{const assigned=row?.store_roles?.find(x=>x.store_id===s.id);return `<div class="store-role-row"><label class="checklabel"><input type="checkbox" name="store_ids" value="${s.id}" ${(row?.store_ids||[]).includes(s.id)?'checked':''} ${!s.active?'disabled':''}>${E(s.name)}${!s.active?'（已停用，保留原授权）':''}</label><label>本店岗位<select name="store_role_${s.id}" ${!s.active?'disabled data-preserved="true"':''}>${Object.entries(roleNames).filter(([k])=>k!=='admin'&&(roles.includes(k)||k===assigned?.role)).map(([k,v])=>`<option value="${k}" ${k===(assigned?.role||(row?.role==='admin'?'manager':row?.role)||'sales')?'selected':''}>${E(v)}</option>`).join('')}</select></label></div>`;}).join('')}</div></div>`;
  const initial=row?{...row,...(local?{role:accountLocalRole(row)}:{})}:{role:roles.includes('sales')?'sales':roles[0],can_group_summary:false};
  const dialog=await formDialog(row?'编辑员工':'新增员工',fields,initial,(v,form)=>{
   if(!roles.includes(v.role)&&!(row&&!local&&v.role===row.role))throw new Error('该岗位不在可分配范围，请刷新后核对。');
-  const fd=new FormData(form),ids=local?[caps.store_id]:fd.getAll('store_ids').map(Number),storeAdmin=v.role==='store_admin';
+  const fd=new FormData(form),preserved=local?[]:stores.filter(s=>!s.active&&(row?.store_ids||[]).includes(s.id)),ids=local?[caps.store_id]:[...fd.getAll('store_ids').map(Number),...preserved.map(s=>s.id)],storeAdmin=v.role==='store_admin';
   if(storeAdmin&&ids.length!==1)throw new Error('门店管理员账号只能选择一家门店。');
   const role=local&&row&&v.role===initial.role?row.role:v.role;
-  return api('/api/users'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:{...v,role,...(local||storeAdmin?{can_group_summary:false}:{}),...(row?{access_version:row.access_version,request_id:editRequest}:{}),store_ids:v.role==='admin'?[]:ids,store_roles:v.role==='admin'?[]:ids.map(id=>({store_id:id,role:local||storeAdmin?v.role:fd.get('store_role_'+id)}))}});
+  return api('/api/users'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:{...v,role,...(local||storeAdmin?{can_group_summary:false}:{}),...(row?{access_version:row.access_version,request_id:editRequest}:{}),store_ids:v.role==='admin'?[]:ids,store_roles:v.role==='admin'?[]:ids.map(id=>({store_id:id,role:preserved.some(s=>s.id===id)?row.store_roles.find(s=>s.store_id===id).role:local||storeAdmin?v.role:fd.get('store_role_'+id)}))}});
  },{extra:checks,notice:(local?'本次账号仅授权当前门店，不授予集团汇总或其他门店权限。':'非系统管理员至少选择一家门店及对应岗位。集团汇总仅包含获授权门店，办理业务需切回具体门店。')+'变更授权后原登录会话失效；他人修改后须关闭窗口、刷新员工列表再核对。'});
  if(!local){
   const form=$('form',dialog),role=form.elements.role,summary=form.elements.can_group_summary,assignments=[...form.querySelectorAll('[name^="store_role_"]')],choices=[...form.querySelectorAll('[name="store_ids"]')];
@@ -429,6 +432,7 @@ async function userDialog(id){
   const configure=()=>{
    const special=role.value==='store_admin';help.hidden=!special;summary.disabled=special;if(special)summary.checked=false;
    for(const select of assignments){
+    if(select.dataset.preserved==='true')continue;
     if(special){if(select.value!=='store_admin')select.dataset.previousRole=select.value;select.innerHTML='<option value="store_admin">门店管理员</option>';}
     else if(select.value==='store_admin'){const previous=select.dataset.previousRole||'sales';select.innerHTML=roles.filter(value=>!['admin','store_admin'].includes(value)).map(value=>`<option value="${E(value)}" ${value===previous?'selected':''}>${E(roleNames[value])}</option>`).join('');}
     else select.querySelector('option[value="store_admin"]')?.remove();
@@ -443,6 +447,15 @@ async function userDialog(id){
 async function resetPasswordDialog(id){
  const row=state.rows.find(r=>r.id===id);if(!accountCanReset(row))throw new Error('当前账号不可重置密码，请刷新员工列表后核对。');
  await formDialog('重置员工密码',[F('password','新的初始密码','password'),F('reason','重置原因','textarea')],{},v=>api('/api/users/'+id+'/password',{method:'POST',body:v}),{notice:'员工的现有登录会话将失效，首次重新登录必须改密。'});
+}
+async function accountArchiveDialog(id,restore=false){
+ const row=state.rows.find(r=>r.id===id),allowed=restore?accountCanRestore(row):accountCanArchive(row);
+ if(!allowed)throw new Error('当前账号不可办理，请刷新员工列表后核对。');
+ const request_id=requestKey(),store=String(state.store),context=storeContextVersion;
+ await formDialog(restore?'恢复员工':'删除员工',[F('reason',restore?'恢复原因':'删除原因','textarea')],{},v=>{
+  if(context!==storeContextVersion||store!==String(state.store))throw new Error('门店已变化，请重新核对员工。');
+  return api('/api/users/'+id+(restore?'/restore':'/archive'),{method:'POST',body:{...v,access_version:row.access_version,request_id}});
+ },{notice:restore?`恢复“${row.display_name}”（${row.username}）后仍为停用状态，请核对授权再编辑启用。`:`确认删除“${row.display_name}”（${row.username}）？该账号将立即停用并退出登录，历史业务与门店授权保留，可在“已删除员工”中恢复。`,warn:!restore,submit:restore?'确认恢复':'确认删除',success:restore?'员工已恢复，请返回员工列表核对并启用。':'员工已删除，历史业务记录保留。'});
 }
 async function storesPage(){if(!state.user.can_manage_stores)throw new Error('当前岗位没有门店设置权限。');const d=await api('/api/stores');state.rows=d.items;return heading('门店设置','每店设置一个品牌；同品牌门店共用车系车型、精品赠品和限价目录。',b('newstore','新增门店','','primary'))+`<section class="panel">${table(['门店','门店编码','品牌','状态','操作'],d.items.map(r=>[E(r.name),E(r.code),E(r.brand||'未设置'),pill(r.active?'done':'cancelled',r.active?'启用':'停用'),b('editstore','编辑',`data-id="${r.id}"`)]))}</section>`;}
 async function storeDialog(id){
@@ -526,6 +539,8 @@ document.addEventListener('click',async e=>{const el=e.target.closest('[data-act
  else if(a==='newuser'||a==='edituser')await userDialog(el.dataset.id?Number(el.dataset.id):null);
  else if(a==='batchusers'&&typeof staffBatchDialog==='function')await staffBatchDialog();
  else if(a==='resetpassword')await resetPasswordDialog(Number(el.dataset.id));
+ else if(a==='archivedusers'){state.accountsArchived=!state.accountsArchived;await render();}
+ else if(a==='archiveuser'||a==='restoreuser')await accountArchiveDialog(Number(el.dataset.id),a==='restoreuser');
  else if(a==='newstore'||a==='editstore')await storeDialog(el.dataset.id?Number(el.dataset.id):null);
  else if(a==='auditdetail'){const r=state.rows.find(x=>x.id===Number(el.dataset.id));const known={...dataLabels,...Object.fromEntries([...commonFields,...Object.values(legacyFields).flat()].map(f=>[f.key,f.label])),active:'启用',display_name:'员工姓名',username:'登录账号',store_id:'所属门店',role:'岗位',name:'名称',code:'编码',contact_name:'联系人',phone:'联系电话',state:'进度',title:'事项',status:'状态'};const prettify=obj=>Object.fromEntries(Object.entries(obj||{}).filter(([k,v])=>known[k]&&typeof v!=='object').map(([k,v])=>[k,typeof v==='string'?(labels[v]||roleNames[v]||v):v]));modal('操作详情',`<div class="stack"><p>${E(r.reason||'业务操作')} · ${E(r.actor_name)} · ${time(r.occurred_at)}</p>${facts({业务范围:auditEntities[r.entity_type]||'资料管理',原记录编号:r.entity_id??'—'})}<h3>操作前</h3>${facts(prettify(r.before_data),known)}<h3>操作后</h3>${facts(prettify(r.after_data),known)}</div>`);}
  else if(a==='range'){state.dates={date_from:el.dataset.days==='month'?day().slice(0,8)+'01':relativeDay(1-Number(el.dataset.days)),date_to:day()};state.analytics=null;state.page=1;await render();}

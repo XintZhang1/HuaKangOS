@@ -72,7 +72,7 @@ def _authenticate_once(db: Session, username: str, password: str, ip: str) -> Us
         raise HTTPException(429, '登录失败次数过多，请 15 分钟后重试')
     user = db.scalar(select(User).where(User.username == username))
     valid = verify_password(password, user.password_hash if user else DUMMY_HASH)
-    if not user or not valid or not user.active:
+    if not user or not valid or not user.active or user.archived_at is not None:
         db.add(LoginAttempt(username=username, ip=ip[:100]))
         db.commit()
         raise HTTPException(401, '用户名或密码错误，或账户已停用')
@@ -108,7 +108,7 @@ def get_user(request: Request, db: Session = Depends(get_db)) -> User:
     if session is None or session.expires_at <= utcnow():
         raise HTTPException(401, '请先登录，或登录已过期')
     user = db.get(User, session.user_id)
-    if not user or not user.active:
+    if not user or not user.active or user.archived_at is not None:
         raise HTTPException(401, '账户已停用')
     if request.method not in {'GET', 'HEAD', 'OPTIONS'}:
         csrf = request.headers.get('X-CSRF-Token', '')
@@ -171,7 +171,7 @@ def user_info(user: User):
             'read_modules': sorted(READ[user.role]), 'write_modules': [] if aggregate else sorted(WRITE[user.role] if settings.legacy_business_write else WRITE[user.role]-{'vehicles','sales','repairs','policies'}),
             'legacy_business_read_only':not settings.legacy_business_write,
             'can_approve': not aggregate and user.role in {'admin','manager'}, 'can_report': user.role in FULL_VIEW,
-            'can_users': not aggregate and (global_role == 'admin' or store_admin),
+            'can_users': not aggregate and (global_role == 'admin' or user.role == 'group_deputy_manager' or store_admin),
             'can_manage_stores': not aggregate and global_role == 'admin',
             'can_business_assistant': not store_admin, 'can_feedback': not store_admin,
             'store_admin': store_admin, 'can_audit': user.role in {'admin','manager','auditor'} or store_admin}

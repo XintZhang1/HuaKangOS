@@ -20,7 +20,7 @@ from .branding import PRODUCT_TITLE
 from .web_release import WebRelease, ReleaseStaticFiles
 from .db import engine, get_db, get_write_db, today, utcnow, get_audited_read_db
 from .models import Store, UserStore, User, LoginSession, MODULES, AuditLog, Finding, DailyReport, AppMetadata
-from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, BatchUserInput, StoreRoleInput, StoreRole
+from .schemas import StoreInput, LoginInput, PasswordInput, UserInput, UserUpdate, UserArchiveInput, ResetPasswordInput, UpdateInput, ActionInput, ReviewInput, ReportInput, BatchUserInput, StoreRoleInput, StoreRole
 from .security import get_user, authenticate, set_session, clear_cookies, revoke_login_session, user_info, require_full, require_module, verify_password, hash_password, ROLES
 from .business_records import router as business_records_router
 from .business_record_invoices import router as business_record_invoices_router
@@ -274,8 +274,10 @@ def admin(user):
 
 
 def account_administrator(user):
-    if not store_admin_service.is_store_admin(user):
-        admin(user)
+    if getattr(user, '_aggregate_scope', False):
+        raise HTTPException(409, '跨门店汇总为只读；请切换到具体门店')
+    if not (store_admin_service.is_store_admin(user) or store_admin_service.is_global_account_admin(user)):
+        raise HTTPException(403, '当前岗位没有员工账号维护权限')
 
 
 def record_account_roles(body):
@@ -286,8 +288,9 @@ def record_account_roles(body):
 
 
 @app.get('/api/users')
-def users(db=Depends(get_db),user=Depends(get_user)):
+def users(archived:bool=False,db=Depends(get_db),user=Depends(get_user)):
     account_administrator(user)
+    store_id = single_store(db)
     scoped = store_admin_service.is_store_admin(user)
     if scoped:
         store_id = single_store(db)
@@ -295,12 +298,22 @@ def users(db=Depends(get_db),user=Depends(get_user)):
         store_rows = list(db.scalars(select(Store).where(Store.id == store_id)))
         role_labels = {key: ROLES[key] for key in sorted(store_admin_service.STAFF_ROLES)}
     else:
-        query = select(User).order_by(User.id)
+        assigned = select(UserStore.user_id).where(UserStore.store_id == store_id)
+        query = select(User).where(or_(User.role == 'admin', User.id.in_(assigned))).order_by(User.id)
         store_rows = list(db.scalars(select(Store).order_by(Store.id)))
         role_labels = ROLES
     from .security import RECORD_ACCOUNT_ROLES
-    items = [dict(account_info(db, target), can_edit=True, can_reset_password=target.id != user.id)
-             for target in db.scalars(query)]
+    query = query.where(User.archived_at.is_not(None) if archived else User.archived_at.is_(None))
+    items = []
+    for target in db.scalars(query):
+        value = account_info(db, target)
+        local_role = 'admin' if target.role == 'admin' else next(
+            member['role'] for member in value['store_roles'] if member['store_id'] == store_id)
+        value.update(current_store_id=store_id, current_store_role=local_role,
+            current_store_role_label=ROLES[local_role], can_edit=not archived,
+            can_reset_password=not archived and target.id != user.id,
+            can_archive=not archived and target.id != user.id, can_restore=archived and target.id != user.id)
+        items.append(value)
     return {'items': items, 'roles': role_labels, 'stores': [plain(row) for row in store_rows],
             'capabilities': store_admin_service.capabilities(user, RECORD_ACCOUNT_ROLES)}
 
@@ -312,6 +325,8 @@ def add_user(body: UserInput,db=Depends(get_write_db),user=Depends(get_user)):
     if scoped:
         store_id = store_admin_service.revalidate_actor(db, user)
         store_admin_service.validate_staff_payload(body, store_id, create=True)
+    else:
+        store_admin_service.revalidate_global_actor(db, user)
     record_account_roles(body)
     new = User(username=body.username.lower(),display_name=body.display_name,role=body.role,
                password_hash=hash_password(body.password),must_change_password=True,can_group_summary=body.can_group_summary)
@@ -342,6 +357,8 @@ def add_users_batch(body: BatchUserInput,db=Depends(get_write_db),user=Depends(g
     scoped = store_admin_service.is_store_admin(user)
     if scoped and body.store_id != store_admin_service.revalidate_actor(db, user):
         raise HTTPException(403, '只能为当前门店批量建立普通员工账号')
+    if not scoped:
+        store_admin_service.revalidate_global_actor(db, user)
     store = db.get(Store,body.store_id)
     if not store or not store.active:
         raise HTTPException(422,'指定门店不存在或已停用，请刷新门店列表后重试')
@@ -390,12 +407,31 @@ def edit_user(user_id: int,body: UserUpdate,db=Depends(get_write_db),user=Depend
     return change_access(db,user,user_id,body,account_info,assign_stores)
 
 
+@app.post('/api/users/{user_id}/archive')
+def archive_user(user_id:int,body:UserArchiveInput,db=Depends(get_write_db),user=Depends(get_user)):
+    account_administrator(user)
+    return change_access(db,user,user_id,body,account_info,assign_stores,action='archive')
+
+
+@app.post('/api/users/{user_id}/restore')
+def restore_user(user_id:int,body:UserArchiveInput,db=Depends(get_write_db),user=Depends(get_user)):
+    account_administrator(user)
+    return change_access(db,user,user_id,body,account_info,assign_stores,action='restore')
+
+
 @app.post('/api/users/{user_id}/password')
 def reset_password(user_id: int,body: ResetPasswordInput,db=Depends(get_write_db),user=Depends(get_user)):
     account_administrator(user)
     scoped = store_admin_service.is_store_admin(user)
-    target = store_admin_service.lock_target(db, user, user_id) if scoped else db.get(User,user_id)
+    if scoped:
+        target = store_admin_service.lock_target(db, user, user_id)
+    else:
+        locked = list(db.scalars(select(User).where(User.id.in_({user.id,user_id}))
+            .order_by(User.id).with_for_update().execution_options(populate_existing=True)))
+        store_admin_service.revalidate_global_actor(db,user,next((row for row in locked if row.id == user.id),None))
+        target = next((row for row in locked if row.id == user_id),None)
     if not target: raise HTTPException(404,'用户不存在')
+    if target.archived_at is not None: raise HTTPException(409,'员工已删除，请先恢复后再修改账号')
     if target.id == user.id: raise HTTPException(409,'请使用“修改我的密码”')
     target.password_hash = hash_password(body.password)
     target.must_change_password = True
@@ -645,6 +681,7 @@ def public_settings(db=Depends(get_db),user=Depends(get_user)):
 def account_info(db, target):
     result = user_info(target)
     result['access_version'] = target.access_version
+    result['archived_at'] = target.archived_at.isoformat()+'Z' if target.archived_at else None
     stores = accessible_stores(db,target)
     memberships = list(db.scalars(select(UserStore).where(UserStore.user_id==target.id).order_by(UserStore.store_id)))
     result['store_ids'] = [m.store_id for m in memberships]
@@ -653,7 +690,7 @@ def account_info(db, target):
     return result
 
 
-def assign_stores(db, target, ids, store_roles=None):
+def assign_stores(db, target, ids, store_roles=None, *, previous_role=None):
     existing = {m.store_id:m.role for m in db.scalars(select(UserStore).where(UserStore.user_id==target.id))}
     explicit = None if store_roles is None else {m.store_id:m.role for m in store_roles}
     if explicit is not None:
@@ -666,10 +703,27 @@ def assign_stores(db, target, ids, store_roles=None):
     ids = sorted(set(ids if ids is not None else (explicit or {})))
     if target.role != 'admin' and not ids:
         raise HTTPException(422, '非管理员账号至少分配一家门店')
-    if ids and db.scalar(select(func.count()).select_from(Store).where(Store.id.in_(ids),Store.active.is_(True))) != len(ids):
-        raise HTTPException(422, '指定门店不存在或已停用')
-    db.execute(delete(UserStore).where(UserStore.user_id==target.id))
-    db.add_all([UserStore(user_id=target.id,store_id=i,role=explicit[i] if explicit is not None else ('store_admin' if target.role == 'store_admin' else existing.get(i))) for i in ids])
+    stores = {row.id: row for row in db.scalars(select(Store).where(Store.id.in_(set(ids) | set(existing))))}
+    if any(i not in stores for i in ids):
+        raise HTTPException(422, '指定门店不存在')
+    for store_id, old_role in existing.items():
+        if not stores[store_id].active:
+            if store_id not in ids or (explicit is not None and explicit[store_id] != (old_role or previous_role or target.role)):
+                raise HTTPException(422, '已停用门店的原授权须原样保留，不能移除或修改')
+    if any(not stores[i].active and i not in existing for i in ids):
+        raise HTTPException(422, '不能新增已停用门店的授权')
+    # Keep unchanged membership rows, including historical disabled-store grants.
+    for member in list(db.scalars(select(UserStore).where(UserStore.user_id == target.id))):
+        if member.store_id not in ids:
+            db.delete(member)
+        elif stores[member.store_id].active and explicit is not None:
+            member.role = explicit[member.store_id]
+        elif not stores[member.store_id].active and member.role is None and previous_role != target.role:
+            # Freeze the existing effective job before a new default role could
+            # silently change an inactive store's legacy fallback membership.
+            member.role = previous_role or target.role
+    db.add_all([UserStore(user_id=target.id,store_id=i,role=explicit[i] if explicit is not None
+        else ('store_admin' if target.role == 'store_admin' else None)) for i in ids if i not in existing])
     db.flush()
 
 
