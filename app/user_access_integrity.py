@@ -138,4 +138,6 @@ def validate(connection):
             recorded = datetime.fromisoformat(last['archived_at'].removesuffix('Z')) if last.get('archived_at') else None
             if current != recorded or (current is not None and user['active']):
                 raise ValueError('当前员工删除状态与最后一次审计修改不一致')
+    from .employee_handover_integrity import validate as validate_handovers
+    validate_handovers(connection)
     return {'user_access_receipts':sum(len(h) for h in histories.values())}

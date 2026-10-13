@@ -28,17 +28,18 @@ def profile_view(db, settings):
     return {**(settings.profile if settings else {}), 'brand': store_brand(db)}
 
 
-def catalog_state(db):
+def catalog_state(db, sales_channel='retail'):
     brand = store_brand(db)
     shared = db.get(RecordBrandPricing, brand) if brand else None
     local = db.scalar(select(RecordPricingSettings).where(RecordPricingSettings.store_id == single_store(db)))
     state = {'brand': brand, 'brand_version': shared.version if shared else 0}
     for kind in ('vehicle', 'gift'):
         key = kind + '_batch_id'
-        chosen = getattr(shared, key) if shared else None
+        pointer = 'wholesale_vehicle_batch_id' if kind == 'vehicle' and sales_channel == 'wholesale' else key
+        chosen = getattr(shared, pointer) if shared else None
         # An explicit matching old profile may retain its own old publication.
         # Never copy it to the brand pointer or expose it to another store.
-        if chosen is None and brand and local and getattr(local, key):
+        if chosen is None and (sales_channel == 'retail' or kind == 'gift') and brand and local and getattr(local, key):
             old = db.scalar(select(RecordPriceBatch).where(RecordPriceBatch.id == getattr(local, key),
                 RecordPriceBatch.store_id == single_store(db), RecordPriceBatch.kind == kind))
             if old and (old.brand == brand or not old.brand and canonical_brand(local.profile.get('brand')) == brand):
@@ -64,12 +65,12 @@ def lock_brand_catalog(db, expected_version, expected_brand=None):
     return row
 
 
-def allowed_batch(db, kind, batch_id, *, contract=None):
+def allowed_batch(db, kind, batch_id, *, contract=None, sales_channel='retail'):
     if not batch_id:
         return None
     brand = store_brand(db)
     if contract is None:
-        if catalog_state(db)[kind + '_batch_id'] != batch_id:
+        if catalog_state(db, sales_channel)[kind + '_batch_id'] != batch_id:
             raise HTTPException(404, '该价格批次不属于本店当前品牌目录')
     else:
         if contract.store_id != single_store(db):
@@ -79,19 +80,22 @@ def allowed_batch(db, kind, batch_id, *, contract=None):
         frozen_id = (terms.price_snapshot.get('batch_id') if kind == 'vehicle' else terms.gift_batch_id) if terms else None
         if frozen_id != batch_id:
             raise HTTPException(404, '该价格批次不属于本合同冻结目录')
+        sales_channel = terms.submission_data.get('sales_channel', 'retail')
         brand = canonical_brand(contract.brand)
     table = RecordPriceBatch.__table__
-    data = db.execute(select(table.c.id, table.c.store_id, table.c.kind, table.c.brand,
+    data = db.execute(select(table.c.id, table.c.store_id, table.c.kind, table.c.brand, table.c.sales_channel,
         table.c.file_id, table.c.created_at, table.c.created_by, table.c.row_count).where(
             table.c.id == batch_id, table.c.kind == kind)).mappings().one_or_none()
     if data is None or not (data['brand'] == brand and bool(brand) or
             not data['brand'] and data['store_id'] == single_store(db)):
         raise HTTPException(404, '价格批次品牌或来源不匹配')
+    if kind == 'vehicle' and data['sales_channel'] != sales_channel:
+        raise HTTPException(404, '零售与二级限价来源不匹配')
     return SimpleNamespace(**dict(data))
 
 
-def catalog_rows(db, kind, batch_id, *, contract=None):
-    batch = allowed_batch(db, kind, batch_id, contract=contract)
+def catalog_rows(db, kind, batch_id, *, contract=None, sales_channel='retail'):
+    batch = allowed_batch(db, kind, batch_id, contract=contract, sales_channel=sales_channel)
     if batch is None:
         return []
     if kind == 'vehicle':

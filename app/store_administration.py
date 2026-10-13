@@ -41,7 +41,8 @@ def revalidate_global_actor(db, principal, actor=None):
         UserStore.store_id == store_id).with_for_update().execution_options(populate_existing=True))
     store = db.scalar(select(Store).where(Store.id == store_id).with_for_update()
                       .execution_options(populate_existing=True))
-    if not store or not store.active or not member or (member.role or actor.role) != 'group_deputy_manager':
+    if not store or not store.active or (actor.role != 'group_deputy_manager' and
+            (not member or (member.role or actor.role) != 'group_deputy_manager')):
         raise HTTPException(403, '员工账号管理权限已变化，请重新登录后核对可用权限')
     return actor
 
@@ -52,6 +53,7 @@ def guard_request(request, user):
     method, path = request.method, request.url.path
     allowed = (
         method == 'GET' and (path in {'/api/auth/me', '/api/users', '/api/stores', '/api/audit'}
+                            or re.fullmatch(r'/api/users/[1-9]\d*/handover-preview', path)
                             or _RECORD_READS.fullmatch(path))
         or method == 'POST' and (path in {'/api/auth/password', '/api/auth/logout', '/api/users',
             '/api/users/batch', '/api/business-records/pricing/gift-policy-check'}
@@ -171,5 +173,6 @@ def capabilities(principal, roles):
 def account_snapshot(value, store_id):
     # This target has already passed the single-store ordinary-account check.
     keys = {'id','username','display_name','role','role_label','account_role','active',
-            'access_version','store_ids','store_roles','stores','can_group_summary','archived_at'}
+            'access_version','store_ids','store_roles','stores','can_group_summary','archived_at',
+            'handover_digest','handover_summary'}
     return dict({key: val for key, val in value.items() if key in keys}, store_id=store_id)

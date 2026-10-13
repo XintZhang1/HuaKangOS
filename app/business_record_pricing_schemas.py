@@ -1,4 +1,5 @@
 """Employee-confirmed price publications; model suggestions use the same units."""
+from typing import Literal
 from pydantic import Field, model_validator
 from .business_records_schemas import Strict, Command, Money, Key, GiftSelection
 
@@ -53,6 +54,7 @@ class GiftPriceInput(Strict):
 
 
 class VehiclePriceImport(Command):
+    sales_channel: Literal['retail', 'wholesale'] = 'retail'
     version: int = Field(ge=0, strict=True)
     brand_version: int = Field(ge=0, strict=True)
     brand: str = Field(min_length=1, max_length=100)
@@ -68,6 +70,7 @@ class VehiclePriceImport(Command):
 
 
 class GiftPolicyCheck(Strict):
+    sales_channel: Literal['retail', 'wholesale'] = 'retail'
     vehicle_price_id: Key
     gift_items: list[GiftSelection] = Field(default_factory=list, max_length=100)
     contract_id: Key | None = None

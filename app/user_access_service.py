@@ -20,6 +20,8 @@ def change_access(db, principal, target_id, body, account_info, assign_stores, *
     if not scoped and not store_admin_service.is_global_account_admin(principal):
         raise HTTPException(403, '当前岗位没有员工账号维护权限')
     values = body.model_dump(exclude={'request_id'}, mode='json')
+    if not values.get('handovers'):
+        values.pop('handovers', None)  # Preserve the digest of pre-handover restore requests.
     if action != 'update':
         values['account_action'] = action
     scope_id = getattr(principal, '_active_store_id', None) if scoped else 0
@@ -27,8 +29,9 @@ def change_access(db, principal, target_id, body, account_info, assign_stores, *
     try:
         # Lock administrator rows in a shared order: mutual revocations cannot
         # both act on an earlier permission snapshot or remove the final admin.
+        successor_ids = [item.successor_id for item in getattr(body, 'handovers', [])]
         locked = list(db.scalars(select(User).where(or_(User.role == 'admin',
-            User.id.in_([principal.id, target_id]))).order_by(User.id).with_for_update()
+            User.id.in_([principal.id, target_id, *successor_ids]))).order_by(User.id).with_for_update()
             .execution_options(populate_existing=True)))
         actor = next((u for u in locked if u.id == principal.id), None)
         if scoped:
@@ -55,6 +58,7 @@ def change_access(db, principal, target_id, body, account_info, assign_stores, *
             raise HTTPException(404, '用户不存在')
         if target.access_version != body.access_version:
             raise HTTPException(409, CONFLICT)
+        handover_plan = []
         if action == 'update':
             if target.archived_at is not None:
                 raise HTTPException(409, '员工已删除，请先恢复后再修改账号')
@@ -64,9 +68,10 @@ def change_access(db, principal, target_id, body, account_info, assign_stores, *
                 # deputy job in this store. Both parts of their authority survive.
                 selected = next((m.role for m in body.store_roles or []
                     if m.store_id == getattr(principal, '_active_store_id', None)), None)
-                loses_deputy = actor.role != 'admin' and (
-                    body.role != actor.role or (body.store_roles is not None and selected != 'group_deputy_manager')
-                    or (body.store_ids is not None and getattr(principal, '_active_store_id', None) not in body.store_ids))
+                loses_deputy = actor.role != 'admin' and (body.role != actor.role or
+                    (actor.role != 'group_deputy_manager' and (
+                        (body.store_roles is not None and selected != 'group_deputy_manager')
+                        or (body.store_ids is not None and getattr(principal, '_active_store_id', None) not in body.store_ids))))
                 if not body.active or (actor.role == 'admin' and body.role != 'admin') or loses_deputy:
                     raise HTTPException(409, '不能降权或停用当前管理员自身')
             changes = body.model_dump(exclude={'store_ids', 'store_roles', 'access_version', 'request_id'},
@@ -81,6 +86,11 @@ def change_access(db, principal, target_id, body, account_info, assign_stores, *
                 raise HTTPException(409, '员工状态已变化，请刷新员工列表后核对')
             changes = {'active': False, 'archived_at': utcnow() if action == 'archive' else None}
             removes_admin = True
+            if action == 'archive':
+                from .employee_handover import prepare
+                handover_plan = prepare(db, principal, target, body, locked)
+            elif body.handovers:
+                raise HTTPException(422, '恢复账号不能撤销或改写已完成交接')
         if target.role == 'admin' and target.active and removes_admin:
             if sum(u.active and u.role == 'admin' and u.id != target.id for u in locked) < 1:
                 raise HTTPException(409, '至少保留一名启用的系统管理员')
@@ -97,13 +107,18 @@ def change_access(db, principal, target_id, body, account_info, assign_stores, *
             assign_stores(db, target, body.store_ids, body.store_roles, previous_role=before['account_role'])
         elif action == 'update' and body.role != before['account_role']:
             assign_stores(db, target, before['store_ids'], previous_role=before['account_role'])
-        if target.role != 'admin' and target.active and not db.scalar(select(UserStore.user_id)
+        if target.role not in {'admin','group_deputy_manager'} and target.active and not db.scalar(select(UserStore.user_id)
             .join(Store, Store.id == UserStore.store_id).where(UserStore.user_id == target.id,
                 Store.active.is_(True)).limit(1)):
             raise HTTPException(422, '启用的非管理员账号至少分配一家在用门店及对应岗位')
         db.execute(delete(LoginSession).where(LoginSession.user_id == target.id))
         db.flush()
         after = account_info(db, target)
+        if handover_plan:
+            from .employee_handover import plan_digest
+            after['handover_digest'] = plan_digest(handover_plan)
+            after['handover_summary'] = [{'store_id': entry['store_id'], 'successor_id': entry['successor_id'],
+                'customer_count': len(entry['customers']), 'contract_count': len(entry['contracts'])} for entry in handover_plan]
         family = 'store_account' if scoped else 'users'
         audit_action = {'update': 'update_user', 'archive': 'archive_user', 'restore': 'restore_user'}[action]
         reason = ('核对本店账号授权版本后修改；原登录会话全部失效' if scoped else
@@ -132,6 +147,10 @@ def change_access(db, principal, target_id, body, account_info, assign_stores, *
         if settings.assistant_runtime_enabled:
             from .assistant_runtime_access_signals import emit_user_access_changed
             emit_user_access_changed(db, receipt)
+        if handover_plan:
+            from .employee_handover import store_plan
+            db.flush()
+            store_plan(db, target.id, receipt.id, handover_plan)
         db.commit()
         return after
     except HTTPException:

@@ -1,7 +1,8 @@
 """Fill the approved two-page sales contract without rewriting its legal terms.
 
-Only an approval snapshot is accepted by the HTTP caller. Bytes are deterministic
-for the same snapshot and template. No files or customer content are persisted.
+Only an approval snapshot is accepted by the HTTP caller. New paid accessories
+append a separate sheet. Bytes are deterministic for the same snapshot and
+template. No files or customer content are persisted.
 """
 from datetime import date
 from decimal import Decimal
@@ -119,6 +120,77 @@ def validate_contract_print_data(data):
     render_contract_pdf(snapshot)
 
 
+def _accessory_attachment(data):
+    """Print only frozen customer prices; internal costs never enter this sheet."""
+    submission = (data.get('terms') or {}).get('submission_data') or {}
+    items = submission.get('accessory_snapshot') or []
+    if not items:
+        return None
+    if not isinstance(items, list):
+        raise ValueError('有偿精品快照格式不正确。')
+    rows, total = [], 0
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError('有偿精品快照格式不正确。')
+        quantity, unit_price, amount = (item.get(key) for key in ('quantity', 'unit_price_cents', 'amount_cents'))
+        if (any(not isinstance(value, int) or isinstance(value, bool) for value in (quantity, unit_price, amount))
+                or quantity < 1 or unit_price < 0 or amount != quantity * unit_price):
+            raise ValueError('有偿精品数量或售价快照不正确。')
+        name = _text(item.get('name')).strip()
+        if not name:
+            raise ValueError('有偿精品名称快照不能为空。')
+        rows.append((name, str(quantity), format(Decimal(unit_price) / 100, '.2f'),
+                     format(Decimal(amount) / 100, '.2f')))
+        total += amount
+    if submission.get('accessory_total_cents') != total:
+        raise ValueError('有偿精品合计快照不一致。')
+    stream = BytesIO()
+    canvas = Canvas(stream, pagesize=(595.276, 841.89), invariant=1, pageCompression=1)
+    page_number = 0
+    def heading():
+        nonlocal page_number
+        page_number += 1
+        canvas.setFont(FONT, 16)
+        canvas.drawCentredString(297.638, 795, '汽车销售合约书附件 · 有偿精品')
+        canvas.setFont(FONT, 9)
+        canvas.drawString(36, 770, '合同号：' + _text(data.get('number')))
+        canvas.drawString(36, 752, '买方：' + _text(data.get('customer_name')))
+        canvas.drawRightString(559, 752, '附件第 ' + str(page_number) + ' 页')
+        canvas.drawString(36, 731, '以下为客户另行购买的精品，不计入合同纯车售价。')
+        canvas.setFont(FONT, 10)
+        for title, x in (('项目', 42), ('数量', 304), ('单价（元）', 355), ('金额（元）', 460)):
+            canvas.drawString(x, 706, title)
+        canvas.line(36, 696, 559, 696)
+        return 684
+    y = heading()
+    for name, quantity, unit_price, amount in rows:
+        lines = _lines(name, 245, 10)
+        height = max(26, len(lines) * 14 + 12)
+        if height > 570:
+            raise ValueError('有偿精品名称超出可打印区域。')
+        if y - height < 72:
+            canvas.showPage()
+            y = heading()
+        canvas.setFont(FONT, 10)
+        for index, line in enumerate(lines):
+            canvas.drawString(42, y - 10 - index * 14, line)
+        for value, x in ((quantity, 329), (unit_price, 438), (amount, 553)):
+            canvas.drawRightString(x, y - 10, value)
+        y -= height
+        canvas.line(36, y, 559, y)
+    if y < 132:
+        canvas.showPage()
+        y = heading()
+    canvas.setFont(FONT, 11)
+    canvas.drawRightString(553, y - 26, '精品合计：' + format(Decimal(total) / 100, '.2f') + ' 元')
+    canvas.setFont(FONT, 10)
+    canvas.drawString(42, y - 66, '买方签字：________________')
+    canvas.drawString(325, y - 66, '卖方签字：________________')
+    canvas.showPage()
+    canvas.save()
+    return stream.getvalue()
+
+
 def render_contract_pdf(data: dict) -> bytes:
     if not isinstance(data, dict) or data.get('template_version') != TEMPLATE_VERSION:
         raise ValueError('该合同绑定的模板版本不可用，请保留原审批记录并联系管理员。')
@@ -128,6 +200,7 @@ def render_contract_pdf(data: dict) -> bytes:
     form = data.get('form_data') or {}
     if not isinstance(form, dict):
         raise ValueError('合同填写快照格式不正确。')
+    accessory_attachment = _accessory_attachment(data)
     stream = BytesIO()
     canvas = Canvas(stream, pagesize=(595.276, 841.89), invariant=1, pageCompression=1)
     canvas.setTitle('汽车销售合约书')
@@ -203,6 +276,13 @@ def render_contract_pdf(data: dict) -> bytes:
             canvas.line(195, 425, 200, 430)
 
     other = []
+    if form.get('standard_benefits_version') == '1':
+        if form.get('first_service_count') == '1':
+            other.append('首次保养免费赠送1次')
+        if form.get('nps_participation') == '1':
+            other.append('参与NPS调研，赠送保养1次')
+    if accessory_attachment:
+        other.append('有偿精品项目及售价详见本合同附件')
     if form.get('payment_method') == '贷款' and form.get('down_payment') not in (None, ''):
         other.append('分期首付：' + format(_amount(form['down_payment']), '.2f') + '元')
     if data.get('gift_description'):
@@ -242,6 +322,9 @@ def render_contract_pdf(data: dict) -> bytes:
     writer = PdfWriter()
     writer.add_page(original.pages[0])
     writer.add_page(original.pages[1])
+    if accessory_attachment:
+        for page in PdfReader(BytesIO(accessory_attachment)).pages:
+            writer.add_page(page)
     writer.add_metadata({'/Title': '汽车销售合约书', '/Author': 'HuaKangOS',
                          '/Subject': TEMPLATE_VERSION, '/Creator': 'HuaKangOS'})
     result = BytesIO()

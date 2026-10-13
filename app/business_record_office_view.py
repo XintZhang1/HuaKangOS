@@ -10,7 +10,7 @@ their sensitive-field filter for callers without financial-read access.
 import re
 
 from .business_record_reports import CATALOG_BY_KEY
-from .business_record_report_specs import SENSITIVE_REPORT_TERMS
+from .business_record_report_specs import SENSITIVE_REPORT_TERMS, report_display_label
 
 
 def office_review_view(source, can_view_sensitive):
@@ -20,7 +20,7 @@ def office_review_view(source, can_view_sensitive):
         data = dict(source)
     else:
         columns = [column for column in columns
-                   if not any(term in column['label'] for term in SENSITIVE_REPORT_TERMS)
+                   if not any(term in report_display_label(column['label']) for term in SENSITIVE_REPORT_TERMS)
                    and not re.fullmatch(r'(补充)?列\s*\d+', column['label'])]
         # Free-text notes can contain cost/profit details and cannot be safely
         # filtered by keywords. Only the explicitly public summary is returned.
@@ -31,7 +31,7 @@ def office_review_view(source, can_view_sensitive):
     data['values'] = {key: value for key, value in source.get('values', {}).items()
                       if key in allowed}
     data['report_title'] = definition.get('title', '车辆明细表')
-    data['columns'] = [{key: column[key] for key in ('key', 'label', 'type', 'unit')
-                        if key in column} for column in columns]
+    data['columns'] = [{key: report_display_label(column[key]) if key == 'label' else column[key]
+                        for key in ('key', 'label', 'type', 'unit') if key in column} for column in columns]
     data['sensitive_fields_hidden'] = not can_view_sensitive
     return data

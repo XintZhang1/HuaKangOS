@@ -93,7 +93,7 @@ class API:
 
     def contract(self,name,approved=True):
         catalog=self.call('sales','GET','/pricing/catalog')
-        body=command(customer_name=name,customer_phone='13800009999',brand='合成品牌',model='合成系列 合成配置',vin='SYNTH-'+uuid.uuid4().hex[:12],salesperson_id=self.users['sales']['id'],contract_date=date(2026,10,12).isoformat(),sale_price_cents=11000000,vehicle_price_id=catalog['vehicles'][0]['id'],gift_items=[],form_data={'seller_name':'合成卖方','exterior_color':'白','interior_color':'黑','deposit':'0'},submission_data={'payment_method':'全款'})
+        body=command(customer_name=name,customer_phone='13800009999',brand='合成品牌',model='合成系列 合成配置',vin='SYNTH-'+uuid.uuid4().hex[:12],salesperson_id=self.users['sales']['id'],contract_date=date(2026,10,12).isoformat(),sale_price_cents=11000000,vehicle_price_id=catalog['vehicles'][0]['id'],gift_items=[],form_data={'seller_name':'合成卖方','exterior_color':'白','interior_color':'黑','deposit':'2000'},submission_data={'payment_method':'全款'})
         row=self.call('sales','POST','/contracts',201,json=body)
         if approved:
             row=self.call('manager','POST',f'/contracts/{row["id"]}/manager-approve',json=command(version=row['version']))

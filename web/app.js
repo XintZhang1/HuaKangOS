@@ -406,7 +406,7 @@ async function usersPage(){
  const tools=b('open','刷新员工列表','data-route="users"')+b('archivedusers',state.accountsArchived?'返回员工列表':'已删除员工')+(!state.accountsArchived&&caps.batch&&typeof staffBatchButton==='function'?staffBatchButton():'')+(!state.accountsArchived&&caps.create?b('newuser','新增员工','','primary'):'');
  const currentStore=state.accountData.stores.find(s=>String(s.id)===String(state.store));
  const headers=['员工','登录账号','本店岗位','所属门店',...(!local?['集团汇总']:[]),'状态','操作'];
- const rows=d.items.map(r=>[E(r.display_name),E(r.username),E(r.current_store_role_label||roleNames[accountLocalRole(r)]),E(currentStore?.name||'当前门店'),...(!local?[r.can_group_summary?'已授权':'未授权']:[]),pill(r.active?'done':'cancelled',r.archived_at?'已删除':r.active?'启用':'停用'),`<div class="row">${accountCanEdit(r)?b('edituser','编辑',`data-id="${r.id}"`):''}${accountCanReset(r)?b('resetpassword','重置密码',`data-id="${r.id}"`):''}${accountCanArchive(r)?b('archiveuser','删除员工',`data-id="${r.id}"`,'danger'):''}${accountCanRestore(r)?b('restoreuser','恢复员工',`data-id="${r.id}"`):''}${!accountCanEdit(r)&&!accountCanReset(r)&&!accountCanArchive(r)&&!accountCanRestore(r)?'仅可查看':''}</div>`]);
+ const rows=d.items.map(r=>[E(r.display_name),E(r.username),E(r.current_store_role_label||roleNames[accountLocalRole(r)]),E(currentStore?.name||'当前门店'),...(!local?[(r.effective_can_group_summary??r.can_group_summary)?'已授权':'未授权']:[]),pill(r.active?'done':'cancelled',r.archived_at?'已删除':r.active?'启用':'停用'),`<div class="row">${accountCanEdit(r)?b('edituser','编辑',`data-id="${r.id}"`):''}${accountCanReset(r)?b('resetpassword','重置密码',`data-id="${r.id}"`):''}${accountCanArchive(r)?b('archiveuser','删除员工',`data-id="${r.id}"`,'danger'):''}${accountCanRestore(r)?b('restoreuser','恢复员工',`data-id="${r.id}"`):''}${!accountCanEdit(r)&&!accountCanReset(r)&&!accountCanArchive(r)&&!accountCanRestore(r)?'仅可查看':''}</div>`]);
  return heading(state.accountsArchived?'已删除员工':'本店员工账号',state.accountsArchived?'删除后保留历史业务记录；恢复后请核对岗位，再编辑启用。':local?'维护仅授权本店的销售、销售经理、销售内勤和收银账号。管理岗位及跨店账号由系统管理员或集团副总经理维护。':'仅显示当前门店获授权的账号及本店岗位。',tools)+`<section class="panel">${table(headers,rows)}</section>`;
 }
 async function userDialog(id){
@@ -424,13 +424,16 @@ async function userDialog(id){
   const fd=new FormData(form),preserved=local?[]:stores.filter(s=>!s.active&&(row?.store_ids||[]).includes(s.id)),ids=local?[caps.store_id]:[...fd.getAll('store_ids').map(Number),...preserved.map(s=>s.id)],storeAdmin=v.role==='store_admin';
   if(storeAdmin&&ids.length!==1)throw new Error('门店管理员账号只能选择一家门店。');
   const role=local&&row&&v.role===initial.role?row.role:v.role;
-  return api('/api/users'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:{...v,role,...(local||storeAdmin?{can_group_summary:false}:{}),...(row?{access_version:row.access_version,request_id:editRequest}:{}),store_ids:v.role==='admin'?[]:ids,store_roles:v.role==='admin'?[]:ids.map(id=>({store_id:id,role:preserved.some(s=>s.id===id)?row.store_roles.find(s=>s.store_id===id).role:local||storeAdmin?v.role:fd.get('store_role_'+id)}))}});
- },{extra:checks,notice:(local?'本次账号仅授权当前门店，不授予集团汇总或其他门店权限。':'非系统管理员至少选择一家门店及对应岗位。集团汇总仅包含获授权门店，办理业务需切回具体门店。')+'变更授权后原登录会话失效；他人修改后须关闭窗口、刷新员工列表再核对。'});
+  const automatic=role==='group_deputy_manager',store_ids=automatic?(row?.store_ids||[]):role==='admin'?[]:ids;
+  const store_roles=automatic?(row?.store_roles||[]).map(s=>({store_id:s.store_id,role:s.role})):role==='admin'?[]:ids.map(id=>({store_id:id,role:preserved.some(s=>s.id===id)?row.store_roles.find(s=>s.store_id===id).role:local||storeAdmin?v.role:fd.get('store_role_'+id)}));
+  return api('/api/users'+(row?'/'+row.id:''),{method:row?'PUT':'POST',body:{...v,role,...(local||storeAdmin?{can_group_summary:false}:automatic?{can_group_summary:!!row?.can_group_summary}:{}),...(row?{access_version:row.access_version,request_id:editRequest}:{}),store_ids,store_roles}});
+ },{extra:checks,notice:(local?'本次账号仅授权当前门店，不授予集团汇总或其他门店权限。':'集团副总经理自动覆盖全部启用门店及集团汇总，按副总经理岗位办理业务；其他普通账号至少选择一家门店及对应岗位。')+'变更授权后原登录会话失效；他人修改后须关闭窗口、刷新员工列表再核对。'});
  if(!local){
   const form=$('form',dialog),role=form.elements.role,summary=form.elements.can_group_summary,assignments=[...form.querySelectorAll('[name^="store_role_"]')],choices=[...form.querySelectorAll('[name="store_ids"]')];
   const help=document.createElement('p');help.className='fieldhelp';help.textContent='门店管理员使用独立账号，只能授权一家门店，门店岗位固定为门店管理员，不授予集团汇总。';form.querySelector('.store-role-list').after(help);
   const configure=()=>{
-   const special=role.value==='store_admin';help.hidden=!special;summary.disabled=special;if(special)summary.checked=false;
+   const special=role.value==='store_admin',automatic=role.value==='group_deputy_manager';help.hidden=!special&&!automatic;help.textContent=automatic?'集团副总经理自动拥有全部启用门店和集团汇总，新增门店也自动覆盖；原门店授权留存。':'门店管理员使用独立账号，只能授权一家门店，门店岗位固定为门店管理员，不授予集团汇总。';summary.disabled=special||automatic;if(special)summary.checked=false;else if(automatic)summary.checked=true;
+   form.querySelector('.store-role-list').hidden=automatic;
    for(const select of assignments){
     if(select.dataset.preserved==='true')continue;
     if(special){if(select.value!=='store_admin')select.dataset.previousRole=select.value;select.innerHTML='<option value="store_admin">门店管理员</option>';}
@@ -452,10 +455,17 @@ async function accountArchiveDialog(id,restore=false){
  const row=state.rows.find(r=>r.id===id),allowed=restore?accountCanRestore(row):accountCanArchive(row);
  if(!allowed)throw new Error('当前账号不可办理，请刷新员工列表后核对。');
  const request_id=requestKey(),store=String(state.store),context=storeContextVersion;
- await formDialog(restore?'恢复员工':'删除员工',[F('reason',restore?'恢复原因':'删除原因','textarea')],{},v=>{
+ const preview=restore?null:await api('/api/users/'+id+'/handover-preview');
+ if(context!==storeContextVersion||store!==String(state.store))throw new Error('门店已变化，请重新核对员工。');
+ if(preview&&preview.access_version!==row.access_version)throw new Error('员工授权已变化，请刷新员工列表后重新核对。');
+ if(preview&&(!preview.stores.length||preview.stores.some(s=>!s.candidates.length)))throw new Error('请先为每家授权门店准备一位相同岗位的在用接手人，再办理员工交接。');
+ const fields=[...(preview?.stores||[]).map(s=>F('successor_'+s.store_id,s.store_name+' · '+(roleNames[s.role]||s.role)+'接手人','select',true,[{value:'',label:'请选择接手人'},...s.candidates.map(p=>({value:String(p.id),label:p.display_name+'（'+p.username+'）'}))])),F('reason',restore?'恢复原因':'交接及删除原因','textarea')];
+ const extra=preview?`<div class="notice">${preview.stores.map(s=>`${E(s.store_name)}${s.active?'':'（已停用）'}：客户 ${s.customer_count} 位，合同 ${s.contract_count} 份，其中待办合同 ${s.pending_contract_count} 份。`).join('<br>')}</div>`:'';
+ await formDialog(restore?'恢复员工':'交接并删除员工',fields,{},v=>{
   if(context!==storeContextVersion||store!==String(state.store))throw new Error('门店已变化，请重新核对员工。');
-  return api('/api/users/'+id+(restore?'/restore':'/archive'),{method:'POST',body:{...v,access_version:row.access_version,request_id}});
- },{notice:restore?`恢复“${row.display_name}”（${row.username}）后仍为停用状态，请核对授权再编辑启用。`:`确认删除“${row.display_name}”（${row.username}）？该账号将立即停用并退出登录，历史业务与门店授权保留，可在“已删除员工”中恢复。`,warn:!restore,submit:restore?'确认恢复':'确认删除',success:restore?'员工已恢复，请返回员工列表核对并启用。':'员工已删除，历史业务记录保留。'});
+  const handovers=(preview?.stores||[]).map(s=>{const person=s.candidates.find(p=>String(p.id)===String(v['successor_'+s.store_id]));if(!person)throw new Error('请为每家门店选择接手人。');return {store_id:s.store_id,successor_id:person.id,successor_access_version:person.access_version};});
+  return api('/api/users/'+id+(restore?'/restore':'/archive'),{method:'POST',body:{reason:v.reason,access_version:row.access_version,request_id,...(!restore?{handovers}:{})}});
+ },{extra,notice:restore?`恢复“${row.display_name}”（${row.username}）后仍为停用状态，请核对授权再编辑启用。已交接的客户和待办不会自动转回。`:`逐店为“${row.display_name}”（${row.username}）指定接手人。接手人可以查看原记录、继续办理同店客户和未完成合同；原审批人和历史业绩不变。确认后原账号立即停用并退出登录，仍可恢复。`,warn:!restore,submit:restore?'确认恢复':'确认交接并删除',success:restore?'员工已恢复，请返回员工列表核对并启用。':'员工已交接并删除，原审批记录和历史业绩保留。'});
 }
 async function storesPage(){if(!state.user.can_manage_stores)throw new Error('当前岗位没有门店设置权限。');const d=await api('/api/stores');state.rows=d.items;return heading('门店设置','每店设置一个品牌；同品牌门店共用车系车型、精品赠品和限价目录。',b('newstore','新增门店','','primary'))+`<section class="panel">${table(['门店','门店编码','品牌','状态','操作'],d.items.map(r=>[E(r.name),E(r.code),E(r.brand||'未设置'),pill(r.active?'done':'cancelled',r.active?'启用':'停用'),b('editstore','编辑',`data-id="${r.id}"`)]))}</section>`;}
 async function storeDialog(id){

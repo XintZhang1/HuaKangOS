@@ -18,8 +18,13 @@ OPERATING_REPORTS = frozenset({'operating_sales', 'operating_extensions', 'opera
 # Read access applies only within the existing current-store/aggregate scope.
 # General managers need the complete valuation to review office submissions.
 SENSITIVE_REPORT_ROLES = frozenset({'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'})
-DASHBOARD_ROLES = frozenset({'admin', 'chairman', 'group_deputy_manager'})
-SENSITIVE_REPORT_TERMS = ('成本', '毛利', '利润', '返佣', '返利', '收益', '净利', '提车价', '折让', '贴息', '支出')
+DASHBOARD_ROLES = frozenset({'admin', 'chairman', 'group_deputy_manager', 'general_manager'})
+SENSITIVE_REPORT_TERMS = ('成本', '毛利', '利润', '返佣', '佣金', '返利', '收益', '净利', '提车价', '折让', '贴息', '支出')
+
+
+def report_display_label(label):
+    """New display wording leaves the original sheet keys/formulas intact."""
+    return '贴膜改装店佣金' if label == '贴膜收入' else label
 
 
 def can_view_dashboard(user):
@@ -172,7 +177,11 @@ def configure_catalog(catalog):
             ('insurance_commission', '保险返佣', 'money', '元'),
             ('warranty_commission', '延保返佣', 'money', '元'),
             ('trade_in_commission', '二手车返佣', 'money', '元'),
-            ('bank_commission', '银行返佣', 'money', '元')]),
+            ('bank_commission', '银行返佣', 'money', '元'),
+            ('decoration_commission', '贴膜改装店佣金', 'money', '元'),
+            ('accessory_sales_income', '店内精品销售收入', 'money', '元'),
+            ('accessory_sales_cost', '店内精品销售成本', 'money', '元'),
+            ('accessory_sales_profit', '店内精品销售毛利', 'money', '元')]),
     }
     for key, (title, default, fields) in operating.items():
         metrics = [{'key': name, 'label': label, 'type': kind, 'unit': unit,
@@ -182,7 +191,7 @@ def configure_catalog(catalog):
             'metrics': [field for field in metrics if field['type'] != 'text'],
             'detail_fields': [field for field in metrics if field['type'] == 'text'],
             'unit': '', 'default_metric': default,
-            'definition_version': 'v214-operating-approved', 'empty_is_zero': key == 'operating_sales',
+            'definition_version': 'v217-operating-accessory-sales' if key == 'operating_profit' else 'v214-operating-approved', 'empty_is_zero': key == 'operating_sales',
             'grouping_fields': [dict(field) for field in metrics if field['type'] == 'text'],
             'aggregation_rules': {name + '_rate': {'kind': 'ratio', 'numerator': name + '_vehicles',
                 'denominator': 'deliveries', 'scale': 100}

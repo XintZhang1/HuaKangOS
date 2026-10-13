@@ -52,6 +52,8 @@ COMMITMENT_HINT = ('服务器已记录{reason}（被挡记录 {refusal_id}）。
 # accounts/credentials, store and legal-entity configuration, parameter rules, finding review,
 # daily-report generation and the arbitrary legacy record CRUD.
 CLASSIFIED_BLOCKED_WRITES = frozenset({
+    'POST /api/business-records/wholesale-channels',
+    'PUT /api/business-records/wholesale-channels/{key}',
     'POST /api/business-records/contracts/{key}/price-review',
     'POST /api/business-records/contracts/{key}/approve',
     'POST /api/business-records/contracts/{key}/reject',

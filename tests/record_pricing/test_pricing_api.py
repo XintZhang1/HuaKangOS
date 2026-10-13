@@ -45,7 +45,7 @@ class Fixture:
             response = client.post('/api/auth/login', json={'username': 'synthetic_' + role, 'password': self.password})
             assert response.status_code == 200, response.text
             client.headers['X-CSRF-Token'] = client.cookies['dealer_csrf']
-            client.headers['X-Store-ID'] = '2' if role == 'other_manager' else '3' if role == 'third_manager' else '1'
+            client.headers['X-Store-ID'] = '2' if role in {'other_manager', 'other_general_manager'} else '3' if role == 'third_manager' else '1'
             self.clients[role] = client
         return self.clients[role]
 
@@ -54,15 +54,15 @@ class Fixture:
         assert response.status_code == expected, response.text
         return response.json()
 
-    def catalog(self, role='manager'):
-        return self.call(role, 'GET', '/pricing/catalog')
+    def catalog(self, role='manager', channel='retail'):
+        return self.call(role, 'GET', '/pricing/catalog?sales_channel=' + channel)
 
-    def upload(self, role='manager', kind='vehicle', filename='synthetic.xlsx', content=None, expected=201):
+    def upload(self, role='general_manager', kind='vehicle', filename='synthetic.xlsx', content=None, expected=201, channel='retail'):
         return self.call(role, 'POST', '/pricing/uploads', expected,
-            data=command(kind=kind), files={'file': (filename, vehicle_xlsx() if content is None else content)})
+            data=command(kind=kind, sales_channel=channel), files={'file': (filename, vehicle_xlsx() if content is None else content)})
 
     def publish(self, role, kind, uploaded, rows, expected=201, **changes):
-        current = self.catalog(role)
+        current = self.catalog(role, changes.get('sales_channel', 'retail'))
         # The preview's display-only source label is omitted by the real form;
         # source_ref remains part of the saved gift provenance.
         rows = [{key: value for key, value in row.items() if key != 'source'} for row in rows]
@@ -83,7 +83,7 @@ class Fixture:
         self.publish('general_manager', 'gift', gifts, preview['rows'])
         configured = [{'price_id': item['id'], 'quantity': 1} for item in self.catalog()['gifts'][:2]]
         vehicle = self.upload()
-        self.publish('manager', 'vehicle', vehicle, [{**VEHICLE_ROW,
+        self.publish('general_manager', 'vehicle', vehicle, [{**VEHICLE_ROW,
             'gift_policy': {**VEHICLE_ROW['gift_policy'], 'standard_gifts': configured}}])
         return self.catalog('sales')
 
@@ -92,7 +92,7 @@ class Fixture:
             vin='SYNTHETIC-' + uuid.uuid4().hex[:16], salesperson_id=4,
             contract_date=date(2026, 10, 12).isoformat(), sale_price_cents=11000000,
             vehicle_price_id=catalog['vehicles'][0]['id'], gift_items=selections,
-            form_data={'seller_name': '合成卖方', 'exterior_color': '白', 'interior_color': '黑', 'deposit': '0'},
+            form_data={'seller_name': '合成卖方', 'exterior_color': '白', 'interior_color': '黑', 'deposit': '2000'},
             submission_data={'payment_method': '全款'})
 
 
@@ -110,8 +110,11 @@ def fx(tmp_path, monkeypatch, login_secret):
         db.flush()
         roles = [('admin', 'admin', 1), ('manager', 'manager', 1),
             ('general_manager', 'general_manager', 1), ('sales', 'sales', 1),
-            ('sales_peer', 'sales', 1), ('other_manager', 'manager', 2), ('third_manager', 'manager', 3)]
+            ('sales_peer', 'sales', 1), ('other_manager', 'manager', 2), ('third_manager', 'manager', 3),
+            ('other_general_manager', 'general_manager', 2), ('deputy', 'group_deputy_manager', 1)]
         for ident, (name, role, store) in enumerate(roles, 1):
+            # Delivery fixtures reserve 8-11 for cashiers, clerk and store admin.
+            ident = {'other_general_manager': 20, 'deputy': 21}.get(name, ident)
             db.add(User(id=ident, username='synthetic_' + name, display_name='合成-' + name,
                 role=role, password_hash=password_hash, must_change_password=False, active=True))
             db.flush()
@@ -139,7 +142,8 @@ def test_invalid_vehicle_upload_is_rejected_without_persistence(fx, filename, co
 
 def test_upload_requires_writer_and_csrf(fx):
     fx.upload(role='sales', expected=403)
-    client = fx.client('manager')
+    fx.upload(role='manager', expected=403)
+    client = fx.client('general_manager')
     client.headers.pop('X-CSRF-Token')
     response = client.post(BASE + '/pricing/uploads', data=command(kind='vehicle'),
         files={'file': ('synthetic.xlsx', vehicle_xlsx())})
@@ -154,17 +158,18 @@ def test_vehicle_upload_failed_recognition_and_manual_publication(fx):
     assert uploaded['sha256'] == hashlib.sha256(vehicle_xlsx()).hexdigest()
     assert uploaded['available'] is True
     assert fx.catalog()['vehicles'] == []
-    failure = fx.call('manager', 'POST', f'/pricing/uploads/{uploaded["id"]}/recognize', 503,
+    failure = fx.call('general_manager', 'POST', f'/pricing/uploads/{uploaded["id"]}/recognize', 503,
         json=command(version=uploaded['version']))
     assert '原件已保存' in failure['detail']
     assert fx.catalog()['vehicles'] == []
-    fx.publish('manager', 'vehicle', uploaded, [VEHICLE_ROW], expected=422, policy_confirmed=False)
+    fx.publish('general_manager', 'vehicle', uploaded, [VEHICLE_ROW], expected=422, policy_confirmed=False)
     assert fx.catalog()['vehicles'] == []
-    fx.publish('manager', 'vehicle', uploaded, [VEHICLE_ROW])
+    fx.publish('general_manager', 'vehicle', uploaded, [VEHICLE_ROW])
     published = fx.catalog()
     row = published['vehicles'][0]
     assert row['control_price_cents'] == 10000000
-    assert row['gift_policy']['cost_limit_cents'] == 10000
+    assert 'cost_limit_cents' not in row['gift_policy']
+    assert fx.catalog('general_manager')['vehicles'][0]['gift_policy']['cost_limit_cents'] == 10000
     assert published['vehicle_batch_id'] is not None
     with fx.sessions() as db:
         assert db.scalar(select(func.count()).select_from(RecordPriceBatch)) == 1
@@ -173,8 +178,8 @@ def test_vehicle_upload_failed_recognition_and_manual_publication(fx):
 
 def test_only_uploader_can_publish_and_same_brand_catalog_is_shared(fx):
     uploaded = fx.upload()
-    fx.publish('general_manager', 'vehicle', uploaded, [VEHICLE_ROW], expected=403)
-    fx.publish('manager', 'vehicle', uploaded, [VEHICLE_ROW])
+    fx.publish('admin', 'vehicle', uploaded, [VEHICLE_ROW], expected=403)
+    fx.publish('general_manager', 'vehicle', uploaded, [VEHICLE_ROW])
     home, sibling, other = fx.catalog(), fx.catalog('other_manager'), fx.catalog('third_manager')
     assert home['vehicles'] == sibling['vehicles']
     assert home['vehicle_batch_id'] == sibling['vehicle_batch_id']
@@ -182,6 +187,10 @@ def test_only_uploader_can_publish_and_same_brand_catalog_is_shared(fx):
     fx.call('other_manager', 'POST', f'/pricing/uploads/{uploaded["id"]}/recognize', 404,
         json=command(version=uploaded['version']))
     fx.call('sales', 'GET', '/pricing/catalog', 403, headers={'X-Store-ID': '2'})
+    sibling_file = fx.upload('other_general_manager')
+    fx.publish('other_general_manager', 'vehicle', sibling_file, [{**VEHICLE_ROW, 'control_price_cents': 10500000}])
+    assert fx.catalog('general_manager')['vehicles'] == fx.catalog('other_general_manager')['vehicles']
+    assert fx.catalog()['vehicles'][0]['control_price_cents'] == 10500000
 
 
 def test_gift_csv_preview_actual_import_and_price_projection(fx):
@@ -194,7 +203,7 @@ def test_gift_csv_preview_actual_import_and_price_projection(fx):
     assert fx.catalog('sales')['gifts'] == []  # No model has an explicit gift configuration yet.
     configured = [{'price_id': item['id'], 'quantity': 1} for item in fx.catalog()['gifts'][:2]]
     vehicle = fx.upload()
-    fx.publish('manager', 'vehicle', vehicle, [{**VEHICLE_ROW,
+    fx.publish('general_manager', 'vehicle', vehicle, [{**VEHICLE_ROW,
         'gift_policy': {**VEHICLE_ROW['gift_policy'], 'standard_gifts': configured}}])
     sales, manager, gm = (fx.catalog(role) for role in ('sales', 'manager', 'general_manager'))
     assert len(sales['gifts']) == 2
@@ -210,10 +219,10 @@ def test_invalid_gift_preview_and_cost_permissions_do_not_publish(fx):
     bad = fx.upload('general_manager', 'gift', 'invalid.csv', '名称,成本\n合成错误,1.001\n'.encode())
     fx.call('general_manager', 'POST', f'/pricing/uploads/{bad["id"]}/recognize', 422,
         json=command(version=bad['version']))
-    restricted = fx.upload('manager', 'gift', 'synthetic.csv', gift_csv())
-    fx.call('manager', 'POST', f'/pricing/uploads/{restricted["id"]}/recognize', 403,
-        json=command(version=restricted['version']))
-    fx.publish('manager', 'gift', restricted, [{'name': '合成成本', 'unit_cost_cents': 1}], expected=403)
+    fx.upload('manager', 'gift', 'synthetic.csv', gift_csv(), expected=403)
+    fx.call('manager', 'POST', f'/pricing/uploads/{bad["id"]}/recognize', 403,
+        json=command(version=bad['version']))
+    fx.publish('manager', 'gift', bad, [{'name': '合成成本', 'unit_cost_cents': 1}], expected=403)
     assert fx.catalog()['gifts'] == []
 
 
@@ -235,11 +244,12 @@ def test_contract_gift_save_readback_remove_and_frozen_catalog(fx):
     assert saved['terms']['gift_policy_check']['status'] == 'exceeded'
     assert 'cost_limit_cents' not in saved['terms']['gift_policy_check']
     replacement = fx.upload()
-    fx.publish('manager', 'vehicle', replacement, [{**VEHICLE_ROW, 'control_price_cents': 11500000}])
+    fx.publish('general_manager', 'vehicle', replacement, [{**VEHICLE_ROW, 'control_price_cents': 11500000}])
     new_gifts = fx.upload('general_manager', 'gift', 'replacement.csv', '名称,成本,售价\n合成新赠品,1,2\n'.encode())
     fx.publish('general_manager', 'gift', new_gifts, [{'name': '合成新赠品', 'unit_cost_cents': 100, 'unit_price_cents': 200}])
     frozen = fx.call('sales', 'GET', f'/pricing/catalog?contract_id={key}')
-    assert frozen['vehicles'][0]['control_price_cents'] == 10000000
+    assert 'control_price_cents' not in frozen['vehicles'][0]
+    assert fx.call('general_manager', 'GET', f'/pricing/catalog?contract_id={key}')['vehicles'][0]['control_price_cents'] == 10000000
     assert [row['id'] for row in frozen['gifts']] == [row['id'] for row in catalog['gifts']]
     edit = {**body, **command(version=saved['version']), 'gift_items': choices[:1]}
     updated = fx.call('sales', 'PUT', f'/contracts/{key}', json=edit)
@@ -247,7 +257,8 @@ def test_contract_gift_save_readback_remove_and_frozen_catalog(fx):
     assert readback['terms']['gifts_snapshot'] == updated['terms']['gifts_snapshot']
     assert len(readback['terms']['gifts_snapshot']) == 1
     assert readback['terms']['special'] is False  # Removing a gift brings cost below budget.
-    assert readback['terms']['price_snapshot']['control_price_cents'] == 10000000
+    assert 'control_price_cents' not in readback['terms']['price_snapshot']
+    assert fx.call('general_manager', 'GET', f'/contracts/{key}')['terms']['price_snapshot']['control_price_cents'] == 10000000
     for role in ('sales_peer', 'other_manager', 'third_manager'):
         fx.call(role, 'GET', f'/contracts/{key}', 404)
         fx.call(role, 'GET', f'/pricing/catalog?contract_id={key}', 404)
@@ -257,3 +268,52 @@ def test_contract_gift_save_readback_remove_and_frozen_catalog(fx):
         terms = db.scalar(select(RecordContractTerms).where(RecordContractTerms.contract_id == key))
         assert terms.gift_cost_total_cents == 4000
         assert terms.gift_batch_id == catalog['gift_batch_id']
+
+
+def test_wholesale_price_approval_and_free_paid_accessories_stay_separate(fx):
+    retail = fx.prepared()
+    assert 'control_price_cents' not in retail['vehicles'][0]
+    assert all('unit_price_cents' not in item and 'unit_cost_cents' not in item for item in retail['gifts'])
+    paid = retail['accessories'][0]
+    assert paid['unit_price_cents'] == 6000 and 'unit_cost_cents' not in paid
+    body = fx.contract_body(retail, [{'price_id': paid['id'], 'quantity': 1}])
+    body['accessory_items'] = [{'price_id': paid['id'], 'quantity': 2}]
+    customer_order = fx.call('sales', 'POST', '/contracts', 201, json=body)
+    terms = customer_order['terms']
+    assert terms['special'] is False  # Only the free quantity consumes the gift allowance.
+    assert terms['submission_data']['accessory_total_cents'] == 12000
+    assert terms['submission_data']['accessory_snapshot'][0]['quantity'] == 2
+    assert 'cost_cents' not in terms['submission_data']['accessory_snapshot'][0]
+    with fx.sessions() as db:
+        stored = db.scalar(select(RecordContractTerms).where(RecordContractTerms.contract_id == customer_order['id']))
+        assert stored.gift_cost_total_cents == 4000 and stored.gift_total_cents == 6000
+        assert stored.submission_data['accessory_snapshot'][0]['cost_cents'] == 8000
+    upload = fx.upload(channel='wholesale')
+    fx.publish('general_manager', 'vehicle', upload, [{**VEHICLE_ROW, 'control_price_cents': 11500000,
+        'gift_policy': None}], sales_channel='wholesale')
+    wholesale = fx.catalog('manager', 'wholesale')
+    assert wholesale['vehicle_batch_id'] != retail['vehicle_batch_id']
+    assert fx.catalog()['vehicles'][0]['control_price_cents'] == 10000000
+    assert wholesale['vehicles'][0]['control_price_cents'] == 11500000
+    fx.call('sales', 'GET', '/pricing/catalog?sales_channel=wholesale', 403)
+    channel = fx.call('manager', 'POST', '/wholesale-channels', 201, json=command(name='合成二级渠道'))
+    order = fx.contract_body(wholesale, [])
+    order.update(salesperson_id=2, submission_data={'sales_channel': 'wholesale',
+        'wholesale_channel_id': channel['id'], 'payment_method': '全款'})
+    fx.call('manager', 'POST', '/contracts', 422,
+        json={**order, **command(), 'vehicle_price_id': retail['vehicles'][0]['id']})
+    opened = fx.call('manager', 'POST', '/contracts', 201, json=order)
+    assert opened['status'] == 'manager_approved' and opened['manager_approved_by'] is None
+    assert opened['terms']['submission_data']['wholesale_channel_name'] == '合成二级渠道'
+    assert opened['terms']['special'] is True
+    fx.call('manager', 'POST', f'/contracts/{opened["id"]}/approve', 403,
+        json=command(version=opened['version']))
+    reviewed = fx.call('general_manager', 'POST', f'/contracts/{opened["id"]}/approve',
+        json=command(version=opened['version'], note='合成低于二级限价核对'))
+    assert reviewed['status'] == 'deputy_pending' and reviewed['general_manager_approved_by'] == 3
+    fx.call('general_manager', 'POST', f'/contracts/{opened["id"]}/deputy-approve', 403,
+        json=command(version=reviewed['version']))
+    approved = fx.call('deputy', 'POST', f'/contracts/{opened["id"]}/deputy-approve',
+        json=command(version=reviewed['version'], note='合成特殊二级合同批准'))
+    assert approved['status'] == 'approved' and approved['deputy_approved_by'] == 21
+    assert approved['salesperson_id'] == 2 and approved['terms']['submission_data']['sales_channel'] == 'wholesale'

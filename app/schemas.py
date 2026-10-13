@@ -216,10 +216,17 @@ class ResetPasswordInput(Strict):
     reason: str = Field(min_length=3, max_length=1000)
 
 
+class EmployeeSuccessor(Strict):
+    store_id: int = Field(gt=0, strict=True)
+    successor_id: int = Field(gt=0, strict=True)
+    successor_access_version: int = Field(gt=0, strict=True)
+
+
 class UserArchiveInput(Strict):
     request_id: str = Field(min_length=8, max_length=80, pattern=r'^[A-Za-z0-9_-]+$')
     access_version: int = Field(gt=0, strict=True)
     reason: str = Field(min_length=3, max_length=1000)
+    handovers: list[EmployeeSuccessor] = Field(default_factory=list, max_length=200)
 
 
 class ReviewInput(Strict):

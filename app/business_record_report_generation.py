@@ -4,7 +4,8 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from types import SimpleNamespace
 from .business_record_report_specs import (
     VEHICLE_REPORTS, GROUPING_FIELDS, GENERATED_FIELDS, STOCK_FIELDS, RATIOS,
-    CONTRACT_REPORTS, AFTER_SALES_REPORTS, SHARED_FIELDS, TARGET_FIELDS, OPERATING_REPORTS)
+    CONTRACT_REPORTS, AFTER_SALES_REPORTS, SHARED_FIELDS, TARGET_FIELDS, OPERATING_REPORTS,
+    report_display_label)
 
 SERVICE_LABELS = {'repair': '维修', 'maintenance': '保养', 'accident': '事故维修',
     'renewal': '续保', 'extended_warranty': '延保', 'accessories': '精品销售'}
@@ -56,8 +57,14 @@ def operating_rows(key, contract, terms, delivery, returned, row, start, end):
             values[name + '_vehicles'] = ('1' if Decimal(str(count)) > 0 else '0') if count not in (None, '') else None
         source_label = '总经理批准的内勤延伸快照' if approved else '待审核'
     else:
+        from .business_record_profit import accessory_sales_profit
+        extension = approved.get('extension_data', {}) or {} if approved else {}
         values = {'value': money(approved.get('profit_cents')) if approved else None,
             'finance_amount': labels.get('核实放款金额'),
+            'decoration_commission': labels.get('贴膜收入'),
+            'accessory_sales_income': money(extension.get('accessory_sales_income_cents')),
+            'accessory_sales_cost': money(extension.get('accessory_sales_cost_cents')),
+            'accessory_sales_profit': money(accessory_sales_profit(extension)),
             **{name: labels.get(label) for name, label in (
                 ('insurance_commission', '保险返佣'), ('warranty_commission', '延保返佣'),
                 ('trade_in_commission', '二手车返佣'), ('bank_commission', '银行返佣'))}}
@@ -375,6 +382,10 @@ def group_identity(row, group_by, category_field):
         return ('brand', value), value
     if group_by == 'store':
         return ('store', row.get('store_id')), row.get('store') or '未指定门店'
+    if group_by == 'performance':
+        if row.get('sales_channel') == 'wholesale':
+            return ('wholesale', row.get('store_id'), row.get('wholesale_channel_id')), '批发渠道 · ' + (row.get('wholesale_channel_name') or '未填写渠道')
+        return ('retail', row.get('salesperson_id')), '展厅个人 · ' + (row.get('salesperson') or '未指定销售/经办人')
     if row.get('handler_name'):
         return ('handler', row.get('store_id'), row['handler_name']), f"{row['handler_name']} · {row.get('store', '')}"
     return ('salesperson', row.get('salesperson_id')), row.get('salesperson') or '未指定销售/经办人'
@@ -382,7 +393,7 @@ def group_identity(row, group_by, category_field):
 
 def project(definition, records, *, group_by, metric, updated_at=None, category_field='',
             category_value='', source_mode='combined', legacy_rows=None):
-    if group_by not in {'salesperson', 'store', 'brand', 'month', 'day', 'group', 'category'}:
+    if group_by not in {'salesperson', 'performance', 'store', 'brand', 'month', 'day', 'group', 'category'}:
         raise ValueError('不支持的报表分组。')
     fields = {column['key']: column for column in definition['metrics']}
     if metric not in fields:
@@ -393,6 +404,10 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
     if group_by == 'category' and not category_field:
         raise ValueError('请先选择用于分组的分类字段。')
     rows = [dict(row) for row in records if not category_value or str(row.get(category_field) or '') == category_value]
+    if group_by == 'salesperson':
+        # A wholesale handler is not the retail salesperson whose performance
+        # is ranked. Store/channel projections still retain the same facts.
+        rows = [row for row in rows if row.get('sales_channel') != 'wholesale']
     legacy = [dict(row) for row in (legacy_rows or [])
               if not category_value or str(row.get(category_field) or '') == category_value]
     grouped, labels = defaultdict(list), {}
@@ -400,7 +415,9 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
         identity, label = group_identity(row, group_by, category_field)
         grouped[identity].append(row)
         labels[identity] = label
-    summary = [aggregate_rows(values, definition, labels[key]) for key, values in grouped.items()]
+    summary = [{**aggregate_rows(values, definition, labels[key]),
+                **({'performance_group': key[0]} if group_by == 'performance' else {})}
+               for key, values in grouped.items()]
     grand = aggregate_rows(rows, definition, '合计（当前授权范围）')
     # Contribution ratios use the same authorized, filtered denominator as totals.
     contribution = {'model_profit': ('c06', 'c04'), 'model_profit_sheet5': ('c05', 'c03'),
@@ -423,9 +440,11 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
     common = [{'key': key, 'label': label, 'type': kind, 'unit': '', 'precision': None}
               for key, label, kind in (('period', '统计日期', 'date'), ('store', '门店', 'text'),
               ('brand', '品牌', 'text'), ('salesperson', '销售/经办人', 'text'),
+              ('sales_channel_label', '销售渠道类型', 'text'), ('wholesale_channel_name', '批发渠道', 'text'),
               ('number', '合同号/记录号', 'text'), ('source_label', '数据来源', 'text'), ('note', '备注', 'text'))]
     common += definition.get('detail_fields', [])
-    value_columns = definition['columns'] if definition['source'] == 'manual' else definition['metrics']
+    value_columns = [{**column, 'label': report_display_label(column['label'])}
+                     for column in (definition['columns'] if definition['source'] == 'manual' else definition['metrics'])]
     summary_columns = [{'key': 'label', 'label': '分组', 'type': 'text', 'precision': None, 'unit': ''}] + value_columns
     notice = ('累计快照每月每维度取最新，单笔记录累加；库存取截至日最后快照。'
         '比例和单价仅在分子分母明确时重算，无法汇总或分母为零保留为空。'
@@ -558,6 +577,12 @@ def _in_period(period, start, end):
 
 
 def _overlap(manual, automatic, definition, include_categories=True):
+    # A retail final value cannot supersede explicitly attributed wholesale
+    # facts. Historical rows without a channel keep their existing retail scope.
+    if manual.get('sales_channel', 'retail') != automatic.get('sales_channel', 'retail'):
+        return False
+    if manual.get('sales_channel') == 'wholesale' and manual.get('wholesale_channel_id') != automatic.get('wholesale_channel_id'):
+        return False
     if str(manual.get('period'))[:7] != str(automatic.get('period'))[:7]:
         return False
     for key in ('store_id', 'brand', 'salesperson_id'):
@@ -694,8 +719,15 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     updated += [str(item.created_at.isoformat()) for item in receipts.values() if item.created_at]
     def base(item):
         owner = getattr(item, 'salesperson_id', getattr(item, 'owner_id', None))
+        term = terms.get(item.id if isinstance(item, SalesContract) else getattr(item, 'contract_id', None))
+        submission = term.submission_data or {} if term else {}
+        wholesale = submission.get('sales_channel') == 'wholesale'
         return {'id': item.id, 'store_id': item.store_id, 'store': stores.get(item.store_id, str(item.store_id)),
             'brand': item.brand, 'salesperson_id': owner, 'salesperson': names.get(owner, '未指定销售/经办人'),
+            'sales_channel': 'wholesale' if wholesale else 'retail',
+            'sales_channel_label': '批发渠道' if wholesale else '展厅个人',
+            'wholesale_channel_id': submission.get('wholesale_channel_id') if wholesale else None,
+            'wholesale_channel_name': submission.get('wholesale_channel_name', '') if wholesale else '',
             'number': getattr(item, 'number', str(item.id)), 'customer_name': getattr(item, 'customer_name', '')}
     def manual_row(item):
         values = dict(item.values)
@@ -746,6 +778,8 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         performance = (SimpleNamespace(received_on=delivery.accounting_on,
             actual_amount_cents=contract.sale_price_cents) if delivery else None) if v210 else receipt
         row = base(contract)
+        if salesperson_id is not None and row['sales_channel'] == 'wholesale':
+            continue
         row.update(contract_id=contract.id, entry_mode='generated', source_label='合同及内勤核价', note='')
         if key in OPERATING_REPORTS:
             generated.extend(operating_rows(key, contract, terms.get(contract.id), delivery,

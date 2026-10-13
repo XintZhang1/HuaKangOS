@@ -26,6 +26,7 @@ V2_FIELD_LABELS = {
     'vehicle_invoice_price_cents': '申请开票金额（分）', 'registration_fee_cents': '上牌服务费（分）',
     'installment_fee_cents': '分期服务费（分）', 'total_loss_product_description': '全损换新期限说明',
     'payment_method': '客户付款方式（明确选择全款或贷款）', 'down_payment_cents': '分期首付（分，贷款必填）',
+    'first_service_count': '免费首保次数（0或1，默认1）', 'nps_participation': '参与NPS调研并赠送一次保养',
     'trade_in_subsidy_cents': '置换补贴（分）', 'used_car_commission_cents': '二手车佣金（分）',
     'transfer_store': '调拨店端', 'towing_cost_cents': '拖车成本（分）', 'department': '所在部门',
 }
@@ -46,7 +47,7 @@ CONTRACT_FORM_FIELDS = [
 ] + [
     {'key': key, 'label': label, 'type': 'string', 'input_type': 'money', 'unit': '元'}
     for key, label in (('subsidy_deposit', '置换补贴押金（元）'),
-        ('corporate_subsidy_deposit', '大客户补贴押金（元）'), ('deposit', '定金（元，必填，可填0）'),
+        ('corporate_subsidy_deposit', '大客户补贴押金（元）'), ('deposit', '定金（元，必填，至少2000）'),
         ('balance', '余款（元）'), ('loan_amount', '贷款金额（元）'), ('down_payment', '分期首付（元，贷款必填）'))
 ] + [
     {'key': 'quantity', 'label': '购车数量（每合同一辆）', 'type': 'string', 'enum': ['1']},
