@@ -41,7 +41,7 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
     from .business_record_report_specs import can_view_sensitive_reports, can_view_dashboard
     require_read(user)
     if not can_view_dashboard(user):
-        raise HTTPException(403, '可视化看板仅向当前授权门店的集团副总经理、董事长和系统管理员开放')
+        raise HTTPException(403, '当前岗位没有本店可视化看板权限')
     if mode not in {'daily', 'monthly', 'range'}:
         raise HTTPException(422, '请选择日报、月报或日期范围')
     current_day = today()
@@ -51,16 +51,18 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
     start = date_from or end.replace(day=1)
     if start > end or (end - start).days > 366:
         raise HTTPException(422, '请选择不超过一年的有效日期范围')
-    grouping = group_by or ('store' if getattr(user, '_aggregate_scope', False) else 'salesperson')
-    if grouping not in {'store', 'salesperson', 'brand'}:
-        raise HTTPException(422, '请选择门店、销售顾问或品牌比较')
+    grouping = group_by or ('store' if getattr(user, '_aggregate_scope', False) else 'performance')
+    if grouping == 'salesperson':
+        grouping = 'performance'  # Preserve a full-store view for older clients.
+    if grouping not in {'store', 'performance', 'brand'}:
+        raise HTTPException(422, '请选择门店、个人与渠道或品牌比较')
     flow_start = end if mode == 'daily' else start
     prefix = '当日' if mode == 'daily' else '期间累计'
     sources, projections = {}, {}
 
-    def report(key, group, beginning, ending):
+    def report(key, group, beginning, ending, category_field=''):
         base_key, _, selected = key.partition(':')
-        identity = (key, group, beginning, ending)
+        identity = (key, group, beginning, ending, category_field)
         if identity in projections:
             return projections[identity]
         source_identity = (base_key, beginning, ending)
@@ -74,14 +76,16 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
             source = sources[source_identity]
             definition = CATALOG_BY_KEY[base_key]
             result = project(definition, source['rows'], group_by=group,
-                metric=selected or definition['default_metric'], updated_at=source['updated_at'])
+                metric=selected or definition['default_metric'], updated_at=source['updated_at'],
+                category_field=category_field)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
         result['empty_is_zero'] = bool(definition.get('empty_is_zero'))
         value = result['grand_total'].get(result['metric'])
         result.update(group_by=group, date_from=str(beginning), date_to=str(ending),
             query={'report': key, 'date_from': str(beginning), 'date_to': str(ending),
-                   'group_by': group, 'brand': brand, 'salesperson_id': salesperson_id},
+                   'group_by': group, 'brand': brand, 'salesperson_id': salesperson_id,
+                   **({'category_field': category_field} if category_field else {})},
             **_source_display(base_key, value))
         result['source_status'] = {'status': result['data_status'], 'record_count': result['record_count']}
         if group == 'day':
@@ -110,7 +114,11 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
         extension_specs += [(name, label, 'operating_profit:' + name, '元', '') for name, label in (
             ('finance_amount', '核实放款金额'),
             ('insurance_commission', '保险返佣'), ('warranty_commission', '延保返佣'),
-            ('trade_in_commission', '二手车返佣'), ('bank_commission', '银行返佣'))]
+            ('trade_in_commission', '二手车返佣'), ('bank_commission', '银行返佣'),
+            ('decoration_commission', '贴膜改装店佣金'),
+            ('accessory_sales_income', '店内精品销售收入'),
+            ('accessory_sales_cost', '店内精品销售成本'),
+            ('accessory_sales_profit', '店内精品销售毛利'))]
     panels, overview, extensions = [], [], []
 
     def item(ident, label, key, unit):
@@ -151,12 +159,26 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
         'status': 'known' if best is not None else 'empty',
         'status_label': '按实销台数' if best is not None else '暂无实销', 'panel_id': 'sales',
         'comparison': champion_comparison}
+    analyses = []
+    if sensitive:
+        for ident, title, key, group, category in (
+                ('individual_profit', '个人毛利分析与批发渠道', 'individual_profit', 'performance', ''),
+                ('model_profit', '车型布局图', 'model_profit', 'category', 'c02')):
+            comparison = report(key, group, flow_start, end, category)
+            trend = report(key, 'day', start, end)
+            daily = report(key, group, end, end, category)
+            panel = dict(comparison, panel_id=ident, panel_title=title,
+                         trend=trend, comparison=comparison, daily=daily)
+            panels.append(panel)
+            analyses.append(panel)
     return {'mode': mode, 'day': str(end), 'today': str(current_day),
         'date_from': str(start), 'date_to': str(end),
         'overview_date_from': str(flow_start), 'overview_date_to': str(end),
         'trend_date_from': str(start), 'trend_date_to': str(end),
         'updated_at': utcnow().isoformat(), 'publication': {'status': 'live'},
         'panels': panels, 'overview': overview, 'extension_overview': extensions, 'champion': champion,
+        'analyses': analyses,
         'notice': '订单按合同日期，实销按交车所绑定发票上传日，退车在批准日冲减。'
             '现金车取合同独立标记，消化金额按该车合同售价。延伸及核定毛利仅计总经理已审核资料，缺项显示待审核。'
-            '核定毛利已包含原表延伸净额，返佣明细不再重复加总。'}
+            '核定毛利含原表延伸净额及已核对的精品销售收入减成本，佣金明细不再重复加总。'
+            '批发计入门店总量，按渠道列示，不计个人业绩及销冠。'}

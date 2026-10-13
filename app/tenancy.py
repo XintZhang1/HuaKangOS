@@ -30,10 +30,13 @@ def account_role(user):
 
 
 def role_for_store(db, user, store_id):
-    if not user or not user.active:
+    if not user or not user.active or getattr(user, 'archived_at', None) is not None:
         return None
     if account_role(user) == 'admin':
         return 'admin'
+    if account_role(user) == 'group_deputy_manager':
+        store = db.get(Store, store_id)
+        return 'group_deputy_manager' if store and store.active else None
     membership = db.scalar(select(UserStore).where(UserStore.user_id == user.id, UserStore.store_id == store_id))
     return (membership.role or account_role(user)) if membership else None
 
@@ -44,7 +47,7 @@ def project_user(user, role):
 
 def accessible_stores(db, user):
     stmt = select(Store).where(Store.active.is_(True)).order_by(Store.id)
-    if account_role(user) != 'admin':
+    if account_role(user) not in {'admin', 'group_deputy_manager'}:
         stmt = stmt.join(UserStore, UserStore.store_id == Store.id).where(UserStore.user_id == user.id)
     return list(db.scalars(stmt))
 
@@ -68,8 +71,8 @@ def attach_scope(request, db, user):
     roles = {s.id: role_for_store(db, user, s.id) for s in stores}
     group_ids = [sid for sid in ids if roles[sid] in SUMMARY_ROLES]
     memberships = list(db.scalars(select(UserStore).where(UserStore.user_id == user.id)))
-    store_admin = account_role(user) == 'store_admin' or any(m.role == 'store_admin' for m in memberships)
-    can_summary = not store_admin and (account_role(user) == 'admin' or bool(user.can_group_summary))
+    store_admin = account_role(user) == 'store_admin' or (account_role(user) not in {'admin', 'group_deputy_manager'} and any(m.role == 'store_admin' for m in memberships))
+    can_summary = not store_admin and (account_role(user) in {'admin', 'group_deputy_manager'} or bool(user.can_group_summary))
     if store_admin:
         if (account_role(user) != 'store_admin' or user.can_group_summary or len(memberships) != 1
                 or len(ids) != 1 or memberships[0].role != 'store_admin'):
@@ -89,7 +92,7 @@ def attach_scope(request, db, user):
             # a store this account is actually assigned to (or for an administrator, who sees every
             # store); any other id keeps the uniform permission error so an unrelated store's
             # existence or active flag cannot be probed.
-            is_admin = account_role(user) == 'admin'
+            is_admin = account_role(user) in {'admin', 'group_deputy_manager'}
             assigned = db.scalar(select(UserStore).where(UserStore.user_id == user.id,
                                                          UserStore.store_id == active))
             store = db.get(Store, active) if (is_admin or assigned) else None

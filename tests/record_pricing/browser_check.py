@@ -269,7 +269,7 @@ def run(source, browser, output):
             page.locator('#modal [name=vehicle_price_id]').select_option(label='合成车系 / 合成系列 / 合成配置')
             page.locator('#modal [name=vin]').fill('LTESTSYNTH0000001')
             page.locator('#modal [name=sale_price]').fill('110000')
-            page.locator('#modal [name=deposit]').fill('0')
+            page.locator('#modal [name=deposit]').fill('2000')
             page.locator('#modal [name=payment_method]').select_option('全款')
             page.locator('#modal [name=exterior_color]').select_option('白')
             page.locator('#modal [name=interior_color]').select_option('黑')

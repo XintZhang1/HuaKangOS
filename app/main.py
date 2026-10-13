@@ -104,6 +104,8 @@ app.include_router(business_record_invoices_router)
 app.include_router(business_record_periods_router)
 app.include_router(business_record_targets_router)
 app.include_router(business_record_pricing_router)
+from .business_record_wholesale import router as business_record_wholesale_router
+app.include_router(business_record_wholesale_router)
 app.include_router(business_record_delivery_router)
 app.include_router(business_record_profit_router)
 app.include_router(business_record_dashboard_router)
@@ -299,7 +301,7 @@ def users(archived:bool=False,db=Depends(get_db),user=Depends(get_user)):
         role_labels = {key: ROLES[key] for key in sorted(store_admin_service.STAFF_ROLES)}
     else:
         assigned = select(UserStore.user_id).where(UserStore.store_id == store_id)
-        query = select(User).where(or_(User.role == 'admin', User.id.in_(assigned))).order_by(User.id)
+        query = select(User).where(or_(User.role.in_({'admin','group_deputy_manager'}), User.id.in_(assigned))).order_by(User.id)
         store_rows = list(db.scalars(select(Store).order_by(Store.id)))
         role_labels = ROLES
     from .security import RECORD_ACCOUNT_ROLES
@@ -307,7 +309,7 @@ def users(archived:bool=False,db=Depends(get_db),user=Depends(get_user)):
     items = []
     for target in db.scalars(query):
         value = account_info(db, target)
-        local_role = 'admin' if target.role == 'admin' else next(
+        local_role = target.role if target.role in {'admin','group_deputy_manager'} else next(
             member['role'] for member in value['store_roles'] if member['store_id'] == store_id)
         value.update(current_store_id=store_id, current_store_role=local_role,
             current_store_role_label=ROLES[local_role], can_edit=not archived,
@@ -405,6 +407,16 @@ def add_users_batch(body: BatchUserInput,db=Depends(get_write_db),user=Depends(g
 def edit_user(user_id: int,body: UserUpdate,db=Depends(get_write_db),user=Depends(get_user)):
     account_administrator(user)
     return change_access(db,user,user_id,body,account_info,assign_stores)
+
+
+@app.get('/api/users/{user_id}/handover-preview')
+def employee_handover_preview(user_id:int,db=Depends(get_db),user=Depends(get_user)):
+    account_administrator(user)
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(404, '员工不存在')
+    from .employee_handover import preview
+    return preview(db, user, target)
 
 
 @app.post('/api/users/{user_id}/archive')
@@ -682,6 +694,10 @@ def account_info(db, target):
     result = user_info(target)
     result['access_version'] = target.access_version
     result['archived_at'] = target.archived_at.isoformat()+'Z' if target.archived_at else None
+    # Keep the stored authorization snapshot stable in immutable old receipts.
+    # Effective group access is dynamic and never rewrites historical memberships.
+    result['effective_can_group_summary'] = target.role in {'admin','group_deputy_manager'} or bool(target.can_group_summary)
+    result['can_group_summary'] = target.role == 'admin' or bool(target.can_group_summary)
     stores = accessible_stores(db,target)
     memberships = list(db.scalars(select(UserStore).where(UserStore.user_id==target.id).order_by(UserStore.store_id)))
     result['store_ids'] = [m.store_id for m in memberships]
@@ -701,7 +717,7 @@ def assign_stores(db, target, ids, store_roles=None, *, previous_role=None):
         if ids is not None and set(ids) != set(explicit):
             raise HTTPException(422, '门店列表与门店岗位必须完全对应')
     ids = sorted(set(ids if ids is not None else (explicit or {})))
-    if target.role != 'admin' and not ids:
+    if target.role not in {'admin','group_deputy_manager'} and not ids:
         raise HTTPException(422, '非管理员账号至少分配一家门店')
     stores = {row.id: row for row in db.scalars(select(Store).where(Store.id.in_(set(ids) | set(existing))))}
     if any(i not in stores for i in ids):

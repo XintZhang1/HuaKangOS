@@ -21,6 +21,7 @@ class RecordPricingFile(StoreScoped, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     kind: Mapped[str] = mapped_column(String(30))
+    sales_channel: Mapped[str] = mapped_column(String(20), default='retail', server_default='retail')
     brand: Mapped[str] = mapped_column(String(100), default='', server_default='')
     contract_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_contracts.id'), nullable=True, index=True)
     filename: Mapped[str] = mapped_column(String(180))
@@ -40,6 +41,7 @@ class RecordPriceBatch(StoreScoped, Base):
     __tablename__ = 'business_record_price_batches'
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(String(20))
+    sales_channel: Mapped[str] = mapped_column(String(20), default='retail', server_default='retail')
     brand: Mapped[str] = mapped_column(String(100), default='', server_default='')
     file_id: Mapped[int] = mapped_column(ForeignKey('business_record_pricing_files.id'))
     created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
@@ -65,6 +67,7 @@ class RecordBrandPricing(Base):
     brand: Mapped[str] = mapped_column(String(100), primary_key=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     vehicle_batch_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_price_batches.id'), nullable=True)
+    wholesale_vehicle_batch_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     gift_batch_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_price_batches.id'), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     __mapper_args__ = {'version_id_col': version}

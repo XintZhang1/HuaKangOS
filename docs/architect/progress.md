@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-13 晚会开发：[evening-feedback-v217](tasks/evening-feedback-v217.md)，root集成价格/二级/进度，accounts_backend交接与集团身份，release_review合同与财务，dashboard收入和报表。唯一执行状态及门禁见实施计划V2.17。
+
 2026-10-13 客户四图反馈：[customer-feedback-v216](tasks/customer-feedback-v216.md)，root集成员工前端，accounts_backend账号权限/归档，dashboard看板，release_review独审与只读发布准备。唯一执行状态及门禁见实施计划V2.16。
 
 2026-10-12 PR与内勤复核：[pr21-office-review](tasks/pr21-office-review.md)，root负责整合发布，pr_review审查PR21，form_investigation核对附件与内勤表单，deployment_prepare只读准备部署。唯一执行状态及门禁仍在implementation_plan.md维护。

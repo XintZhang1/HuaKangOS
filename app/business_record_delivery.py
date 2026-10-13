@@ -45,6 +45,7 @@ def _file_info(item):
 
 def delivery_summary(db, user, contract):
     from .business_record_invoices import _invoice, _file, _safe
+    from .employee_handover import can_continue_record, was_contract_handler
     delivery, gift, invoice = _delivery(db, contract), _gift(db, contract), _invoice(db, contract.id)
     invoice_ready = bool(invoice and invoice.confirmed_at and invoice.uploaded_at and invoice.active_file_id and _safe(_file(db, invoice)))
     gift_ready = bool(gift and _safe(gift))
@@ -60,7 +61,8 @@ def delivery_summary(db, user, contract):
         item['refunds'] = [plain(refund) for refund in refunds]
         item['refunded_amount_cents'] = sum(refund.amount_cents for refund in refunds)
         item['actions'] = []
-        if writable and row.status == 'submitted' and user.role in {'general_manager', 'admin'} and user.id not in {row.requested_by, contract.salesperson_id}:
+        if (writable and row.status == 'submitted' and user.role in {'general_manager', 'admin'}
+                and user.id != row.requested_by and not was_contract_handler(db, user, contract)):
             item['actions'] += ['approve', 'reject']
         if writable and row.status == 'approved' and user.role in {'finance', 'admin'}:
             item['actions'].append('refund')
@@ -70,7 +72,8 @@ def delivery_summary(db, user, contract):
             actions.append('upload_gift_document')
             if not delivery and invoice_ready and gift_ready:
                 actions.append('confirm_delivery')
-        if delivery and user.role in {'sales', 'admin'} and not any(r['status'] in {'submitted', 'approved'} for r in returns):
+        if (delivery and (user.role == 'admin' or user.role == 'sales' and can_continue_record(db, user, contract))
+                and not any(r['status'] in {'submitted', 'approved'} for r in returns)):
             actions.append('request_return')
     return {'delivery': plain(delivery) if delivery else None, 'invoice_ready': invoice_ready,
             'invoice_version': invoice.version if invoice else None,
@@ -168,6 +171,8 @@ def print_gift_document(key: int, db=Depends(get_db), user=Depends(get_user)):
     from .business_record_pdf import FONT
     from reportlab.pdfgen.canvas import Canvas
     contract = get_contract(db, user, key)
+    if user.role not in {'finance', 'admin'}:
+        raise HTTPException(403, '赠品单仅可由财务下载或打印')
     if contract.status != 'approved':
         raise HTTPException(409, '合同批准后才能打印赠品单')
     terms = db.scalar(select(RecordContractTerms).where(RecordContractTerms.contract_id == contract.id))
@@ -184,13 +189,23 @@ def print_gift_document(key: int, db=Depends(get_db), user=Depends(get_user)):
         for start in range(0, len(text), 39):
             canvas.drawString(50, y, text[start:start + 39]); y -= 23
     y -= 12
+    benefits = terms.submission_data or {}
+    benefit_lines = []
+    if benefits.get('first_service_count') == 1:
+        benefit_lines.append('首次保养免费赠送1次')
+    if benefits.get('nps_participation') is True:
+        benefit_lines.append('参与NPS调研，赠送保养1次')
+    for text in benefit_lines:
+        canvas.drawString(50, y, text); y -= 24
+    if benefit_lines:
+        canvas.drawString(50, y, '其他赠送项目：'); y -= 24
     for index, item in enumerate(terms.gifts_snapshot, 1):
         text = f"{index}. {item['name']}    数量：{item['quantity']}"
         for start in range(0, len(text), 39):
             if y < 110:
                 canvas.showPage(); canvas.setFont(FONT, 11); y = 780
             canvas.drawString(50, y, text[start:start + 39]); y -= 24
-    if not terms.gifts_snapshot:
+    if not terms.gifts_snapshot and not benefit_lines:
         canvas.drawString(50, y, '本合同无赠品'); y -= 24
     if y < 150:
         canvas.showPage(); canvas.setFont(FONT, 11); y = 780
@@ -269,8 +284,11 @@ class RefundInput(Action):
 @router.post('/contracts/{key}/returns')
 def request_return(key: int, body: ReturnRequest, request: Request, db=Depends(get_write_db), user=Depends(get_user)):
     from .business_records import get_contract, _manual, _run, _check_version
+    from .employee_handover import can_continue_record
     _manual(request); _write(user, {'sales', 'admin'})
     contract = get_contract(db, user, key)
+    if user.role == 'sales' and not can_continue_record(db, user, contract):
+        raise HTTPException(403, '该合同仅可由当前负责销售发起退车，交接历史仅供查询')
     def perform():
         _check_version(contract, body.version)
         delivery = _delivery(db, contract)
@@ -294,6 +312,7 @@ def _return(db, contract, return_id):
 
 def _review_return(key, return_id, body, request, db, user, approved):
     from .business_records import get_contract, _manual, _run, _check_version
+    from .employee_handover import was_contract_handler
     _manual(request); _write(user, {'general_manager', 'admin'})
     contract = get_contract(db, user, key)
     def perform():
@@ -301,7 +320,7 @@ def _review_return(key, return_id, body, request, db, user, approved):
         _check_version(row, body.version)
         if row.status != 'submitted':
             raise HTTPException(409, '退车申请已处理，请刷新核对')
-        if user.id in {row.requested_by, contract.salesperson_id}:
+        if user.id == row.requested_by or was_contract_handler(db, user, contract):
             raise HTTPException(403, '退车须由独立的总经理审核，不能自批')
         row.status = 'approved' if approved else 'rejected'
         row.reviewed_by, row.reviewed_at, row.review_note = user.id, utcnow(), body.note

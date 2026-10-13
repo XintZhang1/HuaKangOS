@@ -84,7 +84,7 @@ def _user_stores(db, target, *, before=None, after=None):
             if type(snapshot) is not dict:
                 _invalid()
             stores.update(_membership_ids(snapshot.get('store_ids')))
-    if target.role == 'admin' or any(snapshot and snapshot.get('role') == 'admin'
+    if target.role in {'admin','group_deputy_manager'} or any(snapshot and snapshot.get('role') in {'admin','group_deputy_manager'}
                                     for snapshot in (before, after)):
         stores.update(db.scalars(select(Store.id)))
     # Revocation must also reach a former store after its membership was removed.

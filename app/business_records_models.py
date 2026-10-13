@@ -26,6 +26,15 @@ class RecordCustomer(Versioned, Base):
     note: Mapped[str] = mapped_column(Text, default='')
 
 
+class RecordWholesaleChannel(Versioned, Base):
+    """Employee-maintained real secondary dealers/regions, never synthetic staff."""
+    __tablename__ = 'business_record_wholesale_channels'
+    name: Mapped[str] = mapped_column(String(160))
+    active: Mapped[bool] = mapped_column(default=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    __table_args__ = (UniqueConstraint('store_id', 'name', name='uq_record_wholesale_channel_name'),)
+
+
 class SalesContract(Versioned, Base):
     __tablename__ = 'business_record_contracts'
     number: Mapped[str] = mapped_column(String(60), unique=True)

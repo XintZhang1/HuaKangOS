@@ -5,7 +5,7 @@ from pydantic import Field
 from sqlalchemy import select
 from .db import get_db
 from .security import get_user
-from .business_records_schemas import Strict
+from .business_records_schemas import Strict, OfficeExtensionFacts
 
 router = APIRouter(prefix='/api/business-records', tags=['单车大毛利'])
 # Source: customer workbook 9.30(1), ordinary AS, hail AQ, secondary AN, Sheet2 AO.
@@ -58,6 +58,39 @@ def calculate_profit(report_key, values):
             'known_subtotal_cents': subtotal, 'total_cents': None if missing else subtotal}
 
 
+def accessory_sales_profit(extension):
+    """Only explicitly checked amounts form the boutique sales margin."""
+    income = extension.get('accessory_sales_income_cents')
+    cost = extension.get('accessory_sales_cost_cents')
+    return None if income is None or cost is None else income - cost
+
+
+def include_accessory_sales(base, extension):
+    # The original formula already includes film-shop commission. Keep its
+    # operands frozen and append only the separately checked boutique margin.
+    result = dict(base)
+    items, missing = list(base['items']), list(base['missing'])
+    subtotal = base['known_subtotal_cents']
+    for key, label, sign in (
+            ('accessory_sales_income_cents', '店内精品销售收入', 1),
+            ('accessory_sales_cost_cents', '店内精品销售成本', -1)):
+        amount = extension.get(key)
+        items.append({'key': key, 'source_column': '', 'source_label': '内勤核对精品销售',
+                      'label': label, 'sign': sign, 'amount_cents': amount})
+        if amount is None:
+            missing.append({'key': key, 'label': label})
+        else:
+            subtotal += sign * amount
+    if abs(subtotal) > 999999999999:
+        raise ValueError('汇总利润超出可记录金额范围')
+    result.update(formula_version='customer-sheets-v217-accessory-sales',
+        base_formula_version=base['formula_version'], base_total_cents=base['total_cents'],
+        accessory_sales_profit_cents=accessory_sales_profit(extension),
+        items=items, missing=missing, known_subtotal_cents=subtotal,
+        status='incomplete' if missing else 'complete', total_cents=None if missing else subtotal)
+    return result
+
+
 def apply_office_profit(db, contract, data, *, require_materials=True):
     """Override only computed facts. Every net component remains clerk supplied."""
     from .business_record_pricing_models import RecordContractTerms
@@ -78,7 +111,7 @@ def apply_office_profit(db, contract, data, *, require_materials=True):
         data['gift_document_id'] = db.scalar(select(RecordGiftDocument.id).where(
             RecordGiftDocument.contract_id == contract.id).order_by(RecordGiftDocument.id.desc()).limit(1))
     values = validate_manual_values(data['report_key'], values)
-    result = calculate_profit(data['report_key'], values)
+    result = include_accessory_sales(calculate_profit(data['report_key'], values), data.get('extension_data') or {})
     amount = result['total_cents']
     values[result['output_key']] = None if amount is None else format(Decimal(amount) / 100, '.2f')
     # Original first profit column is a duplicate result, never another operand.
@@ -91,6 +124,7 @@ def apply_office_profit(db, contract, data, *, require_materials=True):
 class ProfitPreview(Strict):
     report_key: str = Field(max_length=80)
     values: dict = Field(default_factory=dict, max_length=150)
+    extension_data: OfficeExtensionFacts = Field(default_factory=OfficeExtensionFacts)
 
 
 @router.post('/contracts/{key}/profit-preview')
