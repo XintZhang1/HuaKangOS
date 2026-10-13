@@ -216,6 +216,12 @@ class ResetPasswordInput(Strict):
     reason: str = Field(min_length=3, max_length=1000)
 
 
+class UserArchiveInput(Strict):
+    request_id: str = Field(min_length=8, max_length=80, pattern=r'^[A-Za-z0-9_-]+$')
+    access_version: int = Field(gt=0, strict=True)
+    reason: str = Field(min_length=3, max_length=1000)
+
+
 class ReviewInput(Strict):
     version: int = Field(gt=0)
     status: Literal['open','reviewing','confirmed','dismissed','resolved']

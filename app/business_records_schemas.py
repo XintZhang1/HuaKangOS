@@ -1,5 +1,7 @@
 """V2 record inputs. Amounts crossing the API are strict integer CNY fen."""
 from datetime import date
+from decimal import Decimal
+import re
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -23,7 +25,8 @@ class GiftSelection(Strict):
 class ContractSubmission(Strict):
     vehicle_invoice_price_cents: Money | None = None
     registration_fee_cents: Money | None = None
-    payment_method: Literal['全款', '贷款'] = '全款'
+    payment_method: Literal['全款', '贷款'] | None = None
+    down_payment_cents: Money | None = None
     # Inventory funding is independent of how the customer pays. Old snapshots
     # deliberately remain unknown until an employee explicitly records it.
     is_cash_vehicle: Annotated[bool, Field(strict=True)] | None = None
@@ -38,6 +41,29 @@ class ContractSubmission(Strict):
     towing_cost_cents: Money | None = None
     department: str = Field(default='', max_length=160)
     note: str = Field(default='', max_length=4000)
+
+
+def contract_payment_form(values, payment_method, *, require_deposit=True):
+    """Validate stated payment terms, without deriving receipts or other amounts."""
+    form = dict(values)
+    if payment_method not in {'全款', '贷款'}:
+        raise ValueError('请明确选择客户付款方式：全款或贷款')
+    form['payment_method'] = payment_method
+    for key, label, required in (
+            ('deposit', '定金', require_deposit),
+            ('down_payment', '分期首付', payment_method == '贷款')):
+        value = form.get(key, '').strip()
+        if not value:
+            if required:
+                raise ValueError('请填写' + label + '金额；金额为零时请明确填写0')
+            continue
+        if not re.fullmatch(r'\d+(?:\.\d{1,2})?', value):
+            raise ValueError(label + '须为非负金额，最多两位小数')
+        amount = Decimal(value)
+        if amount * 100 > 999999999999:
+            raise ValueError(label + '金额超出范围')
+        form[key] = format(amount, '.2f')
+    return form
 
 
 class ContractInput(Command):
@@ -63,6 +89,20 @@ class ContractInput(Command):
         if values.get('quantity', '1') != '1':
             raise ValueError('当前每份合同记录一个车架号及一台车辆，数量请填写1')
         return values
+
+    @model_validator(mode='after')
+    def explicit_payment_terms(self):
+        form = dict(self.form_data)
+        if self.vehicle_price_id is not None:
+            # The typed submission amount is authoritative for current contracts;
+            # form_data keeps only its printable decimal projection.
+            payment = self.submission_data.payment_method
+            down = self.submission_data.down_payment_cents
+            form['down_payment'] = '' if down is None else format(Decimal(down) / 100, '.2f')
+        else:
+            payment = form.get('payment_method')
+        self.form_data = contract_payment_form(form, payment)
+        return self
 
 
 class ContractUpdate(ContractInput):

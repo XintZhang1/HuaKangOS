@@ -203,6 +203,8 @@ def render_contract_pdf(data: dict) -> bytes:
             canvas.line(195, 425, 200, 430)
 
     other = []
+    if form.get('payment_method') == '贷款' and form.get('down_payment') not in (None, ''):
+        other.append('分期首付：' + format(_amount(form['down_payment']), '.2f') + '元')
     if data.get('gift_description'):
         # New contracts have a separately printable, frozen gift list. Keep
         # its full names/quantities there instead of overflowing this fixed box.

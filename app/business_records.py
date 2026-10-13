@@ -349,10 +349,32 @@ def catalog(report_key: str = Query('', max_length=80), db=Depends(get_db), user
 
 @router.get('/contracts')
 def contracts(q: str = Query('', max_length=120), status: str = '', office_status: str = '',
+              workbench: str = '', work_status: str = '',
               customer_id: int | None = Query(None, gt=0),
               page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=200),
               db=Depends(get_db), user=Depends(get_user)):
     query = visible_query(user, SalesContract)
+    if workbench not in {'', 'finance', 'office'} or work_status not in {'', 'pending', 'processed', 'all'}:
+        raise HTTPException(422, '工作台或待办状态无效')
+    if work_status and not workbench:
+        raise HTTPException(422, '请先选择财务或内勤工作台')
+    if workbench:
+        caps = capabilities(user)
+        if not (caps['read_finance'] if workbench == 'finance' else caps['price'] or caps['read_internal']):
+            raise HTTPException(403, '当前岗位不能查看该工作台')
+        query = query.where(SalesContract.status == 'approved')
+        if workbench == 'finance':
+            from .business_record_delivery_models import RecordDelivery
+            delivered = select(RecordDelivery.id).where(RecordDelivery.contract_id == SalesContract.id).exists()
+            received = select(ContractReceipt.id).where(ContractReceipt.contract_id == SalesContract.id).exists()
+            completed = or_((SalesContract.workflow_version == 'trial-v210') & delivered,
+                (SalesContract.workflow_version != 'trial-v210') & received)
+        else:
+            completed = SalesContract.office_status.in_({'submitted', 'approved'})
+        if work_status in {'', 'pending'}:
+            query = query.where(~completed)
+        elif work_status == 'processed':
+            query = query.where(completed)
     if customer_id is not None:
         customer = get_customer(db, user, customer_id)
         query = query.where(SalesContract.customer_id == customer.id, SalesContract.store_id == customer.store_id)
@@ -524,9 +546,21 @@ def manager_approve_contract(key: int, body: ManagerApproval, request: Request,
                 # The manager completes request details, never the frozen
                 # vehicle/gift publication or salesperson's agreed car price.
                 additions = body.submission_data.model_dump(exclude_unset=True)
-                terms.submission_data = {**terms.submission_data, **additions}
-                if 'payment_method' in additions:
-                    row.form_data = {**row.form_data, 'payment_method': additions['payment_method']}
+                merged = {**terms.submission_data, **additions}
+                if {'payment_method', 'down_payment_cents'} & additions.keys():
+                    from .business_records_schemas import contract_payment_form
+                    form = dict(row.form_data)
+                    if 'down_payment_cents' in additions:
+                        down = additions['down_payment_cents']
+                        form['down_payment'] = '' if down is None else f'{down // 100}.{down % 100:02d}'
+                    try:
+                        # Old contracts can retain their original unfilled deposit;
+                        # a newly changed loan agreement still needs its stated down payment.
+                        row.form_data = contract_payment_form(form, merged.get('payment_method'),
+                                                              require_deposit=False)
+                    except ValueError as exc:
+                        raise HTTPException(422, str(exc)) from None
+                terms.submission_data = merged
             terms.gift_excess_cents = body.gift_excess_cents
             policy_check = gift_policy_assessment(terms.price_snapshot.get('gift_policy'), frozen_gift_cost(terms))
             terms.special = terms.price_below_cents > 0 or body.gift_excess_cents > 0 or policy_check['requires_special']

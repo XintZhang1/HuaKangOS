@@ -1,5 +1,7 @@
 # 当前交付任务
 
+2026-10-13 客户四图反馈：[customer-feedback-v216](tasks/customer-feedback-v216.md)，root集成员工前端，accounts_backend账号权限/归档，dashboard看板，release_review独审与只读发布准备。唯一执行状态及门禁见实施计划V2.16。
+
 2026-10-12 PR与内勤复核：[pr21-office-review](tasks/pr21-office-review.md)，root负责整合发布，pr_review审查PR21，form_investigation核对附件与内勤表单，deployment_prepare只读准备部署。唯一执行状态及门禁仍在implementation_plan.md维护。
 
 2026-10-12 发布追加：[customer-records-v2](tasks/customer-records-v2.md)同一V2.14纳入管理员上传、销售基础资料只读，并按用户授权合并main、备份部署和改名/停用门店；root统一生产写入，前后端协作者补权限，另一协作者只读审查配置路径。执行事实及检查点只在implementation_plan.md当前V2.14段维护。

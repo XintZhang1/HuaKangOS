@@ -1,7 +1,7 @@
 'use strict';
 let brDashboardTimer=null,brDashboardDetail=null;
 function brCanDashboard(){const allowed=brCaps().read_dashboard;return typeof allowed==='boolean'?allowed:['admin','chairman','group_deputy_manager'].includes(state.user?.role);}
-function brDashboardHome(){return brCanDashboard()?'records-dashboard':state.user?.role==='finance'?'records-finance':state.user?.role==='service'?'records-after-sales':'records-sales';}
+function brDashboardHome(){return brCanDashboard()?'records-dashboard':state.user?.role==='finance'?'records-finance':state.user?.role==='clerk'?'records-office':state.user?.role==='service'?'records-after-sales':'records-sales';}
 function brDashboardPanelFilter(panel){const composition=brState.dashboardComposition||'all';return composition==='all'||(composition==='sales'?['orders','sales','vehicle_amount','cash_count','cash_amount'].includes(panel.panel_id):composition==='extended'?!['orders','sales','vehicle_amount','cash_count','cash_amount','profit'].includes(panel.panel_id):panel.panel_id==='profit');}
 // Dashboard totals are already calculated and permission-filtered by the server.
 function brDashboardNumber(value){const text=String(value),match=text.match(/^(-?)(\d+)(\.\d+)?$/);return match?match[1]+match[2].replace(/\B(?=(\d{3})+(?!\d))/g,',')+(match[3]||''):text;}
@@ -9,7 +9,7 @@ function brDashboardDelta(delta){if(delta.value==null)return delta.status_label|
 function brDashboardPeriod(result,mode){const start=result.overview_date_from||result.date_from,end=result.overview_date_to||result.date_to;return start+(start===end?'':' 至 '+end)+' · '+(mode==='daily'?'月内累计':'期间累计');}
 function brDashboardCard(item,today){
  const missing=item.value==null,rate=Object.hasOwn(item,'penetration_rate')?`<span class="br-metric-rate">渗透率 <b>${item.penetration_rate==null?E(item.penetration_status_label||'待审核'):E(brDashboardNumber(item.penetration_rate))+'%'}</b></span>`:'';
- const delta=item.daily_delta,daily=delta?`<span class="br-metric-rate" data-br-daily-delta>${delta.date===today?'今日':'当日'} <b>${E(brDashboardDelta(delta))}</b></span>`:'';
+ const delta=item.daily_delta,daily=delta?`<span class="br-metric-delta" data-br-daily-delta>${delta.date===today?'今日':'当日'} <b>${E(brDashboardDelta(delta))}</b></span>`:'';
  return `<button type="button" class="br-metric-card${missing?' br-metric-pending':''}" data-br-flow="dashboard-detail" data-panel="${E(item.panel_id)}"><span class="br-metric-label">${E(item.label)}<span aria-hidden="true">↗</span></span><strong>${missing?E(item.status_label||'待审核'):E(brDashboardNumber(item.value))}${missing?'':`<small>${E(item.unit||'')}</small>`}</strong>${daily}${rate}<span class="br-metric-note">${E(item.note||item.status_label||'')}<span>查看明细</span></span></button>`;
 }
 function brDashboardCards(result){

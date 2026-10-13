@@ -22,6 +22,30 @@ def is_store_admin(user):
     return account_role(user) == 'store_admin' or user.role == 'store_admin'
 
 
+def is_global_account_admin(user):
+    """Employee administration only; never reuse for business or operations."""
+    return account_role(user) == 'admin' or user.role == 'group_deputy_manager'
+
+
+def revalidate_global_actor(db, principal, actor=None):
+    if getattr(principal, '_aggregate_scope', False) or db.info.get('aggregate_scope'):
+        raise HTTPException(409, '跨门店汇总为只读；请切换到具体门店')
+    actor = actor or db.scalar(select(User).where(User.id == principal.id).with_for_update()
+                              .execution_options(populate_existing=True))
+    if not actor or not actor.active or actor.archived_at is not None or actor.must_change_password:
+        raise HTTPException(403, '员工账号管理权限已变化，请重新登录后核对可用权限')
+    if actor.role == 'admin':
+        return actor
+    store_id = single_store(db)
+    member = db.scalar(select(UserStore).where(UserStore.user_id == actor.id,
+        UserStore.store_id == store_id).with_for_update().execution_options(populate_existing=True))
+    store = db.scalar(select(Store).where(Store.id == store_id).with_for_update()
+                      .execution_options(populate_existing=True))
+    if not store or not store.active or not member or (member.role or actor.role) != 'group_deputy_manager':
+        raise HTTPException(403, '员工账号管理权限已变化，请重新登录后核对可用权限')
+    return actor
+
+
 def guard_request(request, user):
     if not is_store_admin(user):
         return
@@ -31,7 +55,7 @@ def guard_request(request, user):
                             or _RECORD_READS.fullmatch(path))
         or method == 'POST' and (path in {'/api/auth/password', '/api/auth/logout', '/api/users',
             '/api/users/batch', '/api/business-records/pricing/gift-policy-check'}
-            or re.fullmatch(r'/api/users/[1-9]\d*/password', path))
+            or re.fullmatch(r'/api/users/[1-9]\d*/(?:password|archive|restore)', path))
         or method == 'PUT' and re.fullmatch(r'/api/users/[1-9]\d*', path))
     if not allowed or (getattr(user, '_aggregate_scope', False)):
         raise HTTPException(403, '门店管理员仅可读取当前授权门店资料及维护本店普通员工账号，不可办理业务或全局运维')
@@ -140,11 +164,12 @@ def capabilities(principal, roles):
     return {'scope': 'store' if scoped else 'global',
         'store_id': getattr(principal, '_active_store_id', None) if scoped else None,
         'assignable_roles': sorted(STAFF_ROLES if scoped else roles),
-        'create': True, 'edit': True, 'reset_password': True, 'batch': True}
+        'create': True, 'edit': True, 'reset_password': True, 'batch': True,
+        'archive': True, 'restore': True}
 
 
 def account_snapshot(value, store_id):
     # This target has already passed the single-store ordinary-account check.
     keys = {'id','username','display_name','role','role_label','account_role','active',
-            'access_version','store_ids','store_roles','stores','can_group_summary'}
+            'access_version','store_ids','store_roles','stores','can_group_summary','archived_at'}
     return dict({key: val for key, val in value.items() if key in keys}, store_id=store_id)
