@@ -5,6 +5,7 @@ import io
 import json
 import re
 import uuid
+from copy import deepcopy
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select, func, or_, update
@@ -112,7 +113,15 @@ def visible_query(user, model):
         if owner is None:
             raise HTTPException(403, '当前岗位不可直接读取该数据')
         from .employee_handover import inherited_read
-        query = query.where(or_(owner == user.id, inherited_read(model, user)))
+        extra = False
+        if model is SalesContract:
+            from .business_records_models import RecordContractCorrection
+            extra = select(RecordContractCorrection.id).where(
+                RecordContractCorrection.contract_id == model.id,
+                RecordContractCorrection.store_id == model.store_id,
+                RecordContractCorrection.assigned_to == user.id,
+                RecordContractCorrection.assigned_role == user.role).exists()
+        query = query.where(or_(owner == user.id, inherited_read(model, user), extra))
     elif user.role == 'service':
         if model not in {AfterSalesRecord, RecordCustomer}:
             raise HTTPException(403, '售后岗位仅可读取本人售后记录与客户档案')
@@ -186,7 +195,8 @@ def _customer_rows(db, user, rows):
                     **{key: values.get(row.id, 0) for key, values in counts.items()})
         from .employee_handover import handover_summary
         data['handover'] = handover_summary(db, user, row)
-        result.append(data)
+        from .business_record_privacy import redact_customer_data
+        result.append(redact_customer_data(db, user, row, data))
     return result
 
 
@@ -215,7 +225,8 @@ def _run(db, user, request_id, action, payload, perform):
     if prior:
         if prior.digest != digest:
             raise HTTPException(409, '本次请求号已用于不同内容，请核对原操作结果')
-        return prior.result
+        from .business_record_privacy import sanitize_command_result
+        return sanitize_command_result(db, user, prior.result, action, payload)
     try:
         result = perform()
         db.add(RecordCommand(store_id=store, actor_id=user.id, request_id=request_id,
@@ -227,7 +238,8 @@ def _run(db, user, request_id, action, payload, perform):
             raise
         db.rollback()
         raise HTTPException(409, '其他操作已更新相关记录，本次未保存；请刷新核对后再操作') from exc
-    return result
+    from .business_record_privacy import sanitize_command_result
+    return sanitize_command_result(db, user, result, action, payload)
 
 
 def _body(body):
@@ -311,7 +323,22 @@ def _contract_data(db, user, row):
             for key in ('manager_approval_note', 'general_manager_approval_note', 'approval_note'):
                 data.pop(key, None)
     data['actions'] = actions
-    return data
+    from .business_record_corrections import correction_summary, latest_correction, _public_snapshot
+    corrections = correction_summary(db, user, row)
+    data['corrections'] = corrections
+    effective = latest_correction(db, row)
+    data['effective_contract'] = _public_snapshot(db, user, row, effective.approved_snapshot) if effective else None
+    if user.role in {'admin', 'manager', 'general_manager', 'group_deputy_manager'}:
+        if row.archived_at:
+            actions.append('restore')
+        else:
+            actions.append('archive')
+            if row.status == 'approved' and not corrections['active_id']:
+                actions.append('correction_request')
+    if row.archived_at:
+        data['actions'] = [action for action in actions if action == 'restore']
+    from .business_record_privacy import redact_contract_data
+    return redact_contract_data(db, user, row, data)
 
 
 def _list(db, query, serializer, page, page_size):
@@ -364,11 +391,15 @@ def catalog(report_key: str = Query('', max_length=80), db=Depends(get_db), user
 
 @router.get('/contracts')
 def contracts(q: str = Query('', max_length=120), status: str = '', office_status: str = '',
-              workbench: str = '', work_status: str = '',
+              workbench: str = '', work_status: str = '', include_history: bool = False,
               customer_id: int | None = Query(None, gt=0),
               page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=200),
               db=Depends(get_db), user=Depends(get_user)):
     query = visible_query(user, SalesContract)
+    if not include_history:
+        query = query.where(SalesContract.archived_at.is_(None))
+        if not status:
+            query = query.where(SalesContract.status != 'rejected')
     if workbench not in {'', 'finance', 'office'} or work_status not in {'', 'pending', 'processed', 'all'}:
         raise HTTPException(422, '工作台或待办状态无效')
     if work_status and not workbench:
@@ -405,8 +436,12 @@ def contracts(q: str = Query('', max_length=120), status: str = '', office_statu
             raise HTTPException(422, '内勤资料状态无效')
         query = query.where(SalesContract.office_status == office_status)
     if q:
-        query = query.where(or_(*(field.contains(q, autoescape=True) for field in
-            (SalesContract.number, SalesContract.customer_name, SalesContract.customer_phone,
+        from .business_record_privacy import MASKED_ROLES, completed_contract_clause
+        phone = SalesContract.customer_phone.contains(q, autoescape=True)
+        if user.role in MASKED_ROLES:
+            phone = phone & ~completed_contract_clause(SalesContract)
+        query = query.where(or_(phone, *(field.contains(q, autoescape=True) for field in
+            (SalesContract.number, SalesContract.customer_name,
              SalesContract.brand, SalesContract.model, SalesContract.vin))))
     return _list(db, query.order_by(SalesContract.id.desc()),
                  lambda row: _contract_data(db, user, row), page, page_size)
@@ -426,7 +461,7 @@ def create_contract(body: ContractInput, request: Request,
     def perform():
         from .business_record_pricing import prepare_submission, save_submission
         prepared = prepare_submission(db, user, body)
-        values = body.model_dump(exclude={'request_id', 'vehicle_price_id', 'gift_items', 'accessory_items', 'submission_data'})
+        values = body.model_dump(exclude={'request_id', 'vehicle_price_id', 'inventory_row_id', 'gift_items', 'accessory_items', 'submission_data'})
         values.update(brand=prepared['brand'], model=prepared['model'], form_data=prepared['form_data'])
         customer_id = _record_customer(db, body.salesperson_id, body.customer_name, body.customer_phone)
         row = SalesContract(**values, store_id=single_store(db), created_by=user.id,
@@ -471,7 +506,7 @@ def edit_contract(key: int, body: ContractUpdate, request: Request,
             prepared = prepare_submission(db, user, body, row)
         if row.customer_id is None or (row.customer_name, row.customer_phone) != (body.customer_name, body.customer_phone):
             row.customer_id = _record_customer(db, user.id if user.role in {'sales', 'manager'} else row.salesperson_id, body.customer_name, body.customer_phone)
-        for name, value in body.model_dump(exclude={'request_id', 'version', 'vehicle_price_id', 'gift_items', 'accessory_items', 'submission_data'}).items():
+        for name, value in body.model_dump(exclude={'request_id', 'version', 'vehicle_price_id', 'inventory_row_id', 'gift_items', 'accessory_items', 'submission_data'}).items():
             setattr(row, name, value)
         if prepared:
             row.brand, row.model, row.form_data = prepared['brand'], prepared['model'], prepared['form_data']
@@ -546,7 +581,15 @@ def _finish_contract_approval(db, user, row, note, template_version):
     # Freeze before a SELECT could autoflush the approval constraint.
     with db.no_autoflush:
         snapshot = _contract_data(db, user, row)
+        if row.workflow_version == 'trial-v210':
+            from .business_record_pricing import get_terms
+            terms = get_terms(db, row)
+            if terms is not None:
+                # Store original evidence, not the approving role's display
+                # projection (which intentionally omits policy IDs and costs).
+                snapshot['terms'] = deepcopy(plain(terms))
     snapshot['version'] = row.version + 1
+    snapshot['print_layout_version'] = 'full-v218'
     snapshot.pop('actions', None)
     row.approved_snapshot = snapshot
 
@@ -725,6 +768,42 @@ def reject_contract(key: int, body: Reject, request: Request,
     return _run(db, user, body.request_id, f'contract:{key}:reject', _body(body), perform)
 
 
+def _archive_contract(key, body, request, db, user, restore):
+    _manual(request)
+    require_read(user)
+    if getattr(user, '_aggregate_scope', False) or user.role not in {'admin', 'manager', 'general_manager', 'group_deputy_manager'}:
+        raise HTTPException(403, '请由本店管理岗位归档或恢复合同')
+    row = get_contract(db, user, key)
+    def perform():
+        _check_version(row, body.version)
+        if bool(row.archived_at) == (not restore):
+            raise HTTPException(409, '归档状态已变化，请刷新核对')
+        if not restore:
+            if not body.note.strip():
+                raise HTTPException(422, '请填写归档原因')
+            from .business_record_corrections import correction_rows, ACTIVE
+            if any(item.status in ACTIVE for item in correction_rows(db, row)):
+                raise HTTPException(409, '请先完成办理中的合同更正')
+        before = {'archived_at': str(row.archived_at) if row.archived_at else None, 'archive_reason': row.archive_reason}
+        row.archived_at, row.archived_by = (None, None) if restore else (utcnow(), user.id)
+        row.archive_reason = None if restore else body.note
+        db.flush()
+        audit(db, user.id, 'record_restore' if restore else 'record_archive', 'record_contract', key,
+            before=before, after={'archived': not restore}, reason=body.note)
+        return _contract_data(db, user, row)
+    return _run(db, user, body.request_id, f'contract:{key}:' + ('restore' if restore else 'archive'), _body(body), perform)
+
+
+@router.post('/contracts/{key}/archive')
+def archive_contract(key: int, body: Action, request: Request, db=Depends(get_write_db), user=Depends(get_user)):
+    return _archive_contract(key, body, request, db, user, False)
+
+
+@router.post('/contracts/{key}/restore')
+def restore_contract(key: int, body: Action, request: Request, db=Depends(get_write_db), user=Depends(get_user)):
+    return _archive_contract(key, body, request, db, user, True)
+
+
 @router.post('/contracts/{key}/receipt')
 def confirm_receipt(key: int, body: ReceiptInput, request: Request,
                     db=Depends(get_write_db), user=Depends(get_user)):
@@ -755,19 +834,27 @@ def confirm_receipt(key: int, body: ReceiptInput, request: Request,
 
 
 @router.get('/contracts/{key}/print')
-def print_contract(key: int, db=Depends(get_db), user=Depends(get_user)):
+def print_contract(key: int, mode: str = Query('full', pattern='^(full|overprint)$'),
+        offset_x_mm: float = Query(0, ge=-20, le=20), offset_y_mm: float = Query(0, ge=-20, le=20),
+        revision_id: int | None = Query(None, gt=0), db=Depends(get_db), user=Depends(get_user)):
     row = get_contract(db, user, key)
     if user.role not in {'finance', 'admin'}:
         raise HTTPException(403, '合同仅可由财务下载或打印')
     if row.status != 'approved' or not row.approved_snapshot:
         raise HTTPException(409, '合同须经销售经理、总经理审批；超限价或超赠送时还须集团副总经理审批通过后才能打印；历史合同沿用原审批')
+    from .business_record_privacy import require_personal_export
+    require_personal_export(db, user, row)
+    snapshot = row.approved_snapshot
+    if revision_id is not None:
+        from .business_record_corrections import correction_print_snapshot
+        snapshot = correction_print_snapshot(db, user, row, revision_id)
     from .business_record_pdf import render_contract_pdf
     try:
-        pdf = render_contract_pdf(row.approved_snapshot)
+        pdf = render_contract_pdf(snapshot, output_mode=mode, offset_x_mm=offset_x_mm, offset_y_mm=offset_y_mm)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from None
     return Response(pdf, media_type='application/pdf',
-        headers={'Content-Disposition': f'inline; filename="{row.number}.pdf"', 'Cache-Control': 'no-store'})
+        headers={'Content-Disposition': f'inline; filename="{row.number}-{mode}.pdf"', 'Cache-Control': 'no-store'})
 
 
 def _office_values(db, user, row, body):
@@ -900,6 +987,8 @@ def approve_office_review(key: int, body: Action, request: Request,
         before = plain(row)
         before.pop('approved_snapshot', None)
         data = dict(row.office_data)
+        from .business_record_accessories import validate_accessory_evidence
+        validate_accessory_evidence(db, row, data)
         # An approval appends a replacement, including when an existing legacy
         # contract already had a manually recorded detail. Never double-count it.
         successor = aliased(ManualReportRecord)
@@ -1036,8 +1125,12 @@ def customers(q: str = Query('', max_length=120), page: int = Query(1, ge=1),
               page_size: int = Query(30, ge=1, le=200), db=Depends(get_db), user=Depends(get_user)):
     query = visible_query(user, RecordCustomer)
     if q:
+        from .business_record_privacy import MASKED_ROLES, customer_completed_clause
+        phone = RecordCustomer.phone.contains(q, autoescape=True)
+        if user.role in MASKED_ROLES:
+            phone = phone & ~customer_completed_clause(RecordCustomer)
         query = query.where(or_(RecordCustomer.name.contains(q, autoescape=True),
-                               RecordCustomer.phone.contains(q, autoescape=True)))
+                               phone))
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     rows = db.scalars(query.order_by(RecordCustomer.id.desc())
         .offset((page - 1) * page_size).limit(page_size)).all()
@@ -1085,6 +1178,11 @@ def after_sales(q: str = Query('', max_length=120), service_type: str = '',
         data = plain(row)
         if user.role not in SENSITIVE_ROLES:
             data.pop('cost_cents', None)
+        if row.customer_id:
+            from .business_record_privacy import redact_customer_data
+            customer = db.get(RecordCustomer, row.customer_id)
+            if customer:
+                data = redact_customer_data(db, user, customer, data)
         return data
     return _list(db, query.order_by(AfterSalesRecord.id.desc()), serialize_service, page, page_size)
 
@@ -1155,7 +1253,9 @@ def _manual_report_rows(db, user, rows):
                     superseded_by_id=successors.get(row.id),
                     can_correct=writable and current and row.entry_mode not in {'legacy', 'target'} and row.contract_id not in office_contracts,
                     contract_number=contracts.get(row.contract_id, ''))
-        result.append(item)
+        from .business_record_report_generation import redact_report_rows
+        from .business_record_reports import CATALOG_BY_KEY
+        result.extend(redact_report_rows(db, user, [item], CATALOG_BY_KEY[row.report_key], value_key='values'))
     return result
 
 
@@ -1201,22 +1301,27 @@ def _report_prefill(db, user, report_key, contract):
     _report_allowed(user, report_key)
     from .business_record_reports import prefill_contract_values
     salesperson = db.get(User, contract.salesperson_id)
+    from types import SimpleNamespace
+    from .business_record_corrections import latest_correction
+    effective = latest_correction(db, contract)
+    projected = SimpleNamespace(**{**plain(contract), **effective.approved_snapshot}) if effective else contract
     try:
-        data = prefill_contract_values(report_key, contract,
+        data = prefill_contract_values(report_key, projected,
                                       salesperson.display_name if salesperson else '')
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
     data.update(contract_id=contract.id, contract_version=contract.version,
                 contract_number=contract.number, period=contract.contract_date.isoformat(),
-                brand=contract.brand, salesperson_id=contract.salesperson_id,
+                brand=projected.brand, salesperson_id=contract.salesperson_id,
                 locked_metadata=['period', 'brand', 'salesperson_id'], entry_mode='detail')
     if contract.workflow_version == 'trial-v210':
         from decimal import Decimal
         from .business_record_delivery import require_office_materials
-        from .business_record_pricing import get_terms, frozen_gift_cost
+        from .business_record_pricing import frozen_gift_cost
+        from .business_record_accessories import effective_terms
         from .business_record_reports import CATALOG_BY_KEY
         delivery = require_office_materials(db, contract)
-        terms = get_terms(db, contract)
+        terms = effective_terms(db, contract)
         if terms is None:
             raise HTTPException(409, '合同提交快照缺失，请联系管理员核对')
         columns = CATALOG_BY_KEY[report_key]['columns']
@@ -1246,7 +1351,9 @@ def _report_prefill(db, user, report_key, contract):
                         data['locked_fields'].append(column['key'])
         data.update(period=str(delivery.accounting_on), accounting_on=str(delivery.accounting_on),
                     invoice_amount_cents=delivery.invoice_amount_cents)
-    return data
+    from .business_record_report_generation import redact_report_rows
+    from .business_record_reports import CATALOG_BY_KEY
+    return redact_report_rows(db, user, [data], CATALOG_BY_KEY[report_key], value_key='values')[0]
 
 
 @router.get('/report-prefill')

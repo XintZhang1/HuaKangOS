@@ -65,6 +65,13 @@ def was_contract_handler(db, user, row):
     """Past handover work remains an approval conflict after a later job change."""
     if user.id in {row.salesperson_id, row.created_by}:
         return True
+    from .business_records_models import RecordContractCorrection
+    revisions = db.scalars(select(RecordContractCorrection).where(
+        RecordContractCorrection.contract_id == row.id,
+        RecordContractCorrection.store_id == row.store_id))
+    if any(revision.submitted_by == user.id or any(event.get('action') == 'submitted' and
+            event.get('actor_id') == user.id for event in revision.events or []) for revision in revisions):
+        return True
     h, r = _tables()
     return bool(db.scalar(select(h.c.id).select_from(r.join(h, h.c.id == r.c.handover_id)).where(
         r.c.contract_id == row.id, h.c.store_id == row.store_id, h.c.successor_id == user.id,
@@ -76,14 +83,21 @@ def handover_summary(db, user, row):
     if key is None:
         return None
     h, r = _tables()
-    value = db.execute(select(h.c.source_id, h.c.successor_id, h.c.created_at, r.c.can_continue)
+    values = db.execute(select(h.c.source_id, h.c.successor_id,
+        h.c.successor_role, h.c.created_at, r.c.can_continue)
         .select_from(r.join(h, h.c.id == r.c.handover_id))
-        .where(r.c[key] == row.id, h.c.store_id == row.store_id).order_by(r.c.id.desc())).mappings().first()
-    if not value:
+        .where(r.c[key] == row.id, h.c.store_id == row.store_id).order_by(r.c.id.desc())).mappings().all()
+    if not values:
         return None
-    people = {u.id: u.display_name for u in db.scalars(select(User).where(User.id.in_([value['source_id'], value['successor_id']])))}
+    value = values[0]
+    people = {u.id: u.display_name for u in db.scalars(select(User).where(User.id.in_(
+        {item[key] for item in values for key in ('source_id', 'successor_id')})))}
+    history = [{'source_id': item['source_id'], 'source_name': people.get(item['source_id'], ''),
+        'successor_id': item['successor_id'], 'successor_name': people.get(item['successor_id'], ''),
+        'successor_role': item['successor_role'],
+        'at': item['created_at'].isoformat(), 'can_continue': item['can_continue']} for item in reversed(values)]
     return {'source_name': people.get(value['source_id'], ''), 'successor_name': people.get(value['successor_id'], ''),
-            'can_continue': can_continue_record(db, user, row), 'history_attribution_preserved': True}
+            'can_continue': can_continue_record(db, user, row), 'history_attribution_preserved': True, 'history': history}
 
 
 def can_read_contract_attachment(db, user, contract, item):

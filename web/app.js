@@ -223,7 +223,7 @@ function normalizeAppRoute(route){
  if(route.startsWith('records-dashboard')&&!brCanDashboard())return home;
  if(route==='business-assistant'&&state.user?.can_business_assistant===false)return home;
  if(route==='feedback'&&(state.user?.can_feedback===false||state.user?.store_admin))return home;
- return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|office|manual|settings|targets|daily)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:home;
+ return /^(?:records-(?:dashboard(?:\/(?:daily|range|monthly))?|sales(?:\/(?:\d+|daily))?|after-sales|customers(?:\/\d+)?|finance|office|manual|settings|inventory|targets|daily)|business-assistant|feedback|users|stores|audit)$/.test(route)?route:home;
 }
 function currentAppRoute(){
  const route=normalizeAppRoute(location.hash.slice(1));

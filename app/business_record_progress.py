@@ -19,6 +19,21 @@ def contract_progress(db, user, row, data):
     stages.extend([{'label': '财务打印、材料与交车', 'done': bool(delivery)},
         {'label': '内勤延伸资料与核价', 'done': row.office_status in {'submitted', 'approved'}},
         {'label': '总经理审核资料', 'done': row.office_status == 'approved'}])
+    # Names describe the employee who actually acted, even after departure.
+    actors = [(row.created_by, row.created_at)]
+    if not wholesale:
+        actors.append((row.manager_approved_by, row.manager_approved_at))
+    actors.append((row.general_manager_approved_by or row.approved_by,
+        row.general_manager_approved_at or row.approved_at))
+    if special:
+        actors.append((row.deputy_approved_by, row.deputy_approved_at))
+    actors.extend([((delivery or {}).get('confirmed_by'), (delivery or {}).get('confirmed_at')),
+        (row.office_submitted_by, row.office_submitted_at), (row.office_approved_by, row.office_approved_at)])
+    names = {person.id: person.display_name for person in db.scalars(select(User).where(
+        User.id.in_({ident for ident, _ in actors if ident is not None})))}
+    for stage, (ident, timestamp) in zip(stages, actors):
+        stage.update(actor_id=ident, actor_name=names.get(ident, ''),
+            at=timestamp.isoformat() if hasattr(timestamp, 'isoformat') else timestamp)
     role, label = (None, '流程已完成')
     if row.status == 'rejected':
         role, label = ('manager' if wholesale else 'sales', '经办人修改合同')
@@ -54,4 +69,8 @@ def contract_progress(db, user, row, data):
                     person.id in excluded or was_contract_handler(db, person, row)):
                 continue
             candidates.append({'id': person.id, 'name': person.display_name})
-    return {'stages': stages, 'pending_label': label, 'pending_role': role, 'pending_people': candidates}
+    from .business_record_corrections import correction_rows, correction_view, ACTIVE
+    active = next((item for item in correction_rows(db, row) if item.status in ACTIVE), None)
+    correction = correction_view(db, user, row, active) if active else None
+    return {'stages': stages, 'pending_label': label, 'pending_role': role, 'pending_people': candidates,
+        'active_correction': correction}

@@ -34,7 +34,7 @@ class RecordPricingFile(StoreScoped, Base):
     scan_code: Mapped[str] = mapped_column(String(50))
     created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
-    __table_args__ = (CheckConstraint("kind IN ('vehicle','gift','contract_attachment')", name='ck_record_pricing_file_kind'),)
+    __table_args__ = (CheckConstraint("kind IN ('vehicle','gift','contract_attachment','accessory_sale')", name='ck_record_pricing_file_kind'),)
 
 
 class RecordPriceBatch(StoreScoped, Base):

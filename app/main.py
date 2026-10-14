@@ -109,6 +109,14 @@ app.include_router(business_record_wholesale_router)
 app.include_router(business_record_delivery_router)
 app.include_router(business_record_profit_router)
 app.include_router(business_record_dashboard_router)
+from .business_record_inventory import router as business_record_inventory_router
+from .business_record_corrections import router as business_record_corrections_router
+from .business_record_accessories import router as business_record_accessories_router
+from .business_record_printing import router as business_record_printing_router
+app.include_router(business_record_inventory_router)
+app.include_router(business_record_corrections_router)
+app.include_router(business_record_accessories_router)
+app.include_router(business_record_printing_router)
 
 
 @app.middleware('http')
@@ -121,7 +129,7 @@ async def safety_headers(request: Request, call_next):
             return JSONResponse({'detail':'请求来源不匹配，请使用同一个地址访问'},status_code=403)
         is_vehicle_import = bool(re.fullmatch(r'/api/vehicle-imports/orders/[1-9][0-9]*/batches',request.url.path))
         is_assistant_preview = request.url.path == '/api/business-assistant/file-preview' and request.method == 'POST'
-        is_record_upload = request.method == 'POST' and (request.url.path == '/api/business-records/pricing/uploads' or bool(re.fullmatch(r'/api/business-records/contracts/[1-9][0-9]*/(?:invoice|gift-document|attachments)', request.url.path)))
+        is_record_upload = request.method == 'POST' and (request.url.path in {'/api/business-records/pricing/uploads', '/api/business-records/inventory/uploads'} or bool(re.fullmatch(r'/api/business-records/contracts/[1-9][0-9]*/(?:invoice|gift-document|attachments|accessory-sales/files)', request.url.path)))
         is_upload = (request.url.path.startswith('/api/flow/cases/') and request.url.path.endswith('/files')) or is_vehicle_import or is_assistant_preview or is_record_upload or request.url.path == '/api/branding/photo' and request.method == 'POST'
         is_price_import = request.method == 'POST' and request.url.path in {'/api/business-records/pricing/vehicle/import', '/api/business-records/pricing/gifts/import'}
         is_opening = request.url.path == '/api/opening-import/preflight'

@@ -21,6 +21,10 @@ def operating_rows(key, contract, terms, delivery, returned, row, start, end):
     Every delivered vehicle contributes a row even if its office information is
     still missing. A known partial total must never hide unapproved vehicles.
     """
+    if key.endswith('_v218'):
+        if key == 'operating_profit_components_v218':
+            return operating_profit_components(contract, delivery, returned, row, start, end)
+        return operating_rows_v218(key, contract, terms, delivery, returned, row, start, end)
     rows = []
     if key == 'operating_sales' and contract.status != 'rejected' and _in_period(contract.contract_date, start, end):
         rows.append(dict(row, period=str(contract.contract_date), orders='1',
@@ -83,6 +87,172 @@ def operating_rows(key, contract, terms, delivery, returned, row, start, end):
         reversal.update(period=str(returned.approved_on), event_kind='return', return_id=returned.id,
             source_label='总经理批准退车冲减', note='原核算日 ' + str(delivery.accounting_on) + '；原事实保留')
         rows.append(reversal)
+    return rows
+
+
+def operating_rows_v218(key, contract, terms, delivery, returned, row, start, end, corrections=()):
+    """New meeting definitions, leaving original report keys and snapshots intact."""
+    from datetime import timezone
+    from zoneinfo import ZoneInfo
+    from .business_record_reports import CATALOG_BY_KEY
+    from .business_record_profit import accessory_sales_profit
+    family = key.removesuffix('_v218')
+    rows = []
+    created = getattr(contract, 'created_at', None)
+    if created is not None and family == 'operating_sales' and contract.status != 'rejected':
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        created_on = created.astimezone(ZoneInfo('Asia/Shanghai')).date()
+        if _in_period(created_on, start, end):
+            rows.append(dict(row, period=str(created_on), orders='1', event_kind='order',
+                source_label='合同实际创建日期（上海）', _applicable_fields={'orders'}))
+    if delivery is None:
+        return rows
+
+    def facts(approved, sale_price, submission):
+        labels = {}
+        if approved:
+            definition = CATALOG_BY_KEY.get(approved.get('report_key'), {})
+            labels = {field['label']: approved.get('values', {}).get(field['key'])
+                      for field in definition.get('columns', [])}
+        extension = (approved or {}).get('extension_data') or {}
+        if family == 'operating_sales':
+            cash = submission.get('is_cash_vehicle')
+            return {'deliveries': '1', 'vehicle_amount': money(sale_price),
+                'cash_count': '1' if cash is True else '0' if cash is False else None,
+                'cash_amount': money(sale_price) if cash is True else '0.00' if cash is False else None}
+        if family == 'operating_extensions':
+            loan = labels.get('核实放款金额')
+            values = {'deliveries': '1', 'insurance_count': labels.get('保险出单数量'),
+                'warranty_count': labels.get('延保出单数量'),
+                **{name + '_count': extension.get(name + '_count')
+                   for name in ('total_loss', 'product', 'trade_in', 'decoration')},
+                'finance_count': ('1' if Decimal(str(loan)) > 0 else '0') if loan not in (None, '') else None,
+                'insurance_company': labels.get('承保公司'), 'warranty_company': labels.get('延保合作公司'),
+                'finance_institution': labels.get('金融机构'), 'finance_category': labels.get('金融类别')}
+            for name in ('insurance', 'warranty', 'total_loss', 'product', 'trade_in', 'finance', 'decoration'):
+                count = values[name + '_count']
+                values[name + '_count'] = str(count) if count not in (None, '') else None
+                if name != 'decoration':
+                    values[name + '_vehicles'] = ('1' if Decimal(str(count)) > 0 else '0') if count not in (None, '') else None
+            return values
+        return {'value': money(approved.get('profit_cents')) if approved else None, 'deliveries': '1',
+            'finance_amount': labels.get('核实放款金额'), 'decoration_commission': labels.get('贴膜收入'),
+            'accessory_sales_income': money(extension.get('accessory_sales_income_cents')),
+            'accessory_sales_cost': money(extension.get('accessory_sales_cost_cents')),
+            'accessory_sales_profit': money(accessory_sales_profit(extension)),
+            **{name + '_commission': money(extension.get(name + '_commission_cents'))
+               for name in ('total_loss', 'product')},
+            **{name: labels.get(label) for name, label in (
+                ('insurance_commission', '保险返佣'), ('warranty_commission', '延保返佣'),
+                ('trade_in_commission', '二手车返佣'), ('bank_commission', '银行返佣'))}}
+
+    submission = (terms.submission_data or {}) if terms else {}
+    sale_price = contract.sale_price_cents
+    before_delivery, after_delivery = [], []
+    def utc(value):
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    for correction in corrections:
+        if correction.approved_at and utc(correction.approved_at) <= utc(delivery.confirmed_at):
+            before_delivery.append(correction)
+        else:
+            after_delivery.append(correction)
+    if before_delivery:
+        snapshot = max(before_delivery, key=lambda item: item.id).approved_snapshot or {}
+        sale_price = snapshot.get('sale_price_cents')
+        submission = (snapshot.get('terms') or {}).get('submission_data') or {}
+    if _in_period(delivery.accounting_on, start, end):
+        values = facts(getattr(contract, 'office_approved_data', None), sale_price, submission)
+        rows.append(dict(row, **values, period=str(delivery.accounting_on), event_kind='sale',
+            source_label='财务交车及总经理批准快照', _applicable_fields=set(values)))
+    if family == 'operating_sales':
+        def cash_count(snapshot):
+            value = ((snapshot or {}).get('terms') or {}).get('submission_data', {}).get('is_cash_vehicle')
+            return 1 if value is True else 0 if value is False else None
+        for correction in after_delivery:
+            if correction.approved_on is None or not _in_period(correction.approved_on, start, end):
+                continue
+            old_cash, new_cash = cash_count(correction.previous_snapshot), cash_count(correction.approved_snapshot)
+            rows.append(dict(row, period=str(correction.approved_on),
+                vehicle_amount=money(correction.sale_delta_cents), cash_amount=money(correction.cash_delta_cents),
+                cash_count=None if None in (old_cash, new_cash) else str(new_cash - old_cash),
+                correction_id=correction.id, event_kind='correction',
+                source_label='已交车合同批准更正差额（不新增订单或实销台数）',
+                _applicable_fields={'vehicle_amount', 'cash_amount', 'cash_count'}))
+    if returned and _in_period(returned.approved_on, start, end):
+        # Missing old reversal snapshots stay unknown; never replace a frozen
+        # return valuation with a later office revision.
+        frozen = getattr(returned, 'reversal_snapshot', None) or {}
+        values = facts(frozen.get('office_approved_data'), frozen.get('sale_price_cents'),
+                       frozen.get('submission_data') or {})
+        numeric = {field['key'] for field in CATALOG_BY_KEY[key]['metrics']
+                   if field['type'] in {'money', 'count', 'decimal'}}
+        values = {name: None if value is None else format(-Decimal(str(value)), 'f')
+                  if name in numeric else value for name, value in values.items()}
+        rows.append(dict(row, **values, period=str(returned.approved_on), event_kind='return',
+            return_id=returned.id, source_label='批准退车时冻结事实冲减', _applicable_fields=set(values),
+            note='原核算日 ' + str(frozen.get('original_accounting_on') or delivery.accounting_on)))
+    return rows
+
+
+def redact_report_rows(db, user, rows, definition, *, value_key=None):
+    """Apply completion privacy before charts, source rows, or CSV projection."""
+    from .business_record_privacy import MASKED_ROLES, completed_contract_clause, redact_personal_values
+    if user.role not in MASKED_ROLES or not rows:
+        return rows
+    from sqlalchemy import select
+    from .business_records import visible_query
+    from .business_records_models import SalesContract, RecordContractCorrection
+    closed = list(db.scalars(visible_query(user, SalesContract).where(completed_contract_clause(SalesContract))))
+    if not closed:
+        return rows
+    closed_ids = {item.id for item in closed}
+    sources = [{'customer_phone': item.customer_phone, 'form_data': item.form_data,
+                'approved_snapshot': item.approved_snapshot} for item in closed]
+    sources += [item.approved_snapshot for item in db.scalars(select(RecordContractCorrection).where(
+        RecordContractCorrection.contract_id.in_(closed_ids), RecordContractCorrection.status == 'approved'))]
+    personal_columns = {item['key']: item['label'] for item in definition.get('columns', [])
+                        if item['label'] in {'客户电话', '联系电话', '身份证号', '证件号码'}}
+    result = []
+    for row in rows:
+        copy = dict(row)
+        values = dict(copy.get(value_key) or {}) if value_key else copy
+        if copy.get('contract_id') in closed_ids:
+            typed = {label: values.get(key) for key, label in personal_columns.items()}
+            masked = redact_personal_values(typed)
+            for key, label in personal_columns.items():
+                if key in values:
+                    values[key] = masked[label]
+        if value_key:
+            copy[value_key] = values
+        result.append(redact_personal_values(copy, sources))
+    return result
+
+
+def operating_profit_components(contract, delivery, returned, row, start, end):
+    """Signed operands from the same approved calculation used for total profit."""
+    if delivery is None:
+        return []
+    events = []
+    if _in_period(delivery.accounting_on, start, end):
+        events.append((delivery.accounting_on, 'sale', 1, getattr(contract, 'office_approved_data', None)))
+    if returned and _in_period(returned.approved_on, start, end):
+        events.append((returned.approved_on, 'return', -1,
+                       (getattr(returned, 'reversal_snapshot', None) or {}).get('office_approved_data')))
+    rows = []
+    for period, kind, event_sign, office in events:
+        calculation = (office or {}).get('profit_calculation') or {}
+        items = calculation.get('items') or [{'label': '待补核定公式明细', 'amount_cents': None}]
+        for item in items:
+            amount, sign = item.get('amount_cents'), item.get('sign')
+            value = money(amount * sign * event_sign) if type(amount) is int and sign in {-1, 1} else None
+            rows.append(dict(row, period=str(period), event_kind=kind, value=value,
+                profit_component=item.get('label') or '未标注核定项目',
+                formula_sign='加' if sign == 1 else '减' if sign == -1 else '待核定',
+                source_field=item.get('source_column') or item.get('key') or '',
+                formula_version=calculation.get('formula_version') or '',
+                source_label='批准退车时冻结核定公式' if kind == 'return' else '总经理批准的核定公式项目',
+                _applicable_fields={'value'}))
     return rows
 
 
@@ -420,7 +590,7 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
                for key, values in grouped.items()]
     grand = aggregate_rows(rows, definition, '合计（当前授权范围）')
     # Contribution ratios use the same authorized, filtered denominator as totals.
-    contribution = {'model_profit': ('c06', 'c04'), 'model_profit_sheet5': ('c05', 'c03'),
+    contribution = {'model_profit': ('c06', 'c04'), 'model_profit_v218': ('c06', 'c04'), 'model_profit_sheet5': ('c05', 'c03'),
                     'insurance_resources': ('c14', 'c02')}.get(definition['key'])
     if contribution:
         output, value_key = contribution
@@ -463,7 +633,7 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
         return {key: value for key, value in row.items() if not key.startswith('_')}
     movements = {}
     if any(row.get('event_kind') for row in rows):
-        for kind in ('sale', 'return'):
+        for kind in (('sale', 'return', 'correction') if definition['key'] == 'operating_sales_v218' else ('sale', 'return')):
             components = [row.get(metric) for row in rows if row.get('event_kind') == kind]
             amount = _sum(components) if components else Decimal(0)
             movements[kind] = format(amount, 'f') if amount is not None else None
@@ -650,6 +820,10 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     definition = CATALOG_BY_KEY.get(key)
     if definition is None:
         raise ValueError('报表不存在。')
+    analysis_revision = key in {'individual_profit_v218', 'model_profit_v218'}
+    if analysis_revision:
+        # The new definition reads the existing manual target/supplement source.
+        key = key.removesuffix('_v218')
     source_mode = source_mode or 'combined'
     if source_mode not in {'combined', 'generated', 'manual'}:
         raise ValueError('不支持的数据来源。')
@@ -706,6 +880,13 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         RecordReturn.contract_id.in_(contract_ids), RecordReturn.status == 'approved'))} if contract_ids else {}
     terms = {item.contract_id: item for item in db.scalars(select(RecordContractTerms).where(
         RecordContractTerms.contract_id.in_(contract_ids)))} if contract_ids else {}
+    corrections = defaultdict(list)
+    if (key == 'operating_sales_v218' or analysis_revision) and contract_ids:
+        from .business_records_models import RecordContractCorrection
+        for item in db.scalars(select(RecordContractCorrection).where(
+                RecordContractCorrection.contract_id.in_(contract_ids),
+                RecordContractCorrection.status == 'approved')):
+            corrections[item.contract_id].append(item)
     supplements = []
     if contract_ids:
         supplements = list(db.scalars(current_manual(visible_query(user, ManualReportRecord)).where(
@@ -761,6 +942,21 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         v210 = getattr(contract, 'workflow_version', None) == 'trial-v210'
         new_flow = getattr(contract, 'workflow_version', None) in {'trial-v29', 'trial-v30', 'trial-v210'}
         approved_office = getattr(contract, 'office_approved_data', None)
+        def analysis_source(office):
+            frozen = contract.approved_snapshot or {}
+            revision_id = (office or {}).get('contract_correction_id')
+            if revision_id is not None:
+                matching = next((item for item in corrections.get(contract.id, ()) if item.id == revision_id), None)
+                frozen = (matching.approved_snapshot or {}) if matching is not None else {}
+            # Preserve unknown revision provenance instead of assigning the
+            # most recently edited model to a different approved profit.
+            values = {name: value for name, value in contract.__dict__.items() if name != '_sa_instance_state'}
+            values.update(frozen)
+            values['office_approved_data'] = office
+            if revision_id is not None and not frozen:
+                values['model'] = '待核对合同更正版本'
+            return SimpleNamespace(**values)
+        statistics_contract = analysis_source(approved_office) if analysis_revision else contract
         source = supplements_by_contract.get(contract.id)
         if approved_office:
             # Only the exact approved payload is a source. An independently
@@ -782,8 +978,12 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
             continue
         row.update(contract_id=contract.id, entry_mode='generated', source_label='合同及内勤核价', note='')
         if key in OPERATING_REPORTS:
-            generated.extend(operating_rows(key, contract, terms.get(contract.id), delivery,
-                returns.get(contract.id), row, date_from, date_to))
+            if key == 'operating_sales_v218':
+                generated.extend(operating_rows_v218(key, contract, terms.get(contract.id), delivery,
+                    returns.get(contract.id), row, date_from, date_to, corrections.get(contract.id, ())))
+            else:
+                generated.extend(operating_rows(key, contract, terms.get(contract.id), delivery,
+                    returns.get(contract.id), row, date_from, date_to))
             continue
         if key in VEHICLE_REPORTS:
             if vehicle_key != key or contract.status not in {'priced', 'approved'}:
@@ -841,7 +1041,7 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
                 continue
             if v210 and delivery is None:
                 continue
-            values = contract_statistics(key, contract, performance, category, source, definition)
+            values = contract_statistics(key, statistics_contract, performance, category, source, definition)
             if values is None:
                 continue
             extension_report = key in {'bank_finance', 'insurance_resources', 'insurance_settlement', 'extended_warranty'}
@@ -857,6 +1057,14 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         returned = returns.get(contract.id) if v210 else None
         if returned and key not in {'actual_receipts', 'contract_orders'} and _in_period(returned.approved_on, date_from, date_to):
             reversal = dict(row)
+            if analysis_revision:
+                frozen_office = (returned.reversal_snapshot or {}).get('office_approved_data')
+                frozen_key = (frozen_office or {}).get('report_key', 'vehicle_details')
+                frozen_category = {'vehicle_details': '正常车辆', 'hail_vehicle_details': '冰雹车',
+                    'secondary_vehicle_details': '二级车辆', 'vehicle_details_sheet2': '补充车辆'}.get(frozen_key, '待核对')
+                values = contract_statistics(key, analysis_source(frozen_office), performance,
+                    frozen_category, None, definition)
+                reversal.update(values)
             numeric = {field['key'] for field in (definition['columns'] if is_manual else definition['metrics'])
                        if field['type'] in {'money', 'count', 'decimal'}}
             for field in numeric & set(values):
@@ -982,6 +1190,8 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     if not can_view_sensitive_reports(user):
         for row in rows + legacy:
             row['note'] = ''
+    rows = redact_report_rows(db, user, rows, definition)
+    legacy = redact_report_rows(db, user, legacy, definition)
     if snapshot_sources:
         return {'rows': [{**row, '_applicable_fields': sorted(row.get('_applicable_fields', row))}
                          for row in rows], 'legacy_rows': legacy, 'updated_at': max(updated, default=None)}
@@ -990,7 +1200,8 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         source_mode=source_mode, legacy_rows=legacy)
     result['empty_is_zero'] = bool(definition.get('empty_is_zero'))
     office_reports = VEHICLE_REPORTS | {'profit', 'cash_consumption_amount', 'bank_finance',
-        'operating_extensions', 'operating_profit',
+        'operating_extensions', 'operating_profit', 'operating_extensions_v218', 'operating_profit_v218',
+        'operating_profit_components_v218',
         'insurance_resources', 'insurance_settlement', 'extended_warranty', 'individual_profit',
         'model_profit', 'model_profit_sheet5', 'sales_profit_statement', 'secondary_profit_statement'}
     pending = [item for item in contracts if item.workflow_version == 'trial-v210'
@@ -1007,5 +1218,5 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
         'record_count': result['record_count'],
     }
     if key in OPERATING_REPORTS and missing_result:
-        result['source_status']['status'] = 'awaiting_contract' if key == 'operating_sales' else 'awaiting_approval'
+        result['source_status']['status'] = 'awaiting_contract' if key in {'operating_sales', 'operating_sales_v218'} else 'awaiting_approval'
     return fill_month_window(result, date_from, date_to) if group_by == 'month' else result

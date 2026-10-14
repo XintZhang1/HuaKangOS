@@ -94,6 +94,7 @@ class ContractInput(Command):
     gift_description: str = Field(default='', max_length=4000)
     form_data: dict[str, str] = Field(default_factory=dict, max_length=50)
     vehicle_price_id: Key | None = None
+    inventory_row_id: Key | None = None
     gift_items: list[GiftSelection] = Field(default_factory=list, max_length=100)
     accessory_items: list[GiftSelection] = Field(default_factory=list, max_length=100)
     submission_data: ContractSubmission = Field(default_factory=ContractSubmission)
@@ -161,6 +162,22 @@ class Reject(Action):
     note: str = Field(min_length=1, max_length=2000)
 
 
+class CorrectionRequest(Action):
+    target_user_id: Key
+    target_role: Literal['sales', 'manager']
+    note: str = Field(min_length=1, max_length=2000)
+
+
+class CorrectionSubmit(ContractInput):
+    version: Key
+    gift_excess_cents: Money = 0
+    note: str = Field(default='', max_length=2000)
+
+
+class CorrectionManagerApproval(Action):
+    gift_excess_cents: Money = 0
+
+
 class ReceiptInput(Action):
     actual_amount_cents: int = Field(gt=0, le=999999999999, strict=True)
     received_on: date
@@ -172,6 +189,11 @@ class OfficeExtensionFacts(Strict):
     trade_in_count: Annotated[int, Field(ge=0, le=10000, strict=True)] | None = None
     accessory_sales_income_cents: Money | None = None
     accessory_sales_cost_cents: Money | None = None
+    total_loss_commission_cents: Money | None = None
+    product_commission_cents: Money | None = None
+    decoration_count: Annotated[int, Field(ge=0, le=10000, strict=True)] | None = None
+    accessory_sales_verified: Annotated[bool, Field(strict=True)] = False
+    accessory_sales_file_id: Key | None = None
 
 
 class OfficeReview(Action):

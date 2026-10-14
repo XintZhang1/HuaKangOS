@@ -179,8 +179,13 @@ def _save_file(db, user, kind, filename, content, media, contract_id=None, sales
 
 
 @router.get('/pricing/catalog')
-def price_catalog(contract_id: int | None = Query(None, gt=0), sales_channel: Literal['retail', 'wholesale'] = 'retail', db=Depends(get_db), user=Depends(get_user)):
+def price_catalog(contract_id: int | None = Query(None, gt=0), sales_channel: Literal['retail', 'wholesale'] = 'retail',
+                  correction_id: int | None = Query(None, gt=0), db=Depends(get_db), user=Depends(get_user)):
     _access(user)
+    if correction_id is not None:
+        if contract_id is None:
+            raise HTTPException(422, '更正目录须关联原合同')
+        return _correction_catalog(db, user, contract_id, correction_id)
     current = pricing_settings(db)
     if sales_channel == 'wholesale' and user.role == 'sales':
         raise HTTPException(403, '二级批发由销售经理发起')
@@ -237,6 +242,66 @@ def price_catalog(contract_id: int | None = Query(None, gt=0), sales_channel: Li
         'can_manage_profile': user.role in PROFILE_WRITERS,
         'can_view_gift_amounts': user.role in GIFT_READERS,
         'can_view_gift_costs': user.role in GIFT_COST_READERS}
+
+
+def _correction_catalog(db, user, contract_id, correction_id):
+    """Expose current choices beside the exact prior correction's frozen choice.
+
+    Gift rows retain their batch identifier so switching models also switches
+    its evidence catalog; publication and normal contract editing are unchanged.
+    """
+    from copy import deepcopy
+    from .business_records import get_contract
+    from .business_record_corrections import _revision
+    contract = get_contract(db, user, contract_id)
+    revision = _revision(db, contract, correction_id)
+    source = revision.previous_snapshot
+    terms = source.get('terms') or {}
+    channel = (terms.get('submission_data') or {}).get('sales_channel', 'retail')
+    result = price_catalog(contract_id=None, sales_channel=channel, correction_id=None, db=db, user=user)
+    for vehicle in result['vehicles']:
+        vehicle['gift_batch_id'] = result['gift_batch_id']
+    for row in result['gifts'] + result['accessories']:
+        row['batch_id'] = result['gift_batch_id']
+    frozen = deepcopy(terms.get('price_snapshot') or {})
+    gift_batch = terms.get('gift_batch_id')
+    if frozen:
+        allowed = _vehicle_gift_ids(frozen, gift_batch)
+        allowed.update(item['price_id'] for item in terms.get('gifts_snapshot', []))
+        frozen['gift_policy'] = _policy_view(frozen.get('gift_policy'), user, gift_batch)
+        frozen['gift_batch_id'] = gift_batch
+        frozen['frozen_for_correction'] = True
+        if user.role not in GIFT_READERS:
+            frozen.pop('note', None); frozen.pop('control_price_cents', None)
+        result['vehicles'] = [frozen] + [item for item in result['vehicles'] if item['id'] != frozen['id']]
+        if gift_batch:
+            batch = RecordPriceBatch.__table__
+            metadata = db.execute(select(batch.c.store_id, batch.c.brand).where(
+                batch.c.id == gift_batch, batch.c.kind == 'gift')).mappings().one_or_none()
+            if not metadata or not (metadata['brand'] == source['brand'] or
+                    not metadata['brand'] and metadata['store_id'] == source['store_id']):
+                raise HTTPException(409, '更正的冻结赠品批次来源不匹配')
+            table = RecordGiftPrice.__table__
+            for raw in db.execute(select(table).where(table.c.batch_id == gift_batch,
+                    table.c.store_id == metadata['store_id'])).mappings():
+                common = {key: raw[key] for key in ('id', 'batch_id', 'name', 'brand', 'unit', 'applicable_models')}
+                if raw['unit_price_cents'] is not None:
+                    paid = {**common, 'unit_price_cents': raw['unit_price_cents']}
+                    if user.role in GIFT_COST_READERS:
+                        paid['unit_cost_cents'] = raw['unit_cost_cents']
+                    if not any(item['id'] == raw['id'] for item in result['accessories']):
+                        result['accessories'].append(paid)
+                if user.role in GIFT_READERS or raw['id'] in allowed:
+                    gift = dict(common)
+                    if user.role in GIFT_READERS:
+                        gift['unit_price_cents'] = raw['unit_price_cents']
+                    if user.role in GIFT_COST_READERS:
+                        gift.update({key: raw[key] for key in ('unit_cost_cents', 'note', 'source_ref')})
+                    if not any(item['id'] == raw['id'] for item in result['gifts']):
+                        result['gifts'].append(gift)
+    result.update(correction_id=correction_id, frozen_for_contract=contract_id,
+                  frozen_price_id=frozen.get('id'), sales_channel=channel)
+    return result
 
 
 @router.get('/store-profile')
@@ -482,6 +547,24 @@ def _selected_gifts(db, gift_batch_id, selections, existing=None):
 def check_gift_policy(body: GiftPolicyCheck, db=Depends(get_db), user=Depends(get_user)):
     """Read-only selection preview; no command, audit, lock or publication."""
     _access(user)
+    if body.correction_id is not None:
+        if body.contract_id is None:
+            raise HTTPException(422, '更正赠品核对须指定原合同')
+        from .business_records import get_contract
+        from .business_record_corrections import _revision, _frozen_selected
+        contract = get_contract(db, user, body.contract_id)
+        revision = _revision(db, contract, body.correction_id)
+        source = revision.previous_snapshot
+        terms = source.get('terms') or {}
+        frozen = terms.get('price_snapshot') or {}
+        if body.vehicle_price_id == frozen.get('id'):
+            gift_batch = terms.get('gift_batch_id')
+            _validate_vehicle_gifts(frozen, gift_batch, body.gift_items, terms.get('gifts_snapshot', []))
+            _, _, cost_total = _frozen_selected(db, source, body.gift_items)
+            return _policy_result_view(gift_policy_assessment(frozen.get('gift_policy'), cost_total), user)
+        # A changed model uses the current publication, exactly as submit does.
+        body = body.model_copy(update={'contract_id': None, 'correction_id': None,
+            'sales_channel': (terms.get('submission_data') or {}).get('sales_channel', 'retail')})
     contract = None
     if body.contract_id is not None:
         from .business_records import get_contract
@@ -502,7 +585,7 @@ def check_gift_policy(body: GiftPolicyCheck, db=Depends(get_db), user=Depends(ge
     return _policy_result_view(gift_policy_assessment(price.get('gift_policy'), cost_total), user)
 
 
-def prepare_submission(db, user, body, existing=None):
+def prepare_submission(db, user, body, existing=None, *, inventory_existing=None, allow_vehicle_change=False):
     """Use current published prices once. Subsequent edits retain that exact batch."""
     current = pricing_settings(db)
     if current is None:
@@ -538,13 +621,19 @@ def prepare_submission(db, user, body, existing=None):
     if accessories and accessory_total is None:
         raise HTTPException(422, '有偿精品须先维护售价，请联系总经理核对')
     policy_check = gift_policy_assessment(price.get('gift_policy'), cost_total)
+    from .business_record_inventory import prepare_contract_inventory
+    inventory = prepare_contract_inventory(db, user, body,
+        inventory_existing if inventory_existing is not None else existing,
+        allow_vehicle_change=allow_vehicle_change)
     form = dict(body.form_data)
+    if inventory:
+        form.update({key: inventory['snapshot'][key] for key in ('exterior_color', 'interior_color')})
     sellers = [seller for seller in current.profile.get('sellers', []) if seller['name'] == form.get('seller_name')]
     if len(sellers) != 1:
         raise HTTPException(422, '请从本店卖方公司列表中选择合同卖方')
     for key in ('exterior_color', 'interior_color'):
-        if form.get(key) not in BASIC_COLORS:
-            raise HTTPException(422, '请从十种基础色中选择车身及内饰颜色')
+        if not form.get(key) or len(form[key]) > 100:
+            raise HTTPException(422, '请填写经核对的厂家车身及内饰颜色（最多100字）')
     if form.get('buyer_document_name', '身份证') not in {'身份证', '护照', '驾照'}:
         raise HTTPException(422, '买方证件类型须选择身份证、护照或驾照')
     person = db.get(User, body.salesperson_id)
@@ -558,13 +647,16 @@ def prepare_submission(db, user, body, existing=None):
         'gift_cost_total_cents': cost_total,
         'gift_policy_check': policy_check,
         'gift_pricing_basis': prior.gift_pricing_basis if prior else 'separate-cost-v1',
-        'form_data': form, 'brand': brand, 'model': price['series'] + ' ' + price['model'],
+        'form_data': form, 'brand': brand, 'model': price['series'] + ' ' + price['model'], 'inventory': inventory,
         'submission_data': {**body.submission_data.model_dump(), **channel_data,
+            **({'is_cash_vehicle': inventory['snapshot']['is_cash_vehicle'], 'inventory_snapshot': inventory['snapshot']} if inventory else {}),
             'accessory_snapshot': accessories, 'accessory_total_cents': accessory_total},
         'price_below_cents': max(0, price['control_price_cents'] - body.sale_price_cents)}
 
 
 def save_submission(db, row, prepared):
+    from .business_record_inventory import save_contract_inventory
+    save_contract_inventory(db, row, prepared.get('inventory'))
     terms = get_terms(db, row)
     if terms is None:
         terms = RecordContractTerms(store_id=row.store_id, contract_id=row.id, price_snapshot=prepared['price'])
@@ -652,8 +744,13 @@ def download_pricing_file(key: int, contract_id: int | None = Query(None, gt=0),
         item = published_brand_file(db, key, contract=contract)
     if item.kind == 'gift' and user.role not in GIFT_COST_READERS:
         raise HTTPException(403, '赠品原表可能包含成本，仅向成本核价岗位开放')
+    if item.kind == 'accessory_sale':
+        from .business_record_accessories import _read
+        _read(user)
     if item.contract_id:
         row = get_contract(db, user, item.contract_id)
+        from .business_record_privacy import require_personal_export
+        require_personal_export(db, user, row)
         from .employee_handover import can_read_contract_attachment
         if not can_read_contract_attachment(db, user, row, item):
             raise HTTPException(403, '审批内部附件不向销售顾问开放')

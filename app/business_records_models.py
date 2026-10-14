@@ -1,7 +1,7 @@
 """Independent V2 records: no inventory, ERP, membership or legacy flow writes."""
 from datetime import date, datetime
 from fastapi import HTTPException
-from sqlalchemy import String, Text, Integer, BigInteger, Date, DateTime, ForeignKey, JSON, CheckConstraint, UniqueConstraint, event
+from sqlalchemy import String, Text, Integer, BigInteger, Date, DateTime, ForeignKey, JSON, CheckConstraint, UniqueConstraint, event, inspect
 from sqlalchemy.orm import Mapped, mapped_column, declared_attr, Session
 from .db import Base, utcnow
 from .models import StoreScoped
@@ -85,6 +85,9 @@ class SalesContract(Versioned, Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     approved_snapshot: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     template_version: Mapped[str] = mapped_column(String(100), default='')
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    archived_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    archive_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     __table_args__ = (
         CheckConstraint("status IN ('submitted','manager_approved','deputy_pending','priced','approved','rejected')", name='ck_record_contract_status'),
         CheckConstraint("workflow_version IN ('legacy-v2','trial-v29','trial-v30','trial-v210')", name='ck_record_contract_workflow'),
@@ -99,6 +102,38 @@ class SalesContract(Versioned, Base):
         CheckConstraint("status != 'deputy_pending' OR (workflow_version IN ('trial-v30','trial-v210') AND general_manager_approved_by IS NOT NULL)", name='ck_record_contract_deputy'),
         CheckConstraint("workflow_version NOT IN ('trial-v30','trial-v210') OR status != 'approved' OR general_manager_approved_by IS NOT NULL", name='ck_record_contract_general'),
     )
+
+
+class RecordContractCorrection(Versioned, Base):
+    """An independently approved revision; original sale/delivery facts stay fixed."""
+    __tablename__ = 'business_record_contract_corrections'
+    contract_id: Mapped[int] = mapped_column(ForeignKey('business_record_contracts.id'), index=True)
+    previous_id: Mapped[int | None] = mapped_column(ForeignKey('business_record_contract_corrections.id'), nullable=True)
+    status: Mapped[str] = mapped_column(String(30), default='draft')
+    requested_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    assigned_to: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    assigned_role: Mapped[str] = mapped_column(String(30))
+    reason: Mapped[str] = mapped_column(Text)
+    previous_snapshot: Mapped[dict] = mapped_column(JSON)
+    draft: Mapped[dict] = mapped_column(JSON, default=dict)
+    approved_snapshot: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    submitted_by: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    manager_approved_by: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True)
+    manager_approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    general_manager_approved_by: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True)
+    general_manager_approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    deputy_approved_by: Mapped[int | None] = mapped_column(ForeignKey('users.id'), nullable=True)
+    deputy_approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    approved_on: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    sale_delta_cents: Mapped[int] = mapped_column(BigInteger, default=0)
+    cash_delta_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    events: Mapped[list] = mapped_column(JSON, default=list)
+    __table_args__ = (
+        CheckConstraint("status IN ('draft','submitted','manager_approved','deputy_pending','approved','cancelled')", name='ck_record_correction_status'),
+        CheckConstraint("assigned_role IN ('sales','manager')", name='ck_record_correction_assignee'),
+        CheckConstraint("status != 'approved' OR (approved_snapshot IS NOT NULL AND approved_at IS NOT NULL AND approved_on IS NOT NULL)", name='ck_record_correction_approved'))
 
 
 class StandardRecordPrice(Versioned, Base):
@@ -198,3 +233,11 @@ def immutable_record_facts(db, *_):
     for row in set(db.dirty) | set(db.deleted):
         if isinstance(row, (ContractReceipt, RecordCommand)) and (row in db.deleted or db.is_modified(row)):
             raise HTTPException(409, '已确认的到账记录及操作回执不可改写或删除')
+        if isinstance(row, RecordContractCorrection):
+            state = inspect(row)
+            old_status = state.attrs.status.history.deleted
+            prior_status = old_status[0] if old_status else row.status
+            if row in db.deleted or (prior_status in {'approved', 'cancelled'} and db.is_modified(row)):
+                raise HTTPException(409, '已完成更正记录不能改写或删除，请追加下一次更正')
+            if any(state.attrs[key].history.has_changes() for key in ('contract_id', 'store_id', 'previous_id', 'previous_snapshot', 'requested_by')):
+                raise HTTPException(409, '更正来源和原批准版本不可改写')

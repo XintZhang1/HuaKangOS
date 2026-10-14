@@ -52,10 +52,19 @@ def spreadsheet_source(content):
                 if not path.startswith('xl/'):
                     raise ValueError()
                 tree = ET.fromstring(archive.read(path))
+                hidden_columns = [(int(col.get('min')), int(col.get('max')))
+                    for col in tree.findall('s:cols/s:col', NS) if col.get('hidden') in {'1', 'true'}]
                 rows = []
                 for row in tree.findall('s:sheetData/s:row', NS):
+                    if row.get('hidden') in {'1', 'true'}:
+                        continue
                     cells = []
                     for cell in row.findall('s:c', NS):
+                        column_number = 0
+                        for char in re.sub(r'\d', '', cell.get('r', '')):
+                            column_number = column_number * 26 + ord(char) - ord('A') + 1
+                        if any(start <= column_number <= end for start, end in hidden_columns):
+                            continue
                         value = cell.findtext('s:v', default='', namespaces=NS)
                         if cell.get('t') == 's':
                             value = strings[int(value)]
@@ -127,6 +136,62 @@ def _cents(value):
         return None
 
 
+def price_suggestions(data, kind):
+    """Keep every returned row, including explicit repair placeholders.
+
+    A bad suggestion cannot silently remove a model from a replacement catalog.
+    Publication still requires the existing strict schema and uploader review.
+    """
+    if not isinstance(data, dict) or not isinstance(data.get('rows'), list) or not 1 <= len(data['rows']) <= 2000:
+        raise HTTPException(503, '限价识别结果没有有效的车型行列表；原件已保存，请重新识别或逐行手工核对')
+    result, errors = [], []
+    for index, raw in enumerate(data['rows'], 1):
+        problems = []
+        row = raw if isinstance(raw, dict) else {}
+        if not isinstance(raw, dict):
+            problems.append('本行格式不正确，须按原表补齐')
+        keys = ('family', 'series', 'model', 'note') if kind == 'vehicle' else ('name', 'note')
+        item = {}
+        for key in keys:
+            value = row.get(key)
+            value = value if isinstance(value, str) else ''
+            limit = 2000 if key == 'note' else 100 if key == 'family' else 160
+            if len(value) > limit:
+                problems.append(key + '超长，请按原表核对填写')
+                value = ''
+            item[key] = value
+            if key != 'note' and not value.strip():
+                problems.append(key + '待补齐')
+        prices = ('guide_price', 'control_price') if kind == 'vehicle' else ('unit_price',)
+        for key in prices:
+            item[key + '_cents'] = _cents(row.get(key))
+            if item[key + '_cents'] is None or kind == 'vehicle' and item[key + '_cents'] == 0:
+                problems.append(key + '待核对，不能将未知金额当零')
+        item['source'] = str(row.get('source_sheet') or '')[:100] + ':' + str(row.get('source_row') or '')[:30]
+        if kind == 'vehicle':
+            policy = row.get('gift_policy') or {}
+            if not isinstance(policy, dict):
+                problems.append('赠品政策格式不正确，请按原表核对')
+                policy = {}; item['model'] = ''
+            policy_text = policy.get('text') or ''
+            if not isinstance(policy_text, str) or len(policy_text) > 3000:
+                problems.append('赠品政策文字不完整，请按原表核对')
+                policy_text = ''; item['model'] = ''
+            cost = _cents(policy.get('cost_limit'))
+            if policy.get('cost_limit') not in (None, '') and cost is None:
+                problems.append('赠品成本额度无效，请按原表核对')
+                item['model'] = ''
+            item['gift_policy_suggestion'] = {'text': policy_text, 'cost_limit_cents': cost}
+        if problems:
+            errors.append({'row': index, 'source': item['source'], 'errors': list(dict.fromkeys(problems))})
+        result.append(item)
+    raw_warnings = data.get('warnings', [])
+    warnings = [str(x)[:1000] for x in raw_warnings[:100]] if isinstance(raw_warnings, list) else []
+    warnings.extend('第' + str(error['row']) + '项（' + (error['source'] or '来源待核对') + '）：' + '；'.join(error['errors']) for error in errors)
+    return {'rows': result, 'warnings': warnings, 'row_errors': errors, 'recognition_complete': not errors,
+            'requires_confirmation': True, 'notice': '已保留每一项识别结果；有问题的行须按原表补齐，不能删除错误行冒充整批完整。逐行核对后由上传者确认发布。'}
+
+
 def recognize_price_file(content, media, kind):
     from .business_assistant_service import load_config
     config = load_config()
@@ -160,45 +225,24 @@ def recognize_price_file(content, media, kind):
             with client.stream('POST', 'https://api.deepseek.com/chat/completions',
                     headers={'Authorization': 'Bearer ' + config.api_key}, json=body) as response:
                 if response.status_code != 200:
-                    raise ValueError()
+                    if response.status_code == 429:
+                        raise HTTPException(503, '限价识别服务繁忙或配额不足；原件已保存，请稍后重试或手工核对')
+                    if response.status_code in {401, 403}:
+                        raise HTTPException(503, '限价识别服务认证未通过；原件已保存，请联系系统管理员检查配置')
+                    raise HTTPException(503, '限价识别服务返回异常状态；原件已保存，请重试或手工核对')
                 raw = bytearray()
                 for chunk in response.iter_bytes():
                     raw.extend(chunk)
                     if len(raw) > 4 * 1024 * 1024:
-                        raise ValueError()
+                        raise HTTPException(503, '限价识别响应超过安全范围，未采用截断结果；请拆分明确的品牌工作表后核对')
         choice = json.loads(raw)['choices'][0]
         if not isinstance(choice, dict) or choice.get('finish_reason') != 'stop':
-            raise ValueError()
+            raise HTTPException(503, '限价识别响应未完整结束，不能采用截断结果；原件已保存，可重新识别或逐行手工核对')
         data = json.loads(choice['message']['content'])
-        if not isinstance(data, dict):
-            raise ValueError()
-        rows = data.get('rows')
-        if not isinstance(rows, list) or not 1 <= len(rows) <= 2000:
-            raise ValueError()
-        result = []
-        for row in rows:
-            if not isinstance(row, dict):
-                raise ValueError()
-            keys = ('family', 'series', 'model', 'note') if kind == 'vehicle' else ('name', 'note')
-            item = {key: str(row.get(key) or '') for key in keys}
-            if any(len(value) > (2000 if key == 'note' else 100 if key == 'family' else 160)
-                   for key, value in item.items()):
-                raise ValueError()
-            prices = ('guide_price', 'control_price') if kind == 'vehicle' else ('unit_price',)
-            item.update({key + '_cents': _cents(row.get(key)) for key in prices})
-            item['source'] = str(row.get('source_sheet') or '')[:100] + ':' + str(row.get('source_row') or '')[:30]
-            if kind == 'vehicle':
-                policy = row.get('gift_policy') or {}
-                if not isinstance(policy, dict):
-                    raise ValueError()
-                policy_text = str(policy.get('text') or '')
-                if len(policy_text) > 3000:
-                    raise ValueError()
-                item['gift_policy_suggestion'] = {'text': policy_text,
-                    'cost_limit_cents': _cents(policy.get('cost_limit'))}
-            result.append(item)
-        warnings = data.get('warnings', [])
-        return {'rows': result, 'warnings': [str(x)[:1000] for x in warnings[:100]] if isinstance(warnings, list) else [],
-            'requires_confirmation': True, 'notice': '仅为识别建议。逐行核对价格及赠品成本额度，或明确无金额限制后，由上传者确认整批生效；项目和次数暂不自动限制。'}
-    except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
-        raise HTTPException(503, '限价识别未返回完整有效结果，本批未生效；请人工核对或重新识别') from None
+        return price_suggestions(data, kind)
+    except httpx.TimeoutException:
+        raise HTTPException(503, '限价识别请求超时；原件已保存，未改变有效目录，可重试或手工核对') from None
+    except httpx.HTTPError:
+        raise HTTPException(503, '限价识别连接失败；原件已保存，未改变有效目录，请稍后重试') from None
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise HTTPException(503, '限价识别响应格式不完整，无法安全读取；原件已保存，请重新识别或逐行手工核对') from None

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewed_on": "2026-10-11",
+  "reviewed_on": "2026-10-15",
   "policy": "Only these exact current business-record API method/path pairs may be queried or prepared. Native role/store checks and manual confirmation remain authoritative. Other routes including new routes are closed by default.",
   "operations": [
     "GET /api/business-records/catalog",
@@ -22,6 +22,8 @@
     "GET /api/business-records/daily-vehicle-reports",
     "GET /api/business-records/pricing/catalog",
     "GET /api/business-records/contracts/{key}/delivery-state",
-    "GET /api/business-records/dashboard-panels"
+    "GET /api/business-records/dashboard-panels",
+    "GET /api/business-records/inventory/catalog",
+    "GET /api/business-records/inventory/candidates"
   ]
 }

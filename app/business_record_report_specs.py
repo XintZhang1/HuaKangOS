@@ -13,7 +13,9 @@ CONTRACT_REPORTS = frozenset(VEHICLE_REPORTS | {'sales_targets', 'sales_overview
     'insurance_settlement', 'extended_warranty', 'trade_in', 'cash_deliveries', 'cash_consumption_amount'})
 AFTER_SALES_REPORTS = frozenset({'after_sales_monthly', 'after_sales_targets', 'sales_targets'})
 TARGET_FIELDS = frozenset({'c02', 'c03', 'c04', 'c05'})
-OPERATING_REPORTS = frozenset({'operating_sales', 'operating_extensions', 'operating_profit'})
+V218_OPERATING_REPORTS = frozenset({'operating_sales_v218', 'operating_extensions_v218',
+                                  'operating_profit_v218', 'operating_profit_components_v218'})
+OPERATING_REPORTS = frozenset({'operating_sales', 'operating_extensions', 'operating_profit'}) | V218_OPERATING_REPORTS
 
 # Read access applies only within the existing current-store/aggregate scope.
 # General managers need the complete valuation to review office submissions.
@@ -199,6 +201,44 @@ def configure_catalog(catalog):
                 if key == 'operating_extensions' else {},
             'period_basis': '合同订单按合同日期；实销按财务交车绑定发票上传日，退车批准日冲减。'
                 '现金车按合同独立标记，消化金额取该车合同售价；延伸与毛利仅取总经理批准快照，缺项待审核。'})
+    # New keys preserve the meaning of previously generated/frozen reports.
+    from copy import deepcopy
+    for source in [item for item in catalog if item['key'] in operating]:
+        current = deepcopy(source)
+        current['key'] += '_v218'
+        current['definition_version'] = 'v218-created-orders-verified-accessories'
+        current['period_basis'] = ('订单按实际创建时的上海日期，交车不减少新建订单；实销按交车绑定发票上传日。'
+            '退车使用批准时冻结的原事实冲减；已批准合同更正仅在批准日追加金额差额，不重复台数。'
+            '延伸数量及佣金、毛利仅取总经理批准快照；缺项保留为空。')
+        if source['key'] == 'operating_extensions':
+            current['metrics'].append({'key': 'decoration_count', 'label': '贴膜改装出单',
+                'type': 'count', 'unit': '单', 'precision': 0})
+        if source['key'] == 'operating_profit':
+            current['metrics'] += [
+                {'key': 'deliveries', 'label': '同源实销净台数', 'type': 'count', 'unit': '台', 'precision': 0},
+                {'key': 'average_profit', 'label': '平均单车毛利', 'type': 'decimal', 'unit': '元', 'precision': 6},
+                *[{'key': name, 'label': label, 'type': 'money', 'unit': '元', 'precision': 2}
+                    for name, label in (('total_loss_commission', '全损佣金'), ('product_commission', '小产品佣金'))]]
+            current['aggregation_rules']['average_profit'] = {
+                'kind': 'ratio', 'numerator': 'value', 'denominator': 'deliveries', 'scale': 1}
+            for field in current['metrics']:
+                if field['key'] == 'bank_commission':
+                    field['label'] = '银行分期返佣'
+                elif field['key'] == 'accessory_sales_income':
+                    field['label'] = '店内精品销售金额'
+        catalog.append(current)
+    catalog.append({'key': 'operating_profit_components_v218', 'title': '核定毛利构成',
+        'source': 'contracts', 'columns': [], 'default_metric': 'value', 'unit': '元',
+        'metrics': [{'key': 'value', 'label': '毛利贡献金额', 'type': 'money', 'unit': '元', 'precision': 2}],
+        'detail_fields': [
+            {'key': 'profit_component', 'label': '核定公式项目', 'type': 'text', 'unit': '', 'precision': None},
+            {'key': 'formula_sign', 'label': '公式符号', 'type': 'text', 'unit': '', 'precision': None},
+            {'key': 'source_field', 'label': '原表字段', 'type': 'text', 'unit': '', 'precision': None},
+            {'key': 'formula_version', 'label': '核定公式版本', 'type': 'text', 'unit': '', 'precision': None}],
+        'grouping_fields': [{'key': 'profit_component', 'label': '核定公式项目', 'type': 'text'}],
+        'aggregation_rules': {}, 'definition_version': 'v218-approved-formula-components',
+        'period_basis': '按交车绑定发票上传日及批准退车日；仅取批准快照中的公式项目和明确符号。',
+        'input_notice': '按核定公式项目展示，含正负贡献；不把合计作为项目，缺少核定金额保留为空。'})
     # New definitions leave already-confirmed daily snapshot definitions intact.
     catalog.append({'key': 'contract_orders', 'title': '合同订单', 'source': 'contracts',
         'columns': [], 'metrics': [{'key': 'value', 'label': '合同订单', 'type': 'count', 'unit': '台', 'precision': 0}],
@@ -290,6 +330,18 @@ def configure_catalog(catalog):
             report['input_notice'] = '收订须已人工核实，合同定金不等于收订；余额及预计交车按当日实际观察填写。未知留空，同日更正请引用原记录。'
             report['aggregation_rules']['c03'] = {'kind': 'closing_snapshot'}
             report['aggregation_rules']['c04'] = {'kind': 'closing_snapshot'}
+    for source in [item for item in catalog if item['key'] in {'individual_profit', 'model_profit'}]:
+        current = deepcopy(source)
+        current['key'] += '_v218'
+        current['title'] += '（按核定版本）'
+        current['definition_version'] = 'v218-approved-office-revision-frozen-return'
+        current['period_basis'] = ('已审核内勤资料与其关联的批准合同版本；交车按原核算日计入，'
+            '退车按批准时冻结的核定毛利冲减。原目标和人工统计仍保留原来源。')
+        current['entry_modes'] = []
+        current['read_only'] = True
+        current['input_notice'] = '本版为自动分析；目标及人工补充通过原统计入口维护。'
+        GROUPING_FIELDS[current['key']] = GROUPING_FIELDS[source['key']]
+        catalog.append(current)
 
 
 # Fields generated from business facts. Other fields remain clerk-confirmed.
