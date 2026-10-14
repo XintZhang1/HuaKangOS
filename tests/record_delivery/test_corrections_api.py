@@ -1,6 +1,7 @@
 """V2.18 actual scoped APIs against external synthetic fixtures; no model calls."""
 from copy import deepcopy
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 import json
 import pytest
 from sqlalchemy import select, func
@@ -78,7 +79,10 @@ def test_delivered_correction_preserves_original_facts_and_masks_every_read(deli
     final = fx.call('general_manager', 'POST', f'/contracts/{key}/corrections/{revision["id"]}/approve',
         json=command(version=manager['version']))
     assert final['status'] == 'approved' and final['sale_delta_cents'] == 200000
-    assert final['cash_delta_cents'] == 200000 and final['approved_on'] == date.today().isoformat()
+    # Business dates use Shanghai, regardless of the CI host's local date.
+    # Derive from this approval, so a test spanning midnight/month-end stays stable.
+    approved_day = datetime.fromisoformat(final['approved_at'].replace('Z', '+00:00')).astimezone(ZoneInfo('Asia/Shanghai')).date()
+    assert final['cash_delta_cents'] == 200000 and final['approved_on'] == approved_day.isoformat()
     assert final['snapshot']['customer_phone'] == original_body['customer_phone']
     assert final['snapshot']['form_data']['buyer_id_number'] == original_body['form_data']['buyer_id_number']
     assert final['snapshot']['terms']['submission_data']['payment_method'] == '贷款'

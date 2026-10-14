@@ -207,6 +207,9 @@ def configure_catalog(catalog):
         current = deepcopy(source)
         current['key'] += '_v218'
         current['definition_version'] = 'v218-created-orders-verified-accessories'
+        # No event in the selected period is zero. A delivered vehicle with
+        # missing/unapproved facts still contributes None and stays unknown.
+        current['empty_is_zero'] = True
         current['period_basis'] = ('订单按实际创建时的上海日期，交车不减少新建订单；实销按交车绑定发票上传日。'
             '退车使用批准时冻结的原事实冲减；已批准合同更正仅在批准日追加金额差额，不重复台数。'
             '延伸数量及佣金、毛利仅取总经理批准快照；缺项保留为空。')
@@ -229,6 +232,7 @@ def configure_catalog(catalog):
         catalog.append(current)
     catalog.append({'key': 'operating_profit_components_v218', 'title': '核定毛利构成',
         'source': 'contracts', 'columns': [], 'default_metric': 'value', 'unit': '元',
+        'empty_is_zero': True,
         'metrics': [{'key': 'value', 'label': '毛利贡献金额', 'type': 'money', 'unit': '元', 'precision': 2}],
         'detail_fields': [
             {'key': 'profit_component', 'label': '核定公式项目', 'type': 'text', 'unit': '', 'precision': None},
