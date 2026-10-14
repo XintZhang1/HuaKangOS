@@ -75,10 +75,12 @@ def delivery_summary(db, user, contract):
         if (delivery and (user.role == 'admin' or user.role == 'sales' and can_continue_record(db, user, contract))
                 and not any(r['status'] in {'submitted', 'approved'} for r in returns)):
             actions.append('request_return')
-    return {'delivery': plain(delivery) if delivery else None, 'invoice_ready': invoice_ready,
+    data = {'delivery': plain(delivery) if delivery else None, 'invoice_ready': invoice_ready,
             'invoice_version': invoice.version if invoice else None,
             'gift_document': _file_info(gift), 'materials_ready': bool(bound_invoice_ready and bound_gift and _safe(bound_gift)),
             'returns': returns, 'actions': actions}
+    from .business_record_privacy import sanitize_command_result
+    return sanitize_command_result(db, user, data, payload={'contract_id': contract.id})
 
 
 def require_office_materials(db, contract):
@@ -154,6 +156,8 @@ def download_gift_document(key: int, file_id: int, db=Depends(get_db), user=Depe
     from .business_records import get_contract
     from .business_record_invoices import _content
     contract = get_contract(db, user, key)
+    from .business_record_privacy import require_personal_export
+    require_personal_export(db, user, contract)
     if user.role not in {'admin', 'finance', 'clerk', 'manager', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}:
         raise HTTPException(403, '盖章赠品单原件仅供相应审核及财务岗位查看')
     row = db.scalar(select(RecordGiftDocument).where(RecordGiftDocument.id == file_id,
@@ -171,6 +175,8 @@ def print_gift_document(key: int, db=Depends(get_db), user=Depends(get_user)):
     from .business_record_pdf import FONT
     from reportlab.pdfgen.canvas import Canvas
     contract = get_contract(db, user, key)
+    from .business_record_privacy import require_personal_export
+    require_personal_export(db, user, contract)
     if user.role not in {'finance', 'admin'}:
         raise HTTPException(403, '赠品单仅可由财务下载或打印')
     if contract.status != 'approved':
@@ -291,6 +297,9 @@ def request_return(key: int, body: ReturnRequest, request: Request, db=Depends(g
         raise HTTPException(403, '该合同仅可由当前负责销售发起退车，交接历史仅供查询')
     def perform():
         _check_version(contract, body.version)
+        from .business_record_corrections import correction_rows, ACTIVE
+        if any(item.status in ACTIVE for item in correction_rows(db, contract)):
+            raise HTTPException(409, '请先完成或撤销办理中的合同更正，再申请真实退车')
         delivery = _delivery(db, contract)
         if not delivery or any(row.status in {'submitted', 'approved'} for row in _returns(db, contract)):
             raise HTTPException(409, '退车须关联已交车合同，且不能重复申请已受理或批准的退车')
@@ -326,8 +335,13 @@ def _review_return(key, return_id, body, request, db, user, approved):
         row.reviewed_by, row.reviewed_at, row.review_note = user.id, utcnow(), body.note
         if approved:
             row.approved_on = today()
+            from .business_record_corrections import effective_snapshot
+            effective = effective_snapshot(db, contract) or {}
+            submission = (effective.get('terms') or {}).get('submission_data') or {}
             row.reversal_snapshot = {'original_accounting_on': str(_delivery(db, contract).accounting_on),
-                'sale_price_cents': contract.sale_price_cents, 'office_approved_data': contract.office_approved_data}
+                'sale_price_cents': effective.get('sale_price_cents', contract.sale_price_cents),
+                'submission_data': {'is_cash_vehicle': submission.get('is_cash_vehicle')},
+                'office_approved_data': contract.office_approved_data}
         contract.updated_at = utcnow(); db.flush()
         audit(db, user.id, 'record_return_approve' if approved else 'record_return_reject', 'record_contract', key,
               after={'store_id': contract.store_id, 'return_id': row.id, 'approved_on': str(row.approved_on) if approved else None,

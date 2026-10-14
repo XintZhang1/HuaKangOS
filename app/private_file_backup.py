@@ -14,6 +14,7 @@ RECORD_FILE_TABLES = (
     ('business_record_invoice_files', 'record-invoice-', 'record_invoice'),
     ('business_record_pricing_files', 'record-pricing-', 'record_pricing'),
     ('business_record_gift_documents', 'record-gift-document-', 'record_gift_document'),
+    ('business_record_inventory_files', 'record-inventory-', 'record_inventory'),
 )
 
 

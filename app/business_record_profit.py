@@ -93,11 +93,11 @@ def include_accessory_sales(base, extension):
 
 def apply_office_profit(db, contract, data, *, require_materials=True):
     """Override only computed facts. Every net component remains clerk supplied."""
-    from .business_record_pricing_models import RecordContractTerms
     from .business_record_delivery import require_office_materials
     from .business_record_reports import validate_manual_values
     values = dict(data.get('values', {}))
-    terms = db.scalar(select(RecordContractTerms).where(RecordContractTerms.contract_id == contract.id))
+    from .business_record_accessories import effective_terms
+    terms = effective_terms(db, contract)
     from .business_record_pricing import frozen_gift_cost
     gift_cost = frozen_gift_cost(terms) if terms is not None else contract.gift_cost_cents
     gift_key = column_key(FORMULAS[data['report_key']][2])
@@ -111,7 +111,10 @@ def apply_office_profit(db, contract, data, *, require_materials=True):
         data['gift_document_id'] = db.scalar(select(RecordGiftDocument.id).where(
             RecordGiftDocument.contract_id == contract.id).order_by(RecordGiftDocument.id.desc()).limit(1))
     values = validate_manual_values(data['report_key'], values)
+    from .business_record_accessories import apply_accessory_verification
+    data = apply_accessory_verification(db, contract, data, terms)
     result = include_accessory_sales(calculate_profit(data['report_key'], values), data.get('extension_data') or {})
+    result['formula_version'] = 'customer-sheets-v218-verified-paid-accessories'
     amount = result['total_cents']
     values[result['output_key']] = None if amount is None else format(Decimal(amount) / 100, '.2f')
     # Original first profit column is a duplicate result, never another operand.
@@ -140,4 +143,5 @@ def preview_profit(key: int, body: ProfitPreview, db=Depends(get_db), user=Depen
         result = apply_office_profit(db, contract, body.model_dump(), require_materials=False)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
-    return {key: result[key] for key in ('profit_cents', 'gift_cost_cents', 'profit_calculation', 'values')}
+    return {key: result[key] for key in ('profit_cents', 'gift_cost_cents', 'profit_calculation', 'values',
+                                        'extension_data', 'accessory_sales_verification')}

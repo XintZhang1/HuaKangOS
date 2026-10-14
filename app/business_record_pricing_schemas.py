@@ -74,6 +74,7 @@ class GiftPolicyCheck(Strict):
     vehicle_price_id: Key
     gift_items: list[GiftSelection] = Field(default_factory=list, max_length=100)
     contract_id: Key | None = None
+    correction_id: Key | None = None
 
 
 class GiftPriceImport(Command):

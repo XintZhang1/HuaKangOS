@@ -93,7 +93,8 @@ def _content(item):
 def invoice_info(key: int, db=Depends(get_db), user=Depends(get_user)):
     _access(user)
     contract = get_contract(db, user, key)
-    return _summary(db, _invoice(db, contract.id))
+    from .business_record_privacy import sanitize_command_result
+    return sanitize_command_result(db, user, _summary(db, _invoice(db, contract.id)), payload={'contract_id': key})
 
 
 @router.post('/contracts/{key}/invoice')
@@ -164,6 +165,8 @@ def upload_invoice(key: int, request: Request, file: UploadFile = File(...),
 def extract_invoice(key: int, body: Action, request: Request, db=Depends(get_db), user=Depends(get_user)):
     _manual(request); _access(user, True)
     contract = get_contract(db, user, key)
+    from .business_record_privacy import require_personal_export
+    require_personal_export(db, user, contract)
     row = _invoice(db, contract.id)
     if row is None:
         raise HTTPException(409, '请先上传发票')
@@ -175,7 +178,9 @@ def extract_invoice(key: int, body: Action, request: Request, db=Depends(get_db)
     result = recognize_invoice(content, media)
     current_user = get_user(request, db)
     _access(current_user, True)
-    current = _invoice(db, get_contract(db, current_user, key).id)
+    contract = get_contract(db, current_user, key)
+    require_personal_export(db, current_user, contract)
+    current = _invoice(db, contract.id)
     if current is None or current.version != expected:
         raise HTTPException(409, '识别期间发票已经更新，请刷新并识别当前原件')
     result['version'] = expected
@@ -195,7 +200,15 @@ def confirm_invoice(key: int, body: InvoiceConfirm, request: Request, db=Depends
         if not body.fields.invoice_number or body.fields.total_amount_cents is None or not body.fields.issued_on:
             raise HTTPException(422, '请收银核对发票号码、开票日期及价税合计后确认')
         before = plain(row)
-        row.fields = body.fields.model_dump(mode='json'); row.note = body.note
+        fields = body.fields.model_dump(mode='json')
+        from .business_record_privacy import contract_privacy, mask_id
+        if contract_privacy(db, user, contract)['masked']:
+            original = (row.fields or {}).get('buyer_tax_id', '')
+            if fields.get('buyer_tax_id') == mask_id(original):
+                fields['buyer_tax_id'] = original
+            elif '*' in fields.get('buyer_tax_id', ''):
+                raise HTTPException(422, '更改购买方证件时请填写完整新信息；原脱敏信息保持不变即可')
+        row.fields = fields; row.note = body.note
         row.confirmed_by = user.id; row.confirmed_at = utcnow()
         db.flush()
         audit(db, user.id, 'record_invoice_confirm', 'record_contract', contract.id,
@@ -208,6 +221,8 @@ def confirm_invoice(key: int, body: InvoiceConfirm, request: Request, db=Depends
 def download_invoice(key: int, file_id: int, db=Depends(get_db), user=Depends(get_user)):
     _access(user)
     contract = get_contract(db, user, key)
+    from .business_record_privacy import require_personal_export
+    require_personal_export(db, user, contract)
     row = _invoice(db, contract.id)
     if row is None:
         raise HTTPException(404, '没有发票原件')

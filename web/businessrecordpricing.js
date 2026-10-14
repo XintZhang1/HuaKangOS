@@ -1,7 +1,7 @@
 'use strict';
 // Catalogs are shared by the store's configured brand; profiles remain store-local.
 // A preview is never a publication. Publish against the version originally reviewed.
-async function brPricingCatalog(contractId,salesChannel='retail'){const params=new URLSearchParams({sales_channel:salesChannel});if(contractId)params.set('contract_id',contractId);return api(BR_API+'/pricing/catalog?'+params);}
+async function brPricingCatalog(contractId,salesChannel='retail',correctionId=null){const params=new URLSearchParams({sales_channel:salesChannel});if(contractId)params.set('contract_id',contractId);if(correctionId)params.set('correction_id',correctionId);return api(BR_API+'/pricing/catalog?'+params);}
 function brBrandPublication(catalog){
  if(!catalog.brand)throw new Error('本店未设置品牌，请联系系统管理员。');
  if(!Number.isInteger(catalog.brand_version)||catalog.brand_version<0)throw new Error('未能读取品牌目录版本，请刷新后重新核对。');

@@ -55,6 +55,17 @@ UPDATE_ACTIONS = {
     'record_return_approve': '退车批准，当月冲减；日报需追加修订说明',
     'record_return_reject': '退车申请退回',
     'record_return_refund': '财务另行记录实际退款',
+    'record_correction_request': '发起合同资料或交易更正',
+    'record_correction_submit': '更正资料提交重审',
+    'record_correction_manager_approve': '销售经理批准合同更正',
+    'record_correction_approve': '总经理批准合同更正',
+    'record_correction_deputy_approve': '集团副总经理批准合同更正',
+    'record_correction_reject': '合同更正退回修改',
+    'record_correction_reassign': '合同更正重新指定经办人',
+    'record_correction_cancel': '合同更正已撤销',
+    'record_archive': '作废单据移入历史',
+    'record_restore': '历史单据恢复显示',
+    'record_accessory_sale_upload': '财务上传有偿精品销售凭证',
 }
 
 
@@ -98,6 +109,11 @@ def report_periods(db=Depends(get_db), user=Depends(get_user)):
         for store, day in db.execute(query):
             periods.add((store, str(day)[:7]))
     contracts = visible_query(user, SalesContract).with_only_columns(SalesContract.id)
+    for store, created in db.execute(visible_query(user, SalesContract).with_only_columns(
+            SalesContract.store_id, SalesContract.created_at).distinct()):
+        if created is not None:
+            instant = created.replace(tzinfo=timezone.utc) if created.tzinfo is None else created
+            periods.add((store, instant.astimezone(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m')))
     for store, day in db.execute(select(ContractReceipt.store_id, ContractReceipt.received_on).where(
             ContractReceipt.contract_id.in_(contracts)).distinct()):
         periods.add((store, str(day)[:7]))
@@ -105,6 +121,11 @@ def report_periods(db=Depends(get_db), user=Depends(get_user)):
     for model, field in ((RecordDelivery, RecordDelivery.accounting_on), (RecordReturn, RecordReturn.approved_on)):
         for store, day in db.execute(select(model.store_id, field).where(model.contract_id.in_(contracts), field.is_not(None)).distinct()):
             periods.add((store, str(day)[:7]))
+    from .business_records_models import RecordContractCorrection
+    for store, day in db.execute(select(RecordContractCorrection.store_id, RecordContractCorrection.approved_on).where(
+            RecordContractCorrection.contract_id.in_(contracts), RecordContractCorrection.status == 'approved',
+            RecordContractCorrection.approved_on.is_not(None)).distinct()):
+        periods.add((store, str(day)[:7]))
     return {'items': [{'store_id': store, 'month': month} for store, month in sorted(
         periods, key=lambda pair: (pair[1], pair[0]), reverse=True)], 'can_publish': False,
         'mode': 'live', 'notice': '销售内勤更新表格后自动统计所选月份，可随时查询历史月份。'}
@@ -165,6 +186,8 @@ def build_daily_vehicle_updates(db, user, day):
     for row in result:
         row['change_count'] = len(row['changes'])
         row['change_summary'] = '；'.join(item['occurred_at'][11:19] + ' ' + item['label'] for item in row['changes'])
+    from .business_record_report_generation import redact_report_rows
+    result = redact_report_rows(db, user, result, {'columns': []})
     columns = [{'key': key, 'label': label, 'type': 'text', 'unit': '', 'precision': None} for key, label in (
         ('number', '合同号'), ('store', '门店'), ('salesperson', '销售'), ('customer_name', '客户'),
         ('brand', '品牌'), ('model', '车型'), ('vin', '车架号'), ('status_label', '当前合同状态'),
@@ -281,6 +304,9 @@ def _render_daily(db, user, day, report, snapshots, *, brand='', salesperson_id=
                     visible_row['note'] = ''
                 target.append(visible_row)
     updated = max((_local_timestamp(row.confirmed_at) for row in snapshots), default=None)
+    from .business_record_report_generation import redact_report_rows
+    rows = redact_report_rows(db, user, rows, definition)
+    legacy = redact_report_rows(db, user, legacy, definition)
     result = project(definition, rows, group_by=group_by,
         metric=metric if separator else definition['default_metric'], updated_at=updated,
         category_field=category_field, category_value=category_value, source_mode='combined', legacy_rows=legacy)

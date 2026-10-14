@@ -127,7 +127,7 @@ CATALOG_BY_KEY = {item['key']: item for item in REPORT_CATALOG}
 
 def validate_manual_values(report_key, values):
     report = CATALOG_BY_KEY.get(report_key)
-    if not report or report['source'] != 'manual':
+    if not report or report['source'] != 'manual' or report.get('read_only'):
         raise ValueError('请选择已登记的人工报表。')
     if not isinstance(values, dict):
         raise ValueError('报表内容必须按字段填写。')

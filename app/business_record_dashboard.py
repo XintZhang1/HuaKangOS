@@ -9,7 +9,7 @@ router = APIRouter(prefix='/api/business-records', tags=['实时多图经营看�
 
 
 def _source_display(key, value, status=''):
-    automatic = key.split(':', 1)[0] == 'operating_sales'
+    automatic = key.split(':', 1)[0] in {'operating_sales', 'operating_sales_v218'}
     state = 'known' if value is not None else 'awaiting_contract' if automatic else 'awaiting_approval'
     return {'data_source': 'automatic' if automatic else 'office', 'data_status': state,
         'status_label': ('自动汇总' if automatic else '已审核') if value is not None else
@@ -94,31 +94,26 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
         return result
 
     specifications = [
-        ('orders', prefix + '合同订单', 'operating_sales:orders', '台'),
-        ('sales', prefix + '实销车辆', 'operating_sales:deliveries', '台'),
-        ('vehicle_amount', prefix + '实销车辆金额', 'operating_sales:vehicle_amount', '元'),
-        ('cash_count', prefix + '现金车消化', 'operating_sales:cash_count', '台'),
-        ('cash_amount', prefix + '现金车消化金额', 'operating_sales:cash_amount', '元'),
+        ('orders', prefix + '合同订单', 'operating_sales_v218:orders', '台'),
+        ('sales', prefix + '实销车辆', 'operating_sales_v218:deliveries', '台'),
+        ('vehicle_amount', prefix + '实销车辆金额', 'operating_sales_v218:vehicle_amount', '元'),
+        ('cash_count', prefix + '现金车消化', 'operating_sales_v218:cash_count', '台'),
+        ('cash_amount', prefix + '现金车消化金额', 'operating_sales_v218:cash_amount', '元'),
     ]
     extension_specs = [
-        ('insurance', '保险出单', 'operating_extensions:insurance_count', '单', 'insurance'),
-        ('warranty', '延保出单', 'operating_extensions:warranty_count', '单', 'warranty'),
-        ('total_loss', '全损出单', 'operating_extensions:total_loss_count', '单', 'total_loss'),
-        ('products', '小产品出单', 'operating_extensions:product_count', '单', 'product'),
-        ('trade_in', '置换', 'operating_extensions:trade_in_count', '台', 'trade_in'),
-        ('finance', '金融放款车辆', 'operating_extensions:finance_count', '台', 'finance'),
+        ('insurance', '保险出单', 'operating_extensions_v218:insurance_count', '单', 'insurance'),
+        ('warranty', '延保出单', 'operating_extensions_v218:warranty_count', '单', 'warranty'),
+        ('total_loss', '全损出单', 'operating_extensions_v218:total_loss_count', '单', 'total_loss'),
+        ('products', '小产品出单', 'operating_extensions_v218:product_count', '单', 'product'),
+        ('trade_in', '置换', 'operating_extensions_v218:trade_in_count', '台', 'trade_in'),
+        ('finance', '金融放款车辆', 'operating_extensions_v218:finance_count', '台', 'finance'),
     ]
     sensitive = can_view_sensitive_reports(user)
     if sensitive:
-        specifications.append(('profit', prefix + '核定毛利', 'operating_profit:value', '元'))
-        extension_specs += [(name, label, 'operating_profit:' + name, '元', '') for name, label in (
-            ('finance_amount', '核实放款金额'),
-            ('insurance_commission', '保险返佣'), ('warranty_commission', '延保返佣'),
-            ('trade_in_commission', '二手车返佣'), ('bank_commission', '银行返佣'),
-            ('decoration_commission', '贴膜改装店佣金'),
-            ('accessory_sales_income', '店内精品销售收入'),
-            ('accessory_sales_cost', '店内精品销售成本'),
-            ('accessory_sales_profit', '店内精品销售毛利'))]
+        specifications.append(('profit', prefix + '核定毛利', 'operating_profit_v218:value', '元'))
+        extension_specs += [
+            ('decoration', '贴膜改装店', 'operating_extensions_v218:decoration_count', '单', ''),
+            ('accessory_sales', '店内精品销售金额', 'operating_profit_v218:accessory_sales_income', '元', '')]
     panels, overview, extensions = [], [], []
 
     def item(ident, label, key, unit):
@@ -140,7 +135,23 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
             'note': '核算日 ' + str(end) if mode == 'daily' else str(flow_start) + ' 至 ' + str(end)}
 
     for ident, label, key, unit in specifications:
-        overview.append(item(ident, label, key, unit))
+        card = item(ident, label, key, unit)
+        if ident == 'profit':
+            totals, daily_totals = panels[-1]['grand_total'], panels[-1]['daily']['grand_total']
+            card.update(average_profit=totals.get('average_profit'), profit_vehicle_count=totals.get('deliveries'))
+            card['daily_delta'].update(average_profit=daily_totals.get('average_profit'),
+                                      profit_vehicle_count=daily_totals.get('deliveries'))
+        overview.append(card)
+    related = {
+        'insurance': [('insurance_commission', '保险返佣')],
+        'warranty': [('warranty_commission', '延保返佣')],
+        'total_loss': [('total_loss_commission', '全损佣金')],
+        'products': [('product_commission', '小产品佣金')],
+        'trade_in': [('trade_in_commission', '二手车返佣')],
+        'finance': [('finance_amount', '核实放款金额'), ('bank_commission', '银行分期返佣')],
+        'decoration': [('decoration_commission', '贴膜改装店佣金')],
+        'accessory_sales': [('accessory_sales_cost', '销售成本'), ('accessory_sales_profit', '销售毛利')],
+    }
     for ident, label, key, unit, rate_name in extension_specs:
         card = item(ident, label, key, unit)
         if rate_name:
@@ -149,8 +160,10 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
             card.update(penetration_rate=rate,
                 penetration_status_label='已审核' if rate is not None else
                     '暂无实销' if totals.get('deliveries') == '0' else '待审核')
+        card['related_metrics'] = [item(name, title, 'operating_profit_v218:' + name, '元')
+                                   for name, title in related.get(ident, ())] if sensitive else []
         extensions.append(card)
-    champion_comparison = report('operating_sales:deliveries', 'salesperson', flow_start, end)
+    champion_comparison = report('operating_sales_v218:deliveries', 'salesperson', flow_start, end)
     ranking = champion_comparison['summary_rows']
     leaders = [row for row in ranking if row.get('deliveries') is not None and Decimal(row['deliveries']) > 0]
     best = max((Decimal(row['deliveries']) for row in leaders), default=None)
@@ -162,8 +175,10 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
     analyses = []
     if sensitive:
         for ident, title, key, group, category in (
-                ('individual_profit', '个人毛利分析与批发渠道', 'individual_profit', 'performance', ''),
-                ('model_profit', '车型布局图', 'model_profit', 'category', 'c02')):
+                ('individual_profit', '个人毛利分析与批发渠道', 'individual_profit_v218', 'performance', ''),
+                ('model_profit', '车型布局图', 'model_profit_v218', 'category', 'c02'),
+                ('profit_composition', '核定毛利构成 · 按核定公式项目',
+                 'operating_profit_components_v218', 'category', 'profit_component')):
             comparison = report(key, group, flow_start, end, category)
             trend = report(key, 'day', start, end)
             daily = report(key, group, end, end, category)
@@ -178,7 +193,7 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
         'updated_at': utcnow().isoformat(), 'publication': {'status': 'live'},
         'panels': panels, 'overview': overview, 'extension_overview': extensions, 'champion': champion,
         'analyses': analyses,
-        'notice': '订单按合同日期，实销按交车所绑定发票上传日，退车在批准日冲减。'
+        'notice': '订单按实际创建时的上海日期，交车不减少新建订单；实销按交车所绑定发票上传日，退车在批准日按冻结事实冲减。'
             '现金车取合同独立标记，消化金额按该车合同售价。延伸及核定毛利仅计总经理已审核资料，缺项显示待审核。'
-            '核定毛利含原表延伸净额及已核对的精品销售收入减成本，佣金明细不再重复加总。'
+            '核定毛利含原表延伸净额及已核实精品销售金额减成本，佣金明细不再重复加总；平均毛利使用同源实销净台数，分母为零留空。'
             '批发计入门店总量，按渠道列示，不计个人业绩及销冠。'}

@@ -9,6 +9,9 @@ on:
       - 'app/tenancy.py'
       - 'web/businessrecordpricing.js'
       - 'web/businessrecordflow.js'
+      - 'web/businessrecorddashboard.js'
+      - 'web/businessrecordenhancements.js'
+      - 'web/businessrecordinventory.js'
       - 'web/businessrecords.js'
       - 'web/businessrecords.css'
       - 'web/recordinvoices.js'
@@ -25,6 +28,9 @@ on:
       - 'app/tenancy.py'
       - 'web/businessrecordpricing.js'
       - 'web/businessrecordflow.js'
+      - 'web/businessrecorddashboard.js'
+      - 'web/businessrecordenhancements.js'
+      - 'web/businessrecordinventory.js'
       - 'web/businessrecords.js'
       - 'web/businessrecords.css'
       - 'web/recordinvoices.js'
@@ -57,10 +63,15 @@ jobs:
         run: python tests/record_pricing/run_isolated.py --output "$RUNNER_TEMP/record-pricing-${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Run source-only delivery checks
         run: python tests/record_pricing/run_isolated.py --suite delivery --output "$RUNNER_TEMP/record-delivery-${{ github.run_id }}-${{ github.run_attempt }}"
+      - name: Run source-only contract correction checks
+        run: python tests/record_pricing/run_isolated.py --suite corrections --output "$RUNNER_TEMP/record-corrections-${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Check changed JavaScript syntax
         run: |
           node --check web/businessrecordpricing.js
           node --check web/businessrecordflow.js
+          node --check web/businessrecorddashboard.js
+          node --check web/businessrecordenhancements.js
+          node --check web/businessrecordinventory.js
           node --check web/businessrecords.js
           node --check web/recordinvoices.js
       - uses: actions/upload-artifact@v4
@@ -70,5 +81,6 @@ jobs:
           path: |
             ${{ runner.temp }}/record-pricing-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
             ${{ runner.temp }}/record-delivery-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
+            ${{ runner.temp }}/record-corrections-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
           retention-days: 7
           if-no-files-found: warn

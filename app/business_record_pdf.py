@@ -191,7 +191,13 @@ def _accessory_attachment(data):
     return stream.getvalue()
 
 
-def render_contract_pdf(data: dict) -> bytes:
+def render_contract_pdf(data: dict, *, output_mode='full', offset_x_mm=0, offset_y_mm=0) -> bytes:
+    if output_mode not in {'full', 'overprint'}:
+        raise ValueError('请选择完整合同或预印纸套打。')
+    offsets = [Decimal(str(value)) for value in (offset_x_mm, offset_y_mm)]
+    if any(not value.is_finite() or abs(value) > 20 for value in offsets):
+        raise ValueError('套打位置偏移须在正负20毫米内。')
+    overprint = output_mode == 'overprint'
     if not isinstance(data, dict) or data.get('template_version') != TEMPLATE_VERSION:
         raise ValueError('该合同绑定的模板版本不可用，请保留原审批记录并联系管理员。')
     template = TEMPLATE_PATH.read_bytes()
@@ -205,6 +211,9 @@ def render_contract_pdf(data: dict) -> bytes:
     canvas = Canvas(stream, pagesize=(595.276, 841.89), invariant=1, pageCompression=1)
     canvas.setTitle('汽车销售合约书')
     canvas.setAuthor('HuaKangOS')
+    if overprint:
+        canvas.setTitle('汽车销售合约书 · 预印纸填写层')
+        canvas.translate(float(offsets[0]) * 72 / 25.4, -float(offsets[1]) * 72 / 25.4)
     def put(value, x, top, width, height, label, size=9):
         _box(canvas, value, x, top, width, height, label, size)
 
@@ -235,6 +244,20 @@ def render_contract_pdf(data: dict) -> bytes:
     for amount, top, payment, label in amounts:
         if amount is None:
             continue
+        if overprint:
+            # These seven spaces precede the preprinted 百/十/万/千/百/十/元.
+            # White paint cannot erase ink on the customer's paper. Never round
+            # a fractional amount to fit the integral-only printed template.
+            if amount != amount.to_integral_value() or amount > 9999999:
+                raise ValueError(label + '含角分或超过七位整数，当前预印纸金额格不适配；请使用完整合同或核对新的纸样。')
+            digits = str(int(amount)).zfill(7)
+            positions = (238, 274, 315, 350, 391, 431, 468) if payment else (286, 322, 363, 399, 439, 479, 516)
+            digit_top = {215:215, 238:237, 261:262, 305:304, 362:361}[top]
+            for digit, x in zip(digits, positions):
+                put('零壹贰叁肆伍陆柒捌玖'[int(digit)], x, digit_top, 12, 14, label + '大写数位', 9)
+            put(str(int(amount)) if payment else format(amount, '.2f'), 104 if payment else 130,
+                (top + (1 if top == 362 else 5)) if payment else top, 35 if payment else 94, 15, label, 8 if payment else 8.5)
+            continue
         # Replace only numeric input placeholders, leaving headings and legal text.
         x, width = (193, 349) if payment else (231, 317)
         canvas.setFillColorRGB(1, 1, 1)
@@ -251,13 +274,18 @@ def render_contract_pdf(data: dict) -> bytes:
 
     payment = _text(form.get('payment_method'))
     if payment:
-        put(payment, 291, 329, 247, 16, '付款方式', 8)
-        put(payment, 386, 408, 154, 15, '余款付款方式', 7.5)
+        if not overprint or payment not in {'现金', '刷卡'}:
+            put(payment, 291, 329, 247, 16, '付款方式', 8)
+            put(payment, 386, 408, 154, 15, '余款付款方式', 7.5)
         def mark(x, top):
             canvas.setLineWidth(0.7)
             y = 841.89 - top
-            canvas.line(x, y, x + 5, y - 5)
-            canvas.line(x, y - 5, x + 5, y)
+            if overprint or data.get('print_layout_version') == 'full-v218':
+                canvas.line(x, y - 2, x + 2, y - 5)
+                canvas.line(x + 2, y - 5, x + 7, y + 2)
+            else:
+                canvas.line(x, y, x + 5, y - 5)
+                canvas.line(x, y - 5, x + 5, y)
         if payment == '现金':
             mark(195, 335)
             mark(195, 396)
@@ -272,8 +300,12 @@ def render_contract_pdf(data: dict) -> bytes:
         put(format(loan, '.2f'), 223, 407, 48, 15, '按揭金额', 7)
         if loan > 0:
             canvas.setLineWidth(0.7)
-            canvas.line(195, 430, 200, 425)
-            canvas.line(195, 425, 200, 430)
+            if overprint or data.get('print_layout_version') == 'full-v218':
+                canvas.line(195, 428, 197, 425)
+                canvas.line(197, 425, 202, 432)
+            else:
+                canvas.line(195, 430, 200, 425)
+                canvas.line(195, 425, 200, 430)
 
     other = []
     if form.get('standard_benefits_version') == '1':
@@ -314,6 +346,10 @@ def render_contract_pdf(data: dict) -> bytes:
             put(str(signed.day), x + (77 if x == 76 else 85), y, 20, 14, '签订日', 8)
     canvas.showPage()
     canvas.save()
+    if overprint:
+        # No background page, legal terms, white masks or accessory attachment
+        # enter the customer's preprinted-paper queue.
+        return stream.getvalue()
     overlay = PdfReader(BytesIO(stream.getvalue()))
     original = PdfReader(BytesIO(template))
     if len(original.pages) != 2:

@@ -21,6 +21,7 @@ V2_FIELD_LABELS = {
     'customer_id': '客户档案编号', 'owner_id': '归属员工编号', 'key': '记录编号',
     'source_mode': '数据来源', 'category_field': '分类字段', 'category_value': '分类值',
     'include_history': '包括历史更正记录',
+    'inventory_row_id': '已核对库存车辆编号（按VIN查询，不猜填）',
     'vehicle_price_id': '门店车型价格编号', 'gift_items': '所选赠品',
     'price_id': '赠品目录编号', 'quantity': '数量', 'submission_data': '审批申请资料',
     'vehicle_invoice_price_cents': '申请开票金额（分）', 'registration_fee_cents': '上牌服务费（分）',
@@ -59,6 +60,10 @@ CONTRACT_FORM_FIELDS = [
 # These descriptions annotate routes already admitted by the gateway. They do
 # not register operations or grant read/write permissions.
 OPERATION_INFO = {
+    'GET /api/business-records/inventory/catalog': ('查询本店库存发布状态',
+        '只读当前门店已核对发布的库存版本；启用后填合同先按VIN或后六位查询真实车辆。上传和发布由有权员工在库存页面办理。', 'records-sales'),
+    'GET /api/business-records/inventory/candidates': ('按VIN查找库存车辆',
+        'q填写17位VIN或后六位，返回本店当前批次真实库存编号、车型、内外饰、指导价、资金性质及可选状态；多项须由员工消歧，不猜库存或价格编号。', 'records-sales'),
     'GET /api/business-records/catalog': ('查询业务候选与报表目录',
         '查询销售员工、售后服务类别、状态与经营报表；传report_key取得单份报表的指标字段。', 'records-dashboard'),
     'GET /api/business-records/pricing/catalog': ('查询本店车型与赠品候选',

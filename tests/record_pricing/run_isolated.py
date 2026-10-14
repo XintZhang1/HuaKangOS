@@ -70,7 +70,7 @@ def inventory():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path)
-    parser.add_argument('--suite', choices=('pricing', 'delivery'), default='pricing')
+    parser.add_argument('--suite', choices=('pricing', 'delivery', 'corrections'), default='pricing')
     args = parser.parse_args()
     output = (args.output or Path(tempfile.gettempdir()) / ('huakangos-record-pricing-' + uuid.uuid4().hex)).resolve()
     if output.is_relative_to(ROOT) or ROOT.is_relative_to(output):
@@ -102,7 +102,10 @@ def main():
         'TMP', 'TEMP', 'TMPDIR', 'LANG', 'LC_ALL'}}
     env.update({'RECORD_PRICING_RUNTIME': str(runtime), 'RECORD_PRICING_EVIDENCE': str(evidence),
         'RECORD_PRICING_ISOLATED': '1', 'PYTHONDONTWRITEBYTECODE': '1',
-        'RECORD_TEST_SUITE': 'tests/record_delivery/test_delivery_api.py' if args.suite == 'delivery' else 'tests/record_pricing/test_pricing_api.py',
+        'PYTHONIOENCODING': 'utf-8',
+        'RECORD_TEST_SUITE': {'delivery': 'tests/record_delivery/test_delivery_api.py',
+            'corrections': 'tests/record_delivery/test_corrections_api.py',
+            'pricing': 'tests/record_pricing/test_pricing_api.py'}[args.suite],
         'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1', 'APP_ENV': 'test',
         'DATABASE_URL': 'sqlite:///' + (runtime / 'unused.sqlite').as_posix(),
         'FILE_SCAN_MODE': 'structure_only', 'FILE_STORAGE_MODE': 'blob',
