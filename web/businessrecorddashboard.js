@@ -36,6 +36,13 @@ function brDashboardSignedBars(items,label){
  const max=Math.max(...items.map(item=>Math.abs(item.value)),1),negative=items.some(item=>item.value<0);
  return `<div class="br-composition-bars" aria-label="${E(label)}">${items.map(item=>`<div><span>${E(item.label)}</span><svg viewBox="0 0 240 16" preserveAspectRatio="none" role="img" aria-label="${E(item.label+' '+brDashboardFixed(item.exact))}"><line x1="${negative?120:0}" x2="${negative?120:0}" y1="0" y2="16" stroke="#b9c9d6"/><rect x="${item.value<0?120-Math.abs(item.value)/max*120:negative?120:0}" y="3" width="${Math.abs(item.value)/max*(negative?120:240)}" height="10" rx="3" fill="${item.value<0?'#bd655e':item.color||'#4b8cad'}"/></svg><b>${E(brDashboardFixed(item.exact))}</b></div>`).join('')}</div>`;
 }
+function brDashboardProfitComposition(panel){
+ // These are the approved formula's category labels, not row positions or magnitude thresholds.
+ const rows=panel.summary_rows,principalLabels=['车辆售价','提车价'],principal=rows.filter(row=>principalLabels.includes(row.label));
+ const items=rows.filter(row=>!principalLabels.includes(row.label)&&row.value!=null&&Number(row.value)!==0).map((row,i)=>({label:row.label,value:Number(row.value),exact:row.value,color:BR_CHART_PALETTE[i%BR_CHART_PALETTE.length]}));
+ const amounts=principal.length?`<div class="br-profit-principal" aria-label="车辆售价与提车价">${principal.map(row=>`<div><span>${E(row.label)}</span><strong>${E(brDashboardFixed(row.value))}${row.value==null?'':'<small>元</small>'}</strong></div>`).join('')}</div>`:'';
+ return `<div class="br-profit-composition">${amounts}<h3>其他毛利项目对比</h3><p class="br-caption">车辆售价与提车价单独列示，下图比较其余核定项目（元）。</p>${items.length?brDashboardSignedBars(items,'其他核定毛利项目正负贡献'):'<p class="br-dashboard-empty">其余项目暂无非零核定金额。</p>'}<p class="br-caption br-profit-total">毛利合计 ${E(brDashboardFixed(panel.grand_total?.value))} 元；金额为零的项目在完整统计表中查看。</p>${rows.some(row=>row.value==null)?'<p class="notice">部分公式项目未核定，保留为空。</p>':''}</div>`;
+}
 function brDashboardPerformanceChart(rows){
  if(!rows.length)return '<p class="br-dashboard-empty">当前范围暂无记录</p>';
  const max=Math.max(1,...rows.flatMap(row=>[Number(row.c03)||0,Number(row.c04)||0]));
@@ -46,7 +53,7 @@ function brDashboardAnalyses(result){
  return `<div class="br-priority-analyses">${(result.analyses||[]).map(panel=>{
   const p=panel.comparison,personal=panel.panel_id==='individual_profit',composition=panel.panel_id==='profit_composition',keys=composition?['label','value']:personal?['label','c03','c04','c05','c06','c07']:['label','c03','c04','c05','c06'],columns=p.summary_columns.filter(c=>keys.includes(c.key));
   const renderRows=rows=>rows.length?table(columns.map(c=>c.label+(c.unit?'（'+c.unit+'）':'')),rows.map(row=>columns.map(c=>E(row[c.key]==null?(c.type==='text'?'—':'待审核'):['money','percent','decimal'].includes(c.type)?brDashboardFixed(row[c.key]):row[c.key])))):'<p class="br-dashboard-empty">当前范围暂无记录</p>';
-  const body=personal?['retail','wholesale'].map(group=>`<div class="br-analysis-group"><h3>${group==='retail'?'展厅个人':'批发渠道'}</h3>${brDashboardPerformanceChart(p.summary_rows.filter(row=>row.performance_group===group))}</div>`).join(''):composition?brDashboardSignedBars(p.summary_rows.filter(row=>row.value!=null&&Number(row.value)!==0).map((row,i)=>({label:row.label,value:Number(row.value),exact:row.value,color:BR_CHART_PALETTE[i%BR_CHART_PALETTE.length]})),'核定公式正负贡献')+`<p class="br-caption">毛利合计 ${E(brDashboardFixed(p.grand_total?.value))} 元；金额为零的项目在完整统计表中查看。</p>`+(p.summary_rows.some(row=>row.value==null)?'<p class="notice">部分公式项目未核定，保留为空。</p>':''):brDashboardModelChart(p);
+  const body=personal?['retail','wholesale'].map(group=>`<div class="br-analysis-group"><h3>${group==='retail'?'展厅个人':'批发渠道'}</h3>${brDashboardPerformanceChart(p.summary_rows.filter(row=>row.performance_group===group))}</div>`).join(''):composition?brDashboardProfitComposition(p):brDashboardModelChart(p);
   return `<section class="panel br-priority-analysis"><div class="panelhead spread"><h2>${E(panel.panel_title)}</h2>${brFlowButton('dashboard-detail','查看明细与导出',`data-panel="${E(panel.panel_id)}"`)}</div><div class="panelbody"><p class="br-caption">${E(p.date_from)} 至 ${E(p.date_to)} · ${composition?'按批准快照中的公式正负项展示':personal?'总经理已审核毛利；批发不计个人业绩':'总经理已审核车型毛利'}</p>${body}<details class="br-disclosure"><summary>查看完整统计表</summary>${renderRows(p.summary_rows)}</details></div></section>`;
  }).join('')}</div>`;
 }
