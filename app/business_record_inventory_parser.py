@@ -23,6 +23,7 @@ HEADERS = {
     'location': {'存放点', '位置', '存放地', '所在地'},
     'funding': {'监管银行', '资金性质', '库存资金性质', '合格证', '备注1'},
 }
+FUNDING_HEADER_ORDER = ('库存资金性质', '资金性质', '监管银行', '合格证', '备注1')
 
 
 def _header(value):
@@ -69,6 +70,14 @@ def read_inventory_workbook(content):
                 path = target.lstrip('/') if target.startswith('/') else posixpath.normpath(posixpath.join('xl', target))
                 if not path.startswith('xl/'):
                     raise ValueError()
+                auxiliary = bool(re.search(r'180|汇总|统计', sheet.get('name', '')))
+                if auxiliary:
+                    # These sheets are already ineligible for publication. Do
+                    # not parse their million-row formatting tails on every
+                    # preview; the original ZIP still passes all checks above.
+                    result.append({'name': sheet.get('name'), 'rows': [], 'merges': [],
+                                   'hidden_columns': [], 'date1904': date1904, 'auxiliary': True})
+                    continue
                 rows, hidden_columns, merges = [], [], []
                 # Real sheets may have a million formatted empty rows. Iterparse
                 # clears them, and limits apply to actual values, not dimensions.
@@ -97,12 +106,35 @@ def read_inventory_workbook(content):
                         node.clear()
                 result.append({'name': sheet.get('name'), 'rows': rows, 'merges': merges,
                                'hidden_columns': hidden_columns, 'date1904': date1904,
-                               'auxiliary': bool(re.search(r'180|汇总|统计', sheet.get('name', '')))})
+                               'auxiliary': False})
             if not result:
                 raise ValueError()
             return result
     except (ValueError, KeyError, IndexError, AttributeError, OSError, ET.ParseError, zipfile.BadZipFile):
         raise HTTPException(422, '库存Excel结构无效、含外部链接或超过安全读取范围；请使用普通xlsx（最多10000条明细）') from None
+
+
+def _combined_configuration(sheet, columns, header):
+    if _header(header.get(columns.get('configuration'), '')) == _header('配置及外观和内饰颜色'):
+        return True
+    if not all(columns.get(key) for key in ('vin', 'configuration', 'exterior_color')):
+        return False
+    # The existing total-stock sheet calls this column 配置名称. Only infer
+    # its delimiter layout when every segmented VIN row agrees with its
+    # separate exterior-colour cell. Unsplit/incomplete rows remain issues.
+    matched = False
+    for row in sheet['rows']:
+        values = row['values']
+        if not VIN.fullmatch(values.get(columns['vin'], '').strip().upper()):
+            continue
+        parts = [part.strip() for part in values.get(columns['configuration'], '').split('_')]
+        if len(parts) == 1:
+            continue
+        exterior = values.get(columns['exterior_color'], '').strip()
+        if len(parts) < 3 or not parts[0] or not exterior or parts[1] != exterior:
+            return False
+        matched = True
+    return matched
 
 
 def sheet_proposals(sheets):
@@ -116,14 +148,28 @@ def sheet_proposals(sheets):
             for col, value in row['values'].items():
                 for key, aliases in HEADERS.items():
                     if _header(value) in {_header(alias) for alias in aliases}:
+                        if key == 'funding' and key in mapping:
+                            previous = _header(row['values'][mapping[key]])
+                            order = [_header(alias) for alias in FUNDING_HEADER_ORDER]
+                            if order.index(previous) < order.index(_header(value)):
+                                continue
                         mapping[key] = col
             if len(mapping) > best[0]:
                 best = (len(mapping), row['row'], mapping)
         header = next((r['values'] for r in sheet['rows'] if r['row'] == best[1]), {})
+        columns = best[2]
+        combined = _combined_configuration(sheet, columns, header)
+        notes = []
+        funding_columns = [col + ' · ' + value for col, value in header.items()
+                           if _header(value) in {_header(alias) for alias in HEADERS['funding']}]
+        if len(funding_columns) > 1:
+            notes.append('资金来源有多个候选列（' + '、'.join(funding_columns) + '）；已优先选择明确来源列，请按原表核对。')
+        if combined:
+            notes.append('已识别配置、外观、内饰的分段格式；缺少颜色的车辆仍须补齐，不会自动猜填。')
         result.append({'sheet': sheet['name'], 'header_row': best[1], 'columns': best[2],
                        'headers': header, 'auxiliary': sheet['auxiliary'],
                        'hidden_columns': sheet['hidden_columns'],
-                       'configuration_contains_colors': header.get(best[2].get('configuration')) == '配置及外观和内饰颜色',
+                       'configuration_contains_colors': combined, 'mapping_notes': notes,
                        'notice': '辅助统计表不参与当前库存发布' if sheet['auxiliary'] else ''})
     return result
 
@@ -200,7 +246,7 @@ def mapped_preview(sheets, mapping):
         issues = []
         config, exterior, interior, extra = get('configuration'), get('exterior_color'), get('interior_color'), ''
         if mapping.configuration_contains_colors:
-            parts = config.split('_')
+            parts = [part.strip() for part in config.split('_')]
             if len(parts) >= 3:
                 config, parsed_exterior, parsed_interior = parts[:3]
                 extra = '_'.join(parts[3:])

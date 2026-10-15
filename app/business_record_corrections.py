@@ -309,8 +309,9 @@ def _prepare(db, user, contract, revision, body):
     if form.get('buyer_document_name', '身份证') not in {'身份证', '护照', '驾照'}:
         raise HTTPException(422, '请核对买方证件类型')
     person = db.get(User, contract.salesperson_id)
+    form.setdefault('seller_phone', settings.profile.get('sales_contacts', {}).get(str(person.id), ''))
     form.update(seller_address=sellers[0].get('address') or settings.profile.get('address', ''),
-        seller_agent=person.display_name, seller_phone=settings.profile.get('sales_contacts', {}).get(str(person.id), ''), quantity='1')
+        seller_agent=person.display_name, quantity='1')
     submission = body.submission_data.model_dump()
     if submission.get('wholesale_channel_id') != (old_terms.get('submission_data') or {}).get('wholesale_channel_id'):
         raise HTTPException(422, '更正保留原二级渠道归属')

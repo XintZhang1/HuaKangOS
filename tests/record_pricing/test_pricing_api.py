@@ -317,3 +317,97 @@ def test_wholesale_price_approval_and_free_paid_accessories_stay_separate(fx):
         json=command(version=reviewed['version'], note='合成特殊二级合同批准'))
     assert approved['status'] == 'approved' and approved['deputy_approved_by'] == 21
     assert approved['salesperson_id'] == 2 and approved['terms']['submission_data']['sales_channel'] == 'wholesale'
+
+
+def test_contract_contact_and_private_price_check_keep_frozen_basis(fx):
+    catalog = fx.prepared()
+    profile = fx.call('admin', 'GET', '/store-profile')
+    fx.call('admin', 'PUT', '/store-profile', json=command(version=profile['version'],
+        sellers=profile['sellers'], sales_contacts={'4': '0717-1234567'}))
+    price_id = catalog['vehicles'][0]['id']
+    for sale, below in ((10000000, False), (9999999, True), (11000000, False)):
+        result = fx.call('sales', 'GET', f'/pricing/price-check?vehicle_price_id={price_id}&sale_price_cents={sale}')
+        assert result == {'below_limit': below}
+    body = fx.contract_body(catalog, [])
+    body['form_data']['seller_phone'] = '13800001234'
+    row = fx.call('sales', 'POST', '/contracts', 201, json=body)
+    assert row['form_data']['seller_phone'] == '13800001234'
+    defaulted = fx.call('sales', 'POST', '/contracts', 201, json=fx.contract_body(catalog, []))
+    assert defaulted['form_data']['seller_phone'] == '0717-1234567'
+    replacement = fx.upload()
+    fx.publish('general_manager', 'vehicle', replacement, [{**VEHICLE_ROW, 'control_price_cents': 11500000}])
+    current_id = fx.catalog('sales')['vehicles'][0]['id']
+    assert fx.call('sales', 'GET', f'/pricing/price-check?vehicle_price_id={current_id}&sale_price_cents=11000000') == {'below_limit': True}
+    assert fx.call('sales', 'GET', f'/pricing/price-check?contract_id={row["id"]}&vehicle_price_id={price_id}&sale_price_cents=11000000') == {'below_limit': False}
+    fx.call('other_manager', 'GET', f'/pricing/price-check?contract_id={row["id"]}&vehicle_price_id={price_id}&sale_price_cents=11000000', 404)
+    edited = deepcopy(body)
+    edited.update(command(version=row['version']))
+    edited['form_data']['seller_phone'] = '0717-7654321'
+    updated = fx.call('sales', 'PUT', f'/contracts/{row["id"]}', json=edited)
+    assert updated['form_data']['seller_phone'] == '0717-7654321'
+    assert fx.call('admin', 'GET', '/store-profile')['sales_contacts']['4'] == '0717-1234567'
+
+
+def test_vehicle_recognition_preserves_conditional_source_quotes_for_review(fx, monkeypatch):
+    import io
+    import json
+    import zipfile
+    from types import SimpleNamespace
+    from xml.sax.saxutils import escape
+    from app import business_assistant_service, business_record_pricing_recognition as recognition
+
+    # The explicit floor is in H, while E is a discount column. H3:I4 also
+    # covers a second model whose own row has no price cell.
+    entries = {1: {'C': '车型', 'D': '指导价', 'E': '店内限价', 'H': '销售管控价（元）'},
+        2: {'H': '100000'}, 3: {'H': '99000包牌（含置换）'}, 4: {},
+        5: {'H': '10.50万元'}, 6: {'H': '全款100000；分期95000'},
+        7: {}, 8: {'H': '100000', 'J': '赠品需办理分期'}}
+    for row in range(2, 9):
+        entries[row].update({'C': '合成配置' + str(row), 'D': '120000', 'E': '20000'})
+    xml = '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'
+    xml += ''.join('<row r="%s">%s</row>' % (row, ''.join(
+        '<c r="%s%s" t="inlineStr"><is><t>%s</t></is></c>' % (col, row, escape(value))
+        for col, value in values.items())) for row, values in entries.items())
+    xml += '</sheetData><mergeCells><mergeCell ref="H3:I4"/></mergeCells></worksheet>'
+    content = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(vehicle_xlsx())) as original, zipfile.ZipFile(content, 'w', zipfile.ZIP_DEFLATED) as target:
+        for item in original.infolist():
+            target.writestr(item.filename, xml if item.filename == 'xl/worksheets/sheet1.xml' else original.read(item))
+    uploaded = fx.upload('general_manager', 'vehicle', 'synthetic-conditions.xlsx', content.getvalue())
+    model_rows = [{'family': '合成车系', 'series': '合成系列', 'model': '合成配置' + str(row),
+        'guide_price': '120000', 'control_price': '105000' if row == 5 else '100000',
+        'note': '按同一行指导价减明确优惠额推算，须核对' if row == 7 else '',
+        'gift_policy': {'text': '合成赠品条件', 'cost_limit': None},
+        'source_sheet': '合成限价', 'source_row': row} for row in range(2, 9)]
+
+    class ModelResponse:
+        status_code = 200
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def iter_bytes(self):
+            yield json.dumps({'choices': [{'finish_reason': 'stop', 'message': {
+                'content': json.dumps({'rows': model_rows, 'warnings': []}, ensure_ascii=False)}}]}).encode()
+
+    class ModelClient:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def stream(self, method, url, **kwargs):
+            assert method == 'POST' and url == 'https://api.deepseek.com/chat/completions'
+            return ModelResponse()
+
+    monkeypatch.setattr(business_assistant_service, 'load_config', lambda: SimpleNamespace(
+        enabled=True, api_key='synthetic-no-network', provider='deepseek', synthetic=False, timeout_seconds=1))
+    monkeypatch.setattr(recognition.httpx, 'Client', ModelClient)
+    preview = fx.call('general_manager', 'POST', f'/pricing/uploads/{uploaded["id"]}/recognize',
+        json=command(version=uploaded['version']))
+    by_row = {int(row['source'].rsplit(':', 1)[1]): row for row in preview['rows']}
+    assert len(by_row) == 7 and all(row['guide_price_cents'] == 12000000 for row in by_row.values())
+    assert all(by_row[row]['control_price_cents'] is None for row in (3, 4, 6))
+    assert '99000包牌（含置换）' in by_row[3]['note'] and '原表H3' in by_row[4]['note']
+    assert '全款100000；分期95000' in by_row[6]['note']
+    assert [by_row[row]['control_price_cents'] for row in (2, 5, 7, 8)] == [10000000, 10500000, 10000000, 10000000]
+    assert '推算' in by_row[7]['note']
+    assert {error['source'] for error in preview['row_errors']} == {'合成限价:3', '合成限价:4', '合成限价:6'}
+    assert preview['recognition_complete'] is False and preview['requires_confirmation'] is True
+    assert fx.catalog()['vehicles'] == []

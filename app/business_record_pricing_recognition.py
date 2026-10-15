@@ -192,13 +192,90 @@ def price_suggestions(data, kind):
             'requires_confirmation': True, 'notice': '已保留每一项识别结果；有问题的行须按原表补齐，不能删除错误行冒充整批完整。逐行核对后由上传者确认发布。'}
 
 
+def review_vehicle_price_sources(suggestions, sheets):
+    """Keep conditional source quotes from becoming unconditional vehicle floors.
+
+    Match only an explicit control-price header and the model's source sheet/row.
+    Package, subsidy and financing amounts need uploader review even if the
+    model returned a well-formed number. Plain numbers and supported arithmetic
+    suggestions are unchanged; this does not calculate a net vehicle price.
+    """
+    headers = {'销售管控价', '管控价', '销售底价', '成交底价', '销售限价'}
+    conditional = re.compile(r'包牌|包税|包保险|置换|补贴|全款|分期|金融|贷款|含税|含保险|含交强险|含购置税|面议|另议|待定|待核|一车一价')
+    sources = {}
+    for sheet in sheets:
+        cells = {cell['cell']: cell['value'] for row in sheet['rows'] for cell in row['cells']}
+        merges = []
+        for value in sheet.get('merges', []):
+            match = re.fullmatch(r'([A-Z]+)(\d+):([A-Z]+)(\d+)', value)
+            if match:
+                left, top, right, bottom = match.groups()
+                merges.append((left, int(top), right, int(bottom)))
+
+        def column_number(column):
+            number = 0
+            for char in column:
+                number = number * 26 + ord(char) - ord('A') + 1
+            return number
+
+        def source_value(column, row):
+            ref = column + str(row)
+            if ref in cells:
+                return ref, cells[ref]
+            for left, top, right, bottom in merges:
+                if top <= row <= bottom and column_number(left) <= column_number(column) <= column_number(right):
+                    ref = left + str(top)
+                    return ref, cells.get(ref, '')
+            return ref, ''
+
+        control_column = None
+        for row in sorted(sheet['rows'], key=lambda value: value['row']):
+            found = []
+            for cell in row['cells']:
+                label = re.sub(r'\s|[（(](?:人民币)?元[）)]', '', cell['value'])
+                if label in headers:
+                    found.append(re.sub(r'\d', '', cell['cell']))
+            if found:
+                control_column = found[0] if len(found) == 1 else None
+                continue
+            if control_column:
+                ref, value = source_value(control_column, row['row'])
+                if _cents(value) is None and conditional.search(value):
+                    sources[sheet['sheet'] + ':' + str(row['row'])] = (ref, value)
+
+    for index, item in enumerate(suggestions['rows'], 1):
+        source = sources.get(item['source'])
+        if source is None:
+            continue
+        ref, original = source
+        item['control_price_cents'] = None
+        source_note = '原表' + ref + '为条件报价：' + original + '；纯车管控价须由上传者核定。'
+        # The uploaded original remains available when a long source note exceeds the display field.
+        source_note = source_note if len(source_note) <= 1800 else source_note[:1750] + '（完整条件请核对上传原表）'
+        if source_note not in item['note']:
+            item['note'] = (source_note + ('\n' + item['note'] if item['note'] else ''))[:2000]
+        problem = 'control_price原表为条件报价，不能将包牌、置换或金融条件金额当纯车底价，请核定'
+        error = next((error for error in suggestions['row_errors'] if error['row'] == index), None)
+        if error is None:
+            error = {'row': index, 'source': item['source'], 'errors': []}
+            suggestions['row_errors'].append(error)
+        if problem not in error['errors']:
+            error['errors'].append(problem)
+            suggestions['warnings'].append('第' + str(index) + '项（' + item['source'] + '）：' + problem)
+        suggestions['recognition_complete'] = False
+    return suggestions
+
+
 def recognize_price_file(content, media, kind):
     from .business_assistant_service import load_config
     config = load_config()
     if not config.enabled or not config.api_key or config.provider != 'deepseek' or config.synthetic:
         raise HTTPException(503, '限价识别尚未连接DeepSeek；原件已保存，可人工核对价格后导入')
+    source_sheets = None
     if media == XLSX:
-        parts = [{'type': 'text', 'text': spreadsheet_source(content)}]
+        source_text = spreadsheet_source(content)
+        source_sheets = json.loads(source_text)
+        parts = [{'type': 'text', 'text': source_text}]
     elif media.startswith('text/csv'):
         parts = [{'type': 'text', 'text': content.decode('utf-8-sig')}]
     else:
@@ -215,10 +292,13 @@ def recognize_price_file(content, media, kind):
         '仅当前可见表，不提取隐藏或历史表。销售管控价是成交底价；店内限价可能是优惠额，要根据表头和公式来源核对。'
         '核对单元格批注中的选装、双色、加价等条件并在note保留；允许有明确来源的同义表头匹配和算式推断；包牌、置换等条件未明确、空白或存在歧义必须将价格设null并注明原因。'
         '不要将赠品、金融、上牌等政策文字并入纯车价。车型的赠品、装饰赠送及外促政策独立提取到gift_policy.text，保留适用车型、原文条件和单元格来源。'
+        '每行gift_policy.text必须自包含本行适用赠品及其前置、领取、开单和生效条件；全表合并栏的共同前置条件须逐行保留原文。'
+        '不能用同上、见G3、见原文或引用其它行替代适用条件；来源引用可另附，但不得省略条件或把条件解析成额外金额。'
         'gift_policy.cost_limit仅在原表明确给出赠品总成本金额上限时提取人民币元字符串；没有明确金额为null，不估算首保、保养、NPS或项目次数的价值，不把单项价格或优惠额当额度。'
         '赠品目录仍只提取单一售价。所有政策仅为待经理核对的建议，不代表批准。不得输出推理过程。')
+    # DeepSeek max effort shares the output budget between reasoning and the complete price table.
     body = {'model': 'deepseek-flash', 'thinking': {'type': 'enabled'}, 'reasoning_effort': 'max',
-        'response_format': {'type': 'json_object'}, 'max_tokens': 32768,
+        'response_format': {'type': 'json_object'}, 'max_tokens': 131072,
         'messages': [{'role': 'system', 'content': prompt}, {'role': 'user', 'content': parts}]}
     try:
         with httpx.Client(timeout=max(config.timeout_seconds, 180), trust_env=False, follow_redirects=False) as client:
@@ -239,7 +319,8 @@ def recognize_price_file(content, media, kind):
         if not isinstance(choice, dict) or choice.get('finish_reason') != 'stop':
             raise HTTPException(503, '限价识别响应未完整结束，不能采用截断结果；原件已保存，可重新识别或逐行手工核对')
         data = json.loads(choice['message']['content'])
-        return price_suggestions(data, kind)
+        suggestions = price_suggestions(data, kind)
+        return review_vehicle_price_sources(suggestions, source_sheets) if kind == 'vehicle' and source_sheets else suggestions
     except httpx.TimeoutException:
         raise HTTPException(503, '限价识别请求超时；原件已保存，未改变有效目录，可重试或手工核对') from None
     except httpx.HTTPError:

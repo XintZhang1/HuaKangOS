@@ -237,3 +237,67 @@ def test_store_admin_can_read_contract_gift_summary_but_cannot_upload(delivery_f
     assert state['gift_document']['id'] == key and state['actions'] == []
     gift_upload(fx, {**row, 'version': uploaded['contract_version']}, role='store_admin', expected=403)
     fx.call('store_admin', 'GET', f'/contracts/{row["id"]}', 403, headers={'X-Store-ID': '2'})
+
+
+def test_actual_accessory_cost_preview_review_approval_and_report(delivery_fx):
+    from copy import deepcopy
+    from decimal import Decimal
+    import re
+    from app.business_record_profit import FORMULAS, column_key
+    from app.business_record_pricing_models import RecordContractTerms
+    from pypdf import PdfReader
+    fx = delivery_fx
+    catalog = fx.delivery_catalog
+    body = fx.contract_body(catalog, [{'price_id': catalog['gifts'][0]['id'], 'quantity': 1}])
+    body['accessory_items'] = [{'price_id': catalog['accessories'][0]['id'], 'quantity': 2}]
+    row = fx.call('sales', 'POST', '/contracts', 201, json=body)
+    key = row['id']
+    row = fx.call('manager', 'POST', f'/contracts/{key}/manager-approve', json=command(version=row['version']))
+    row = fx.call('general_manager', 'POST', f'/contracts/{key}/approve', json=command(version=row['version']))
+    printed = fx.client('finance').get(BASE + f'/contracts/{key}/gift-document/print')
+    assert printed.status_code == 200 and printed.headers['content-type'] == 'application/pdf'
+    text = '\n'.join(page.extract_text() for page in PdfReader(io.BytesIO(printed.content)).pages)
+    assert '客户赠送券' in text and catalog['gifts'][0]['name'] in text and '赠送数量：1 套' in text
+    assert not any(term in text for term in ('60.00', '40.00', '成本', '单价', '售价'))
+    fx.call('sales', 'GET', f'/contracts/{key}/gift-document/print', 403)
+    invoice = invoice_upload(fx, row)
+    gift = gift_upload(fx, row)
+    state = confirm(fx, {**row, 'version': gift['contract_version']}, invoice['invoice']['version'])
+    fx.call('finance', 'GET', f'/contracts/{key}/gift-document/print', 403)
+    evidence = fx.call('finance', 'POST', f'/contracts/{key}/accessory-sales/files', 201,
+        data=command(version=state['contract_version']), files={'file': ('synthetic-paid.png', image_bytes('green'))})
+    prefill = fx.call('clerk', 'GET', f'/report-prefill?report_key=vehicle_details&contract_id={key}')
+    values = {column_key(letter): '0.00' for letter in re.findall('[A-Z]+', FORMULAS['vehicle_details'][0])}
+    values.update(prefill['values'])
+    values.update(c23='110000.00', c11='100000.00')
+    data = {'report_key': 'vehicle_details', 'values': values, 'extension_data': {}}
+    pending = fx.call('clerk', 'POST', f'/contracts/{key}/profit-preview', json=data)
+    assert pending['extension_data']['accessory_sales_cost_cents'] is None
+    assert pending['accessory_sales_verification']['quoted_cost_cents'] == 8000
+    data['extension_data'] = {'accessory_sales_verified': True, 'accessory_sales_file_id': evidence['id']}
+    automatic = fx.call('clerk', 'POST', f'/contracts/{key}/profit-preview', json=data)
+    assert automatic['extension_data']['accessory_sales_cost_cents'] == 8000
+    assert automatic['accessory_sales_verification']['cost_source'] == 'contract_frozen'
+    data['extension_data']['accessory_sales_actual_cost_cents'] = 1234
+    actual = fx.call('clerk', 'POST', f'/contracts/{key}/profit-preview', json=data)
+    assert actual['profit_cents'] == automatic['profit_cents'] + 8000 - 1234
+    zero = deepcopy(data)
+    zero['extension_data']['accessory_sales_actual_cost_cents'] = 0
+    checked_zero = fx.call('clerk', 'POST', f'/contracts/{key}/profit-preview', json=zero)
+    assert checked_zero['extension_data']['accessory_sales_cost_cents'] == 0
+    assert checked_zero['accessory_sales_verification']['cost_source'] == 'clerk_actual'
+    saved = fx.call('clerk', 'PUT', f'/contracts/{key}/office-review', json=command(version=evidence['contract_version'], **data))
+    submitted = fx.call('clerk', 'POST', f'/contracts/{key}/office-submit', json=command(version=saved['version']))
+    approved = fx.call('general_manager', 'POST', f'/contracts/{key}/office-approve', json=command(version=submitted['version']))
+    checked = approved['office_approved_data']
+    assert checked['extension_data']['accessory_sales_cost_cents'] == 1234
+    assert checked['profit_cents'] == actual['profit_cents']
+    report = fx.call('clerk', 'GET', '/reports?report=operating_profit_v218:accessory_sales_cost&date_from=' + checked['period'] + '&date_to=' + checked['period'])
+    assert Decimal(report['grand_total']['accessory_sales_cost']) == Decimal('12.34')
+    with fx.sessions() as db:
+        terms = db.scalar(select(RecordContractTerms).where(RecordContractTerms.contract_id == key))
+        assert terms.submission_data['accessory_snapshot'][0]['cost_cents'] == 8000
+        assert db.get(SalesContract, key).approved_snapshot['terms']['submission_data']['accessory_snapshot'][0]['cost_cents'] == 8000
+    no_paid = contract(fx)
+    denied = fx.call('clerk', 'POST', f'/contracts/{no_paid["id"]}/profit-preview', 422, json=data)
+    assert '未选择有偿精品' in denied['detail']

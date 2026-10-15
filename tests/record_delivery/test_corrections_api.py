@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import select, func
 from test_delivery_api import delivery_fx, fx, login_secret, command, BASE, gift_upload, invoice_upload, confirm
 from app.business_records_models import SalesContract, RecordContractCorrection, ContractReceipt
-from app.business_record_delivery_models import RecordDelivery
+from app.business_record_delivery_models import RecordDelivery, RecordReturn, RecordRefund
 from synthetic import VEHICLE_ROW
 
 
@@ -149,8 +149,8 @@ def test_new_model_revision_catalog_binding_cancellation_and_return_exclusion(de
     key = row['id']
     rev = request_revision(fx, row, 2, 'manager')
     fx.call('other_manager', 'GET', f'/contracts/{key}/corrections', 404)
-    current = fx.call('sales', 'GET', f'/contracts/{key}')
-    fx.call('sales', 'POST', f'/contracts/{key}/returns', 409,
+    current = fx.call('general_manager', 'GET', f'/contracts/{key}')
+    fx.call('general_manager', 'POST', f'/contracts/{key}/returns', 409,
         json=command(version=current['version'], note='仍在更正中，不能退车'))
     uploaded = fx.upload()
     fx.publish('general_manager', 'vehicle', uploaded, [{**VEHICLE_ROW, 'model': '更正新车型', 'gift_policy': None}])
@@ -202,16 +202,13 @@ def test_new_model_revision_catalog_binding_cancellation_and_return_exclusion(de
     cancelled = fx.call('manager', 'POST', f'/contracts/{key}/corrections/{rev2["id"]}/cancel',
         json=command(version=moved['version'], note='客户撤销本次更正'))
     assert cancelled['status'] == 'cancelled'
-    current = fx.call('sales', 'GET', f'/contracts/{key}')
-    returned = fx.call('sales', 'POST', f'/contracts/{key}/returns',
+    current = fx.call('general_manager', 'GET', f'/contracts/{key}')
+    returned = fx.call('general_manager', 'POST', f'/contracts/{key}/returns',
         json=command(version=current['version'], note='办理真实退车'))
-    assert returned['returns'][0]['status'] == 'submitted'
+    assert returned['returns'][0]['status'] == 'approved'
     current = fx.call('general_manager', 'GET', f'/contracts/{key}')
     fx.call('general_manager', 'POST', f'/contracts/{key}/corrections', 409,
         json=command(version=current['version'], target_user_id=2, target_role='manager', note='退车中禁止更正'))
-    refund_request = returned['returns'][0]
-    fx.call('general_manager', 'POST', f'/contracts/{key}/returns/{refund_request["id"]}/approve',
-        json=command(version=refund_request['version'], note='核对实际退车'))
     with fx.sessions() as db:
         set_scope(db, [1], 1)
         assert not _occupied(db, 'SYNTHETIC-CHANGED-VIN')
@@ -257,3 +254,104 @@ def test_legacy_completed_contract_can_correct_and_manager_keeps_manual_excess(d
         assert original.workflow_version == 'legacy-v2' and original.approved_snapshot == snapshot
         assert db.scalar(select(func.count()).select_from(ContractReceipt)) == 1
         assert db.scalar(select(func.count()).select_from(RecordDelivery)) == 0
+
+
+def test_manager_return_finance_handoff_void_visibility_and_partial_refunds(delivery_fx):
+    fx = delivery_fx
+    row, original_body, _, _ = delivered(fx)
+    key = row['id']
+    assert fx.call('finance', 'GET', '/contracts?workbench=finance&work_status=pending')['total'] == 0
+    for role in ('sales', 'manager', 'admin', 'finance', 'clerk', 'deputy', 'store_admin'):
+        detail = fx.call(role, 'GET', f'/contracts/{key}')
+        assert 'request_return' not in detail['delivery_state']['actions']
+        assert 'archive' not in detail['actions']
+        fx.call(role, 'POST', f'/contracts/{key}/returns', 403,
+            json=command(version=row['version'], note='无权岗位退车'))
+        fx.call(role, 'POST', f'/contracts/{key}/archive', 403,
+            json=command(version=row['version'], note='无权岗位作废'))
+    fx.call('other_general_manager', 'POST', f'/contracts/{key}/returns', 404,
+        json=command(version=row['version'], note='跨店不可退车'))
+    return_body = command(version=row['version'], requested_refund_cents=6000, note='总经理核对实际退车')
+    returned = fx.call('general_manager', 'POST', f'/contracts/{key}/returns', json=return_body)
+    item = returned['returns'][0]
+    assert item['status'] == 'approved' and item['requested_by'] == item['reviewed_by'] == 3
+    assert item['refund_registration_status'] == 'pending' and returned['pending_refund']
+    assert fx.call('general_manager', 'POST', f'/contracts/{key}/returns', json=return_body) == returned
+    pending = fx.call('finance', 'GET', '/contracts?workbench=finance&work_status=pending')
+    assert pending['total'] == 1 and pending['items'][0]['progress']['pending_role'] == 'finance'
+    assert pending['items'][0]['progress']['pending_people'] == [{'id': 8, 'name': '合成-finance'}]
+    with fx.sessions() as db:
+        saved = db.get(RecordReturn, item['id'])
+        assert saved.reversal_snapshot['sale_price_cents'] == row['sale_price_cents']
+        assert saved.reversal_snapshot['submission_data']['is_cash_vehicle'] is True
+        assert db.scalar(select(func.count()).select_from(RecordDelivery)) == 1
+    current = fx.call('general_manager', 'GET', f'/contracts/{key}')
+    fx.call('general_manager', 'POST', f'/contracts/{key}/returns', 409,
+        json=command(version=current['version'], note='不得重复退车'))
+    archived = fx.call('general_manager', 'POST', f'/contracts/{key}/archive',
+        json=command(version=current['version'], note='作废并保留退款办理记录'))
+    assert fx.call('sales', 'GET', '/contracts?include_history=true')['total'] == 0
+    for path in (f'/contracts/{key}', f'/contracts/{key}/delivery-state',
+                 f'/contracts/{key}/corrections', f'/pricing/catalog?contract_id={key}'):
+        fx.call('sales', 'GET', path, 404)
+    fx.call('sales', 'POST', '/contracts', 404, json=original_body)
+    assert fx.call('sales', 'GET', f'/customers/{row["customer_id"]}')['contract_count'] == 0
+    assert fx.call('finance', 'GET', '/contracts?workbench=finance&work_status=pending')['total'] == 1
+    for role in ('admin', 'manager', 'deputy', 'finance'):
+        fx.call(role, 'POST', f'/contracts/{key}/restore', 403,
+            json=command(version=archived['version']))
+    refund_path = f'/contracts/{key}/returns/{item["id"]}/refund'
+    first_body = command(version=item['version'], amount_cents=1000, refunded_on=item['approved_on'])
+    fx.call('general_manager', 'POST', refund_path, 403, json=first_body)
+    first = fx.call('finance', 'POST', refund_path, json=first_body)
+    assert fx.call('finance', 'POST', refund_path, json=first_body) == first
+    assert first['returns'][0]['refund_registration_status'] == 'registered' and not first['pending_refund']
+    assert first['returns'][0]['refunded_amount_cents'] == 1000
+    assert fx.call('finance', 'GET', '/contracts?workbench=finance&work_status=pending')['total'] == 0
+    processed = fx.call('finance', 'GET', '/contracts?workbench=finance&work_status=processed&include_history=true')
+    assert processed['total'] == 1
+    assert processed['items'][0]['progress']['pending_label'] == '已登记退款，可继续追加'
+    assert processed['items'][0]['delivery_state']['returns'][0]['actions'] == ['refund']
+    second = fx.call('finance', 'POST', refund_path, json=command(version=first['returns'][0]['version'],
+        amount_cents=2000, refunded_on=item['approved_on']))
+    assert second['returns'][0]['refunded_amount_cents'] == 3000
+    current = fx.call('general_manager', 'GET', f'/contracts/{key}')
+    fx.call('general_manager', 'POST', f'/contracts/{key}/restore', json=command(version=current['version']))
+    assert fx.call('sales', 'GET', f'/contracts/{key}')['id'] == key
+    with fx.sessions() as db:
+        assert db.scalar(select(func.count()).select_from(RecordReturn)) == 1
+        assert db.scalar(select(func.count()).select_from(RecordRefund)) == 2
+        assert db.get(SalesContract, key).approved_snapshot['sale_price_cents'] == row['sale_price_cents']
+
+
+def test_historical_return_review_stays_independent_and_rejected_contract_visible(delivery_fx):
+    fx = delivery_fx
+    row, _, _, _ = delivered(fx)
+    key = row['id']
+    # Historical pending requests are preserved, not converted by migration.
+    with fx.sessions() as db:
+        delivery = db.scalar(select(RecordDelivery).where(RecordDelivery.contract_id == key))
+        old = RecordReturn(store_id=1, contract_id=key, delivery_id=delivery.id,
+            requested_by=3, note='历史本人申请不得自批')
+        db.add(old); db.commit()
+        old_id = old.id
+    old = fx.call('general_manager', 'GET', f'/contracts/{key}/delivery-state')['returns'][0]
+    assert not old['actions']
+    fx.call('general_manager', 'POST', f'/contracts/{key}/returns/{old_id}/approve', 403,
+        json=command(version=old['version']))
+    with fx.sessions() as db:
+        db.get(RecordReturn, old_id).requested_by = 4
+        db.commit()
+    old = fx.call('general_manager', 'GET', f'/contracts/{key}/delivery-state')['returns'][0]
+    assert old['actions'] == ['approve', 'reject']
+    fx.call('admin', 'POST', f'/contracts/{key}/returns/{old_id}/approve', 403,
+        json=command(version=old['version']))
+    approved_old = fx.call('general_manager', 'POST', f'/contracts/{key}/returns/{old_id}/approve',
+        json=command(version=old['version']))
+    assert approved_old['pending_refund'] and approved_old['returns'][0]['status'] == 'approved'
+    body = fx.contract_body(fx.delivery_catalog, [])
+    draft = fx.call('sales', 'POST', '/contracts', 201, json=body)
+    rejected = fx.call('manager', 'POST', f'/contracts/{draft["id"]}/reject',
+        json=command(version=draft['version'], note='请销售补充合同资料'))
+    visible = fx.call('sales', 'GET', '/contracts')
+    assert any(item['id'] == rejected['id'] and 'edit' in item['actions'] for item in visible['items'])

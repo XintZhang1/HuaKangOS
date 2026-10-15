@@ -138,6 +138,9 @@ def sanitize_command_result(db, user, result, action='', payload=None):
                     break
     if contract_id:
         contract = db.get(SalesContract, contract_id)
+        if contract and user.role == 'sales' and contract.archived_at:
+            # Old successful create/update receipts must obey today's visibility.
+            raise HTTPException(404, '合同不存在或不可访问')
         if contract and contract_privacy(db, user, contract)['masked']:
             result = redact_personal_values(result, {'customer_phone': contract.customer_phone,
                 'form_data': contract.form_data, 'approved_snapshot': contract.approved_snapshot})

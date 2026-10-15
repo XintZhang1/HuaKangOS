@@ -74,6 +74,7 @@ dialog.br-dashboard-modal{width:min(1080px,calc(100% - 26px))}.br-dashboard-deta
 @media(max-width:380px){.br-live-overview,.br-extension-overview{grid-template-columns:1fr}}
 
 /* Actual actors, correction versions and selected inventory remain readable on phones. */
+.br-inventory-upload [hidden]{display:none!important}
 .br-steps>span{display:flex;flex-direction:column;gap:5px}.br-steps>span small{font-size:11px;font-weight:400;line-height:1.5}
 .br-correction{padding:18px 0;border-top:1px solid #dce6ee}.br-correction h3{font-size:16px;margin:0}.br-correction>p{color:#637b90}.br-correction details{margin-top:12px}
 .br-inventory-picker{background:#f1f6fa;border:1px solid #dbe7ef;border-radius:12px;padding:16px;margin-bottom:18px}.br-inventory-picker h3{margin:0 0 8px}.br-inventory-picker .row{align-items:end}.br-inventory-picker [data-inventory-results]{margin-top:12px}.br-inventory-result{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid #d4e2eb}.br-inventory-result p{margin:5px 0}.br-inventory-result small{color:#58758b}.br-priority-analysis:has(.br-composition-bars,.br-profit-composition){grid-column:1/-1}

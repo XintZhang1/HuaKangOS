@@ -104,6 +104,8 @@ class ContractInput(Command):
     def bounded_fields(cls, values):
         if any(len(key) > 80 or len(value) > 4000 for key, value in values.items()):
             raise ValueError('合同补充字段名称或内容过长')
+        if len(values.get('seller_phone', '')) > 40:
+            raise ValueError('销售顾问联系电话最多40字')
         if values.get('quantity', '1') != '1':
             raise ValueError('当前每份合同记录一个车架号及一台车辆，数量请填写1')
         return values
@@ -189,6 +191,8 @@ class OfficeExtensionFacts(Strict):
     trade_in_count: Annotated[int, Field(ge=0, le=10000, strict=True)] | None = None
     accessory_sales_income_cents: Money | None = None
     accessory_sales_cost_cents: Money | None = None
+    # Clerk-confirmed actual cost is separate from the contract's frozen quote.
+    accessory_sales_actual_cost_cents: Money | None = None
     total_loss_commission_cents: Money | None = None
     product_commission_cents: Money | None = None
     decoration_count: Annotated[int, Field(ge=0, le=10000, strict=True)] | None = None

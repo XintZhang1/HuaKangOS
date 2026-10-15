@@ -114,7 +114,7 @@ def apply_office_profit(db, contract, data, *, require_materials=True):
     from .business_record_accessories import apply_accessory_verification
     data = apply_accessory_verification(db, contract, data, terms)
     result = include_accessory_sales(calculate_profit(data['report_key'], values), data.get('extension_data') or {})
-    result['formula_version'] = 'customer-sheets-v218-verified-paid-accessories'
+    result['formula_version'] = 'customer-sheets-v219-actual-paid-accessory-cost'
     amount = result['total_cents']
     values[result['output_key']] = None if amount is None else format(Decimal(amount) / 100, '.2f')
     # Original first profit column is a duplicate result, never another operand.

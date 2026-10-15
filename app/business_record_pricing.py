@@ -513,6 +513,46 @@ def get_terms(db, contract):
                                                      RecordContractTerms.store_id == contract.store_id))
 
 
+@router.get('/pricing/price-check')
+def check_sale_price(vehicle_price_id: int = Query(gt=0), sale_price_cents: int = Query(gt=0, le=999999999999),
+                     sales_channel: Literal['retail', 'wholesale'] = 'retail',
+                     contract_id: int | None = Query(None, gt=0), correction_id: int | None = Query(None, gt=0),
+                     db=Depends(get_db), user=Depends(get_user)):
+    """Return only the form decision; the sales role never receives the limit."""
+    _access(user)
+    price = None
+    if correction_id is not None and contract_id is None:
+        raise HTTPException(422, '更正核价须关联原合同')
+    if contract_id is not None:
+        from .business_records import get_contract
+        contract = get_contract(db, user, contract_id)
+        if correction_id is not None:
+            from .business_record_corrections import _revision
+            revision = _revision(db, contract, correction_id)
+            terms = revision.previous_snapshot.get('terms') or {}
+            frozen = terms.get('price_snapshot') or {}
+            sales_channel = (terms.get('submission_data') or {}).get('sales_channel', 'retail')
+            if vehicle_price_id == frozen.get('id'):
+                price = frozen
+        else:
+            terms = get_terms(db, contract)
+            if terms is None:
+                raise HTTPException(409, '该历史合同没有提交时的车型价格快照')
+            if vehicle_price_id != terms.price_snapshot.get('id'):
+                raise HTTPException(409, '请选择本合同冻结的车型价格')
+            price = terms.price_snapshot
+            sales_channel = (terms.submission_data or {}).get('sales_channel', 'retail')
+    if sales_channel == 'wholesale' and user.role == 'sales':
+        raise HTTPException(403, '二级批发由销售经理发起')
+    if price is None:
+        shared = catalog_state(db, sales_channel)
+        price = next((item for item in catalog_rows(db, 'vehicle', shared['vehicle_batch_id'], sales_channel=sales_channel)
+                      if item['id'] == vehicle_price_id), None)
+        if price is None:
+            raise HTTPException(422, '请选择当前门店已发布限价中的车型')
+    return {'below_limit': sale_price_cents < price['control_price_cents']}
+
+
 def frozen_gift_cost(terms):
     """Legacy accounting is preserved explicitly, never backfilled as actual cost."""
     return terms.gift_total_cents if terms.gift_pricing_basis == 'legacy-single-price' else terms.gift_cost_total_cents
@@ -637,8 +677,9 @@ def prepare_submission(db, user, body, existing=None, *, inventory_existing=None
     if form.get('buyer_document_name', '身份证') not in {'身份证', '护照', '驾照'}:
         raise HTTPException(422, '买方证件类型须选择身份证、护照或驾照')
     person = db.get(User, body.salesperson_id)
+    form.setdefault('seller_phone', current.profile.get('sales_contacts', {}).get(str(person.id), ''))
     form.update(seller_address=sellers[0].get('address') or current.profile.get('address', ''),
-        seller_agent=person.display_name, seller_phone=current.profile.get('sales_contacts', {}).get(str(person.id), ''),
+        seller_agent=person.display_name,
         quantity='1', payment_method=body.submission_data.payment_method)
     form.setdefault('buyer_document_name', '身份证')
     if not form.get('buyer_agent'):
