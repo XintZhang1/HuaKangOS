@@ -2,9 +2,10 @@
 
 ## V2.18 追加：毛利构成图尺度调整（2026-10-15）
 
-- 状态：`implemented`，发布待执行；用户要求售价及底部长条单列，已核对底部对应“提车价”。仅调整`web/businessrecorddashboard.js`、`web/businessrecords.css`及本次文档：按核定公式准确类别将车辆售价/提车价单列金额，其余项目独立计算柱长尺度；零值/待审核、正负符号、原毛利总计、完整明细和导出保持。基线54d55e6，线上5d09e7132acc/h72；不改报表定义或后端数据。
+- 状态：`done`，CP-V2.18-CHART：`released`；用户要求售价及底部长条单列，已核对底部对应“提车价”。仅调整`web/businessrecorddashboard.js`、`web/businessrecords.css`及本次文档：按核定公式准确类别将车辆售价/提车价单列金额，其余项目独立计算柱长尺度；零值/待审核、正负符号、原毛利总计、完整明细和导出保持。基线54d55e6，升级前线上5d09e7132acc/h72；不改报表定义或后端数据。
 - 复用原仓库外实际API样本及Chromium渲染，核对桌面/手机、长条剔出后的尺度和完整表，完成必要检查后按既有授权保留数据发布；不扩测无关流程，不调用模型。任务继续沿`docs/architect/tasks/meeting-feedback-v218.md`。
 - 验证与审阅：原外置合成ASGI样本经实际前端Chromium渲染，售价110000/提车价-100000独立，400元其余项目柱宽恢复至图尺度240，毛利10400及完整表/同期间导出保持；未知提车价仍待审核。桌面与390px无溢出，截图已目视，浏览器错误/外网/真实模型均0，JS语法及diff检查通过。证据`meeting-20261014/frontend/profit-composition-2026-10-15T00-10-58-987Z/`；协作只读核对类别标签及退车正负符号，源码只改展示，无会计重算。
+- GitHub及发布：8cd613f经[PR #25](https://github.com/XintZhang1/HuaKangOS/pull/25)合并为`dfb8f899e31cf7db908cea52e80be8bac0adecaf`；PR记录域CI38658718244及精确main CI38658950382均成功。2026-10-15北京时间08:19–08:20联合备份`/var/lib/huakangos/backups/profit-chart-20261015-20261015T001902Z`后切换`/opt/huakangos/releases/main-dfb8f899e31c`，无迁移、无业务导入或门店配置。业务备份恢复副本、正式库及只读探测后三次518表旧行旧列/结构/索引/触发器保持，h72不变；五服务稳定，开放写入守卫保持。外置发布证据根`C:/Users/tiefu/.codex/HuaKangOS-agent-validation/profit-chart-20261015-release/`，`cloud-profit-chart-deploy-result-20261015T002021878298Z.json`为Success/0，公网`public-verification-dfb8f899e31c-20261015T002037080957Z.json`确认health精确SHA、10份静态资源符合Git字节及登录图不变。后续仅文档回填，运行SHA保持dfb8f899e31c；原待纸样/实体校准/员工试用边界不变。
 
 ## V2.18 10月14日晚会复核、库存与合同更正（2026-10-14）
 
