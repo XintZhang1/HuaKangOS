@@ -21,6 +21,8 @@ def operating_rows(key, contract, terms, delivery, returned, row, start, end):
     Every delivered vehicle contributes a row even if its office information is
     still missing. A known partial total must never hide unapproved vehicles.
     """
+    if key == 'operating_extensions_v220':
+        return operating_extension_rows_v220(contract, terms, delivery, returned, row, start, end)
     if key.endswith('_v218'):
         if key == 'operating_profit_components_v218':
             return operating_profit_components(contract, delivery, returned, row, start, end)
@@ -87,6 +89,65 @@ def operating_rows(key, contract, terms, delivery, returned, row, start, end):
         reversal.update(period=str(returned.approved_on), event_kind='return', return_id=returned.id,
             source_label='总经理批准退车冲减', note='原核算日 ' + str(delivery.accounting_on) + '；原事实保留')
         rows.append(reversal)
+    return rows
+
+
+def operating_extension_rows_v220(contract, terms, delivery, returned, row, start, end):
+    """Keep known quantities visible without treating missing facts as zero.
+
+    Pending quantities never replace an existing approved quantity. Returned
+    vehicles use only their frozen office facts for both sides of the reversal;
+    a later draft cannot create quantities which the return did not freeze.
+    """
+    from .business_record_reports import CATALOG_BY_KEY
+    names = ('insurance', 'warranty', 'total_loss', 'product', 'trade_in', 'finance', 'decoration')
+
+    def counts(office):
+        office = office or {}
+        definition = CATALOG_BY_KEY.get(office.get('report_key'), {})
+        labels = {field['label']: office.get('values', {}).get(field['key'])
+                  for field in definition.get('columns', [])}
+        loan = labels.get('核实放款金额')
+        extension = office.get('extension_data') or {}
+        return {'insurance': labels.get('保险出单数量'), 'warranty': labels.get('延保出单数量'),
+            'finance': ('1' if Decimal(str(loan)) > 0 else '0') if loan not in (None, '') else None,
+            **{name: extension.get(name + '_count')
+               for name in ('total_loss', 'product', 'trade_in', 'decoration')}}
+
+    approved = getattr(contract, 'office_approved_data', None)
+    draft = getattr(contract, 'office_data', None)
+    status = getattr(contract, 'office_status', 'not_started')
+    if returned:
+        frozen = getattr(returned, 'reversal_snapshot', None) or {}
+        approved, draft = frozen.get('office_approved_data'), frozen.get('office_data')
+        status = frozen.get('office_status', 'not_started')
+    elif status == 'approved':
+        draft = None
+    approved_counts, draft_counts = counts(approved), counts(draft)
+    source_contract = SimpleNamespace(**{**contract.__dict__, 'office_approved_data': approved})
+    rows = operating_rows_v218('operating_extensions_v218', source_contract, terms,
+                              delivery, returned, row, start, end)
+    for result in rows:
+        sign = -1 if result['event_kind'] == 'return' else 1
+        for name in names:
+            count = approved_counts.get(name)
+            pending = count in (None, '') and draft_counts.get(name) not in (None, '')
+            if pending:
+                count = draft_counts[name]
+            missing = count in (None, '')
+            result[name + '_count'] = None if missing else format(Decimal(str(count)) * sign, 'f')
+            result[name + '_pending_count'] = result[name + '_count'] if pending else '0'
+            # This is a count of incomplete source events, not guessed orders;
+            # a missing reversal remains one unresolved source, never minus one.
+            result[name + '_missing_records'] = '1' if missing else '0'
+            result[name + '_review_status'] = ('资料待补齐' if missing else
+                {'draft': '已填待提交', 'submitted': '已提交待审核', 'rejected': '已退回待修改'}.get(status, '已填待审核')
+                if pending else '已审核')
+            if name != 'decoration':
+                result[name + '_vehicles'] = None if missing else str(sign if Decimal(str(count)) > 0 else 0)
+        result['_applicable_fields'] = {key for key in result if key.endswith(
+            ('_count', '_vehicles', '_pending_count', '_missing_records'))} | {'deliveries'}
+        result['source_label'] = '批准退车冻结数量冲减' if sign < 0 else '已审核数量及内勤已填待审核数量'
     return rows
 
 
@@ -490,6 +551,11 @@ def aggregate_rows(rows, definition, label):
         elif kind == 'non_additive':
             # A rate without an identified denominator has no defensible average.
             numbers[key] = Decimal(str(values[0])) if len(values) == 1 and values[0] not in (None, '') else None
+        elif kind == 'known_sum':
+            # Only the v220 quantity definition selects this rule. Its explicit
+            # missing-record columns keep a partial known sum distinguishable
+            # from a confirmed total, including when all quantities are missing.
+            numbers[key] = sum((Decimal(str(value)) for value in values if value not in (None, '')), Decimal(0))
         else:
             numbers[key] = _sum(values)
             if not values and definition.get('empty_is_zero'):
@@ -607,6 +673,11 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
     series = [{'label': row['label'], 'value': float(row[metric]) if row.get(metric) is not None else None,
                'exact_value': row.get(metric), 'record_count': row['record_count'],
                'unknown_count': row['unknown_count']} for row in summary]
+    if definition['key'] == 'operating_extensions_v220':
+        name = metric.removesuffix('_count')
+        for point, summary_row in zip(series, summary):
+            point.update(pending_count=summary_row.get(name + '_pending_count'),
+                         missing_record_count=summary_row.get(name + '_missing_records'))
     common = [{'key': key, 'label': label, 'type': kind, 'unit': '', 'precision': None}
               for key, label, kind in (('period', '统计日期', 'date'), ('store', '门店', 'text'),
               ('brand', '品牌', 'text'), ('salesperson', '销售/经办人', 'text'),
@@ -635,7 +706,10 @@ def project(definition, records, *, group_by, metric, updated_at=None, category_
     if any(row.get('event_kind') for row in rows):
         for kind in (('sale', 'return', 'correction') if definition['key'] == 'operating_sales_v218' else ('sale', 'return')):
             components = [row.get(metric) for row in rows if row.get('event_kind') == kind]
-            amount = _sum(components) if components else Decimal(0)
+            if definition.get('aggregation_rules', {}).get(metric, {}).get('kind') == 'known_sum':
+                amount = sum((Decimal(str(value)) for value in components if value not in (None, '')), Decimal(0))
+            else:
+                amount = _sum(components) if components else Decimal(0)
             movements[kind] = format(amount, 'f') if amount is not None else None
         movements['net'] = grand.get(metric)
     return {'report': definition['key'], 'metric': metric, 'title': definition['title'],
@@ -1219,4 +1293,14 @@ def build(db, user, report, *, date_from=None, date_to=None, brand='', salespers
     }
     if key in OPERATING_REPORTS and missing_result:
         result['source_status']['status'] = 'awaiting_contract' if key in {'operating_sales', 'operating_sales_v218'} else 'awaiting_approval'
+    if key == 'operating_extensions_v220' and result['metric'].endswith('_count'):
+        name = result['metric'].removesuffix('_count')
+        pending_count = result['grand_total'].get(name + '_pending_count', '0')
+        missing_records = result['grand_total'].get(name + '_missing_records', '0')
+        pending_records = sum(row.get(name + '_review_status') in
+            {'已填待提交', '已提交待审核', '已退回待修改', '已填待审核'} for row in result['rows'])
+        result['source_status'].update(pending_count=pending_count, missing_record_count=missing_records,
+            pending_record_count=pending_records,
+            status='incomplete' if Decimal(missing_records or '0') else
+                   'includes_pending' if pending_records else 'known')
     return fill_month_window(result, date_from, date_to) if group_by == 'month' else result

@@ -60,38 +60,65 @@ def preview_gift_file(content, media, brand):
         sheets = [('CSV', [(i + 1, {str(k): v for k, v in enumerate(row)}) for i, row in enumerate(parsed)])]
     else:
         raise HTTPException(422, '赠品成本请使用普通xlsx或UTF-8 CSV；复杂合并表及xls请先整理为分品牌标准表')
-    rows, warnings = [], []
+    rows, warnings, row_errors = [], [], []
     for sheet, lines in sheets:
-        columns = None
+        columns, labels = None, {}
         for number, values in lines:
-            found = {}
+            found, ambiguous = {}, set()
             for column, value in values.items():
                 matched = next((key for key, labels in HEADERS.items() if _header(value) in labels), None)
                 if matched:
                     if matched in found:
-                        raise HTTPException(422, f'{sheet}第{number}行存在多个{value}列，请先整理明确口径')
+                        ambiguous.add(matched)
                     found[matched] = column
-            if 'name' in found and {'unit_cost_cents', 'unit_price_cents'} & found.keys():
-                columns = found
+            nonempty = [value for value in values.values() if str(value).strip()]
+            if 'name' in found and (len(found) >= 2 or len(nonempty) == 1):
+                columns = {key: column for key, column in found.items() if key not in ambiguous}
+                labels = dict(values)
+                # Keep duplicate candidates visible without choosing a column.
+                if ambiguous:
+                    warnings.append(f'{sheet}第{number}行有重复表头，相关列留空；请对照各行原文核定。')
                 continue
-            if columns is None or not any(str(v).strip() for v in values.values()):
+            if not nonempty:
                 continue
-            name = str(values.get(columns['name'], '')).strip()
+            if columns is None:
+                rows.append({'name': '', 'brand': brand, 'unit_cost_cents': None, 'unit_price_cents': None,
+                    'source': f'{sheet}:{number}', 'source_ref': f'{sheet}:{number}',
+                    'source_text': ' | '.join(f'{column}: {value}' for column, value in values.items())})
+                row_errors.append({'row': len(rows), 'source': rows[-1]['source'], 'errors': ['未匹配表头，请人工填写或移除说明行']})
+                continue
+            name = str(values.get(columns.get('name'), '')).strip()
+            problems, raw_values = [], {}
             if not name:
-                raise HTTPException(422, f'{sheet}第{number}行缺少赠品名称，请核对原表')
+                problems.append('缺少赠品名称，请补填或移除说明行')
             item = {key: str(values.get(column, '')).strip() for key, column in columns.items()}
+            item['name'] = name
             for key in ('unit_cost_cents', 'unit_price_cents'):
-                item[key] = _money(item.get(key), f'{sheet}第{number}行')
+                original = item.get(key)
+                try:
+                    item[key] = _money(original, f'{sheet}第{number}行')
+                except HTTPException:
+                    item[key] = None
+                    raw_values[key] = original
+                    problems.append(('成本' if key == 'unit_cost_cents' else '售价') + '需人工核对，原值已保留')
             item['brand'] = item.get('brand') or brand
             item['source_ref'] = item.get('source_ref') or f'{sheet}:{number}'
             item['source'] = f'{sheet}:{number}'
+            if raw_values:
+                item['raw_values'] = raw_values
+            item['source_text'] = ' | '.join(f'{labels.get(column, column)}: {value}' for column, value in values.items())
+            if any(column not in columns.values() and str(value).strip() for column, value in values.items()):
+                problems.append('未映射列已保留原文，请核对条件和金额')
+            if problems:
+                row_errors.append({'row': len(rows) + 1, 'source': item['source'], 'errors': problems})
             rows.append(item)
         if columns is None:
-            warnings.append(sheet + '未找到明确的名称和成本/售价表头，未导入该表')
-    if not rows or len(rows) > 2000:
-        raise HTTPException(422, '未找到完整赠品目录，或超过2000项；请使用名称、成本（元）、售价（元）、品牌、单位、适用车型列的标准表')
-    if warnings:
-        # Partial workbook recognition must never look like a full publication.
-        raise HTTPException(422, '；'.join(warnings) + '。请拆分品牌并移除非目录表后重新上传')
-    return {'rows': rows, 'warnings': ['成本与售价分别保留；空白价格表示待补齐，不自动相互复制。'],
+            warnings.append(sheet + '未找到明确表头，原文已放入核对行；请补填项目或移除说明行。')
+    if len(rows) > 2000:
+        raise HTTPException(422, '识别候选超过2000行，请分批核对上传')
+    if not rows:
+        rows = [{'name': '', 'brand': brand}]
+        warnings.append('原表没有可填项目，请手工补充。')
+    return {'rows': rows, 'warnings': ['成本与售价分别保留；识别只作建议，格式问题请在此修正。'] + warnings,
+            'row_errors': row_errors, 'recognition_complete': not row_errors and not warnings,
             'requires_confirmation': True, 'notice': '本地表格解析结果；请核对品牌、来源和全部项目后确认。'}

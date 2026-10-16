@@ -12,7 +12,7 @@ from .business_record_pricing_models import RecordContractTerms, RecordPricingFi
 
 router = APIRouter(prefix='/api/business-records', tags=['有偿精品凭证与核实'])
 VERIFICATION_VERSION = 'v219-actual-paid-accessory-cost'
-READERS = {'admin', 'finance', 'clerk', 'general_manager', 'chairman', 'store_admin'}
+READERS = {'admin', 'finance', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}
 
 
 def frozen_accessory_totals(terms):

@@ -25,13 +25,13 @@ from .business_records_schemas import (ContractInput, ContractUpdate, Action, Pr
     OfficeReview, StandardPriceImport, StandardPriceEstimate, ManagerApproval)
 
 router = APIRouter(prefix='/api/business-records', tags=['业务记录'])
-MANAGERS = {'admin', 'manager', 'general_manager'}
-GROUP_MANAGERS = {'admin', 'general_manager'}
+MANAGERS = {'admin', 'manager', 'general_manager', 'group_deputy_manager'}
+GROUP_MANAGERS = {'admin', 'general_manager', 'group_deputy_manager'}
 READERS = MANAGERS | {'sales', 'clerk', 'finance', 'chairman', 'group_deputy_manager', 'store_admin'}
 TRIAL_WORKFLOWS = {'trial-v29', 'trial-v30', 'trial-v210'}
 # Financial reads follow the effective role of the already selected store.
 # This does not grant pricing writes, additional stores or self-approval.
-SENSITIVE_ROLES = {'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'}
+SENSITIVE_ROLES = {'admin', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}
 INTERNAL_READERS = SENSITIVE_ROLES
 CAPABILITY_ROLES = {
     'create_sales': {'admin', 'sales'},
@@ -43,7 +43,7 @@ CAPABILITY_ROLES = {
     'manage_targets': {'admin', 'manager', 'general_manager', 'chairman', 'group_deputy_manager'},
     'confirm_receipt': {'admin', 'finance'},
     'upload_invoice': {'admin', 'finance'},
-    'manage_settings': {'admin', 'general_manager'},
+    'manage_settings': GROUP_MANAGERS,
     'record_statistics': {'admin', 'clerk'},
     'manage_trade_in': {'admin', 'manager'},
     'create_after_sales': {'admin', 'clerk'},
@@ -82,9 +82,9 @@ def capabilities(user):
     result['read_dashboard'] = can_view_dashboard(user)
     # Reading finance/invoices must not imply receipt confirmation or uploads.
     # Keep invoice reads local, matching the invoice API's existing scope.
-    result['read_invoice'] = writable and user.role in {'admin', 'finance', 'clerk', 'general_manager', 'chairman', 'store_admin'}
+    result['read_invoice'] = writable and user.role in {'admin', 'finance', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}
     result['read_finance'] = (bool(_group_ids(user)) if not writable else
-                            user.role in {'admin', 'finance', 'clerk', 'manager', 'general_manager', 'chairman', 'store_admin'})
+                            user.role in {'admin', 'finance', 'clerk', 'manager', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'})
     return result
 
 
@@ -331,7 +331,7 @@ def _contract_data(db, user, row):
     data['corrections'] = corrections
     effective = latest_correction(db, row)
     data['effective_contract'] = _public_snapshot(db, user, row, effective.approved_snapshot) if effective else None
-    if user.role == 'general_manager' and not getattr(user, '_aggregate_scope', False):
+    if user.role in {'general_manager', 'group_deputy_manager'} and not getattr(user, '_aggregate_scope', False):
         if row.archived_at:
             actions.append('restore')
         else:
@@ -779,8 +779,8 @@ def reject_contract(key: int, body: Reject, request: Request,
 def _archive_contract(key, body, request, db, user, restore):
     _manual(request)
     require_read(user)
-    if getattr(user, '_aggregate_scope', False) or user.role != 'general_manager':
-        raise HTTPException(403, '仅本店总经理可作废或恢复合同')
+    if getattr(user, '_aggregate_scope', False) or user.role not in {'general_manager', 'group_deputy_manager'}:
+        raise HTTPException(403, '仅本店总经理或集团副总经理可作废或恢复合同')
     row = get_contract(db, user, key)
     def perform():
         _check_version(row, body.version)

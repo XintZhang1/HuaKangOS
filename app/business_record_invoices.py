@@ -20,7 +20,7 @@ from .file_security import policy_mode, scan_clamav, MESSAGES
 from .private_files import publish, read_object, checked_bytes
 
 router = APIRouter(prefix='/api/business-records', tags=['合同发票'])
-INVOICE_ROLES = {'admin', 'finance', 'clerk', 'general_manager', 'chairman', 'store_admin'}
+INVOICE_ROLES = {'admin', 'finance', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}
 
 
 class InvoiceFields(Strict):

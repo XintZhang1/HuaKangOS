@@ -65,7 +65,8 @@ class Fixture:
         current = self.catalog(role, changes.get('sales_channel', 'retail'))
         # The preview's display-only source label is omitted by the real form;
         # source_ref remains part of the saved gift provenance.
-        rows = [{key: value for key, value in row.items() if key != 'source'} for row in rows]
+        rows = [{key: value for key, value in row.items()
+                 if key not in {'source', 'source_text', 'raw_values', 'review_errors'}} for row in rows]
         body = command(version=current['version'], brand_version=current['brand_version'],
             brand=current['brand'], file_id=uploaded['id'], rows=deepcopy(rows))
         if kind == 'vehicle':
@@ -217,13 +218,80 @@ def test_gift_csv_preview_actual_import_and_price_projection(fx):
 
 def test_invalid_gift_preview_and_cost_permissions_do_not_publish(fx):
     bad = fx.upload('general_manager', 'gift', 'invalid.csv', '名称,成本\n合成错误,1.001\n'.encode())
-    fx.call('general_manager', 'POST', f'/pricing/uploads/{bad["id"]}/recognize', 422,
+    preview = fx.call('general_manager', 'POST', f'/pricing/uploads/{bad["id"]}/recognize',
         json=command(version=bad['version']))
+    assert preview['rows'][0]['unit_cost_cents'] is None
+    assert preview['rows'][0]['raw_values']['unit_cost_cents'] == '1.001'
+    assert preview['row_errors'] and preview['requires_confirmation']
     fx.upload('manager', 'gift', 'synthetic.csv', gift_csv(), expected=403)
     fx.call('manager', 'POST', f'/pricing/uploads/{bad["id"]}/recognize', 403,
         json=command(version=bad['version']))
     fx.publish('manager', 'gift', bad, [{'name': '合成成本', 'unit_cost_cents': 1}], expected=403)
     assert fx.catalog()['gifts'] == []
+
+
+def test_nonstandard_recognition_candidates_allow_manual_repair(fx, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from app import business_assistant_service, business_record_pricing_recognition as recognition
+    final_answer = ['以下为识别建议：\n```json\n' + json.dumps([{'车系': '合成车系', '年款': '2026',
+        '车型': '合成配置', '指导价': '120000', '销售管控价': '请人工核定',
+        '赠品政策': '保养一套，条件请核对'}], ensure_ascii=False) + '\n```']
+
+    class Response:
+        status_code = 200
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def iter_bytes(self):
+            yield json.dumps({'choices': [{'finish_reason': 'stop', 'message': {
+                'content': final_answer[0], 'reasoning_content': 'synthetic-private-reasoning'}}]}).encode()
+
+    class Client:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def stream(self, *args, **kwargs): return Response()
+
+    monkeypatch.setattr(business_assistant_service, 'load_config', lambda: SimpleNamespace(
+        enabled=True, api_key='synthetic-no-network', provider='deepseek', synthetic=False, timeout_seconds=1))
+    monkeypatch.setattr(recognition.httpx, 'Client', Client)
+    uploaded = fx.upload()
+    preview = fx.call('general_manager', 'POST', f'/pricing/uploads/{uploaded["id"]}/recognize',
+        json=command(version=uploaded['version']))
+    row = preview['rows'][0]
+    assert row['model'] == '合成配置' and row['guide_price_cents'] == 12000000
+    assert row['raw_values']['control_price_cents'] == '请人工核定'
+    assert row['gift_policy_suggestion']['text'] == '保养一套，条件请核对'
+    assert 'synthetic-private-reasoning' not in json.dumps(preview)
+    assert fx.catalog()['vehicles'] == []
+    final_answer[0] = '车型资料已保留，但缺少限价；请根据原表补填。'
+    manual = fx.call('general_manager', 'POST', f'/pricing/uploads/{uploaded["id"]}/recognize',
+        json=command(version=uploaded['version']))
+    assert len(manual['rows']) == 1 and manual['raw_output'] == final_answer[0]
+    assert manual['recognition_complete'] is False
+    fx.publish('general_manager', 'vehicle', uploaded, [VEHICLE_ROW])
+    assert len(fx.catalog()['vehicles']) == 1
+
+    gift = fx.upload('general_manager', 'gift', 'nonstandard.csv',
+        '名称,成本,成本,售价\n合成坐垫,待定,12,20元\n,说明,,\n'.encode())
+    draft = fx.call('general_manager', 'POST', f'/pricing/uploads/{gift["id"]}/recognize',
+        json=command(version=gift['version']))
+    assert len(draft['rows']) == 2 and draft['warnings']
+    assert draft['rows'][0]['unit_cost_cents'] is None
+    assert '待定' in draft['rows'][0]['source_text'] and draft['rows'][0]['raw_values']['unit_price_cents'] == '20元'
+    assert fx.catalog()['gifts'] == []
+    fx.publish('general_manager', 'gift', gift, [{'name': '合成坐垫', 'brand': '合成品牌',
+        'unit_cost_cents': 1200, 'unit_price_cents': 2000}])
+    assert fx.catalog('general_manager')['gifts'][0]['unit_cost_cents'] == 1200
+    other = fx.upload('general_manager', 'gift', 'with-notes.csv',
+        '首组礼包,40,60\n名称,成本,售价,备注,领取条件\n脚垫,40,60,赠品名称,交车后一年领取\n贴膜,50,70,正常,\n'.encode())
+    candidates = fx.call('general_manager', 'POST', f'/pricing/uploads/{other["id"]}/recognize',
+        json=command(version=other['version']))
+    assert len(candidates['rows']) == 3
+    assert '首组礼包' in candidates['rows'][0]['source_text']
+    assert [item['name'] for item in candidates['rows'][1:]] == ['脚垫', '贴膜']
+    assert '领取条件: 交车后一年领取' in candidates['rows'][1]['source_text']
+    assert candidates['recognition_complete'] is False
 
 
 def test_contract_gift_save_readback_remove_and_frozen_catalog(fx):

@@ -30,6 +30,23 @@ def _calendar_series(panel, start, end):
     return panel
 
 
+def _quantity_review(key, result):
+    if key.split(':', 1)[0] != 'operating_extensions_v220':
+        return {}
+    name = result['metric'].removesuffix('_count')
+    totals = result['grand_total']
+    pending = totals.get(name + '_pending_count', '0')
+    missing = totals.get(name + '_missing_records', '0')
+    pending_records = sum(row.get(name + '_review_status') in
+        {'已填待提交', '已提交待审核', '已退回待修改', '已填待审核'} for row in result['rows'])
+    incomplete, awaiting = Decimal(missing or '0') > 0, pending_records > 0
+    return {'pending_count': pending, 'missing_record_count': missing,
+        'pending_record_count': pending_records,
+        'data_status': 'incomplete' if incomplete else 'includes_pending' if awaiting else 'known',
+        'status_label': '已填数量，另有资料待补齐' if incomplete else '含待审核数量' if awaiting else '已审核',
+        'total_label': '已填累计' if incomplete else '期间累计'}
+
+
 @router.get('/dashboard-panels')
 def dashboard_panels(mode: str = 'monthly', day: date | None = None,
         date_from: date | None = None, date_to: date | None = None,
@@ -87,6 +104,7 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
                    'group_by': group, 'brand': brand, 'salesperson_id': salesperson_id,
                    **({'category_field': category_field} if category_field else {})},
             **_source_display(base_key, value))
+        result.update(_quantity_review(base_key, result))
         result['source_status'] = {'status': result['data_status'], 'record_count': result['record_count']}
         if group == 'day':
             _calendar_series(result, beginning, ending)
@@ -101,18 +119,18 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
         ('cash_amount', prefix + '现金车消化金额', 'operating_sales_v218:cash_amount', '元'),
     ]
     extension_specs = [
-        ('insurance', '保险出单', 'operating_extensions_v218:insurance_count', '单', 'insurance'),
-        ('warranty', '延保出单', 'operating_extensions_v218:warranty_count', '单', 'warranty'),
-        ('total_loss', '全损出单', 'operating_extensions_v218:total_loss_count', '单', 'total_loss'),
-        ('products', '小产品出单', 'operating_extensions_v218:product_count', '单', 'product'),
-        ('trade_in', '置换', 'operating_extensions_v218:trade_in_count', '台', 'trade_in'),
-        ('finance', '金融放款车辆', 'operating_extensions_v218:finance_count', '台', 'finance'),
+        ('insurance', '保险出单', 'operating_extensions_v220:insurance_count', '单', 'insurance'),
+        ('warranty', '延保出单', 'operating_extensions_v220:warranty_count', '单', 'warranty'),
+        ('total_loss', '全损出单', 'operating_extensions_v220:total_loss_count', '单', 'total_loss'),
+        ('products', '小产品出单', 'operating_extensions_v220:product_count', '单', 'product'),
+        ('trade_in', '置换', 'operating_extensions_v220:trade_in_count', '台', 'trade_in'),
+        ('finance', '金融放款车辆', 'operating_extensions_v220:finance_count', '台', 'finance'),
     ]
     sensitive = can_view_sensitive_reports(user)
     if sensitive:
         specifications.append(('profit', prefix + '核定毛利', 'operating_profit_v218:value', '元'))
         extension_specs += [
-            ('decoration', '贴膜改装店', 'operating_extensions_v218:decoration_count', '单', ''),
+            ('decoration', '贴膜改装店', 'operating_extensions_v220:decoration_count', '单', ''),
             ('accessory_sales', '店内精品销售金额', 'operating_profit_v218:accessory_sales_income', '元', '')]
     panels, overview, extensions = [], [], []
 
@@ -124,9 +142,9 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
             trend=trend, comparison=comparison, daily=daily)
         panels.append(panel)
         value = comparison['grand_total'].get(comparison['metric'])
-        display = _source_display(key, value)
+        display = {**_source_display(key, value), **_quantity_review(key, comparison)}
         daily_value = daily['grand_total'].get(daily['metric'])
-        daily_display = _source_display(key, daily_value)
+        daily_display = {**_source_display(key, daily_value), **_quantity_review(key, daily)}
         return {'key': ident, 'panel_id': ident, 'label': label, 'value': value, 'unit': unit,
             'status': display['data_status'], **display,
             'daily_delta': {'value': daily_value, 'unit': unit, 'date': str(end),
@@ -158,7 +176,7 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
             totals = panels[-1]['grand_total']
             rate = totals.get(rate_name + '_rate')
             card.update(penetration_rate=rate,
-                penetration_status_label='已审核' if rate is not None else
+                penetration_status_label=card['status_label'] if rate is not None else
                     '暂无实销' if totals.get('deliveries') == '0' else '待审核')
         card['related_metrics'] = [item(name, title, 'operating_profit_v218:' + name, '元')
                                    for name, title in related.get(ident, ())] if sensitive else []
@@ -194,6 +212,7 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
         'panels': panels, 'overview': overview, 'extension_overview': extensions, 'champion': champion,
         'analyses': analyses,
         'notice': '订单按实际创建时的上海日期，交车不减少新建订单；实销按交车所绑定发票上传日，退车在批准日按冻结事实冲减。'
-            '现金车取合同独立标记，消化金额按该车合同售价。延伸及核定毛利仅计总经理已审核资料，缺项显示待审核。'
+            '现金车取合同独立标记，消化金额按该车合同售价。延伸出单累计包含内勤已明确填写但未获批准的数量，并单列其中待审核。'
+            '未填写数量另列资料待补齐，不猜零；金额及核定毛利仍仅计总经理已审核资料，缺项显示待审核。'
             '核定毛利含原表延伸净额及已核实精品销售金额减成本，佣金明细不再重复加总；平均毛利使用同源实销净台数，分母为零留空。'
             '批发计入门店总量，按渠道列示，不计个人业绩及销冠。'}

@@ -239,6 +239,32 @@ def test_store_admin_can_read_contract_gift_summary_but_cannot_upload(delivery_f
     fx.call('store_admin', 'GET', f'/contracts/{row["id"]}', 403, headers={'X-Store-ID': '2'})
 
 
+def test_customer_notice_four_rows_continue_without_losing_gifts():
+    from app.business_record_gift_pdf import render_gift_vouchers
+    from pypdf import PdfReader
+    long_name = '合成超长赠送项目名称' * 14
+    snapshot = {'number': 'SYNTHETIC-NOTICE', 'contract_date': '2026-10-16',
+        'model': '合成车型', 'vin': 'SYNTHETIC-VIN', 'terms': {
+            'submission_data': {'first_service_count': 1, 'nps_participation': True},
+            'gifts_snapshot': [{'name': '项目' + str(n), 'quantity': n, 'unit': '套',
+                'unit_price_cents': 987654, 'cost_cents': 123456} for n in range(1, 6)]
+                + [{'name': long_name, 'quantity': 2, 'unit': '套'}]}}
+    full = render_gift_vouchers(snapshot)
+    assert full == render_gift_vouchers(snapshot)
+    pdf = PdfReader(io.BytesIO(full))
+    assert len(pdf.pages) == 3
+    text = ''.join(page.extract_text() for page in pdf.pages)
+    for n in range(1, 6):
+        assert '项目' + str(n) + ' × ' + str(n) + ' 套' in text
+    gift_text = ''.join(page.extract_text().split('SYNTHETIC-VIN\n', 1)[1].split('合同号：', 1)[0]
+                       for page in pdf.pages).replace('\n', '')
+    assert long_name in gift_text
+    assert '9876.54' not in text and '1234.56' not in text
+    assert '首次保养' in text and '参与 NPS 调研' in text
+    empty = render_gift_vouchers({'terms': {}})
+    assert '本合同无赠送项目' in PdfReader(io.BytesIO(empty)).pages[0].extract_text()
+
+
 def test_actual_accessory_cost_preview_review_approval_and_report(delivery_fx):
     from copy import deepcopy
     from decimal import Decimal
@@ -257,9 +283,26 @@ def test_actual_accessory_cost_preview_review_approval_and_report(delivery_fx):
     printed = fx.client('finance').get(BASE + f'/contracts/{key}/gift-document/print')
     assert printed.status_code == 200 and printed.headers['content-type'] == 'application/pdf'
     text = '\n'.join(page.extract_text() for page in PdfReader(io.BytesIO(printed.content)).pages)
-    assert '客户赠送券' in text and catalog['gifts'][0]['name'] in text and '赠送数量：1 套' in text
+    assert '装饰赠送通知单' in text and catalog['gifts'][0]['name'] in text and '× 1 套' in text
     assert not any(term in text for term in ('60.00', '40.00', '成本', '单价', '售价'))
     fx.call('sales', 'GET', f'/contracts/{key}/gift-document/print', 403)
+    fx.call('other_finance', 'GET', f'/contracts/{key}/gift-document/print', 404)
+    layer = fx.client('finance').get(BASE + f'/contracts/{key}/gift-document/print',
+        params={'mode': 'overprint', 'paper_width_mm': 260, 'paper_height_mm': 90,
+                'offset_x_mm': 1.5, 'offset_y_mm': -2})
+    assert layer.status_code == 200
+    layer_pdf = PdfReader(io.BytesIO(layer.content))
+    layer_text = '\n'.join(page.extract_text() for page in layer_pdf.pages)
+    assert catalog['gifts'][0]['name'] in layer_text and '装饰赠送通知单' not in layer_text
+    assert not any(term in layer_text for term in ('60.00', '40.00', '成本', '合计金额', '业务员签字'))
+    assert float(layer_pdf.pages[0].mediabox.width) == pytest.approx(260 * 72 / 25.4, abs=0.001)
+    calibration = fx.client('finance').get(BASE + '/gift-print-calibration')
+    assert calibration.status_code == 200
+    calibration_text = '\n'.join(page.extract_text() for page in PdfReader(io.BytesIO(calibration.content)).pages)
+    assert 'CALIBRATION' in calibration_text and row['number'] not in calibration_text
+    fx.call('sales', 'GET', '/gift-print-calibration', 403)
+    fx.call('finance', 'GET', f'/contracts/{key}/gift-document/print?mode=unknown', 422)
+    fx.call('finance', 'GET', f'/contracts/{key}/gift-document/print?paper_width_mm=0', 422)
     invoice = invoice_upload(fx, row)
     gift = gift_upload(fx, row)
     state = confirm(fx, {**row, 'version': gift['contract_version']}, invoice['invoice']['version'])
@@ -301,3 +344,97 @@ def test_actual_accessory_cost_preview_review_approval_and_report(delivery_fx):
     no_paid = contract(fx)
     denied = fx.call('clerk', 'POST', f'/contracts/{no_paid["id"]}/profit-preview', 422, json=data)
     assert '未选择有偿精品' in denied['detail']
+
+
+def test_extension_known_counts_include_pending_and_keep_missing_and_returns_distinct(delivery_fx, monkeypatch):
+    """Real office saves and approvals feed totals, details, trends and CSV alike."""
+    import csv
+    import json
+    from datetime import datetime
+    from app import business_record_delivery, business_record_invoices
+    from app.business_record_reports import CATALOG_BY_KEY
+    from app.business_record_delivery_models import RecordReturn
+    fx = delivery_fx
+    fields = {field['label']: field['key'] for field in CATALOG_BY_KEY['vehicle_details']['columns']}
+    rows = []
+    for index in range(3):
+        row = contract(fx)
+        invoice_time = datetime(2026, 10, 12 if index == 0 else 16, 4)
+        monkeypatch.setattr(business_record_invoices, 'utcnow', lambda: invoice_time)
+        invoice = invoice_upload(fx, row)
+        gift = gift_upload(fx, row)
+        delivered = confirm(fx, {**row, 'version': gift['contract_version']}, invoice['invoice']['version'])
+        row = fx.call('clerk', 'GET', f'/contracts/{row["id"]}')
+        rows.append(row)
+
+    def office(row, count, approve=False):
+        saved = fx.call('clerk', 'PUT', f'/contracts/{row["id"]}/office-review', json=command(
+            version=row['version'], values={fields['保险出单数量']: str(count),
+                fields['延保出单数量']: '0', fields['保险返佣']: '100.00'},
+            extension_data={'total_loss_count': count}))
+        submitted = fx.call('clerk', 'POST', f'/contracts/{row["id"]}/office-submit',
+                            json=command(version=saved['version']))
+        return fx.call('general_manager', 'POST', f'/contracts/{row["id"]}/office-approve',
+                       json=command(version=submitted['version'])) if approve else submitted
+
+    rows[0], rows[1] = office(rows[0], 1, True), office(rows[1], 2)
+    scope = 'date_from=2026-10-01&date_to=2026-10-16'
+    dashboard = fx.call('general_manager', 'GET', '/dashboard-panels?mode=range&' + scope)
+    (Path(os.environ['RECORD_PRICING_EVIDENCE']) / 'pending-dashboard.json').write_text(
+        json.dumps(dashboard, ensure_ascii=False), encoding='utf-8')
+    card = next(item for item in dashboard['extension_overview'] if item['key'] == 'insurance')
+    assert (card['value'], card['pending_count'], card['missing_record_count']) == ('3', '2', '1')
+    assert card['total_label'] == '已填累计' and card['penetration_rate'] is None
+    assert card['daily_delta']['value'] == '2' and card['daily_delta']['pending_count'] == '2'
+    zero = next(item for item in dashboard['extension_overview'] if item['key'] == 'warranty')
+    assert (zero['value'], zero['pending_count'], zero['pending_record_count']) == ('0', '0', 1)
+    panel = next(item for item in dashboard['panels'] if item['panel_id'] == 'insurance')
+    assert panel['comparison']['grand_total']['insurance_count'] == '3'
+    assert {point['label']: point['exact_value'] for point in panel['trend']['series']}['2026-10-12'] == '1'
+    query = 'report=operating_extensions_v220:insurance_count&' + scope
+    report = fx.call('general_manager', 'GET', '/reports?' + query)
+    assert report['grand_total']['insurance_pending_count'] == '2'
+    assert {item['contract_id']: item['insurance_review_status'] for item in report['rows']} == {
+        rows[0]['id']: '已审核', rows[1]['id']: '已提交待审核', rows[2]['id']: '资料待补齐'}
+    exported = fx.client('general_manager').get(BASE + '/reports/export?' + query + '&view=summary')
+    assert exported.status_code == 200
+    csv_rows = list(csv.DictReader(io.StringIO(exported.content.decode('utf-8-sig'))))
+    assert (csv_rows[-1]['保险出单'], csv_rows[-1]['保险出单其中待审核'],
+            csv_rows[-1]['保险出单资料待补齐记录']) == ('3', '2', '1')
+    # The old approved-only key still becomes unknown with incomplete sources.
+    old = fx.call('general_manager', 'GET', '/reports?' + query.replace('_v220', '_v218'))
+    assert old['grand_total']['insurance_count'] is None
+    money = fx.call('general_manager', 'GET', '/reports?report=operating_profit_v218:insurance_commission&' + scope)
+    assert money['grand_total']['insurance_commission'] is None
+    assert next(item for item in money['rows'] if item['contract_id'] == rows[1]['id'])['insurance_commission'] is None
+    # Drafts/rejections remain explicitly pending, never called approved.
+    rows[1] = fx.call('general_manager', 'POST', f'/contracts/{rows[1]["id"]}/office-reject',
+        json=command(version=rows[1]['version'], note='合成资料退回'))
+    rejected = fx.call('general_manager', 'GET', '/reports?' + query)
+    assert rejected['grand_total']['insurance_count'] == '3'
+    assert next(item for item in rejected['rows'] if item['contract_id'] == rows[1]['id'])['insurance_review_status'] == '已退回待修改'
+    # All-missing quantities expose zero known orders with explicit incompleteness.
+    missing = fx.call('general_manager', 'GET', '/reports?' + query.replace(':insurance_count', ':product_count'))
+    assert missing['grand_total']['product_count'] == '0'
+    assert missing['grand_total']['product_missing_records'] == '3'
+    other = fx.call('other_general_manager', 'GET', '/reports?' + query)
+    assert other['grand_total']['insurance_count'] == '0' and not other['rows']
+    monkeypatch.setattr(business_record_delivery, 'today', lambda: date(2026, 10, 17))
+    fx.call('general_manager', 'POST', f'/contracts/{rows[0]["id"]}/returns',
+            json=command(version=rows[0]['version'], note='合成退车'))
+    with fx.sessions() as db:
+        frozen = db.scalar(select(RecordReturn).where(RecordReturn.contract_id == rows[0]['id']))
+        assert frozen.reversal_snapshot['office_approved_data']['values'][fields['保险出单数量']] == '1'
+    returned = fx.call('general_manager', 'GET', '/reports?report=operating_extensions_v220:insurance_count&date_from=2026-10-17&date_to=2026-10-17')
+    assert returned['grand_total']['insurance_count'] == '-1'
+    assert returned['grand_total']['insurance_pending_count'] == '0'
+    assert returned['grand_total']['insurance_missing_records'] == '0'
+    fx.call('general_manager', 'POST', f'/contracts/{rows[1]["id"]}/returns',
+            json=command(version=rows[1]['version'], note='合成待审核数量退车'))
+    returned_pending = fx.call('general_manager', 'GET', '/reports?report=operating_extensions_v220:insurance_count&date_from=2026-10-17&date_to=2026-10-17')
+    assert returned_pending['grand_total']['insurance_count'] == '-3'
+    assert returned_pending['grand_total']['insurance_pending_count'] == '-2'
+    with fx.sessions() as db:
+        frozen = db.scalar(select(RecordReturn).where(RecordReturn.contract_id == rows[1]['id']))
+        assert frozen.reversal_snapshot['office_data']['values'][fields['保险出单数量']] == '2'
+        assert frozen.reversal_snapshot['office_status'] == 'rejected'

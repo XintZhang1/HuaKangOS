@@ -22,7 +22,7 @@ from .file_security import policy_mode, scan_clamav
 from .private_files import publish
 
 router = APIRouter(prefix='/api/business-records/inventory', tags=['业务记录车辆库存'])
-WRITERS = {'admin', 'clerk', 'general_manager'}
+WRITERS = {'admin', 'clerk', 'general_manager', 'group_deputy_manager'}
 MANAGEMENT_READERS = WRITERS | {'group_deputy_manager', 'chairman', 'store_admin'}
 XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
@@ -33,7 +33,7 @@ def _access(user, *, write=False):
     if getattr(user, '_aggregate_scope', False):
         raise HTTPException(403, '请切换到具体授权门店查看或上传库存')
     if write and user.role not in WRITERS:
-        raise HTTPException(403, '库存表由本店内勤、总经理或系统管理员上传并核对')
+        raise HTTPException(403, '库存表由本店内勤、总经理、集团副总经理或系统管理员上传并核对')
 
 
 def current_inventory(db):

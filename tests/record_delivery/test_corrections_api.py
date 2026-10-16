@@ -261,7 +261,10 @@ def test_manager_return_finance_handoff_void_visibility_and_partial_refunds(deli
     row, original_body, _, _ = delivered(fx)
     key = row['id']
     assert fx.call('finance', 'GET', '/contracts?workbench=finance&work_status=pending')['total'] == 0
-    for role in ('sales', 'manager', 'admin', 'finance', 'clerk', 'deputy', 'store_admin'):
+    deputy_detail = fx.call('deputy', 'GET', f'/contracts/{key}')
+    assert 'request_return' in deputy_detail['delivery_state']['actions']
+    assert 'archive' in deputy_detail['actions']
+    for role in ('sales', 'manager', 'admin', 'finance', 'clerk', 'store_admin'):
         detail = fx.call(role, 'GET', f'/contracts/{key}')
         assert 'request_return' not in detail['delivery_state']['actions']
         assert 'archive' not in detail['actions']
@@ -297,7 +300,7 @@ def test_manager_return_finance_handoff_void_visibility_and_partial_refunds(deli
     fx.call('sales', 'POST', '/contracts', 404, json=original_body)
     assert fx.call('sales', 'GET', f'/customers/{row["customer_id"]}')['contract_count'] == 0
     assert fx.call('finance', 'GET', '/contracts?workbench=finance&work_status=pending')['total'] == 1
-    for role in ('admin', 'manager', 'deputy', 'finance'):
+    for role in ('admin', 'manager', 'finance'):
         fx.call(role, 'POST', f'/contracts/{key}/restore', 403,
             json=command(version=archived['version']))
     refund_path = f'/contracts/{key}/returns/{item["id"]}/refund'

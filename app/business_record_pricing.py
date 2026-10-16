@@ -25,8 +25,8 @@ from .private_files import publish
 
 router = APIRouter(prefix='/api/business-records', tags=['门店价格与特殊审批'])
 GIFT_READERS = {'admin', 'manager', 'general_manager', 'group_deputy_manager', 'finance', 'clerk', 'chairman', 'store_admin'}
-GIFT_COST_READERS = {'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'}
-PRICE_WRITERS = {'admin', 'general_manager'}
+GIFT_COST_READERS = {'admin', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}
+PRICE_WRITERS = {'admin', 'general_manager', 'group_deputy_manager'}
 PROFILE_WRITERS = {'admin', 'clerk'}
 BASIC_COLORS = {'红', '橙', '黄', '绿', '青', '蓝', '紫', '白', '灰', '黑'}
 
@@ -37,7 +37,7 @@ def _access(user, kind=None, write=False):
     if getattr(user, '_aggregate_scope', False):
         raise HTTPException(403, '请切换到具体授权门店查看或维护本店目录')
     if write and user.role not in PRICE_WRITERS:
-        raise HTTPException(403, '车型限价和赠品表由本店总经理或系统管理员上传')
+        raise HTTPException(403, '车型限价和赠品表由本店总经理、集团副总经理或系统管理员上传')
 
 
 def gift_policy_assessment(policy, cost_total):

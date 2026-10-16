@@ -4,7 +4,7 @@ import io
 from datetime import date, timezone
 from zoneinfo import ZoneInfo
 from urllib.parse import quote
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, Response
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, Response
 from pydantic import Field
 from sqlalchemy import select
 from .config import settings
@@ -69,7 +69,7 @@ def delivery_summary(db, user, contract):
         item['refunded_amount_cents'] = sum(refund.amount_cents for refund in refunds)
         item['refund_registration_status'] = ('registered' if refunds else 'pending') if row.status == 'approved' else None
         item['actions'] = []
-        if (writable and row.status == 'submitted' and user.role == 'general_manager'
+        if (writable and row.status == 'submitted' and user.role in {'general_manager', 'group_deputy_manager'}
                 and user.id != row.requested_by and not was_contract_handler(db, user, contract)):
             item['actions'] += ['approve', 'reject']
         if writable and row.status == 'approved' and user.role in {'finance', 'admin'}:
@@ -80,7 +80,7 @@ def delivery_summary(db, user, contract):
             actions.append('upload_gift_document')
             if not delivery and invoice_ready and gift_ready:
                 actions.append('confirm_delivery')
-        if (delivery and not contract.archived_at and user.role == 'general_manager'
+        if (delivery and not contract.archived_at and user.role in {'general_manager', 'group_deputy_manager'}
                 and not any(r['status'] in {'submitted', 'approved'} for r in returns)):
             actions.append('request_return')
     data = {'delivery': plain(delivery) if delivery else None, 'invoice_ready': invoice_ready,
@@ -178,7 +178,10 @@ def download_gift_document(key: int, file_id: int, db=Depends(get_db), user=Depe
 
 
 @router.get('/contracts/{key}/gift-document/print')
-def print_gift_document(key: int, db=Depends(get_db), user=Depends(get_user)):
+def print_gift_document(key: int, mode: str = Query('full', pattern='^(full|overprint)$'),
+        paper_width_mm: float = Query(280, ge=150, le=400), paper_height_mm: float = Query(95, ge=60, le=210),
+        offset_x_mm: float = Query(0, ge=-20, le=20), offset_y_mm: float = Query(0, ge=-20, le=20),
+        db=Depends(get_db), user=Depends(get_user)):
     from .business_records import get_contract
     from .business_record_corrections import effective_snapshot
     from .business_record_gift_pdf import render_gift_vouchers
@@ -186,18 +189,36 @@ def print_gift_document(key: int, db=Depends(get_db), user=Depends(get_user)):
     contract = get_contract(db, user, key)
     require_personal_export(db, user, contract)
     if user.role not in {'finance', 'admin'}:
-        raise HTTPException(403, '赠送券仅可由财务下载或打印')
+        raise HTTPException(403, '赠送通知单仅可由财务下载或打印')
     if contract.status != 'approved':
-        raise HTTPException(409, '合同批准后才能打印赠送券')
+        raise HTTPException(409, '合同批准后才能打印赠送通知单')
     snapshot = effective_snapshot(db, contract)
     if not snapshot or not snapshot.get('terms'):
         raise HTTPException(409, '历史合同没有逐项赠品快照，请使用原签署赠品单')
     try:
-        content = render_gift_vouchers(snapshot)
+        content = render_gift_vouchers(snapshot, output_mode=mode,
+            paper_width_mm=paper_width_mm, paper_height_mm=paper_height_mm,
+            offset_x_mm=offset_x_mm, offset_y_mm=offset_y_mm)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from None
     return Response(content, media_type='application/pdf',
-        headers={'Content-Disposition': 'inline; filename="customer-gift-vouchers.pdf"', 'Cache-Control': 'no-store'})
+        headers={'Content-Disposition': 'inline; filename="decoration-gift-notice.pdf"', 'Cache-Control': 'no-store'})
+
+
+@router.get('/gift-print-calibration')
+def gift_print_calibration(paper_width_mm: float = Query(280, ge=150, le=400),
+        paper_height_mm: float = Query(95, ge=60, le=210), offset_x_mm: float = Query(0, ge=-20, le=20),
+        offset_y_mm: float = Query(0, ge=-20, le=20), user=Depends(get_user)):
+    from .business_record_gift_pdf import render_gift_calibration
+    if user.role not in {'finance', 'admin'}:
+        raise HTTPException(403, '赠送通知单套打校准仅供财务使用')
+    try:
+        content = render_gift_calibration(paper_width_mm=paper_width_mm, paper_height_mm=paper_height_mm,
+            offset_x_mm=offset_x_mm, offset_y_mm=offset_y_mm)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    return Response(content, media_type='application/pdf',
+        headers={'Content-Disposition': 'inline; filename="gift-notice-calibration.pdf"', 'Cache-Control': 'no-store'})
 
 
 class DeliveryConfirm(Action):
@@ -245,7 +266,7 @@ def delivery_notices(db=Depends(get_db), user=Depends(get_user)):
     from .business_records import visible_query, require_read
     from .business_records_models import SalesContract
     require_read(user)
-    if user.role not in {'general_manager', 'admin', 'store_admin'}:
+    if user.role not in {'general_manager', 'group_deputy_manager', 'admin', 'store_admin'}:
         raise HTTPException(403, '交车抄送供总经理查看')
     contracts = list(db.scalars(visible_query(user, SalesContract)))
     lookup = {row.id: row for row in contracts}
@@ -268,7 +289,7 @@ class RefundInput(Action):
 @router.post('/contracts/{key}/returns')
 def request_return(key: int, body: ReturnRequest, request: Request, db=Depends(get_write_db), user=Depends(get_user)):
     from .business_records import get_contract, _manual, _run, _check_version
-    _manual(request); _write(user, {'general_manager'})
+    _manual(request); _write(user, {'general_manager', 'group_deputy_manager'})
     contract = get_contract(db, user, key)
     def perform():
         _check_version(contract, body.version)
@@ -311,13 +332,17 @@ def _approve_return(db, contract, row):
     row.reversal_snapshot = {'original_accounting_on': str(_delivery(db, contract).accounting_on),
         'sale_price_cents': effective.get('sale_price_cents', contract.sale_price_cents),
         'submission_data': {'is_cash_vehicle': submission.get('is_cash_vehicle')},
-        'office_approved_data': deepcopy(contract.office_approved_data)}
+        'office_approved_data': deepcopy(contract.office_approved_data),
+        # V2.20 counts include explicitly filled pending quantities. Freeze
+        # their source too so a later office edit cannot change the reversal.
+        'office_data': deepcopy(contract.office_data) if contract.office_status != 'approved' else None,
+        'office_status': contract.office_status}
 
 
 def _review_return(key, return_id, body, request, db, user, approved):
     from .business_records import get_contract, _manual, _run, _check_version
     from .employee_handover import was_contract_handler
-    _manual(request); _write(user, {'general_manager'})
+    _manual(request); _write(user, {'general_manager', 'group_deputy_manager'})
     contract = get_contract(db, user, key)
     def perform():
         row = _return(db, contract, return_id)

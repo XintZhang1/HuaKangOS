@@ -15,7 +15,7 @@ async function brPrintDialog(r,revisionId=null){
  calibration.onclick=async()=>{try{if(context!==brContext())throw new Error('门店已切换。');const q=query();q.delete('mode');q.delete('revision_id');await download(BR_API+'/print-calibration?'+q,'合同套打校准.pdf');}catch(error){$('.formerror',form).textContent=error.message;}};
 }
 async function brContractEnhancements(r){
- const context=brContext(),allowedAccessory=['admin','finance','clerk','general_manager','chairman','store_admin'].includes(state.user.role);
+ const context=brContext(),allowedAccessory=['admin','finance','clerk','general_manager','group_deputy_manager','chairman','store_admin'].includes(state.user.role);
  const corrections=await api(BR_API+'/contracts/'+r.id+'/corrections');if(context!==brContext())return '';
  brState.corrections=corrections;
  const privacy=r.privacy?.notice?`<p class="notice">${E(r.privacy.notice)}</p>`:'';

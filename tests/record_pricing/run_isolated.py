@@ -13,7 +13,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_DIRS = ('app', 'web', 'tests/record_pricing', 'tests/record_delivery')
-SOURCE_FILES = {'app/assets/sales-contract-2026.pdf'}
+SOURCE_FILES = {'app/assets/sales-contract-2026.pdf', 'web/assets/huakang-logo-source.png'}
 SUFFIXES = {'.py', '.js', '.mjs', '.css', '.html', '.json', '.md'}
 BOOTSTRAP = '''import os, runpy, socket, sys, threading
 from pathlib import Path
@@ -70,7 +70,7 @@ def inventory():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path)
-    parser.add_argument('--suite', choices=('pricing', 'delivery', 'corrections'), default='pricing')
+    parser.add_argument('--suite', choices=('pricing', 'delivery', 'corrections', 'deputy'), default='pricing')
     args = parser.parse_args()
     output = (args.output or Path(tempfile.gettempdir()) / ('huakangos-record-pricing-' + uuid.uuid4().hex)).resolve()
     if output.is_relative_to(ROOT) or ROOT.is_relative_to(output):
@@ -105,6 +105,7 @@ def main():
         'PYTHONIOENCODING': 'utf-8',
         'RECORD_TEST_SUITE': {'delivery': 'tests/record_delivery/test_delivery_api.py',
             'corrections': 'tests/record_delivery/test_corrections_api.py',
+            'deputy': 'tests/record_delivery/test_deputy_api.py',
             'pricing': 'tests/record_pricing/test_pricing_api.py'}[args.suite],
         'PYTEST_DISABLE_PLUGIN_AUTOLOAD': '1', 'APP_ENV': 'test',
         'DATABASE_URL': 'sqlite:///' + (runtime / 'unused.sqlite').as_posix(),
@@ -112,7 +113,7 @@ def main():
         'SCHEDULER_ENABLED': 'false', 'SCHEDULER_MODE': 'off',
         'ALLOW_AI_EXTERNAL': 'false', 'BUSINESS_ASSISTANT_CONFIG': str(runtime / 'disabled-model.json'),
         'TMP': str(runtime), 'TEMP': str(runtime), 'TMPDIR': str(runtime)})
-    result = subprocess.run([sys.executable, '-I', '-B', str(mirror / '_record_pricing_bootstrap.py')],
+    result = subprocess.run([sys.executable, '-I', '-B', '-X', 'utf8', str(mirror / '_record_pricing_bootstrap.py')],
         cwd=mirror, env=env, text=True, encoding='utf-8', errors='replace',
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     (evidence / 'python.log').write_text(result.stdout, encoding='utf-8')

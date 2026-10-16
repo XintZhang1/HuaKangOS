@@ -76,8 +76,9 @@ def contract_progress(db, user, row, data):
             excluded.add(row.office_submitted_by if row.office_status == 'submitted' and approved else row.manager_approved_by)
         if role == 'group_deputy_manager':
             excluded.update({row.manager_approved_by, row.general_manager_approved_by})
+        eligible_roles = {role, 'group_deputy_manager'} if role == 'general_manager' else {role}
         for person in db.scalars(select(User).where(User.active.is_(True), User.archived_at.is_(None)).order_by(User.display_name, User.id)):
-            if role_for_store(db, person, row.store_id) != role:
+            if role_for_store(db, person, row.store_id) not in eligible_roles:
                 continue
             if row.status == 'rejected':
                 from types import SimpleNamespace
