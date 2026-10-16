@@ -23,8 +23,8 @@ def _access(user, write=False):
     require_read(user)
     if getattr(user, '_aggregate_scope', False) or user.role == 'sales':
         raise HTTPException(403, '请由本店销售经理维护二级批发渠道')
-    if write and user.role not in {'admin', 'manager', 'general_manager'}:
-        raise HTTPException(403, '二级批发渠道由销售经理或总经理维护')
+    if write and user.role not in {'admin', 'manager', 'general_manager', 'group_deputy_manager'}:
+        raise HTTPException(403, '二级批发渠道由销售经理、总经理或集团副总经理维护')
 
 
 @router.get('/wholesale-channels')
@@ -32,7 +32,7 @@ def channels(db=Depends(get_db), user=Depends(get_user)):
     _access(user)
     return {'items': [plain(row) for row in db.scalars(select(RecordWholesaleChannel)
         .order_by(RecordWholesaleChannel.name, RecordWholesaleChannel.id))],
-        'can_manage': user.role in {'admin', 'manager', 'general_manager'}}
+        'can_manage': user.role in {'admin', 'manager', 'general_manager', 'group_deputy_manager'}}
 
 
 def _save(key, body, request, db, user):

@@ -25,13 +25,13 @@ from .business_records_schemas import (ContractInput, ContractUpdate, Action, Pr
     OfficeReview, StandardPriceImport, StandardPriceEstimate, ManagerApproval)
 
 router = APIRouter(prefix='/api/business-records', tags=['业务记录'])
-MANAGERS = {'admin', 'manager', 'general_manager'}
-GROUP_MANAGERS = {'admin', 'general_manager'}
+MANAGERS = {'admin', 'manager', 'general_manager', 'group_deputy_manager'}
+GROUP_MANAGERS = {'admin', 'general_manager', 'group_deputy_manager'}
 READERS = MANAGERS | {'sales', 'clerk', 'finance', 'chairman', 'group_deputy_manager', 'store_admin'}
 TRIAL_WORKFLOWS = {'trial-v29', 'trial-v30', 'trial-v210'}
 # Financial reads follow the effective role of the already selected store.
 # This does not grant pricing writes, additional stores or self-approval.
-SENSITIVE_ROLES = {'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'}
+SENSITIVE_ROLES = {'admin', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}
 INTERNAL_READERS = SENSITIVE_ROLES
 CAPABILITY_ROLES = {
     'create_sales': {'admin', 'sales'},
@@ -43,7 +43,7 @@ CAPABILITY_ROLES = {
     'manage_targets': {'admin', 'manager', 'general_manager', 'chairman', 'group_deputy_manager'},
     'confirm_receipt': {'admin', 'finance'},
     'upload_invoice': {'admin', 'finance'},
-    'manage_settings': {'admin', 'general_manager'},
+    'manage_settings': GROUP_MANAGERS,
     'record_statistics': {'admin', 'clerk'},
     'manage_trade_in': {'admin', 'manager'},
     'create_after_sales': {'admin', 'clerk'},
@@ -82,9 +82,9 @@ def capabilities(user):
     result['read_dashboard'] = can_view_dashboard(user)
     # Reading finance/invoices must not imply receipt confirmation or uploads.
     # Keep invoice reads local, matching the invoice API's existing scope.
-    result['read_invoice'] = writable and user.role in {'admin', 'finance', 'clerk', 'general_manager', 'chairman', 'store_admin'}
+    result['read_invoice'] = writable and user.role in {'admin', 'finance', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}
     result['read_finance'] = (bool(_group_ids(user)) if not writable else
-                            user.role in {'admin', 'finance', 'clerk', 'manager', 'general_manager', 'chairman', 'store_admin'})
+                            user.role in {'admin', 'finance', 'clerk', 'manager', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'})
     return result
 
 
@@ -115,6 +115,9 @@ def visible_query(user, model):
         from .employee_handover import inherited_read
         extra = False
         if model is SalesContract:
+            # Voided contracts stay in the archive, but no sales read path
+            # (including detail, inherited access or customer links) exposes them.
+            query = query.where(model.archived_at.is_(None))
             from .business_records_models import RecordContractCorrection
             extra = select(RecordContractCorrection.id).where(
                 RecordContractCorrection.contract_id == model.id,
@@ -328,13 +331,14 @@ def _contract_data(db, user, row):
     data['corrections'] = corrections
     effective = latest_correction(db, row)
     data['effective_contract'] = _public_snapshot(db, user, row, effective.approved_snapshot) if effective else None
-    if user.role in {'admin', 'manager', 'general_manager', 'group_deputy_manager'}:
+    if user.role in {'general_manager', 'group_deputy_manager'} and not getattr(user, '_aggregate_scope', False):
         if row.archived_at:
             actions.append('restore')
         else:
             actions.append('archive')
-            if row.status == 'approved' and not corrections['active_id']:
-                actions.append('correction_request')
+    if (user.role in {'admin', 'manager', 'general_manager', 'group_deputy_manager'}
+            and not row.archived_at and row.status == 'approved' and not corrections['active_id']):
+        actions.append('correction_request')
     if row.archived_at:
         data['actions'] = [action for action in actions if action == 'restore']
     from .business_record_privacy import redact_contract_data
@@ -396,9 +400,13 @@ def contracts(q: str = Query('', max_length=120), status: str = '', office_statu
               page: int = Query(1, ge=1), page_size: int = Query(30, ge=1, le=200),
               db=Depends(get_db), user=Depends(get_user)):
     query = visible_query(user, SalesContract)
+    from .business_record_delivery import pending_refund_clause
+    pending_refund = pending_refund_clause(SalesContract)
     if not include_history:
-        query = query.where(SalesContract.archived_at.is_(None))
-        if not status:
+        # A voided record must not remove an outstanding finance handoff.
+        query = query.where(or_(SalesContract.archived_at.is_(None), pending_refund)
+                            if workbench == 'finance' else SalesContract.archived_at.is_(None))
+        if not status and user.role != 'sales':
             query = query.where(SalesContract.status != 'rejected')
     if workbench not in {'', 'finance', 'office'} or work_status not in {'', 'pending', 'processed', 'all'}:
         raise HTTPException(422, '工作台或待办状态无效')
@@ -414,7 +422,7 @@ def contracts(q: str = Query('', max_length=120), status: str = '', office_statu
             delivered = select(RecordDelivery.id).where(RecordDelivery.contract_id == SalesContract.id).exists()
             received = select(ContractReceipt.id).where(ContractReceipt.contract_id == SalesContract.id).exists()
             completed = or_((SalesContract.workflow_version == 'trial-v210') & delivered,
-                (SalesContract.workflow_version != 'trial-v210') & received)
+                (SalesContract.workflow_version != 'trial-v210') & received) & ~pending_refund
         else:
             from .business_record_delivery_models import RecordDelivery
             delivered = select(RecordDelivery.id).where(RecordDelivery.contract_id == SalesContract.id).exists()
@@ -771,8 +779,8 @@ def reject_contract(key: int, body: Reject, request: Request,
 def _archive_contract(key, body, request, db, user, restore):
     _manual(request)
     require_read(user)
-    if getattr(user, '_aggregate_scope', False) or user.role not in {'admin', 'manager', 'general_manager', 'group_deputy_manager'}:
-        raise HTTPException(403, '请由本店管理岗位归档或恢复合同')
+    if getattr(user, '_aggregate_scope', False) or user.role not in {'general_manager', 'group_deputy_manager'}:
+        raise HTTPException(403, '仅本店总经理或集团副总经理可作废或恢复合同')
     row = get_contract(db, user, key)
     def perform():
         _check_version(row, body.version)

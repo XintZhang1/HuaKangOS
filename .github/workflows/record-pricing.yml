@@ -65,6 +65,8 @@ jobs:
         run: python tests/record_pricing/run_isolated.py --suite delivery --output "$RUNNER_TEMP/record-delivery-${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Run source-only contract correction checks
         run: python tests/record_pricing/run_isolated.py --suite corrections --output "$RUNNER_TEMP/record-corrections-${{ github.run_id }}-${{ github.run_attempt }}"
+      - name: Run source-only deputy permission checks
+        run: python tests/record_pricing/run_isolated.py --suite deputy --output "$RUNNER_TEMP/record-deputy-${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Check changed JavaScript syntax
         run: |
           node --check web/businessrecordpricing.js
@@ -82,5 +84,6 @@ jobs:
             ${{ runner.temp }}/record-pricing-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
             ${{ runner.temp }}/record-delivery-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
             ${{ runner.temp }}/record-corrections-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
+            ${{ runner.temp }}/record-deputy-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
           retention-days: 7
           if-no-files-found: warn

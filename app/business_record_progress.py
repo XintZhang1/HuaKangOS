@@ -9,6 +9,9 @@ def contract_progress(db, user, row, data):
     wholesale = terms.get('submission_data', {}).get('sales_channel') == 'wholesale'
     special = terms.get('special', False)
     delivery = data.get('delivery_state', {}).get('delivery')
+    returned = next((item for item in data.get('delivery_state', {}).get('returns', [])
+                     if item['status'] in {'submitted', 'approved'}), None)
+    first_refund = min(returned.get('refunds', []), key=lambda item: item['id'], default=None) if returned else None
     approved = row.status == 'approved'
     stages = [{'label': '销售经理批发开单' if wholesale else '销售顾问预填', 'done': True}]
     if not wholesale:
@@ -19,6 +22,10 @@ def contract_progress(db, user, row, data):
     stages.extend([{'label': '财务打印、材料与交车', 'done': bool(delivery)},
         {'label': '内勤延伸资料与核价', 'done': row.office_status in {'submitted', 'approved'}},
         {'label': '总经理审核资料', 'done': row.office_status == 'approved'}])
+    if returned:
+        stages.append({'label': '总经理办理退车', 'done': returned['status'] == 'approved'})
+        if returned['status'] == 'approved':
+            stages.append({'label': '财务登记退款', 'done': bool(first_refund)})
     # Names describe the employee who actually acted, even after departure.
     actors = [(row.created_by, row.created_at)]
     if not wholesale:
@@ -29,13 +36,23 @@ def contract_progress(db, user, row, data):
         actors.append((row.deputy_approved_by, row.deputy_approved_at))
     actors.extend([((delivery or {}).get('confirmed_by'), (delivery or {}).get('confirmed_at')),
         (row.office_submitted_by, row.office_submitted_at), (row.office_approved_by, row.office_approved_at)])
+    if returned:
+        actors.append((returned.get('reviewed_by'), returned.get('reviewed_at')))
+        if returned['status'] == 'approved':
+            actors.append(((first_refund or {}).get('confirmed_by'), (first_refund or {}).get('created_at')))
     names = {person.id: person.display_name for person in db.scalars(select(User).where(
         User.id.in_({ident for ident, _ in actors if ident is not None})))}
     for stage, (ident, timestamp) in zip(stages, actors):
         stage.update(actor_id=ident, actor_name=names.get(ident, ''),
             at=timestamp.isoformat() if hasattr(timestamp, 'isoformat') else timestamp)
     role, label = (None, '流程已完成')
-    if row.status == 'rejected':
+    if returned and returned['status'] == 'submitted':
+        role, label = ('general_manager', '总经理处理历史退车申请')
+    elif returned and returned['status'] == 'approved':
+        role, label = (None, '已登记退款，可继续追加') if first_refund else ('finance', '财务登记实际退款')
+    elif row.archived_at:
+        role, label = (None, '合同已作废')
+    elif row.status == 'rejected':
         role, label = ('manager' if wholesale else 'sales', '经办人修改合同')
     elif row.status == 'submitted':
         role, label = ('manager', '销售经理审批')
@@ -53,12 +70,15 @@ def contract_progress(db, user, row, data):
     if role:
         from .employee_handover import can_continue_record, was_contract_handler
         excluded = {row.salesperson_id, row.created_by}
-        if role == 'general_manager':
+        if returned and returned['status'] == 'submitted':
+            excluded.add(returned['requested_by'])
+        elif role == 'general_manager':
             excluded.add(row.office_submitted_by if row.office_status == 'submitted' and approved else row.manager_approved_by)
         if role == 'group_deputy_manager':
             excluded.update({row.manager_approved_by, row.general_manager_approved_by})
+        eligible_roles = {role, 'group_deputy_manager'} if role == 'general_manager' else {role}
         for person in db.scalars(select(User).where(User.active.is_(True), User.archived_at.is_(None)).order_by(User.display_name, User.id)):
-            if role_for_store(db, person, row.store_id) != role:
+            if role_for_store(db, person, row.store_id) not in eligible_roles:
                 continue
             if row.status == 'rejected':
                 from types import SimpleNamespace

@@ -15,11 +15,12 @@ AFTER_SALES_REPORTS = frozenset({'after_sales_monthly', 'after_sales_targets', '
 TARGET_FIELDS = frozenset({'c02', 'c03', 'c04', 'c05'})
 V218_OPERATING_REPORTS = frozenset({'operating_sales_v218', 'operating_extensions_v218',
                                   'operating_profit_v218', 'operating_profit_components_v218'})
-OPERATING_REPORTS = frozenset({'operating_sales', 'operating_extensions', 'operating_profit'}) | V218_OPERATING_REPORTS
+OPERATING_REPORTS = (frozenset({'operating_sales', 'operating_extensions', 'operating_profit',
+                              'operating_extensions_v220'}) | V218_OPERATING_REPORTS)
 
 # Read access applies only within the existing current-store/aggregate scope.
 # General managers need the complete valuation to review office submissions.
-SENSITIVE_REPORT_ROLES = frozenset({'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'})
+SENSITIVE_REPORT_ROLES = frozenset({'admin', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'})
 DASHBOARD_ROLES = frozenset({'admin', 'chairman', 'group_deputy_manager', 'general_manager'})
 SENSITIVE_REPORT_TERMS = ('成本', '毛利', '利润', '返佣', '佣金', '返利', '收益', '净利', '提车价', '折让', '贴息', '支出')
 
@@ -230,6 +231,28 @@ def configure_catalog(catalog):
                 elif field['key'] == 'accessory_sales_income':
                     field['label'] = '店内精品销售金额'
         catalog.append(current)
+    # Filled but unapproved quantities are a distinct reporting definition.
+    # The approved-only definitions and their frozen daily reports stay intact.
+    extensions = deepcopy(next(item for item in catalog if item['key'] == 'operating_extensions_v218'))
+    extensions.update(key='operating_extensions_v220', title='延伸业务出单（含待审核）',
+        definition_version='v220-known-extension-counts-with-review-status',
+        period_basis='按交车绑定发票上传日统计，退车批准日使用冻结事实冲减。'
+            '已审核数量优先，尚未核定但内勤明确填写的数量计入并单列待审核；未填写数量不猜零。',
+        input_notice='累计显示已填数量，其中待审核含待提交、已提交待审批及退回待修改的已填数量。'
+            '另列资料待补齐的来源记录数；已有批准值的后续草稿不替换批准值。金额与毛利仍按批准快照。')
+    for field in list(extensions['metrics']):
+        if not field['key'].endswith('_count'):
+            continue
+        name = field['key'].removesuffix('_count')
+        extensions['aggregation_rules'][field['key']] = {'kind': 'known_sum'}
+        extensions['metrics'] += [
+            {'key': name + '_pending_count', 'label': field['label'] + '其中待审核',
+             'type': 'count', 'unit': field['unit'], 'precision': 0},
+            {'key': name + '_missing_records', 'label': field['label'] + '资料待补齐记录',
+             'type': 'count', 'unit': '条', 'precision': 0}]
+        extensions['detail_fields'].append({'key': name + '_review_status',
+            'label': field['label'] + '资料状态', 'type': 'text', 'unit': '', 'precision': None})
+    catalog.append(extensions)
     catalog.append({'key': 'operating_profit_components_v218', 'title': '核定毛利构成',
         'source': 'contracts', 'columns': [], 'default_metric': 'value', 'unit': '元',
         'empty_is_zero': True,

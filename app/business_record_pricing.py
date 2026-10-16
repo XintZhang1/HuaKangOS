@@ -25,8 +25,8 @@ from .private_files import publish
 
 router = APIRouter(prefix='/api/business-records', tags=['门店价格与特殊审批'])
 GIFT_READERS = {'admin', 'manager', 'general_manager', 'group_deputy_manager', 'finance', 'clerk', 'chairman', 'store_admin'}
-GIFT_COST_READERS = {'admin', 'clerk', 'general_manager', 'chairman', 'store_admin'}
-PRICE_WRITERS = {'admin', 'general_manager'}
+GIFT_COST_READERS = {'admin', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}
+PRICE_WRITERS = {'admin', 'general_manager', 'group_deputy_manager'}
 PROFILE_WRITERS = {'admin', 'clerk'}
 BASIC_COLORS = {'红', '橙', '黄', '绿', '青', '蓝', '紫', '白', '灰', '黑'}
 
@@ -37,7 +37,7 @@ def _access(user, kind=None, write=False):
     if getattr(user, '_aggregate_scope', False):
         raise HTTPException(403, '请切换到具体授权门店查看或维护本店目录')
     if write and user.role not in PRICE_WRITERS:
-        raise HTTPException(403, '车型限价和赠品表由本店总经理或系统管理员上传')
+        raise HTTPException(403, '车型限价和赠品表由本店总经理、集团副总经理或系统管理员上传')
 
 
 def gift_policy_assessment(policy, cost_total):
@@ -386,8 +386,6 @@ def upload_price_file(request: Request, kind: str = Form(...), file: UploadFile 
     _access(user, kind, True); Command(request_id=request_id)
     content = file.file.read(10 * 1024 * 1024 + 1)
     media = validate_price_file(file.filename or '', content)
-    if kind == 'vehicle' and media != 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-        raise HTTPException(422, '车价限价表请上传Excel（.xlsx）')
     def perform():
         item = _save_file(db, user, kind, file.filename, content, media, sales_channel=sales_channel)
         result = _file_summary(item)
@@ -410,15 +408,28 @@ def recognize_prices(key: int, body: Action, request: Request, db=Depends(get_db
         raise HTTPException(409, '上传原表的品牌与本店当前品牌不同，请重新上传核对')
     if item.created_by != user.id:
         raise HTTPException(403, '请由本次原表上传者核对识别结果并确认导入')
-    content, media, kind = _content(item), item.content_type, item.kind
+    content, media, kind, brand = _content(item), item.content_type, item.kind, item.brand
     db.rollback()
     if kind == 'gift':
-        from .business_record_gift_import import preview_gift_file
-        result = preview_gift_file(content, media, store_brand(db, required=True))
+        from .business_record_gift_import import preview_gift_file, distinguish_gift_names
+        result = preview_gift_file(content, media, brand)
+        if result.get('row_errors') or not any(row.get('name') for row in result['rows']):
+            # Complex customer sheets cannot be reduced to a fixed header template.
+            # Keep the local source candidates if recognition is unavailable.
+            try:
+                result = recognize_price_file(content, media, kind)
+                for row in result['rows']:
+                    row['brand'] = row.get('brand') or brand
+            except HTTPException as exc:
+                result['warnings'].insert(0, str(exc.detail) + '；已保留原表内容，可直接人工核对。')
+                result['recognition_complete'] = False
+        result = distinguish_gift_names(result)
         if user.role not in GIFT_COST_READERS and any(row.get('unit_cost_cents') is not None for row in result['rows']):
             raise HTTPException(403, '此表包含赠品成本，请由总经理或维护管理员核对导入')
     else:
         result = recognize_price_file(content, media, kind)
+    # Recognition may take minutes; recheck access in a fresh database snapshot.
+    db.rollback()
     current_user = get_user(request, db)
     _access(current_user, kind, True)
     current_file = _file(db, key, kind)
@@ -427,6 +438,10 @@ def recognize_prices(key: int, body: Action, request: Request, db=Depends(get_db
     if kind == 'gift' and current_user.role not in GIFT_COST_READERS:
         for row in result['rows']:
             row.pop('unit_cost_cents', None); row.pop('note', None); row.pop('source_ref', None)
+    elif kind == 'gift':
+        # Keep policy-only cells visible even when the model omits them from items.
+        from .business_record_pricing_recognition import pricing_source_preview
+        result['source_preview'] = pricing_source_preview(content, media)
     result.update(file_id=key, version=body.version)
     return result
 
@@ -511,6 +526,46 @@ def import_gift_prices(body: GiftPriceImport, request: Request, db=Depends(get_w
 def get_terms(db, contract):
     return db.scalar(select(RecordContractTerms).where(RecordContractTerms.contract_id == contract.id,
                                                      RecordContractTerms.store_id == contract.store_id))
+
+
+@router.get('/pricing/price-check')
+def check_sale_price(vehicle_price_id: int = Query(gt=0), sale_price_cents: int = Query(gt=0, le=999999999999),
+                     sales_channel: Literal['retail', 'wholesale'] = 'retail',
+                     contract_id: int | None = Query(None, gt=0), correction_id: int | None = Query(None, gt=0),
+                     db=Depends(get_db), user=Depends(get_user)):
+    """Return only the form decision; the sales role never receives the limit."""
+    _access(user)
+    price = None
+    if correction_id is not None and contract_id is None:
+        raise HTTPException(422, '更正核价须关联原合同')
+    if contract_id is not None:
+        from .business_records import get_contract
+        contract = get_contract(db, user, contract_id)
+        if correction_id is not None:
+            from .business_record_corrections import _revision
+            revision = _revision(db, contract, correction_id)
+            terms = revision.previous_snapshot.get('terms') or {}
+            frozen = terms.get('price_snapshot') or {}
+            sales_channel = (terms.get('submission_data') or {}).get('sales_channel', 'retail')
+            if vehicle_price_id == frozen.get('id'):
+                price = frozen
+        else:
+            terms = get_terms(db, contract)
+            if terms is None:
+                raise HTTPException(409, '该历史合同没有提交时的车型价格快照')
+            if vehicle_price_id != terms.price_snapshot.get('id'):
+                raise HTTPException(409, '请选择本合同冻结的车型价格')
+            price = terms.price_snapshot
+            sales_channel = (terms.submission_data or {}).get('sales_channel', 'retail')
+    if sales_channel == 'wholesale' and user.role == 'sales':
+        raise HTTPException(403, '二级批发由销售经理发起')
+    if price is None:
+        shared = catalog_state(db, sales_channel)
+        price = next((item for item in catalog_rows(db, 'vehicle', shared['vehicle_batch_id'], sales_channel=sales_channel)
+                      if item['id'] == vehicle_price_id), None)
+        if price is None:
+            raise HTTPException(422, '请选择当前门店已发布限价中的车型')
+    return {'below_limit': sale_price_cents < price['control_price_cents']}
 
 
 def frozen_gift_cost(terms):
@@ -637,8 +692,9 @@ def prepare_submission(db, user, body, existing=None, *, inventory_existing=None
     if form.get('buyer_document_name', '身份证') not in {'身份证', '护照', '驾照'}:
         raise HTTPException(422, '买方证件类型须选择身份证、护照或驾照')
     person = db.get(User, body.salesperson_id)
+    form.setdefault('seller_phone', current.profile.get('sales_contacts', {}).get(str(person.id), ''))
     form.update(seller_address=sellers[0].get('address') or current.profile.get('address', ''),
-        seller_agent=person.display_name, seller_phone=current.profile.get('sales_contacts', {}).get(str(person.id), ''),
+        seller_agent=person.display_name,
         quantity='1', payment_method=body.submission_data.payment_method)
     form.setdefault('buyer_document_name', '身份证')
     if not form.get('buyer_agent'):

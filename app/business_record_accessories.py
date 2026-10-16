@@ -11,8 +11,8 @@ from .business_records_schemas import Command
 from .business_record_pricing_models import RecordContractTerms, RecordPricingFile
 
 router = APIRouter(prefix='/api/business-records', tags=['有偿精品凭证与核实'])
-VERIFICATION_VERSION = 'v218-frozen-paid-accessories'
-READERS = {'admin', 'finance', 'clerk', 'general_manager', 'chairman', 'store_admin'}
+VERIFICATION_VERSION = 'v219-actual-paid-accessory-cost'
+READERS = {'admin', 'finance', 'clerk', 'general_manager', 'group_deputy_manager', 'chairman', 'store_admin'}
 
 
 def frozen_accessory_totals(terms):
@@ -76,6 +76,11 @@ def apply_accessory_verification(db, contract, data, terms):
     """New office saves derive amounts, while old approved JSON stays unchanged."""
     extension = dict(data.get('extension_data') or {})
     source = frozen_accessory_totals(terms)
+    actual_cost = extension.get('accessory_sales_actual_cost_cents')
+    if actual_cost is not None and source['status'] == 'missing_snapshot':
+        raise ValueError('历史合同缺少冻结有偿精品明细，不能由手填成本推定已售精品')
+    if source['status'] == 'no_paid_items' and actual_cost not in (None, 0):
+        raise ValueError('合同未选择有偿精品，不能仅填写成本；请先按合同更正流程核对有偿精品明细')
     verified = extension.get('accessory_sales_verified') is True
     file_id = extension.get('accessory_sales_file_id')
     evidence = None
@@ -85,15 +90,20 @@ def apply_accessory_verification(db, contract, data, terms):
         raise ValueError('历史合同缺少冻结有偿精品明细，不能由手填金额推定已售精品')
     ready = source['status'] == 'no_paid_items' or verified and evidence is not None
     extension['accessory_sales_income_cents'] = source['income_cents'] if ready else None
-    extension['accessory_sales_cost_cents'] = source['cost_cents'] if ready else None
+    cost = actual_cost if actual_cost is not None else source['cost_cents']
+    extension['accessory_sales_cost_cents'] = cost if ready else None
     data['extension_data'] = extension
     data['contract_correction_id'] = getattr(terms, 'contract_correction_id', None)
     data['accessory_sales_verification'] = {
         'version': VERIFICATION_VERSION,
-        'status': source['status'] if ready else 'awaiting_clerk_verification',
+        'source_status': source['status'],
+        'status': ('ready' if source['items'] and cost is not None else source['status']) if ready else 'awaiting_clerk_verification',
         'file_id': evidence.id if evidence else None, 'file_sha256': evidence.sha256 if evidence else None,
         'income_cents': extension['accessory_sales_income_cents'],
         'cost_cents': extension['accessory_sales_cost_cents'],
+        'quoted_cost_cents': source['cost_cents'],
+        'actual_cost_cents': actual_cost,
+        'cost_source': 'clerk_actual' if actual_cost is not None else 'contract_frozen',
         'items': source['items'],
     }
     return data
@@ -102,7 +112,7 @@ def apply_accessory_verification(db, contract, data, terms):
 def validate_accessory_evidence(db, contract, data):
     """Recheck the exact reviewed file before approval, never substitute latest."""
     verification = data.get('accessory_sales_verification') or {}
-    if verification.get('version') != VERIFICATION_VERSION:
+    if verification.get('version') not in {VERIFICATION_VERSION, 'v218-frozen-paid-accessories'}:
         return
     from .business_record_corrections import latest_correction
     revision = latest_correction(db, contract)

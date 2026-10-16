@@ -30,6 +30,7 @@ async function brInventoryUpload(){
  });
  const form=$('form',dialog),status=$('[data-inventory-status]',form),error=$('.formerror',form),submit=$('[type=submit]',form),mappingBox=$('[data-inventory-mapping]',form),results=$('[data-inventory-results]',form);
  const discover=document.createElement('button');discover.type='button';discover.textContent='按当前字段读取所属店与资金选项';mappingBox.querySelector('fieldset').append(discover);
+ const mappingNotes=document.createElement('p');mappingNotes.className='br-caption';$('[data-inventory-columns]',form).after(mappingNotes);
  const active=()=>context===brContext()&&form.isConnected;
  const groupKey=row=>JSON.stringify([row.model,row.configuration]);
  const changed=()=>{reviewed=null;publicationRequest=requestKey();submit.disabled=true;$('[data-inventory-confirm]',form).checked=false;};
@@ -58,6 +59,7 @@ async function brInventoryUpload(){
  };
  const selectSheet=()=>{
   proposal=upload.sheets.find(item=>item.sheet===form.elements.sheet.value);if(!proposal)return;
+  mappingNotes.textContent=(proposal.mapping_notes||[]).join(' ');
   form.elements.header_row.value=proposal.header_row||1;form.elements.configuration_contains_colors.checked=proposal.configuration_contains_colors===true;
   $('[data-inventory-columns]',form).innerHTML=BR_INVENTORY_FIELDS.map(([key,label])=>`<label>${E(label)}<select data-inventory-column="${key}"><option value="">未提供</option>${Object.entries(proposal.headers).map(([column,name])=>`<option value="${column}" ${proposal.columns[key]===column?'selected':''}>${E(column+' · '+name)}</option>`).join('')}</select></label>`).join('');
   groupPrices=new Map();preview=null;results.replaceChildren();$('[data-inventory-owners]',form).replaceChildren();$('[data-inventory-funds]',form).replaceChildren();changed();

@@ -52,6 +52,7 @@ UPDATE_ACTIONS = {
     'record_gift_document_upload': '财务上传盖章赠品单',
     'record_delivery_confirm': '财务确认交车并抄送总经理',
     'record_return_request': '销售顾问申请退车',
+    'record_return_confirm': '总经理确认退车，交财务登记退款',
     'record_return_approve': '退车批准，当月冲减；日报需追加修订说明',
     'record_return_reject': '退车申请退回',
     'record_return_refund': '财务另行记录实际退款',
