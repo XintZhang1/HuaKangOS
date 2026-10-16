@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import re
+from collections import Counter
 from decimal import Decimal, InvalidOperation
 from fastapi import HTTPException
 
@@ -40,11 +41,46 @@ def _money(value, location):
         raise HTTPException(422, location + '须为精确到分的非负金额，未知请留空') from None
 
 
+def distinguish_gift_names(result):
+    """Keep same-name variants reviewable without merging different source rows."""
+    rows = result['rows']
+    counts = Counter(row.get('name', '') for row in rows)
+    used = {name for name, count in counts.items() if name and count == 1}
+    changed = 0
+    for index, row in enumerate(rows, 1):
+        name = row.get('name', '')
+        if not name or counts[name] == 1:
+            continue
+        models = str(row.get('applicable_models') or '').strip()
+        candidate = name + ('（' + models + '）' if models else '')
+        if not models or candidate in used:
+            source = str(row.get('source_ref') or row.get('source') or '').strip(': ')
+            candidate += '〔' + (source or '原表第' + str(index) + '项') + '〕'
+        if candidate in used:
+            candidate += ' 第' + str(index) + '项'
+        used.add(candidate)
+        row['name'] = candidate
+        row['original_name'] = name
+        if len(candidate) > 160:
+            result.setdefault('row_errors', []).append({'row': index, 'source': row.get('source', ''),
+                'errors': ['同名项目区分后名称较长，请核对并简写']})
+            result['recognition_complete'] = False
+        changed += 1
+    if changed:
+        result.setdefault('warnings', []).append(f'{changed}项同名项目已按适用车型或原表位置区分；未合并或删除项目，请核对名称。')
+    return result
+
+
 def preview_gift_file(content, media, brand):
-    from .business_record_pricing_recognition import XLSX, spreadsheet_source
-    if media == XLSX:
+    from .business_record_pricing_recognition import XLSX, XLS, spreadsheet_source, price_csv_text
+    if media in {XLSX, XLS}:
+        if media == XLS:
+            from .business_record_legacy_excel import legacy_spreadsheet_source
+            source = legacy_spreadsheet_source(content)
+        else:
+            source = spreadsheet_source(content)
         sheets = []
-        for sheet in json.loads(spreadsheet_source(content)):
+        for sheet in json.loads(source):
             lines = []
             for row in sheet['rows']:
                 values = {re.sub(r'\d', '', cell['cell']): cell['value'] for cell in row['cells']}
@@ -52,14 +88,19 @@ def preview_gift_file(content, media, brand):
             sheets.append((sheet['sheet'], lines))
     elif media.startswith('text/csv'):
         try:
-            parsed = list(csv.reader(io.StringIO(content.decode('utf-8-sig'))))
+            text = price_csv_text(content)
+            try:
+                dialect = csv.Sniffer().sniff(text[:8192], delimiters=',;\t')
+            except csv.Error:
+                dialect = csv.excel
+            parsed = list(csv.reader(io.StringIO(text), dialect))
         except (UnicodeError, csv.Error):
-            raise HTTPException(422, '请使用UTF-8 CSV赠品表') from None
+            raise HTTPException(422, 'CSV内容无法读取，请重新保存为Excel或CSV文件') from None
         if len(parsed) > 2500 or any(len(row) > 100 for row in parsed):
             raise HTTPException(422, '赠品表不得超过2500行、100列')
         sheets = [('CSV', [(i + 1, {str(k): v for k, v in enumerate(row)}) for i, row in enumerate(parsed)])]
     else:
-        raise HTTPException(422, '赠品成本请使用普通xlsx或UTF-8 CSV；复杂合并表及xls请先整理为分品牌标准表')
+        raise HTTPException(422, '赠品表请使用Excel（xlsx或xls）或CSV文件')
     rows, warnings, row_errors = [], [], []
     for sheet, lines in sheets:
         columns, labels = None, {}

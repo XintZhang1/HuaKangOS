@@ -386,8 +386,6 @@ def upload_price_file(request: Request, kind: str = Form(...), file: UploadFile 
     _access(user, kind, True); Command(request_id=request_id)
     content = file.file.read(10 * 1024 * 1024 + 1)
     media = validate_price_file(file.filename or '', content)
-    if kind == 'vehicle' and media != 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
-        raise HTTPException(422, '车价限价表请上传Excel（.xlsx）')
     def perform():
         item = _save_file(db, user, kind, file.filename, content, media, sales_channel=sales_channel)
         result = _file_summary(item)
@@ -410,15 +408,28 @@ def recognize_prices(key: int, body: Action, request: Request, db=Depends(get_db
         raise HTTPException(409, '上传原表的品牌与本店当前品牌不同，请重新上传核对')
     if item.created_by != user.id:
         raise HTTPException(403, '请由本次原表上传者核对识别结果并确认导入')
-    content, media, kind = _content(item), item.content_type, item.kind
+    content, media, kind, brand = _content(item), item.content_type, item.kind, item.brand
     db.rollback()
     if kind == 'gift':
-        from .business_record_gift_import import preview_gift_file
-        result = preview_gift_file(content, media, store_brand(db, required=True))
+        from .business_record_gift_import import preview_gift_file, distinguish_gift_names
+        result = preview_gift_file(content, media, brand)
+        if result.get('row_errors') or not any(row.get('name') for row in result['rows']):
+            # Complex customer sheets cannot be reduced to a fixed header template.
+            # Keep the local source candidates if recognition is unavailable.
+            try:
+                result = recognize_price_file(content, media, kind)
+                for row in result['rows']:
+                    row['brand'] = row.get('brand') or brand
+            except HTTPException as exc:
+                result['warnings'].insert(0, str(exc.detail) + '；已保留原表内容，可直接人工核对。')
+                result['recognition_complete'] = False
+        result = distinguish_gift_names(result)
         if user.role not in GIFT_COST_READERS and any(row.get('unit_cost_cents') is not None for row in result['rows']):
             raise HTTPException(403, '此表包含赠品成本，请由总经理或维护管理员核对导入')
     else:
         result = recognize_price_file(content, media, kind)
+    # Recognition may take minutes; recheck access in a fresh database snapshot.
+    db.rollback()
     current_user = get_user(request, db)
     _access(current_user, kind, True)
     current_file = _file(db, key, kind)
@@ -427,6 +438,10 @@ def recognize_prices(key: int, body: Action, request: Request, db=Depends(get_db
     if kind == 'gift' and current_user.role not in GIFT_COST_READERS:
         for row in result['rows']:
             row.pop('unit_cost_cents', None); row.pop('note', None); row.pop('source_ref', None)
+    elif kind == 'gift':
+        # Keep policy-only cells visible even when the model omits them from items.
+        from .business_record_pricing_recognition import pricing_source_preview
+        result['source_preview'] = pricing_source_preview(content, media)
     result.update(file_id=key, version=body.version)
     return result
 

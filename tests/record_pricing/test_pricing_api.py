@@ -131,9 +131,9 @@ def fx(tmp_path, monkeypatch, login_secret):
 
 @pytest.mark.parametrize(('filename', 'content', 'status'), [
     ('empty.xlsx', b'', 413), ('broken.xlsx', b'not an Excel archive', 422),
-    ('prices.csv', b'name,price\nsynthetic,1\n', 422),
+    ('prices.exe', b'not a table', 422),
     ('../prices.xlsx', vehicle_xlsx(), 422), ('huge.xlsx', b'x' * (10 * 1024 * 1024 + 1), 413),
-], ids=['empty', 'broken', 'csv-not-xlsx', 'bad-filename', 'too-large'])
+], ids=['empty', 'broken', 'unsupported-file', 'bad-filename', 'too-large'])
 def test_invalid_vehicle_upload_is_rejected_without_persistence(fx, filename, content, status):
     fx.upload(filename=filename, content=content, expected=status)
     with fx.sessions() as db:
@@ -237,13 +237,14 @@ def test_nonstandard_recognition_candidates_allow_manual_repair(fx, monkeypatch)
     final_answer = ['以下为识别建议：\n```json\n' + json.dumps([{'车系': '合成车系', '年款': '2026',
         '车型': '合成配置', '指导价': '120000', '销售管控价': '请人工核定',
         '赠品政策': '保养一套，条件请核对'}], ensure_ascii=False) + '\n```']
+    finish = ['stop']
 
     class Response:
         status_code = 200
         def __enter__(self): return self
         def __exit__(self, *args): return False
         def iter_bytes(self):
-            yield json.dumps({'choices': [{'finish_reason': 'stop', 'message': {
+            yield json.dumps({'choices': [{'finish_reason': finish[0], 'message': {
                 'content': final_answer[0], 'reasoning_content': 'synthetic-private-reasoning'}}]}).encode()
 
     class Client:
@@ -269,8 +270,49 @@ def test_nonstandard_recognition_candidates_allow_manual_repair(fx, monkeypatch)
         json=command(version=uploaded['version']))
     assert len(manual['rows']) == 1 and manual['raw_output'] == final_answer[0]
     assert manual['recognition_complete'] is False
+    final_answer[0] = json.dumps({'shared_policy_texts': {'p1': '须分期，赠品单盖章后生效。'},
+        'rows': [{'family': '合成车系', 'series': '2026', 'model': '合成配置', 'guide_price': '120000',
+            'control_price': '100000', 'gift_policy': {'refs': ['p1'], 'text': '另送脚垫。'}}]})
+    finish[0] = 'length'
+    partial = fx.call('general_manager', 'POST', f'/pricing/uploads/{uploaded["id"]}/recognize',
+        json=command(version=uploaded['version']))
+    assert partial['rows'][0]['gift_policy_suggestion']['text'] == '须分期，赠品单盖章后生效。\n另送脚垫。'
+    assert partial['recognition_complete'] is False and '未完整结束' in partial['warnings'][0]
+    assert 'synthetic-private-reasoning' not in json.dumps(partial)
+    assert fx.catalog()['vehicles'] == []
+    # Excel's common CSV encodings reach the same editable recognition path.
+    for encoding in ('utf-8-sig', 'gb18030', 'utf-16'):
+        csv_file = fx.upload(filename='price.csv', content='车型,售价\n合成车型,120000\n'.encode(encoding))
+        csv_preview = fx.call('general_manager', 'POST', f'/pricing/uploads/{csv_file["id"]}/recognize',
+            json=command(version=csv_file['version']))
+        assert csv_preview['rows'][0]['model'] == '合成配置'
     fx.publish('general_manager', 'vehicle', uploaded, [VEHICLE_ROW])
     assert len(fx.catalog()['vehicles']) == 1
+
+    final_answer[0] = json.dumps({'rows': [{'name': '合成原厂脚垫', 'brand': '合成品牌',
+        'unit_cost': '12.34', 'unit_price': None, 'unclassified_price': '56.78', 'note': '合成另一金额口径待核对',
+        'source_sheet': '并列表', 'source_row': 3}]})
+    finish[0] = 'stop'
+    complex_gift = fx.upload('general_manager', 'gift', 'complex.csv', '车型,精品明细,采购价格\n合成车型,脚垫,12.34\n'.encode())
+    ai_gift = fx.call('general_manager', 'POST', f'/pricing/uploads/{complex_gift["id"]}/recognize',
+        json=command(version=complex_gift['version']))
+    assert ai_gift['rows'][0]['name'] == '合成原厂脚垫'
+    assert ai_gift['rows'][0]['unit_cost_cents'] == 1234 and ai_gift['rows'][0]['unit_price_cents'] is None
+    assert ai_gift['rows'][0]['source_ref'] == '并列表:3'
+    assert ai_gift['rows'][0]['unclassified_price_cents'] == 5678
+    assert '精品明细' in ai_gift['source_preview'] and '12.34' in ai_gift['source_preview']
+    assert fx.catalog()['gifts'] == []
+    same_name = json.loads(final_answer[0])
+    same_name['rows'] = [{**same_name['rows'][0], 'applicable_models': model,
+        'source_row': index} for index, model in enumerate(('合成车型甲', '合成车型乙', '合成车型乙'), 3)]
+    final_answer[0] = json.dumps(same_name)
+    variants = fx.call('general_manager', 'POST', f'/pricing/uploads/{complex_gift["id"]}/recognize',
+        json=command(version=complex_gift['version']))
+    assert len({row['name'] for row in variants['rows']}) == 3
+    assert all(row['original_name'] == '合成原厂脚垫' and row['unit_cost_cents'] == 1234 for row in variants['rows'])
+    assert all(row['unit_price_cents'] is None for row in variants['rows'])
+    monkeypatch.setattr(business_assistant_service, 'load_config', lambda: SimpleNamespace(
+        enabled=False, api_key='', provider='deepseek', synthetic=True, timeout_seconds=1))
 
     gift = fx.upload('general_manager', 'gift', 'nonstandard.csv',
         '名称,成本,成本,售价\n合成坐垫,待定,12,20元\n,说明,,\n'.encode())
@@ -291,7 +333,28 @@ def test_nonstandard_recognition_candidates_allow_manual_repair(fx, monkeypatch)
     assert '首组礼包' in candidates['rows'][0]['source_text']
     assert [item['name'] for item in candidates['rows'][1:]] == ['脚垫', '贴膜']
     assert '领取条件: 交车后一年领取' in candidates['rows'][1]['source_text']
+    assert '交车后一年领取' in candidates['source_preview']
     assert candidates['recognition_complete'] is False
+
+
+def test_gift_recognition_rechecks_access_after_model_call(fx, monkeypatch):
+    from app import business_record_pricing as pricing
+    uploaded = fx.upload('general_manager', 'gift', 'complex.csv',
+        '车型,精品明细,采购价格\n合成车型,脚垫,12.34\n'.encode())
+
+    def recognize_after_revocation(*args):
+        with fx.sessions() as db:
+            user = db.scalar(select(User).where(User.username == 'synthetic_general_manager'))
+            user.active = False
+            db.commit()
+        return {'rows': [{'name': '不可返回的成本', 'unit_cost_cents': 1234}], 'warnings': []}
+
+    monkeypatch.setattr(pricing, 'recognize_price_file', recognize_after_revocation)
+    refused = fx.call('general_manager', 'POST', f'/pricing/uploads/{uploaded["id"]}/recognize', 401,
+        json=command(version=uploaded['version']))
+    assert refused == {'detail': '账户已停用'}
+    with fx.sessions() as db:
+        assert db.scalar(select(func.count()).select_from(RecordPriceBatch)) == 0
 
 
 def test_contract_gift_save_readback_remove_and_frozen_catalog(fx):
