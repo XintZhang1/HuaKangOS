@@ -9,6 +9,7 @@ on:
       - 'app/tenancy.py'
       - 'web/businessrecordpricing.js'
       - 'web/businessrecordflow.js'
+      - 'web/businessrecordbenefits.js'
       - 'web/businessrecorddashboard.js'
       - 'web/businessrecordenhancements.js'
       - 'web/businessrecordinventory.js'
@@ -28,6 +29,7 @@ on:
       - 'app/tenancy.py'
       - 'web/businessrecordpricing.js'
       - 'web/businessrecordflow.js'
+      - 'web/businessrecordbenefits.js'
       - 'web/businessrecorddashboard.js'
       - 'web/businessrecordenhancements.js'
       - 'web/businessrecordinventory.js'
@@ -67,10 +69,15 @@ jobs:
         run: python tests/record_pricing/run_isolated.py --suite corrections --output "$RUNNER_TEMP/record-corrections-${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Run source-only deputy permission checks
         run: python tests/record_pricing/run_isolated.py --suite deputy --output "$RUNNER_TEMP/record-deputy-${{ github.run_id }}-${{ github.run_attempt }}"
+      - name: Run source-only finance material checks
+        run: python tests/record_pricing/run_isolated.py --suite finance --output "$RUNNER_TEMP/record-finance-${{ github.run_id }}-${{ github.run_attempt }}"
+      - name: Run source-only gift redemption checks
+        run: python tests/record_pricing/run_isolated.py --suite benefits --output "$RUNNER_TEMP/record-benefits-${{ github.run_id }}-${{ github.run_attempt }}"
       - name: Check changed JavaScript syntax
         run: |
           node --check web/businessrecordpricing.js
           node --check web/businessrecordflow.js
+          node --check web/businessrecordbenefits.js
           node --check web/businessrecorddashboard.js
           node --check web/businessrecordenhancements.js
           node --check web/businessrecordinventory.js
@@ -85,5 +92,7 @@ jobs:
             ${{ runner.temp }}/record-delivery-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
             ${{ runner.temp }}/record-corrections-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
             ${{ runner.temp }}/record-deputy-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
+            ${{ runner.temp }}/record-finance-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
+            ${{ runner.temp }}/record-benefits-${{ github.run_id }}-${{ github.run_attempt }}/evidence/
           retention-days: 7
           if-no-files-found: warn

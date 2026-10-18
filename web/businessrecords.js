@@ -77,11 +77,11 @@ function brContractExtraFields(){return [
  F('seller_name','卖方名称'),F('seller_phone','卖方联系电话','text',false),F('seller_address','卖方地址','text',false),F('seller_agent','卖方委托代理人','text',false),
  F('buyer_document_name','买方证件名称','text',false),F('buyer_id_number','买方证件号码','text',false),F('buyer_address','买方地址','text',false),F('buyer_postcode','买方邮编','text',false),F('buyer_agent','买方委托代理人','text',false),F('buyer_agent_id_number','代理人证件号码','text',false),F('buyer_email','买方电子邮箱','text',false),
  F('exterior_color','车身颜色','text',false),F('interior_color','内饰颜色','text',false),F('quantity','购车数量（每合同一辆）','int'),F('subsidy_deposit','置换补贴押金（元）','money_zero',false),F('corporate_subsidy_deposit','大客户补贴押金（元）','money_zero',false),F('deposit','定金（元，至少2000）','money_zero',true),F('balance','余款（元）','money_zero',false),
- F('payment_method','客户付款方式','select',true,[{value:'',label:'请选择付款方式'},{value:'全款',label:'全款'},{value:'贷款',label:'分期 / 贷款'}]),F('payment_bank','贷款银行','text',false),F('loan_amount','贷款金额（元）','money_zero',false),F('down_payment','分期首付（元，可填0）','money_zero',false),F('delivery_date','提车日期','date',false),F('delivery_place','提车地点','text',false),F('signature_date','签订日期','date'),F('other_terms','其他约定','textarea',false)
+ F('payment_method','客户付款方式','select',true,[{value:'',label:'请选择付款方式'},{value:'全款',label:'全款'},{value:'贷款',label:'分期 / 贷款'}]),F('payment_institution_type','贷款机构类别','select',false,[{value:'',label:'请选择类别'},...brChoice(['银行','金融公司','厂家金融'])]),F('payment_bank','贷款机构名称（选填）','text',false),F('loan_amount','贷款金额（元）','money_zero',false),F('down_payment','分期首付（元，可填0）','money_zero',false),F('delivery_date','提车日期','date',false),F('delivery_place','提车地点','text',false),F('signature_date','签订日期','date'),F('other_terms','其他约定','textarea',false)
  ];}
 function brBindPaymentTerms(form){
  const method=form.elements.payment_method,down=form.elements.down_payment,deposit=form.elements.deposit;if(deposit)deposit.placeholder='2000';if(!method)return;
- const refresh=()=>{const loan=method.value==='贷款';for(const key of ['down_payment','payment_bank','loan_amount','installment_fee']){const field=form.elements[key];if(!field)continue;field.required=key==='down_payment'&&loan;field.disabled=!loan;field.closest('label').hidden=!loan;}};
+ const refresh=()=>{const loan=method.value==='贷款';for(const key of ['down_payment','payment_institution_type','payment_bank','loan_amount','installment_fee']){const field=form.elements[key];if(!field)continue;field.required=key==='down_payment'&&loan;field.disabled=!loan;field.closest('label').hidden=!loan;}};
  method.addEventListener('change',refresh);refresh();
 }
 function brValidateDeposit(value){if(moneyFen(value,{label:'定金',allowZero:true})<200000)throw new Error('定金不得低于2000元。');}

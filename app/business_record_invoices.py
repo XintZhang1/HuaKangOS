@@ -198,9 +198,15 @@ def confirm_invoice(key: int, body: InvoiceConfirm, request: Request, db=Depends
         _check_version(row, body.version)
         _content(_file(db, row))
         if not body.fields.invoice_number or body.fields.total_amount_cents is None or not body.fields.issued_on:
-            raise HTTPException(422, '请收银核对发票号码、开票日期及价税合计后确认')
+            raise HTTPException(422, '请收银核对发票号码、开票日期及开票价后确认')
         before = plain(row)
         fields = body.fields.model_dump(mode='json')
+        # The cashier now reviews the invoiced price only. Omitted historical
+        # tax fields must survive that review; an explicit null still clears a
+        # deliberately supplied field under the existing API contract.
+        for name in ('tax_amount_cents', 'net_amount_cents'):
+            if name not in body.fields.model_fields_set and name in (row.fields or {}):
+                fields[name] = row.fields[name]
         from .business_record_privacy import contract_privacy, mask_id
         if contract_privacy(db, user, contract)['masked']:
             original = (row.fields or {}).get('buyer_tax_id', '')

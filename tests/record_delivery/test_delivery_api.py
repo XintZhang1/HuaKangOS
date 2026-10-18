@@ -252,7 +252,9 @@ def test_customer_notice_four_rows_continue_without_losing_gifts():
     full = render_gift_vouchers(snapshot)
     assert full == render_gift_vouchers(snapshot)
     pdf = PdfReader(io.BytesIO(full))
-    assert len(pdf.pages) == 3
+    # V2.21 hides first service and customer-copy NPS; the same ordinary gifts
+    # now fit in two sheets and must still retain every long-name continuation.
+    assert len(pdf.pages) == 2
     text = ''.join(page.extract_text() for page in pdf.pages)
     for n in range(1, 6):
         assert '项目' + str(n) + ' × ' + str(n) + ' 套' in text
@@ -260,9 +262,9 @@ def test_customer_notice_four_rows_continue_without_losing_gifts():
                        for page in pdf.pages).replace('\n', '')
     assert long_name in gift_text
     assert '9876.54' not in text and '1234.56' not in text
-    assert '首次保养' in text and '参与 NPS 调研' in text
+    assert '首次保养' not in text and '参与 NPS 调研' not in text
     empty = render_gift_vouchers({'terms': {}})
-    assert '本合同无赠送项目' in PdfReader(io.BytesIO(empty)).pages[0].extract_text()
+    assert '本联无列示赠送项目' in PdfReader(io.BytesIO(empty)).pages[0].extract_text()
 
 
 def test_actual_accessory_cost_preview_review_approval_and_report(delivery_fx):

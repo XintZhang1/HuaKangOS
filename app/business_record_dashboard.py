@@ -130,7 +130,7 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
     if sensitive:
         specifications.append(('profit', prefix + '核定毛利', 'operating_profit_v218:value', '元'))
         extension_specs += [
-            ('decoration', '贴膜改装店', 'operating_extensions_v220:decoration_count', '单', ''),
+            ('decoration', '贴膜改装店佣金', 'operating_profit_v218:decoration_commission', '元', ''),
             ('accessory_sales', '店内精品销售金额', 'operating_profit_v218:accessory_sales_income', '元', '')]
     panels, overview, extensions = [], [], []
 
@@ -167,7 +167,6 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
         'products': [('product_commission', '小产品佣金')],
         'trade_in': [('trade_in_commission', '二手车返佣')],
         'finance': [('finance_amount', '核实放款金额'), ('bank_commission', '银行分期返佣')],
-        'decoration': [('decoration_commission', '贴膜改装店佣金')],
         'accessory_sales': [('accessory_sales_cost', '销售成本'), ('accessory_sales_profit', '销售毛利')],
     }
     for ident, label, key, unit, rate_name in extension_specs:
@@ -180,6 +179,12 @@ def dashboard_panels(mode: str = 'monthly', day: date | None = None,
                     '暂无实销' if totals.get('deliveries') == '0' else '待审核')
         card['related_metrics'] = [item(name, title, 'operating_profit_v218:' + name, '元')
                                    for name, title in related.get(ident, ())] if sensitive else []
+        if ident == 'decoration':
+            # Commission and order quantity are independent recorded facts.
+            # Surface the approved income even when the clerk has yet to fill
+            # the count; never infer orders from a positive amount.
+            card['related_metrics'].append(item('decoration_count', '已填贴膜改装数量',
+                'operating_extensions_v220:decoration_count', '单'))
         extensions.append(card)
     champion_comparison = report('operating_sales_v218:deliveries', 'salesperson', flow_start, end)
     ranking = champion_comparison['summary_rows']
