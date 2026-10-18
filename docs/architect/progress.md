@@ -1,6 +1,6 @@
 # 当前交付任务
 
-2026-10-18 用户追加上线：[customer-feedback-v221](tasks/customer-feedback-v221.md)继续精确main合并及保留数据发布。root独占Git与生产，三位协作者仅审阅及准备外置脚本；先备份恢复核对，再执行h72→h74追加迁移，保留账号、业务与附件。唯一状态见实施计划CP-V2.21-DEPLOY。
+2026-10-18 用户追加上线：[customer-feedback-v221](tasks/customer-feedback-v221.md)已通过PR27合并main c6be01f51a9e并部署现有阿里云。四项精确CI、联合备份恢复、h72→h74副本/正式旧517表保全、五服务及公网12份资源核验通过，账号/历史/附件保持；运行依赖与服务定义不变。准备阶段网络超时及候选遗留锁失败保留并已恢复，未影响旧服务。唯一状态见实施计划CP-V2.21-DEPLOY及[发布记录](../implementation-checkpoints/V2.21-deployment-20261018.md)。
 
 2026-10-18 七项使用反馈：[customer-feedback-v221](tasks/customer-feedback-v221.md)。保养打印/逐次兑换、开票价核对、签字附件、库存复用核对、贴膜金额与数量、贷款分类及内勤成本已实现；23个独立API场景、代表Chrome DOM及8组PDF通过，h72→h74历史保全和附件联合恢复通过。root集成、三位协作者分工及交叉审阅；本地分支交付，未推送合并部署。保留原数据与用户材料；唯一状态及门禁见实施计划V2.21及[检查点](../implementation-checkpoints/V2.21-customer-feedback-20261018.md)。
 
