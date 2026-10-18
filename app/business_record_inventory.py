@@ -136,7 +136,53 @@ def _mapped(db, user, item, mapping):
             row['issues'].append('尚未关联本品牌限价车型，暂不能用于新合同')
     preview['publishable'] = bool(mapping.source_owners) and not preview['errors'] and bool(preview['rows'] or preview['excluded'])
     preview['prices'] = [{key: row[key] for key in ('id', 'family', 'series', 'model')} for row in prices]
+    preview['review_defaults'] = _review_defaults(db, mapping, preview, prices, other_labels - own_labels)
+    preview['publication_blockers'] = [f"原表第 {error['source_row']} 行：{error['message']}" for error in preview['errors']]
+    if not mapping.source_owners:
+        preview['publication_blockers'].insert(0, '请勾选本次归入当前门店的原表所属店')
+    elif not preview['rows'] and not preview['excluded']:
+        preview['publication_blockers'].append('本批没有可发布或可确认排除的车辆；请补齐生产日期后重新预览')
     return preview
+
+
+def _review_defaults(db, mapping, preview, prices, foreign_labels):
+    """Suggest only previously published choices; the uploader submits them anew.
+
+    Never infer a bank's funding type or fuzzy-match a model. A changed field
+    layout, conflicting prior group, or removed price keeps the choice blank.
+    """
+    result = {'source_owners': [], 'funding_map': {}, 'model_groups': [], 'version': None}
+    current = current_inventory(db)
+    if current is None:
+        return result
+    batch = db.get(RecordInventoryBatch, current.batch_id)
+    prior = batch.mapping
+    result['version'] = current.version
+    if batch.sheet == mapping.sheet:
+        if prior.get('columns', {}).get('owner') == mapping.columns.get('owner'):
+            result['source_owners'] = [value for value in prior.get('source_owners', [])
+                if value in preview['source_owners'] and value not in foreign_labels]
+        if prior.get('columns', {}).get('funding') == mapping.columns.get('funding'):
+            result['funding_map'] = {value: kind for value, kind in prior.get('funding_map', {}).items()
+                if value in preview['funding_values'] and kind in {'cash', 'third_party'}}
+    price_ids = {}
+    for price in prices:
+        key = tuple(price[field] for field in ('family', 'series', 'model'))
+        price_ids.setdefault(key, []).append(price['id'])
+    groups = {}
+    previous_rows = db.scalars(select(RecordInventoryRow).where(
+        RecordInventoryRow.store_id == single_store(db), RecordInventoryRow.batch_id == batch.id)).all()
+    for row in previous_rows:
+        reference = tuple(row.price_reference[field] for field in ('family', 'series', 'model')) if row.price_reference else None
+        groups.setdefault((row.model, row.configuration), set()).add(reference)
+    present_groups = {(row['model'], row['configuration']) for row in preview['rows'] + preview['pending']}
+    for (model, configuration), references in groups.items():
+        if (model, configuration) not in present_groups or len(references) != 1:
+            continue
+        ids = price_ids.get(next(iter(references)), [])
+        if len(ids) == 1:
+            result['model_groups'].append({'model': model, 'configuration': configuration, 'vehicle_price_id': ids[0]})
+    return result
 
 
 @router.post('/uploads/{key}/preview')

@@ -379,4 +379,5 @@ from . import business_record_invoice_models  # cashier-confirmed originals; no 
 from . import business_record_period_models  # clerk-confirmed daily report revisions
 from . import business_record_pricing_models  # frozen store price publications and terms
 from . import business_record_delivery_models  # delivery originals, returns and refunds
+from . import business_record_benefit_models  # append-only gift redemption facts
 from . import business_record_inventory_models  # reviewed inventory publications and immutable VIN claims

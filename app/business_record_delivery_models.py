@@ -24,6 +24,26 @@ class RecordGiftDocument(StoreScoped, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class RecordSignedDocument(StoreScoped, Base):
+    """Uploaded signed paper evidence; each correction is a separate original."""
+    __tablename__ = 'business_record_signed_documents'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    contract_id: Mapped[int] = mapped_column(ForeignKey('business_record_contracts.id'), index=True)
+    kind: Mapped[str] = mapped_column(String(30))
+    contract_version: Mapped[int] = mapped_column(Integer)
+    filename: Mapped[str] = mapped_column(String(180))
+    content_type: Mapped[str] = mapped_column(String(100))
+    size: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
+    content: Mapped[bytes] = mapped_column(LargeBinary, default=b'')
+    object_key: Mapped[str] = mapped_column(String(200), default='')
+    scan_state: Mapped[str] = mapped_column(String(30))
+    scan_code: Mapped[str] = mapped_column(String(50))
+    created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    __table_args__ = (CheckConstraint("kind IN ('signed_contract','signed_delivery')", name='ck_record_signed_document_kind'),)
+
+
 class RecordDelivery(StoreScoped, Base):
     __tablename__ = 'business_record_deliveries'
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -71,5 +91,5 @@ class RecordRefund(StoreScoped, Base):
 @event.listens_for(Session, 'before_flush')
 def preserve_delivery_facts(db, *_):
     for row in set(db.dirty) | set(db.deleted):
-        if isinstance(row, (RecordDelivery, RecordRefund, RecordGiftDocument)) and (row in db.deleted or db.is_modified(row)):
-            raise HTTPException(409, '已保存交车、退款和赠品单原件不得覆盖删除')
+        if isinstance(row, (RecordDelivery, RecordRefund, RecordGiftDocument, RecordSignedDocument)) and (row in db.deleted or db.is_modified(row)):
+            raise HTTPException(409, '已保存交车、退款、赠品单和签字材料原件不得覆盖删除')

@@ -191,9 +191,11 @@ def _accessory_attachment(data):
     return stream.getvalue()
 
 
-def render_contract_pdf(data: dict, *, output_mode='full', offset_x_mm=0, offset_y_mm=0) -> bytes:
+def render_contract_pdf(data: dict, *, output_mode='full', copy_kind='customer', offset_x_mm=0, offset_y_mm=0) -> bytes:
     if output_mode not in {'full', 'overprint'}:
         raise ValueError('请选择完整合同或预印纸套打。')
+    if copy_kind not in {'customer', 'internal'}:
+        raise ValueError('请选择客户联或门店留存联。')
     offsets = [Decimal(str(value)) for value in (offset_x_mm, offset_y_mm)]
     if any(not value.is_finite() or abs(value) > 20 for value in offsets):
         raise ValueError('套打位置偏移须在正负20毫米内。')
@@ -308,9 +310,7 @@ def render_contract_pdf(data: dict, *, output_mode='full', offset_x_mm=0, offset
                 canvas.line(195, 425, 200, 430)
 
     other = []
-    if form.get('standard_benefits_version') == '1':
-        if form.get('first_service_count') == '1':
-            other.append('首次保养免费赠送1次')
+    if copy_kind == 'internal' and form.get('standard_benefits_version') == '1':
         if form.get('nps_participation') == '1':
             other.append('参与NPS调研，赠送保养1次')
     if accessory_attachment:
@@ -324,7 +324,7 @@ def render_contract_pdf(data: dict, *, output_mode='full', offset_x_mm=0, offset
                      else '赠品约定：' + _text(data['gift_description']))
     if form.get('other_terms'):
         other.append(_text(form['other_terms']))
-    for key, label in (('payment_bank', '贷款/付款银行'), ('seller_address', '卖方地址'),
+    for key, label in (('payment_institution_type', '贷款机构类别'), ('payment_bank', '贷款机构名称'), ('seller_address', '卖方地址'),
                        ('buyer_postcode', '买方邮编'), ('buyer_agent', '买方代理人'),
                        ('buyer_agent_id_number', '代理人证件号码')):
         if form.get(key):

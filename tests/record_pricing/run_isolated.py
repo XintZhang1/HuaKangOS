@@ -70,7 +70,7 @@ def inventory():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path)
-    parser.add_argument('--suite', choices=('pricing', 'delivery', 'corrections', 'deputy'), default='pricing')
+    parser.add_argument('--suite', choices=('pricing', 'delivery', 'corrections', 'deputy', 'finance', 'benefits'), default='pricing')
     args = parser.parse_args()
     output = (args.output or Path(tempfile.gettempdir()) / ('huakangos-record-pricing-' + uuid.uuid4().hex)).resolve()
     if output.is_relative_to(ROOT) or ROOT.is_relative_to(output):
@@ -104,6 +104,8 @@ def main():
         'RECORD_PRICING_ISOLATED': '1', 'PYTHONDONTWRITEBYTECODE': '1',
         'PYTHONIOENCODING': 'utf-8',
         'RECORD_TEST_SUITE': {'delivery': 'tests/record_delivery/test_delivery_api.py',
+            'finance': 'tests/record_delivery/test_finance_materials_api.py',
+            'benefits': 'tests/record_delivery/test_benefits_api.py',
             'corrections': 'tests/record_delivery/test_corrections_api.py',
             'deputy': 'tests/record_delivery/test_deputy_api.py',
             'pricing': 'tests/record_pricing/test_pricing_api.py'}[args.suite],

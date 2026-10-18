@@ -1,5 +1,7 @@
 # 盖章赠品单与发票交车定向验证
 
+V2.21 的 `--suite finance` 验证开票价核对与两类签字材料留档；`--suite benefits` 验证冻结赠品逐次兑换、重复请求、耗尽、追加撤销、岗位/门店及客户/内部门店打印联。均复用下列隔离入口，新输出目录不得重复使用。首保不打印、NPS仅内部联显示是2026-10-18用户确认的新口径，旧分页断言相应调整，普通赠品及长名称完整性仍核对。
+
 ```sh
 python tests/record_pricing/run_isolated.py --suite delivery --output /tmp/huakangos-delivery-new
 ```

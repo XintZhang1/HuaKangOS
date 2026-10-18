@@ -54,8 +54,10 @@ def contract_payment_form(values, payment_method, *, require_deposit=True):
         raise ValueError('请明确选择客户付款方式：全款或贷款')
     form['payment_method'] = payment_method
     if payment_method == '全款':
-        for key in ('down_payment', 'payment_bank', 'loan_amount'):
+        for key in ('down_payment', 'payment_institution_type', 'payment_bank', 'loan_amount'):
             form[key] = ''
+    if form.get('payment_institution_type', '') not in {'', '银行', '金融公司', '厂家金融'}:
+        raise ValueError('贷款机构类别请选择银行、金融公司或厂家金融')
     for key, label, required in (
             ('deposit', '定金', require_deposit),
             ('down_payment', '分期首付', payment_method == '贷款')):

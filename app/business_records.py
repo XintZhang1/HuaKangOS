@@ -843,6 +843,7 @@ def confirm_receipt(key: int, body: ReceiptInput, request: Request,
 
 @router.get('/contracts/{key}/print')
 def print_contract(key: int, mode: str = Query('full', pattern='^(full|overprint)$'),
+        copy_kind: str = Query('customer', pattern='^(customer|internal)$'),
         offset_x_mm: float = Query(0, ge=-20, le=20), offset_y_mm: float = Query(0, ge=-20, le=20),
         revision_id: int | None = Query(None, gt=0), db=Depends(get_db), user=Depends(get_user)):
     row = get_contract(db, user, key)
@@ -858,7 +859,7 @@ def print_contract(key: int, mode: str = Query('full', pattern='^(full|overprint
         snapshot = correction_print_snapshot(db, user, row, revision_id)
     from .business_record_pdf import render_contract_pdf
     try:
-        pdf = render_contract_pdf(snapshot, output_mode=mode, offset_x_mm=offset_x_mm, offset_y_mm=offset_y_mm)
+        pdf = render_contract_pdf(snapshot, output_mode=mode, copy_kind=copy_kind, offset_x_mm=offset_x_mm, offset_y_mm=offset_y_mm)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from None
     return Response(pdf, media_type='application/pdf',

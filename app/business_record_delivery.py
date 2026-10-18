@@ -4,6 +4,7 @@ import io
 from datetime import date, timezone
 from zoneinfo import ZoneInfo
 from urllib.parse import quote
+from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, Response
 from pydantic import Field
 from sqlalchemy import select
@@ -12,7 +13,7 @@ from .db import get_db, get_write_db, today, utcnow
 from .security import get_user
 from .services import plain, audit
 from .business_records_schemas import Action, Command, Money, Key
-from .business_record_delivery_models import RecordDelivery, RecordGiftDocument, RecordReturn, RecordRefund
+from .business_record_delivery_models import RecordDelivery, RecordGiftDocument, RecordSignedDocument, RecordReturn, RecordRefund
 
 router = APIRouter(prefix='/api/business-records', tags=['财务交车与退车'])
 
@@ -115,6 +116,88 @@ def delivery_state(key: int, db=Depends(get_db), user=Depends(get_user)):
     return delivery_summary(db, user, get_contract(db, user, key))
 
 
+def _signed_documents(db, user, contract):
+    from .business_record_privacy import sanitize_command_result
+    items = list(db.scalars(select(RecordSignedDocument).where(
+        RecordSignedDocument.contract_id == contract.id, RecordSignedDocument.store_id == contract.store_id)
+        .order_by(RecordSignedDocument.id.desc())))
+    result = {'files': [_file_info(item) | {'kind': item.kind, 'contract_version': item.contract_version}
+                        for item in items],
+              'can_upload': (not getattr(user, '_aggregate_scope', False)
+                  and user.role in {'finance', 'admin'} and contract.status == 'approved'),
+              'contract_version': contract.version}
+    return sanitize_command_result(db, user, result, payload={'contract_id': contract.id})
+
+
+@router.get('/contracts/{key}/signed-documents')
+def signed_documents(key: int, db=Depends(get_db), user=Depends(get_user)):
+    from .business_records import get_contract
+    from .business_record_invoices import _access
+    _access(user)
+    return _signed_documents(db, user, get_contract(db, user, key))
+
+
+@router.post('/contracts/{key}/signed-documents')
+def upload_signed_document(key: int, request: Request, file: UploadFile = File(...),
+        kind: Literal['signed_contract', 'signed_delivery'] = Form(...),
+        request_id: str = Form(...), version: int = Form(...), db=Depends(get_write_db), user=Depends(get_user)):
+    from .business_records import get_contract, _manual, _run, _check_version
+    from .flow_documents import validate_upload
+    from .file_security import policy_mode, scan_clamav
+    from .private_files import publish
+    _manual(request); _write(user, {'finance', 'admin'})
+    Command(request_id=request_id)
+    contract = get_contract(db, user, key)
+    content = file.file.read(10 * 1024 * 1024 + 1)
+    filename = file.filename or ''
+    media = validate_upload(filename, content)
+    if media not in {'application/pdf', 'image/png', 'image/jpeg'}:
+        raise HTTPException(422, '签字材料仅支持 PDF、PNG、JPEG，每份最多 10 MB')
+    digest = hashlib.sha256(content).hexdigest()
+    def perform():
+        _check_version(contract, version)
+        if contract.status != 'approved':
+            raise HTTPException(409, '合同批准后才能上传签字材料')
+        mode = policy_mode()
+        state, code = 'quarantined', 'awaiting_scan'
+        if mode == 'structure_only':
+            state = code = 'structure_only'
+        elif mode == 'clamav':
+            result = scan_clamav(content, settings.clamav_host, settings.clamav_port, settings.clamav_timeout_seconds)
+            state, code = result.state, result.code
+        try:
+            object_key = publish(None, contract.store_id, content, len(content), digest) if settings.file_storage_mode == 'private_local' else ''
+        except (ValueError, OSError):
+            raise HTTPException(503, '签字材料原件尚未保存，请核对附件存储') from None
+        row = RecordSignedDocument(store_id=contract.store_id, contract_id=key, kind=kind,
+            contract_version=contract.version, filename=filename, content_type=media, size=len(content),
+            sha256=digest, object_key=object_key, content=b'' if object_key else content,
+            scan_state=state, scan_code=code, created_by=user.id)
+        db.add(row); contract.updated_at = utcnow(); db.flush()
+        audit(db, user.id, 'record_signed_document_upload', 'record_contract', key,
+              after={'store_id': contract.store_id, 'file_id': row.id, 'kind': kind,
+                     'contract_version': row.contract_version, 'sha256': digest})
+        return _signed_documents(db, user, contract)
+    return _run(db, user, request_id, 'signed_document_upload',
+                {'contract_id': key, 'version': version, 'kind': kind, 'filename': filename, 'sha256': digest}, perform)
+
+
+@router.get('/contracts/{key}/signed-documents/files/{file_id}/download')
+def download_signed_document(key: int, file_id: int, db=Depends(get_db), user=Depends(get_user)):
+    from .business_records import get_contract
+    from .business_record_invoices import _access, _content
+    from .business_record_privacy import require_personal_export
+    _access(user)
+    contract = get_contract(db, user, key)
+    require_personal_export(db, user, contract)
+    row = db.scalar(select(RecordSignedDocument).where(RecordSignedDocument.id == file_id,
+        RecordSignedDocument.contract_id == contract.id, RecordSignedDocument.store_id == contract.store_id))
+    if row is None:
+        raise HTTPException(404, '签字材料原件不存在或不属于本合同')
+    return Response(_content(row), media_type=row.content_type,
+        headers={'Content-Disposition': "attachment; filename*=UTF-8''" + quote(row.filename), 'Cache-Control': 'no-store'})
+
+
 @router.post('/contracts/{key}/gift-document')
 def upload_gift_document(key: int, request: Request, file: UploadFile = File(...),
         request_id: str = Form(...), version: int = Form(...), db=Depends(get_write_db), user=Depends(get_user)):
@@ -179,6 +262,7 @@ def download_gift_document(key: int, file_id: int, db=Depends(get_db), user=Depe
 
 @router.get('/contracts/{key}/gift-document/print')
 def print_gift_document(key: int, mode: str = Query('full', pattern='^(full|overprint)$'),
+        copy_kind: str = Query('customer', pattern='^(customer|internal)$'),
         paper_width_mm: float = Query(280, ge=150, le=400), paper_height_mm: float = Query(95, ge=60, le=210),
         offset_x_mm: float = Query(0, ge=-20, le=20), offset_y_mm: float = Query(0, ge=-20, le=20),
         db=Depends(get_db), user=Depends(get_user)):
@@ -196,7 +280,7 @@ def print_gift_document(key: int, mode: str = Query('full', pattern='^(full|over
     if not snapshot or not snapshot.get('terms'):
         raise HTTPException(409, '历史合同没有逐项赠品快照，请使用原签署赠品单')
     try:
-        content = render_gift_vouchers(snapshot, output_mode=mode,
+        content = render_gift_vouchers(snapshot, output_mode=mode, copy_kind=copy_kind,
             paper_width_mm=paper_width_mm, paper_height_mm=paper_height_mm,
             offset_x_mm=offset_x_mm, offset_y_mm=offset_y_mm)
     except ValueError as exc:
